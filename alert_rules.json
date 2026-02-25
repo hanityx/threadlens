@@ -1,0 +1,60 @@
+{
+  "desktop_notify": false,
+  "rules": [
+    {
+      "id": "high_risk_threads",
+      "label": "High Risk Threads",
+      "metric": "high_risk_threads",
+      "op": "ge",
+      "threshold": 8.0,
+      "severity": "high",
+      "cooldown_min": 20,
+      "enabled": true,
+      "description": "High risk 스레드가 임계값 이상이면 경보"
+    },
+    {
+      "id": "orphan_candidates",
+      "label": "Orphan Candidates",
+      "metric": "orphan_candidates",
+      "op": "ge",
+      "threshold": 50,
+      "severity": "medium",
+      "cooldown_min": 30,
+      "enabled": true,
+      "description": "고아 후보가 과도하게 늘어나면 경보"
+    },
+    {
+      "id": "health_score_low",
+      "label": "Health Score Low",
+      "metric": "health_score",
+      "op": "le",
+      "threshold": 70,
+      "severity": "high",
+      "cooldown_min": 15,
+      "enabled": true,
+      "description": "시스템 헬스 점수가 임계치 이하로 하락"
+    },
+    {
+      "id": "loop_attention",
+      "label": "Loop Attention",
+      "metric": "loop_attention_total",
+      "op": "ge",
+      "threshold": 1,
+      "severity": "medium",
+      "cooldown_min": 15,
+      "enabled": true,
+      "description": "주의가 필요한 감독 루프 존재"
+    },
+    {
+      "id": "mcp_duplicate_groups",
+      "label": "MCP Duplicate Groups",
+      "metric": "mcp_duplicate_groups",
+      "op": "ge",
+      "threshold": 1,
+      "severity": "medium",
+      "cooldown_min": 30,
+      "enabled": true,
+      "description": "중복 실행 MCP 그룹 감지"
+    }
+  ]
+}
