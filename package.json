@@ -1,0 +1,22 @@
+{
+  "name": "codex-overview-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.4.1",
+  "scripts": {
+    "dev:api": "pnpm --filter @codex/api-ts dev",
+    "dev:web": "pnpm --filter @codex/web dev",
+    "dev:desktop": "pnpm --filter @codex/desktop-tauri dev",
+    "dev": "pnpm -r --parallel --filter @codex/api-ts --filter @codex/web dev",
+    "build": "pnpm -r build",
+    "build:desktop": "pnpm --filter @codex/desktop-tauri run build",
+    "release:macos:sign": "./scripts/macos-sign-notarize.sh",
+    "release:preflight": "./scripts/release-preflight.sh",
+    "test": "pnpm -r test",
+    "test:contract": "pnpm --filter @codex/tests-api-contract test",
+    "lint": "pnpm -r lint"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

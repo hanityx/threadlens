@@ -1,0 +1,30 @@
+# dependencies/build
+node_modules/
+.pnpm-store/
+dist/
+.vite/
+coverage/
+apps/**/dist/
+apps/**/.vite/
+apps/desktop-tauri/target/
+packages/**/dist/
+
+# local runtime/cache
+.omx/
+__pycache__/
+*.pyc
+.DS_Store
+*.log
+.preflight-*.log
+
+# runtime data files (generated locally)
+alert_events.jsonl
+alert_state.json
+roadmap_checkins.jsonl
+delete-risk-report.json
+unmapped_title_mapping.json
+recovery_plans/*.sh
+
+# OS/editor
+.idea/
+.vscode/
