@@ -366,6 +366,26 @@ describe("api-ts direct endpoints", () => {
     expect(payload.ok).toBe(false);
   });
 
+  it("GET /api/thread-transcript validates required thread_id", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/thread-transcript",
+    });
+    expect(res.statusCode).toBe(400);
+    const payload = res.json();
+    expect(payload.ok).toBe(false);
+  });
+
+  it("GET /api/session-transcript validates provider", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/session-transcript?provider=invalid&file_path=/tmp/a.jsonl",
+    });
+    expect(res.statusCode).toBe(400);
+    const payload = res.json();
+    expect(payload.ok).toBe(false);
+  });
+
   it("POST /api/recovery-checklist validates body", async () => {
     const res = await app.inject({
       method: "POST",

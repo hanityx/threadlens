@@ -186,6 +186,24 @@ type CleanupPreviewData = {
   confirm_help?: string;
 };
 
+type TranscriptMessage = {
+  idx: number;
+  role: "user" | "assistant" | "developer" | "system" | "tool" | "unknown";
+  text: string;
+  ts: string | null;
+  source_type: string;
+};
+
+type TranscriptPayload = {
+  provider: string;
+  thread_id: string | null;
+  file_path: string;
+  scanned_lines: number;
+  message_count: number;
+  truncated: boolean;
+  messages: TranscriptMessage[];
+};
+
 type FilterMode = "all" | "high-risk" | "pinned";
 type ProviderView = "all" | "codex" | "claude" | "gemini" | "copilot";
 
@@ -250,6 +268,12 @@ export function App() {
   const [providerActionRaw, setProviderActionRaw] = useState<unknown>(null);
   const [threadDetailRaw, setThreadDetailRaw] = useState<unknown>(null);
   const [threadDetailLoading, setThreadDetailLoading] = useState(false);
+  const [threadTranscriptRaw, setThreadTranscriptRaw] = useState<unknown>(null);
+  const [threadTranscriptLoading, setThreadTranscriptLoading] = useState(false);
+  const [threadTranscriptLimit, setThreadTranscriptLimit] = useState(250);
+  const [sessionTranscriptRaw, setSessionTranscriptRaw] = useState<unknown>(null);
+  const [sessionTranscriptLoading, setSessionTranscriptLoading] = useState(false);
+  const [sessionTranscriptLimit, setSessionTranscriptLimit] = useState(250);
   const queryClient = useQueryClient();
   const deferredQuery = useDeferredValue(query);
 
@@ -539,10 +563,14 @@ export function App() {
   );
   const threadDetailData = extractEnvelopeData<ThreadForensicsEnvelope>(threadDetailRaw);
   const selectedThreadDetail = threadDetailData?.reports?.[0] ?? null;
+  const threadTranscriptData = extractEnvelopeData<TranscriptPayload>(threadTranscriptRaw);
+  const sessionTranscriptData = extractEnvelopeData<TranscriptPayload>(sessionTranscriptRaw);
 
   useEffect(() => {
     if (!selectedThreadId) {
       setThreadDetailRaw(null);
+      setThreadTranscriptRaw(null);
+      setThreadTranscriptLimit(250);
       return;
     }
     let cancelled = false;
@@ -561,6 +589,53 @@ export function App() {
       cancelled = true;
     };
   }, [selectedThreadId]);
+
+  useEffect(() => {
+    if (!selectedThreadId) {
+      setThreadTranscriptRaw(null);
+      return;
+    }
+    let cancelled = false;
+    setThreadTranscriptLoading(true);
+    apiGet<unknown>(`/api/thread-transcript?thread_id=${encodeURIComponent(selectedThreadId)}&limit=${threadTranscriptLimit}`)
+      .then((data) => {
+        if (!cancelled) setThreadTranscriptRaw(data);
+      })
+      .catch(() => {
+        if (!cancelled) setThreadTranscriptRaw(null);
+      })
+      .finally(() => {
+        if (!cancelled) setThreadTranscriptLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedThreadId, threadTranscriptLimit]);
+
+  useEffect(() => {
+    if (!selectedSession) {
+      setSessionTranscriptRaw(null);
+      setSessionTranscriptLimit(250);
+      return;
+    }
+    let cancelled = false;
+    setSessionTranscriptLoading(true);
+    apiGet<unknown>(
+      `/api/session-transcript?provider=${encodeURIComponent(selectedSession.provider)}&file_path=${encodeURIComponent(selectedSession.file_path)}&limit=${sessionTranscriptLimit}`,
+    )
+      .then((data) => {
+        if (!cancelled) setSessionTranscriptRaw(data);
+      })
+      .catch(() => {
+        if (!cancelled) setSessionTranscriptRaw(null);
+      })
+      .finally(() => {
+        if (!cancelled) setSessionTranscriptLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSession, sessionTranscriptLimit]);
 
   const busy =
     bulkPin.isPending ||
@@ -1106,6 +1181,38 @@ export function App() {
                     <strong>{selectedThreadDetail.artifact_count}</strong>
                   </div>
                 ) : null}
+                <div className="impact-kv">
+                  <span>대화 기록</span>
+                  <strong>{threadTranscriptData?.message_count ?? 0} msgs</strong>
+                </div>
+                <div className="chat-toolbar">
+                  <span className="sub-hint">
+                    {threadTranscriptData?.truncated ? "일부만 표시됨 (tail window)" : "현재 범위 전체 로드됨"}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    onClick={() => setThreadTranscriptLimit((prev) => Math.min(prev + 250, 2000))}
+                    disabled={threadTranscriptLoading || !selectedThreadId || threadTranscriptLimit >= 2000}
+                  >
+                    더 불러오기
+                  </button>
+                </div>
+                <div className="chat-log">
+                  {threadTranscriptLoading ? <div className="skeleton-line" /> : null}
+                  {!threadTranscriptLoading && (threadTranscriptData?.messages?.length ?? 0) === 0 ? (
+                    <p className="sub-hint">대화 기록을 찾지 못했습니다.</p>
+                  ) : null}
+                  {(threadTranscriptData?.messages ?? []).map((msg) => (
+                    <article key={`thread-msg-${msg.idx}-${msg.ts ?? "na"}`} className={`chat-item role-${msg.role}`}>
+                      <header>
+                        <strong>{msg.role}</strong>
+                        <span>{msg.ts ? new Date(msg.ts).toLocaleString() : msg.source_type}</span>
+                      </header>
+                      <p>{msg.text}</p>
+                    </article>
+                  ))}
+                </div>
               </>
             )}
           </div>
@@ -1150,6 +1257,38 @@ export function App() {
                 <div className="impact-kv">
                   <span>Path</span>
                   <strong className="mono-sub">{selectedSession.file_path}</strong>
+                </div>
+                <div className="impact-kv">
+                  <span>대화 기록</span>
+                  <strong>{sessionTranscriptData?.message_count ?? 0} msgs</strong>
+                </div>
+                <div className="chat-toolbar">
+                  <span className="sub-hint">
+                    {sessionTranscriptData?.truncated ? "일부만 표시됨 (tail window)" : "현재 범위 전체 로드됨"}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    onClick={() => setSessionTranscriptLimit((prev) => Math.min(prev + 250, 2000))}
+                    disabled={sessionTranscriptLoading || sessionTranscriptLimit >= 2000}
+                  >
+                    더 불러오기
+                  </button>
+                </div>
+                <div className="chat-log">
+                  {sessionTranscriptLoading ? <div className="skeleton-line" /> : null}
+                  {!sessionTranscriptLoading && (sessionTranscriptData?.messages?.length ?? 0) === 0 ? (
+                    <p className="sub-hint">세션 기록을 찾지 못했습니다.</p>
+                  ) : null}
+                  {(sessionTranscriptData?.messages ?? []).map((msg) => (
+                    <article key={`session-msg-${msg.idx}-${msg.ts ?? "na"}`} className={`chat-item role-${msg.role}`}>
+                      <header>
+                        <strong>{msg.role}</strong>
+                        <span>{msg.ts ? new Date(msg.ts).toLocaleString() : msg.source_type}</span>
+                      </header>
+                      <p>{msg.text}</p>
+                    </article>
+                  ))}
                 </div>
               </>
             )}

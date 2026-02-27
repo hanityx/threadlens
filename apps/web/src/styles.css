@@ -379,6 +379,70 @@ th {
   padding: 8px 10px;
 }
 
+.chat-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-log {
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  padding: 8px;
+  background: rgba(8, 13, 20, 0.7);
+  display: grid;
+  gap: 8px;
+}
+
+.chat-item {
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.chat-item header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  padding: 0;
+}
+
+.chat-item header strong {
+  text-transform: uppercase;
+  font-size: 0.74rem;
+  letter-spacing: 0.03em;
+}
+
+.chat-item header span {
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.chat-item p {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.chat-item.role-user {
+  border-color: rgba(86, 208, 188, 0.4);
+  background: rgba(86, 208, 188, 0.08);
+}
+
+.chat-item.role-assistant {
+  border-color: rgba(88, 140, 224, 0.38);
+  background: rgba(88, 140, 224, 0.08);
+}
+
 .impact-list h3 {
   margin: 8px 0;
   font-size: 0.92rem;

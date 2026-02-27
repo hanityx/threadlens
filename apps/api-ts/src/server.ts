@@ -85,6 +85,8 @@ const directApiPaths = new Set([
   "/api/codex-observatory",
   "/api/rename-thread",
   "/api/thread-forensics",
+  "/api/thread-transcript",
+  "/api/session-transcript",
 ]);
 
 const proxiedApiPaths = new Set([
@@ -1116,6 +1118,24 @@ type ProviderSessionScan = {
   truncated: boolean;
 };
 
+type TranscriptMessage = {
+  idx: number;
+  role: "user" | "assistant" | "developer" | "system" | "tool" | "unknown";
+  text: string;
+  ts: string | null;
+  source_type: string;
+};
+
+type TranscriptPayload = {
+  provider: ProviderId;
+  thread_id: string | null;
+  file_path: string;
+  scanned_lines: number;
+  message_count: number;
+  truncated: boolean;
+  messages: TranscriptMessage[];
+};
+
 type ProviderRootSpec = {
   source: string;
   root: string;
@@ -1471,6 +1491,175 @@ async function probeSessionFile(filePath: string): Promise<ProviderSessionProbe>
     detected_title: detected.title,
     title_source: detected.source,
   };
+}
+
+async function readFileTail(filePath: string, maxBytes = 2_097_152): Promise<{ text: string; truncated: boolean }> {
+  let fh: Awaited<ReturnType<typeof open>> | null = null;
+  try {
+    const st = await stat(filePath);
+    const size = Number(st.size);
+    if (!Number.isFinite(size) || size <= 0) return { text: "", truncated: false };
+    const readBytes = Math.max(1, Math.min(maxBytes, size));
+    const start = Math.max(0, size - readBytes);
+    fh = await open(filePath, "r");
+    const buf = Buffer.alloc(readBytes);
+    const { bytesRead } = await fh.read(buf, 0, readBytes, start);
+    return {
+      text: buf.subarray(0, bytesRead).toString("utf-8"),
+      truncated: start > 0,
+    };
+  } catch {
+    return { text: "", truncated: false };
+  } finally {
+    if (fh) await fh.close();
+  }
+}
+
+function parseTranscriptRole(raw: unknown): TranscriptMessage["role"] {
+  const role = String(raw ?? "").toLowerCase();
+  if (role === "user" || role === "assistant" || role === "developer" || role === "system" || role === "tool") return role;
+  return "unknown";
+}
+
+function extractTranscriptText(value: unknown, depth = 0): string {
+  if (depth > 5 || value === null || value === undefined) return "";
+  if (typeof value === "string") return normalizeDetectedTitle(value, 2000);
+  if (Array.isArray(value)) {
+    const chunks = value
+      .slice(0, 30)
+      .map((item) => extractTranscriptText(item, depth + 1))
+      .filter(Boolean);
+    return normalizeDetectedTitle(chunks.join(" "), 2000);
+  }
+  if (typeof value !== "object") return "";
+  const obj = value as Record<string, unknown>;
+  const direct = ["text", "input_text", "output_text", "content", "message", "body", "value"];
+  for (const key of direct) {
+    if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+    const hit = extractTranscriptText(obj[key], depth + 1);
+    if (hit) return hit;
+  }
+  const fallback = Object.values(obj)
+    .slice(0, 12)
+    .map((item) => extractTranscriptText(item, depth + 1))
+    .find(Boolean);
+  return fallback ? normalizeDetectedTitle(fallback, 2000) : "";
+}
+
+function parseJsonlTranscriptLine(line: string): Omit<TranscriptMessage, "idx"> | null {
+  let obj: unknown;
+  try {
+    obj = JSON.parse(line);
+  } catch {
+    return null;
+  }
+  if (!obj || typeof obj !== "object") return null;
+  const row = obj as Record<string, unknown>;
+  const type = String(row.type ?? "unknown");
+  const ts = typeof row.timestamp === "string" ? row.timestamp : null;
+
+  if (type === "response_item") {
+    const payload = row.payload;
+    if (!payload || typeof payload !== "object") return null;
+    const payloadObj = payload as Record<string, unknown>;
+    if (String(payloadObj.type ?? "") === "message") {
+      const text = extractTranscriptText(payloadObj.content);
+      if (!text || looksLikeIdOnly(text) || isBoilerplateTitle(text)) return null;
+      return {
+        role: parseTranscriptRole(payloadObj.role),
+        text,
+        ts,
+        source_type: "response_item.message",
+      };
+    }
+    return null;
+  }
+
+  if (type === "event_msg") {
+    const payload = row.payload;
+    if (!payload || typeof payload !== "object") return null;
+    const payloadObj = payload as Record<string, unknown>;
+    const text = extractTranscriptText(payloadObj.message ?? payloadObj.text);
+    if (!text || looksLikeIdOnly(text) || isBoilerplateTitle(text)) return null;
+    return {
+      role: parseTranscriptRole(payloadObj.role ?? "assistant"),
+      text,
+      ts,
+      source_type: `event_msg.${String(payloadObj.type ?? "event")}`,
+    };
+  }
+
+  const role = parseTranscriptRole(row.role);
+  const text = extractTranscriptText(row.text ?? row.message ?? row.content ?? row.payload);
+  if (!text || looksLikeIdOnly(text) || isBoilerplateTitle(text)) return null;
+  return {
+    role,
+    text,
+    ts,
+    source_type: type,
+  };
+}
+
+async function buildSessionTranscript(provider: ProviderId, filePath: string, limit: number): Promise<TranscriptPayload> {
+  const safeLimit = Math.max(20, Math.min(2000, Number(limit) || 200));
+  const format = inferFormat(filePath);
+  const threadId = provider === "codex" ? extractCodexThreadIdFromSessionName(inferSessionId(filePath)) : "";
+
+  if (format !== "jsonl") {
+    return {
+      provider,
+      thread_id: threadId || null,
+      file_path: filePath,
+      scanned_lines: 0,
+      message_count: 0,
+      truncated: false,
+      messages: [],
+    };
+  }
+
+  const tail = await readFileTail(filePath, 2_621_440);
+  const lines = tail.text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const messages: TranscriptMessage[] = [];
+  for (const line of lines) {
+    const parsed = parseJsonlTranscriptLine(line);
+    if (!parsed) continue;
+    messages.push({ ...parsed, idx: messages.length + 1 });
+  }
+
+  const sliced = messages.slice(Math.max(0, messages.length - safeLimit)).map((msg, index) => ({
+    ...msg,
+    idx: index + 1,
+  }));
+
+  return {
+    provider,
+    thread_id: threadId || null,
+    file_path: filePath,
+    scanned_lines: lines.length,
+    message_count: sliced.length,
+    truncated: tail.truncated || messages.length > safeLimit,
+    messages: sliced,
+  };
+}
+
+async function resolveCodexSessionPathByThreadId(threadId: string): Promise<string | null> {
+  const normalized = String(threadId || "").trim();
+  if (!normalized) return null;
+
+  const recent = await getProviderSessionScan("codex", 240);
+  const inRecent = recent.rows.find((row) => row.session_id === normalized);
+  if (inRecent) return inRecent.file_path;
+
+  const roots = providerRootSpecs("codex");
+  for (const spec of roots) {
+    const files = await walkFilesByExt(spec.root, spec.exts, 8000);
+    const hit = files.find((file) => path.basename(file).includes(normalized));
+    if (hit) return hit;
+  }
+  return null;
 }
 
 function providerRootSpecs(provider: ProviderId): ProviderRootSpec[] {
@@ -2387,6 +2576,42 @@ export async function createServer(): Promise<FastifyInstance> {
       return reply.code(proxied.status).send(proxied.payload);
     } catch (error) {
       return reply.code(502).send(envelope(null, `python-backend-unreachable: ${String(error)}`));
+    }
+  });
+
+  app.get<{ Querystring: QueryMap }>("/api/thread-transcript", async (req, reply) => {
+    try {
+      const threadRaw = Array.isArray(req.query.thread_id) ? req.query.thread_id[0] : req.query.thread_id;
+      const limitRaw = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
+      const threadId = String(threadRaw ?? "").trim();
+      if (!threadId) return reply.code(400).send(envelope(null, "thread_id required"));
+      const filePath = await resolveCodexSessionPathByThreadId(threadId);
+      if (!filePath) return reply.code(404).send(envelope(null, "thread session file not found"));
+      const data = await buildSessionTranscript("codex", filePath, Number(limitRaw) || 300);
+      return reply.code(200).send(withSchemaVersion(data));
+    } catch (error) {
+      return reply.code(500).send(envelope(null, `thread-transcript-error: ${String(error)}`));
+    }
+  });
+
+  app.get<{ Querystring: QueryMap }>("/api/session-transcript", async (req, reply) => {
+    try {
+      const providerRaw = Array.isArray(req.query.provider) ? req.query.provider[0] : req.query.provider;
+      const fileRaw = Array.isArray(req.query.file_path) ? req.query.file_path[0] : req.query.file_path;
+      const limitRaw = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
+      const provider = parseProviderId(providerRaw);
+      if (!provider) return reply.code(400).send(envelope(null, "invalid provider"));
+      const filePath = String(fileRaw ?? "").trim();
+      if (!filePath) return reply.code(400).send(envelope(null, "file_path required"));
+      if (!isAllowedProviderFilePath(provider, filePath)) {
+        return reply.code(400).send(envelope(null, "file_path outside provider roots"));
+      }
+      const exists = await pathExists(filePath);
+      if (!exists) return reply.code(404).send(envelope(null, "session file not found"));
+      const data = await buildSessionTranscript(provider, filePath, Number(limitRaw) || 300);
+      return reply.code(200).send(withSchemaVersion(data));
+    } catch (error) {
+      return reply.code(500).send(envelope(null, `session-transcript-error: ${String(error)}`));
     }
   });
 
