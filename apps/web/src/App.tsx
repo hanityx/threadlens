@@ -59,6 +59,62 @@ type ProviderMatrixEnvelope = ApiEnvelope<{
   providers?: ProviderMatrixProvider[];
 }>;
 
+type ProviderSessionRow = {
+  provider: string;
+  source: string;
+  session_id: string;
+  file_path: string;
+  size_bytes: number;
+  mtime: string;
+  probe: {
+    ok: boolean;
+    format: "jsonl" | "json" | "unknown";
+    error: string | null;
+  };
+};
+
+type ProviderSessionsEnvelope = ApiEnvelope<{
+  summary?: {
+    providers: number;
+    rows: number;
+    parse_ok: number;
+    parse_fail: number;
+  };
+  providers?: Array<{
+    provider: string;
+    name: string;
+    status: "active" | "detected" | "missing";
+    scanned: number;
+    truncated: boolean;
+  }>;
+  rows?: ProviderSessionRow[];
+}>;
+
+type ProviderParserHealthEnvelope = ApiEnvelope<{
+  summary?: {
+    providers: number;
+    scanned: number;
+    parse_ok: number;
+    parse_fail: number;
+    parse_score: number | null;
+  };
+  reports?: Array<{
+    provider: string;
+    name: string;
+    status: "active" | "detected" | "missing";
+    scanned: number;
+    parse_ok: number;
+    parse_fail: number;
+    parse_score: number | null;
+    truncated: boolean;
+    sample_errors?: Array<{
+      session_id: string;
+      format: string;
+      error: string | null;
+    }>;
+  }>;
+}>;
+
 type AnalyzeDeleteReport = {
   id: string;
   exists: boolean;
@@ -110,6 +166,7 @@ function prettyJson(value: unknown): string {
 export function App() {
   const [query, setQuery] = useState("");
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
+  const [providerView, setProviderView] = useState<"all" | "codex" | "claude" | "gemini" | "copilot">("all");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [renderLimit, setRenderLimit] = useState(INITIAL_CHUNK);
   const [analysisRaw, setAnalysisRaw] = useState<unknown>(null);
@@ -140,6 +197,21 @@ export function App() {
   const providerMatrix = useQuery({
     queryKey: ["provider-matrix"],
     queryFn: () => apiGet<ProviderMatrixEnvelope>("/api/provider-matrix"),
+    refetchInterval: 30000,
+  });
+
+  const providerSessions = useQuery({
+    queryKey: ["provider-sessions", providerView],
+    queryFn: () =>
+      apiGet<ProviderSessionsEnvelope>(
+        `/api/provider-sessions?limit=120${providerView !== "all" ? `&provider=${providerView}` : ""}`,
+      ),
+    refetchInterval: 30000,
+  });
+
+  const providerParserHealth = useQuery({
+    queryKey: ["provider-parser-health"],
+    queryFn: () => apiGet<ProviderParserHealthEnvelope>("/api/provider-parser-health?limit=80"),
     refetchInterval: 30000,
   });
 
@@ -244,6 +316,10 @@ export function App() {
   const selectedImpactRows = (analysisData?.reports ?? []).filter((r) => selectedSet.has(r.id));
   const providers = providerMatrix.data?.data?.providers ?? [];
   const providerSummary = providerMatrix.data?.data?.summary;
+  const providerSessionRows = providerSessions.data?.data?.rows ?? [];
+  const providerSessionSummary = providerSessions.data?.data?.summary;
+  const parserSummary = providerParserHealth.data?.data?.summary;
+  const parserReports = providerParserHealth.data?.data?.reports ?? [];
   const readOnlyProviders = useMemo(
     () => providers.filter((p) => p.capability_level === "read-only").map((p) => p.name),
     [providers],
@@ -357,6 +433,103 @@ export function App() {
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className="provider-ops-layout">
+        <section className="panel">
+          <header>
+            <h2>Provider Sessions (Read-Only)</h2>
+            <span>
+              {providerSessionSummary?.rows ?? providerSessionRows.length} rows · parse ok{" "}
+              {providerSessionSummary?.parse_ok ?? 0}
+            </span>
+          </header>
+          <div className="sub-toolbar">
+            <select className="filter-select" value={providerView} onChange={(e) => setProviderView(e.target.value as typeof providerView)}>
+              <option value="all">all providers</option>
+              <option value="codex">codex</option>
+              <option value="claude">claude</option>
+              <option value="gemini">gemini</option>
+              <option value="copilot">copilot</option>
+            </select>
+            <span className="sub-hint">삭제 기능 없음 · read/analyze 전용</span>
+          </div>
+          <div className="provider-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Provider</th>
+                  <th>Session</th>
+                  <th>Source</th>
+                  <th>Format</th>
+                  <th>Probe</th>
+                  <th>Size</th>
+                </tr>
+              </thead>
+              <tbody>
+                {providerSessionRows.slice(0, 120).map((row) => (
+                  <tr key={`${row.provider}-${row.session_id}-${row.file_path}`}>
+                    <td>{row.provider}</td>
+                    <td className="title-col">{row.session_id}</td>
+                    <td>{row.source}</td>
+                    <td>{row.probe.format}</td>
+                    <td>{row.probe.ok ? "ok" : "fail"}</td>
+                    <td>{row.size_bytes.toLocaleString()}</td>
+                  </tr>
+                ))}
+                {providerSessionRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="sub-hint">
+                      provider sessions loading...
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="panel">
+          <header>
+            <h2>Parser Health</h2>
+            <span>score {parserSummary?.parse_score ?? "-"}</span>
+          </header>
+          <div className="provider-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Provider</th>
+                  <th>Status</th>
+                  <th>Scanned</th>
+                  <th>Parse OK</th>
+                  <th>Parse Fail</th>
+                  <th>Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                {parserReports.map((report) => (
+                  <tr key={`parser-${report.provider}`}>
+                    <td>{report.name}</td>
+                    <td>
+                      <span className={`status-pill status-${report.status}`}>{report.status}</span>
+                    </td>
+                    <td>{report.scanned}</td>
+                    <td>{report.parse_ok}</td>
+                    <td>{report.parse_fail}</td>
+                    <td>{report.parse_score ?? "-"}</td>
+                  </tr>
+                ))}
+                {parserReports.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="sub-hint">
+                      parser health loading...
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </section>
 
       <section className="toolbar">
@@ -508,6 +681,8 @@ export function App() {
       {runtime.isError ? <div className="error-box">runtime 연결 실패</div> : null}
       {recovery.isError ? <div className="error-box">recovery 데이터 로드 실패</div> : null}
       {providerMatrix.isError ? <div className="error-box">provider matrix 로드 실패</div> : null}
+      {providerSessions.isError ? <div className="error-box">provider sessions 로드 실패</div> : null}
+      {providerParserHealth.isError ? <div className="error-box">parser health 로드 실패</div> : null}
       {busy ? (
         <div className="busy-indicator">
           batch action running...

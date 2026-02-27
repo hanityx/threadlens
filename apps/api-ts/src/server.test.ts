@@ -167,6 +167,32 @@ describe("api-ts direct endpoints", () => {
     expect(codex.capabilities.safe_cleanup).toBe(true);
   });
 
+  it("GET /api/provider-sessions returns rows and summary", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/provider-sessions?limit=20" });
+    expect(res.statusCode).toBe(200);
+    const payload = res.json();
+    const root = payload.data ?? payload;
+    expect(root.summary).toBeTruthy();
+    expect(Array.isArray(root.rows)).toBe(true);
+    expect(Array.isArray(root.providers)).toBe(true);
+  });
+
+  it("GET /api/provider-sessions rejects invalid provider", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/provider-sessions?provider=invalid" });
+    expect(res.statusCode).toBe(400);
+    const payload = res.json();
+    expect(payload.ok).toBe(false);
+  });
+
+  it("GET /api/provider-parser-health returns parser reports", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/provider-parser-health?limit=10" });
+    expect(res.statusCode).toBe(200);
+    const payload = res.json();
+    const root = payload.data ?? payload;
+    expect(root.summary).toBeTruthy();
+    expect(Array.isArray(root.reports)).toBe(true);
+  });
+
   it("GET /api/agent-loops responds through TS route", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ count: 0, rows: [] }), {

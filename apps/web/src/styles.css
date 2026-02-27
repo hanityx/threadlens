@@ -192,6 +192,12 @@ button:disabled {
   overflow: auto;
 }
 
+.provider-ops-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
 .ops-layout {
   display: grid;
   grid-template-columns: 1.45fr 1fr;
@@ -404,6 +410,10 @@ pre {
   }
 
   .ops-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .provider-ops-layout {
     grid-template-columns: 1fr;
   }
 

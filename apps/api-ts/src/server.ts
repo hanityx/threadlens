@@ -1,7 +1,7 @@
 import Fastify, { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
 import { execSync } from "node:child_process";
-import { mkdir, readFile, readdir, stat, writeFile, chmod } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, writeFile, chmod, open } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -71,6 +71,8 @@ const directApiPaths = new Set([
   "/api/runtime-health",
   "/api/data-sources",
   "/api/provider-matrix",
+  "/api/provider-sessions",
+  "/api/provider-parser-health",
   "/api/agent-loops",
   "/api/agent-loops/action",
   "/api/alert-hooks",
@@ -914,6 +916,272 @@ async function getProviderMatrixTs() {
   };
 }
 
+type ProviderSessionProbe = {
+  ok: boolean;
+  format: "jsonl" | "json" | "unknown";
+  error: string | null;
+};
+
+type ProviderSessionRow = {
+  provider: ProviderId;
+  source: string;
+  session_id: string;
+  file_path: string;
+  size_bytes: number;
+  mtime: string;
+  probe: ProviderSessionProbe;
+};
+
+type ProviderSessionScan = {
+  provider: ProviderId;
+  name: string;
+  status: ProviderStatus;
+  rows: ProviderSessionRow[];
+  scanned: number;
+  truncated: boolean;
+};
+
+type ProviderRootSpec = {
+  source: string;
+  root: string;
+  exts: string[];
+};
+
+function providerName(provider: ProviderId): string {
+  if (provider === "codex") return "Codex";
+  if (provider === "claude") return "Claude CLI";
+  if (provider === "gemini") return "Gemini CLI";
+  return "Copilot Chat";
+}
+
+function inferFormat(filePath: string): "jsonl" | "json" | "unknown" {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === ".jsonl") return "jsonl";
+  if (ext === ".json") return "json";
+  return "unknown";
+}
+
+function inferSessionId(filePath: string): string {
+  const base = path.basename(filePath);
+  const ext = path.extname(base);
+  if (!ext) return base;
+  return base.slice(0, -ext.length);
+}
+
+async function readFileHead(filePath: string, maxBytes = 8192): Promise<string> {
+  let fh: Awaited<ReturnType<typeof open>> | null = null;
+  try {
+    fh = await open(filePath, "r");
+    const buf = Buffer.alloc(maxBytes);
+    const { bytesRead } = await fh.read(buf, 0, maxBytes, 0);
+    return buf.subarray(0, bytesRead).toString("utf-8");
+  } catch {
+    return "";
+  } finally {
+    if (fh) await fh.close();
+  }
+}
+
+async function walkFilesByExt(root: string, exts: string[], maxItems = 1000): Promise<string[]> {
+  const out: string[] = [];
+  const extSet = new Set(exts.map((x) => x.toLowerCase()));
+  async function walk(dir: string): Promise<void> {
+    const entries = await readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(full);
+      } else if (entry.isFile()) {
+        if (extSet.has(path.extname(entry.name).toLowerCase())) {
+          out.push(full);
+          if (out.length >= maxItems) return;
+        }
+      }
+      if (out.length >= maxItems) return;
+    }
+  }
+  try {
+    await walk(root);
+  } catch {
+    return out;
+  }
+  return out;
+}
+
+async function probeSessionFile(filePath: string): Promise<ProviderSessionProbe> {
+  const format = inferFormat(filePath);
+  if (format === "unknown") {
+    return { ok: false, format, error: "unsupported extension" };
+  }
+  const head = await readFileHead(filePath, 12288);
+  if (!head.trim()) {
+    return { ok: false, format, error: "empty file" };
+  }
+
+  if (format === "jsonl") {
+    const first = head
+      .split("\n")
+      .map((line) => line.trim())
+      .find(Boolean);
+    if (!first) {
+      return { ok: false, format, error: "no json line found" };
+    }
+    try {
+      JSON.parse(first);
+      return { ok: true, format, error: null };
+    } catch (error) {
+      return { ok: false, format, error: `invalid json line: ${String(error)}` };
+    }
+  }
+
+  const prefix = head.trimStart();
+  if (!(prefix.startsWith("{") || prefix.startsWith("["))) {
+    return { ok: false, format, error: "json prefix not found" };
+  }
+  return { ok: true, format, error: null };
+}
+
+function providerRootSpecs(provider: ProviderId): ProviderRootSpec[] {
+  if (provider === "codex") {
+    return [
+      { source: "sessions", root: path.join(CODEX_HOME, "sessions"), exts: [".jsonl"] },
+      { source: "archived_sessions", root: path.join(CODEX_HOME, "archived_sessions"), exts: [".jsonl"] },
+    ];
+  }
+  if (provider === "claude") {
+    return [{ source: "projects", root: CLAUDE_PROJECTS_DIR, exts: [".jsonl"] }];
+  }
+  if (provider === "gemini") {
+    return [{ source: "tmp", root: GEMINI_TMP_DIR, exts: [".jsonl", ".json"] }];
+  }
+  return [
+    { source: "vscode", root: COPILOT_VSCODE_GLOBAL, exts: [".jsonl", ".json"] },
+    { source: "cursor", root: COPILOT_CURSOR_GLOBAL, exts: [".jsonl", ".json"] },
+  ];
+}
+
+async function scanProviderSessions(provider: ProviderId, limit = 120): Promise<ProviderSessionScan> {
+  const safeLimit = Math.max(1, Math.min(400, Number(limit) || 120));
+  const roots = providerRootSpecs(provider);
+  const rootExists = (await Promise.all(roots.map((r) => pathExists(r.root)))).some(Boolean);
+
+  const candidates: Array<{ source: string; file_path: string; size_bytes: number; mtime: string; mtime_ms: number }> = [];
+  const gatherLimit = Math.max(safeLimit * 3, 120);
+
+  for (const spec of roots) {
+    const files = await walkFilesByExt(spec.root, spec.exts, gatherLimit);
+    for (const file of files) {
+      try {
+        const st = await stat(file);
+        candidates.push({
+          source: spec.source,
+          file_path: file,
+          size_bytes: Number(st.size),
+          mtime: new Date(Number(st.mtimeMs)).toISOString(),
+          mtime_ms: Number(st.mtimeMs),
+        });
+      } catch {
+        // no-op
+      }
+    }
+  }
+
+  candidates.sort((a, b) => b.mtime_ms - a.mtime_ms);
+  const selected = candidates.slice(0, safeLimit);
+  const rows: ProviderSessionRow[] = [];
+  for (const candidate of selected) {
+    rows.push({
+      provider,
+      source: candidate.source,
+      session_id: inferSessionId(candidate.file_path),
+      file_path: candidate.file_path,
+      size_bytes: candidate.size_bytes,
+      mtime: candidate.mtime,
+      probe: await probeSessionFile(candidate.file_path),
+    });
+  }
+
+  return {
+    provider,
+    name: providerName(provider),
+    status: providerStatus(rootExists, candidates.length),
+    rows,
+    scanned: rows.length,
+    truncated: candidates.length > safeLimit,
+  };
+}
+
+async function getProviderSessionsTs(provider?: ProviderId, limit = 120) {
+  const targets: ProviderId[] = provider ? [provider] : ["codex", "claude", "gemini", "copilot"];
+  const scans: ProviderSessionScan[] = [];
+  for (const p of targets) {
+    scans.push(await scanProviderSessions(p, limit));
+  }
+
+  const rows = scans.flatMap((scan) => scan.rows);
+  return {
+    generated_at: nowIsoUtc(),
+    summary: {
+      providers: scans.length,
+      rows: rows.length,
+      parse_ok: rows.filter((row) => row.probe.ok).length,
+      parse_fail: rows.filter((row) => !row.probe.ok).length,
+    },
+    providers: scans.map((scan) => ({
+      provider: scan.provider,
+      name: scan.name,
+      status: scan.status,
+      scanned: scan.scanned,
+      truncated: scan.truncated,
+    })),
+    rows,
+  };
+}
+
+async function getProviderParserHealthTs(limitPerProvider = 80) {
+  const targets: ProviderId[] = ["codex", "claude", "gemini", "copilot"];
+  const reports: Array<Record<string, unknown>> = [];
+  for (const provider of targets) {
+    const scan = await scanProviderSessions(provider, limitPerProvider);
+    const parseOk = scan.rows.filter((row) => row.probe.ok).length;
+    const parseFail = scan.rows.length - parseOk;
+    const score = scan.rows.length ? Number(((parseOk / scan.rows.length) * 100).toFixed(1)) : null;
+    reports.push({
+      provider: scan.provider,
+      name: scan.name,
+      status: scan.status,
+      scanned: scan.rows.length,
+      parse_ok: parseOk,
+      parse_fail: parseFail,
+      parse_score: score,
+      truncated: scan.truncated,
+      sample_errors: scan.rows
+        .filter((row) => !row.probe.ok)
+        .slice(0, 8)
+        .map((row) => ({
+          session_id: row.session_id,
+          path: row.file_path,
+          format: row.probe.format,
+          error: row.probe.error,
+        })),
+    });
+  }
+  const totalScanned = reports.reduce((sum, row) => sum + parseNumber((row as Record<string, unknown>).scanned), 0);
+  const totalFail = reports.reduce((sum, row) => sum + parseNumber((row as Record<string, unknown>).parse_fail), 0);
+  const totalOk = reports.reduce((sum, row) => sum + parseNumber((row as Record<string, unknown>).parse_ok), 0);
+  return {
+    generated_at: nowIsoUtc(),
+    summary: {
+      providers: reports.length,
+      scanned: totalScanned,
+      parse_ok: totalOk,
+      parse_fail: totalFail,
+      parse_score: totalScanned ? Number(((totalOk / totalScanned) * 100).toFixed(1)) : null,
+    },
+    reports,
+  };
+}
+
 async function getRoadmapStatusTs() {
   const weeks = await readRoadmapState();
   const checkins = await readRoadmapCheckins(80);
@@ -1333,6 +1601,36 @@ export async function createServer(): Promise<FastifyInstance> {
       return reply.code(200).send(withSchemaVersion(data));
     } catch (error) {
       return reply.code(500).send(envelope(null, `provider-matrix-error: ${String(error)}`));
+    }
+  });
+
+  app.get<{ Querystring: QueryMap }>("/api/provider-sessions", async (req, reply) => {
+    try {
+      const providerRaw = Array.isArray(req.query.provider) ? req.query.provider[0] : req.query.provider;
+      const limitRaw = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
+      const provider =
+        providerRaw === "codex" || providerRaw === "claude" || providerRaw === "gemini" || providerRaw === "copilot"
+          ? providerRaw
+          : undefined;
+      if (providerRaw && !provider) {
+        return reply.code(400).send(envelope(null, "invalid provider"));
+      }
+      const limit = Math.max(1, Math.min(400, Number(limitRaw) || 120));
+      const data = await getProviderSessionsTs(provider, limit);
+      return reply.code(200).send(withSchemaVersion(data));
+    } catch (error) {
+      return reply.code(500).send(envelope(null, `provider-sessions-error: ${String(error)}`));
+    }
+  });
+
+  app.get<{ Querystring: QueryMap }>("/api/provider-parser-health", async (req, reply) => {
+    try {
+      const limitRaw = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
+      const limit = Math.max(1, Math.min(200, Number(limitRaw) || 80));
+      const data = await getProviderParserHealthTs(limit);
+      return reply.code(200).send(withSchemaVersion(data));
+    } catch (error) {
+      return reply.code(500).send(envelope(null, `provider-parser-health-error: ${String(error)}`));
     }
   });
 
