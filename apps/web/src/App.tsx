@@ -683,6 +683,20 @@ export function App() {
       confirm_token: dryRun ? "" : providerActionToken,
     });
   };
+  const runSingleProviderAction = (
+    provider: Exclude<ProviderView, "all">,
+    filePath: string,
+    action: "archive_local" | "delete_local",
+    dryRun: boolean,
+  ) => {
+    providerSessionAction.mutate({
+      provider,
+      action,
+      file_paths: [filePath],
+      dry_run: dryRun,
+      confirm_token: dryRun ? "" : providerActionToken,
+    });
+  };
 
   return (
     <main className="page">
@@ -760,7 +774,11 @@ export function App() {
                   <td>{p.capabilities.safe_cleanup ? "Y" : "-"}</td>
                   <td>{p.capabilities.hard_delete ? "Y" : "-"}</td>
                   <td>{p.evidence?.session_log_count ?? 0}</td>
-                  <td className="notes-col">{p.evidence?.notes ?? "-"}</td>
+                  <td className="notes-col">
+                    {p.status === "detected" && (p.evidence?.session_log_count ?? 0) === 0
+                      ? "설치 흔적만 감지됨 (로그 거의 없음)"
+                      : p.evidence?.notes ?? "-"}
+                  </td>
                 </tr>
               ))}
               {providerMatrixLoading
@@ -799,6 +817,11 @@ export function App() {
             <span className={`status-pill status-${tab.status}`}>{tab.status}</span>
           </button>
         ))}
+      </section>
+      <section className="toolbar">
+        <span className="sub-hint">
+          `Parser Health`는 최근 세션 스캔의 파싱 성공률입니다. `detected`는 설치/폴더는 있지만 실제 세션 로그가 적거나 없는 상태예요.
+        </span>
       </section>
 
       <section className="provider-ops-layout">
@@ -870,7 +893,10 @@ export function App() {
                   <tr
                     key={`${row.provider}-${row.session_id}-${row.file_path}`}
                     className={selectedSessionPath === row.file_path ? "active-row" : undefined}
-                    onClick={() => setSelectedSessionPath(row.file_path)}
+                    onClick={() => {
+                      setSelectedSessionPath(row.file_path);
+                      setSelectedProviderFiles((prev) => ({ ...prev, [row.file_path]: true }));
+                    }}
                   >
                     <td>
                       <input
@@ -883,7 +909,7 @@ export function App() {
                     </td>
                     <td>{row.provider}</td>
                     <td className="title-col">
-                      <div>{row.display_title || row.probe.detected_title || row.session_id}</div>
+                      <div className="title-main">{row.display_title || row.probe.detected_title || row.session_id}</div>
                       <div className="mono-sub">{row.session_id}</div>
                     </td>
                     <td>{row.source}</td>
@@ -989,25 +1015,7 @@ export function App() {
           <option value="high-risk">High Risk (70+)</option>
           <option value="pinned">Pinned</option>
         </select>
-        <button className="btn-base" disabled={selectedIds.length === 0 || busy} onClick={() => bulkPin.mutate(selectedIds)}>
-          선택 Pin
-        </button>
-        <button className="btn-base" disabled={selectedIds.length === 0 || busy} onClick={() => bulkUnpin.mutate(selectedIds)}>
-          선택 Unpin
-        </button>
-        <button
-          className="btn-accent"
-          disabled={selectedIds.length === 0 || busy}
-          onClick={() => bulkArchive.mutate(selectedIds)}
-        >
-          선택 Local Archive
-        </button>
-        <button className="btn-outline" disabled={selectedIds.length === 0 || busy} onClick={() => analyzeDelete.mutate(selectedIds)}>
-          삭제 영향 분석
-        </button>
-        <button className="btn-outline" disabled={selectedIds.length === 0 || busy} onClick={() => cleanupDryRun.mutate(selectedIds)}>
-          정리 Dry-Run
-        </button>
+        <span className="sub-hint">선택 액션은 상세 패널 또는 Threads 내부 Bulk Actions에서 실행</span>
       </section>
 
       <section className="ops-layout">
@@ -1026,6 +1034,27 @@ export function App() {
             <span className="sub-hint">
               selected {selectedIds.length} · rendered {visibleRows.length}/{filteredRows.length}
             </span>
+          </div>
+          <div className="sub-toolbar">
+            <button className="btn-base" disabled={selectedIds.length === 0 || busy} onClick={() => bulkPin.mutate(selectedIds)}>
+              Bulk Pin
+            </button>
+            <button className="btn-base" disabled={selectedIds.length === 0 || busy} onClick={() => bulkUnpin.mutate(selectedIds)}>
+              Bulk Unpin
+            </button>
+            <button
+              className="btn-accent"
+              disabled={selectedIds.length === 0 || busy}
+              onClick={() => bulkArchive.mutate(selectedIds)}
+            >
+              Bulk Local Archive
+            </button>
+            <button className="btn-outline" disabled={selectedIds.length === 0 || busy} onClick={() => analyzeDelete.mutate(selectedIds)}>
+              Bulk 영향 분석
+            </button>
+            <button className="btn-outline" disabled={selectedIds.length === 0 || busy} onClick={() => cleanupDryRun.mutate(selectedIds)}>
+              Bulk 정리 Dry-Run
+            </button>
           </div>
           <div className="table-wrap">
             <table>
@@ -1046,7 +1075,10 @@ export function App() {
                     <tr
                       key={row.thread_id}
                       className={`${isHighRisk ? "risk-row" : ""} ${selectedThreadId === row.thread_id ? "active-row" : ""}`.trim()}
-                      onClick={() => setSelectedThreadId(row.thread_id)}
+                      onClick={() => {
+                        setSelectedThreadId(row.thread_id);
+                        setSelected((prev) => ({ ...prev, [row.thread_id]: true }));
+                      }}
                     >
                       <td>
                         <input
@@ -1055,10 +1087,10 @@ export function App() {
                           onChange={(e) => setSelected((prev) => ({ ...prev, [row.thread_id]: e.target.checked }))}
                         />
                       </td>
-                      <td className="title-col">
-                        <div>{row.title || row.thread_id}</div>
-                        <div className="mono-sub">{row.thread_id}</div>
-                      </td>
+                    <td className="title-col">
+                      <div className="title-main">{row.title || row.thread_id}</div>
+                      <div className="mono-sub">{row.thread_id}</div>
+                    </td>
                       <td>{row.risk_score ?? 0}</td>
                       <td>{row.is_pinned ? "Y" : "N"}</td>
                       <td>{row.source || row.project_bucket || "-"}</td>
@@ -1148,7 +1180,7 @@ export function App() {
               <>
                 <div className="impact-kv">
                   <span>제목</span>
-                  <strong>{selectedThread.title || "-"}</strong>
+                  <strong className="title-main">{selectedThread.title || "-"}</strong>
                 </div>
                 <div className="impact-kv">
                   <span>ID</span>
@@ -1171,6 +1203,48 @@ export function App() {
                     <strong className="mono-sub">{selectedThread.cwd}</strong>
                   </div>
                 ) : null}
+                <div className="chat-toolbar">
+                  <button
+                    type="button"
+                    className="btn-base"
+                    onClick={() => selectedThreadId && bulkPin.mutate([selectedThreadId])}
+                    disabled={!selectedThreadId || busy}
+                  >
+                    Pin
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-base"
+                    onClick={() => selectedThreadId && bulkUnpin.mutate([selectedThreadId])}
+                    disabled={!selectedThreadId || busy}
+                  >
+                    Unpin
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-accent"
+                    onClick={() => selectedThreadId && bulkArchive.mutate([selectedThreadId])}
+                    disabled={!selectedThreadId || busy}
+                  >
+                    Local Archive
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    onClick={() => selectedThreadId && analyzeDelete.mutate([selectedThreadId])}
+                    disabled={!selectedThreadId || busy}
+                  >
+                    영향 분석
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    onClick={() => selectedThreadId && cleanupDryRun.mutate([selectedThreadId])}
+                    disabled={!selectedThreadId || busy}
+                  >
+                    정리 Dry-Run
+                  </button>
+                </div>
                 {threadDetailLoading ? <div className="skeleton-line" /> : null}
                 {selectedThreadDetail?.summary ? (
                   <p className="sub-hint">{selectedThreadDetail.summary}</p>
@@ -1230,7 +1304,7 @@ export function App() {
               <>
                 <div className="impact-kv">
                   <span>제목</span>
-                  <strong>{selectedSession.display_title || selectedSession.probe.detected_title || "-"}</strong>
+                  <strong className="title-main">{selectedSession.display_title || selectedSession.probe.detected_title || "-"}</strong>
                 </div>
                 <div className="impact-kv">
                   <span>Title Source</span>
@@ -1257,6 +1331,68 @@ export function App() {
                 <div className="impact-kv">
                   <span>Path</span>
                   <strong className="mono-sub">{selectedSession.file_path}</strong>
+                </div>
+                <div className="chat-toolbar">
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    onClick={() =>
+                      runSingleProviderAction(
+                        selectedSession.provider as Exclude<ProviderView, "all">,
+                        selectedSession.file_path,
+                        "archive_local",
+                        true,
+                      )
+                    }
+                    disabled={busy}
+                  >
+                    Archive Dry-Run
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-base"
+                    onClick={() =>
+                      runSingleProviderAction(
+                        selectedSession.provider as Exclude<ProviderView, "all">,
+                        selectedSession.file_path,
+                        "archive_local",
+                        false,
+                      )
+                    }
+                    disabled={busy}
+                  >
+                    Archive 실행
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    onClick={() =>
+                      runSingleProviderAction(
+                        selectedSession.provider as Exclude<ProviderView, "all">,
+                        selectedSession.file_path,
+                        "delete_local",
+                        true,
+                      )
+                    }
+                    disabled={busy}
+                  >
+                    Delete Dry-Run
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-accent"
+                    onClick={() =>
+                      runSingleProviderAction(
+                        selectedSession.provider as Exclude<ProviderView, "all">,
+                        selectedSession.file_path,
+                        "delete_local",
+                        false,
+                      )
+                    }
+                    disabled={busy}
+                  >
+                    Delete 실행
+                  </button>
                 </div>
                 <div className="impact-kv">
                   <span>대화 기록</span>
