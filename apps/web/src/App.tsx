@@ -115,6 +115,22 @@ type ProviderParserHealthEnvelope = ApiEnvelope<{
   }>;
 }>;
 
+type ProviderSessionActionResult = {
+  ok: boolean;
+  provider: string;
+  action: "archive_local" | "delete_local";
+  dry_run: boolean;
+  target_count: number;
+  valid_count: number;
+  applied_count: number;
+  confirm_token_expected: string;
+  confirm_token_accepted: boolean;
+  skipped?: Array<{ file_path: string; reason: string }>;
+  archived_to?: string | null;
+  mode?: string;
+  error?: string;
+};
+
 type AnalyzeDeleteReport = {
   id: string;
   exists: boolean;
@@ -175,9 +191,11 @@ export function App() {
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
   const [providerView, setProviderView] = useState<ProviderView>("all");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [selectedProviderFiles, setSelectedProviderFiles] = useState<Record<string, boolean>>({});
   const [renderLimit, setRenderLimit] = useState(INITIAL_CHUNK);
   const [analysisRaw, setAnalysisRaw] = useState<unknown>(null);
   const [cleanupRaw, setCleanupRaw] = useState<unknown>(null);
+  const [providerActionRaw, setProviderActionRaw] = useState<unknown>(null);
   const queryClient = useQueryClient();
   const deferredQuery = useDeferredValue(query);
 
@@ -273,6 +291,26 @@ export function App() {
         confirm_token: "",
       }),
     onSuccess: (data) => setCleanupRaw(data),
+  });
+
+  const providerSessionAction = useMutation({
+    mutationFn: (input: {
+      provider: Exclude<ProviderView, "all">;
+      action: "archive_local" | "delete_local";
+      file_paths: string[];
+      dry_run: boolean;
+      confirm_token?: string;
+    }) =>
+      apiPost<unknown>("/api/provider-session-action", {
+        ...input,
+        confirm_token: input.confirm_token ?? "",
+      }),
+    onSuccess: (data) => {
+      setProviderActionRaw(data);
+      queryClient.invalidateQueries({ queryKey: ["provider-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["provider-parser-health"] });
+      queryClient.invalidateQueries({ queryKey: ["provider-matrix"] });
+    },
   });
 
   const rows = threads.data?.rows ?? [];
@@ -386,6 +424,18 @@ export function App() {
     [providerById, scannedByProvider, allProviderSessionRows],
   );
   const selectedProviderLabel = providerView === "all" ? "All AI" : providerById.get(providerView)?.name ?? providerView;
+  const selectedProviderFilePaths = useMemo(
+    () =>
+      providerSessionRows
+        .filter((row) => Boolean(selectedProviderFiles[row.file_path]))
+        .map((row) => row.file_path),
+    [providerSessionRows, selectedProviderFiles],
+  );
+  const allProviderRowsSelected =
+    providerSessionRows.length > 0 && providerSessionRows.every((row) => Boolean(selectedProviderFiles[row.file_path]));
+  const providerActionData = extractEnvelopeData<ProviderSessionActionResult>(providerActionRaw);
+  const providerActionToken = providerActionData?.confirm_token_expected ?? "";
+  const canRunProviderAction = providerView !== "all" && selectedProviderFilePaths.length > 0;
   const readOnlyProviders = useMemo(
     () => providers.filter((p) => p.capability_level === "read-only").map((p) => p.name),
     [providers],
@@ -400,7 +450,8 @@ export function App() {
     bulkUnpin.isPending ||
     bulkArchive.isPending ||
     analyzeDelete.isPending ||
-    cleanupDryRun.isPending;
+    cleanupDryRun.isPending ||
+    providerSessionAction.isPending;
 
   const toggleSelectAllFiltered = (checked: boolean) => {
     if (checked) {
@@ -412,6 +463,33 @@ export function App() {
       return;
     }
     setSelected({});
+  };
+
+  const toggleSelectAllProviderRows = (checked: boolean) => {
+    if (checked) {
+      const next: Record<string, boolean> = { ...selectedProviderFiles };
+      providerSessionRows.forEach((row) => {
+        next[row.file_path] = true;
+      });
+      setSelectedProviderFiles(next);
+      return;
+    }
+    const next: Record<string, boolean> = { ...selectedProviderFiles };
+    providerSessionRows.forEach((row) => {
+      delete next[row.file_path];
+    });
+    setSelectedProviderFiles(next);
+  };
+
+  const runProviderAction = (action: "archive_local" | "delete_local", dryRun: boolean) => {
+    if (providerView === "all" || selectedProviderFilePaths.length === 0) return;
+    providerSessionAction.mutate({
+      provider: providerView,
+      action,
+      file_paths: selectedProviderFilePaths,
+      dry_run: dryRun,
+      confirm_token: dryRun ? "" : providerActionToken,
+    });
   };
 
   return (
@@ -521,20 +599,59 @@ export function App() {
       <section className="provider-ops-layout">
         <section className="panel">
           <header>
-            <h2>Provider Sessions (Read-Only)</h2>
+            <h2>Provider Sessions</h2>
             <span>
               {providerSessionSummary?.rows ?? providerSessionRows.length} rows · parse ok{" "}
               {providerSessionSummary?.parse_ok ?? 0}
             </span>
           </header>
           <div className="sub-toolbar">
-            <strong>{selectedProviderLabel}</strong>
-            <span className="sub-hint">삭제 기능 없음 · read/analyze 전용</span>
+            <label className="check-inline">
+              <input
+                type="checkbox"
+                checked={allProviderRowsSelected}
+                onChange={(e) => toggleSelectAllProviderRows(e.target.checked)}
+              />
+              현재 탭 전체 선택
+            </label>
+            <span className="sub-hint">{selectedProviderLabel} · selected {selectedProviderFilePaths.length}</span>
+          </div>
+          <div className="sub-toolbar">
+            <button
+              className="btn-outline"
+              disabled={!canRunProviderAction || busy}
+              onClick={() => runProviderAction("archive_local", true)}
+            >
+              Archive Dry-Run
+            </button>
+            <button
+              className="btn-base"
+              disabled={!canRunProviderAction || busy}
+              onClick={() => runProviderAction("archive_local", false)}
+            >
+              Archive 실행
+            </button>
+            <button
+              className="btn-outline"
+              disabled={!canRunProviderAction || busy}
+              onClick={() => runProviderAction("delete_local", true)}
+            >
+              Delete Dry-Run
+            </button>
+            <button
+              className="btn-accent"
+              disabled={!canRunProviderAction || busy}
+              onClick={() => runProviderAction("delete_local", false)}
+            >
+              Delete 실행
+            </button>
+            <span className="sub-hint">실행 전 반드시 Dry-Run 먼저 수행</span>
           </div>
           <div className="provider-table-wrap">
             <table>
               <thead>
                 <tr>
+                  <th></th>
                   <th>Provider</th>
                   <th>Session</th>
                   <th>Source</th>
@@ -546,6 +663,15 @@ export function App() {
               <tbody>
                 {providerSessionRows.slice(0, 120).map((row) => (
                   <tr key={`${row.provider}-${row.session_id}-${row.file_path}`}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(selectedProviderFiles[row.file_path])}
+                        onChange={(e) =>
+                          setSelectedProviderFiles((prev) => ({ ...prev, [row.file_path]: e.target.checked }))
+                        }
+                      />
+                    </td>
                     <td>{row.provider}</td>
                     <td className="title-col">{row.session_id}</td>
                     <td>{row.source}</td>
@@ -556,7 +682,7 @@ export function App() {
                 ))}
                 {providerSessionRows.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="sub-hint">
+                    <td colSpan={7} className="sub-hint">
                       provider sessions loading...
                     </td>
                   </tr>
@@ -564,6 +690,14 @@ export function App() {
               </tbody>
             </table>
           </div>
+          {providerActionData ? (
+            <div className="sub-toolbar">
+              <span className="sub-hint">
+                action {providerActionData.action} · valid {providerActionData.valid_count} · applied{" "}
+                {providerActionData.applied_count} · token {providerActionData.confirm_token_expected}
+              </span>
+            </div>
+          ) : null}
         </section>
 
         <section className="panel">
@@ -608,12 +742,6 @@ export function App() {
           </div>
         </section>
       </section>
-
-      {providerView !== "all" && providerView !== "codex" ? (
-        <div className="busy-indicator">
-          현재 탭({selectedProviderLabel})은 read/analyze 전용입니다. Pin/Archive/Cleanup 같은 실제 정리 액션은 Codex 탭에서만 실행됩니다.
-        </div>
-      ) : null}
 
       <section className="toolbar">
         <input
@@ -766,6 +894,7 @@ export function App() {
       {providerMatrix.isError ? <div className="error-box">provider matrix 로드 실패</div> : null}
       {providerSessions.isError ? <div className="error-box">provider sessions 로드 실패</div> : null}
       {providerParserHealth.isError ? <div className="error-box">parser health 로드 실패</div> : null}
+      {providerSessionAction.isError ? <div className="error-box">provider session action 실패</div> : null}
       {busy ? (
         <div className="busy-indicator">
           batch action running...

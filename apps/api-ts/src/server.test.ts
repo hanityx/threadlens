@@ -209,6 +209,44 @@ describe("api-ts direct endpoints", () => {
     expect(payload.ok).toBe(false);
   });
 
+  it("POST /api/provider-session-action supports dry-run preview", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/provider-session-action",
+      payload: {
+        provider: "codex",
+        action: "archive_local",
+        file_paths: ["/tmp/not-allowed.jsonl"],
+        dry_run: true,
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const payload = res.json();
+    const root = payload.data ?? payload;
+    expect(root.ok).toBe(true);
+    expect(root.dry_run).toBe(true);
+    expect(typeof root.confirm_token_expected).toBe("string");
+  });
+
+  it("POST /api/provider-session-action blocks execute without token", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/provider-session-action",
+      payload: {
+        provider: "codex",
+        action: "delete_local",
+        file_paths: ["/tmp/not-allowed.jsonl"],
+        dry_run: false,
+        confirm_token: "",
+      },
+    });
+    expect(res.statusCode).toBe(400);
+    const payload = res.json();
+    const root = payload.data ?? payload;
+    expect(root.ok).toBe(false);
+    expect(root.error).toBe("confirm-token-mismatch");
+  });
+
   it("GET /api/agent-loops responds through TS route", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ count: 0, rows: [] }), {

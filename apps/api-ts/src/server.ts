@@ -1,7 +1,7 @@
 import Fastify, { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
 import { execSync } from "node:child_process";
-import { mkdir, readFile, readdir, stat, writeFile, chmod, open } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, writeFile, chmod, open, copyFile, unlink } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -73,6 +73,7 @@ const directApiPaths = new Set([
   "/api/provider-matrix",
   "/api/provider-sessions",
   "/api/provider-parser-health",
+  "/api/provider-session-action",
   "/api/agent-loops",
   "/api/agent-loops/action",
   "/api/alert-hooks",
@@ -793,6 +794,7 @@ async function getDataSourceInventoryTs() {
 
 type ProviderId = "codex" | "claude" | "gemini" | "copilot";
 type ProviderStatus = "active" | "detected" | "missing";
+type ProviderSessionAction = "archive_local" | "delete_local";
 
 function providerStatus(rootExists: boolean, sessionLogs: number): ProviderStatus {
   if (sessionLogs > 0) return "active";
@@ -804,6 +806,17 @@ function capabilityLevel(status: ProviderStatus, safeCleanup: boolean): "full" |
   if (safeCleanup) return "full";
   if (status !== "missing") return "read-only";
   return "unavailable";
+}
+
+function parseProviderId(raw: unknown): ProviderId | undefined {
+  if (raw === "codex" || raw === "claude" || raw === "gemini" || raw === "copilot") return raw;
+  return undefined;
+}
+
+function isPathInsideRoot(targetPath: string, rootPath: string): boolean {
+  const fullTarget = path.resolve(targetPath);
+  const fullRoot = path.resolve(rootPath);
+  return fullTarget === fullRoot || fullTarget.startsWith(`${fullRoot}${path.sep}`);
 }
 
 async function getProviderMatrixTs() {
@@ -820,6 +833,10 @@ async function getProviderMatrixTs() {
   const geminiSessionLogs = await countJsonlFilesRecursive(GEMINI_TMP_DIR);
   const copilotSignalFiles =
     (await quickFileCount(COPILOT_VSCODE_GLOBAL)) + (await quickFileCount(COPILOT_CURSOR_GLOBAL));
+
+  const claudeStatus = providerStatus(claudeRootExists, claudeSessionLogs);
+  const geminiStatus = providerStatus(geminiRootExists, geminiSessionLogs);
+  const copilotStatus = providerStatus(copilotVsCodeExists || copilotCursorExists, copilotSignalFiles);
 
   const providers = [
     {
@@ -842,55 +859,52 @@ async function getProviderMatrixTs() {
     {
       provider: "claude" as ProviderId,
       name: "Claude CLI",
-      status: providerStatus(claudeRootExists, claudeSessionLogs),
-      capability_level: capabilityLevel(providerStatus(claudeRootExists, claudeSessionLogs), false),
+      status: claudeStatus,
+      capability_level: capabilityLevel(claudeStatus, claudeStatus !== "missing"),
       capabilities: {
         read_sessions: claudeRootExists,
         analyze_context: claudeSessionLogs > 0,
-        safe_cleanup: false,
-        hard_delete: false,
+        safe_cleanup: claudeStatus !== "missing",
+        hard_delete: claudeStatus !== "missing",
       },
       evidence: {
         roots: [CLAUDE_HOME, CLAUDE_PROJECTS_DIR],
         session_log_count: claudeSessionLogs,
-        notes: "read/analyze phase only (cleanup disabled)",
+        notes: "dev mode: local archive/delete enabled when storage is detected",
       },
     },
     {
       provider: "gemini" as ProviderId,
       name: "Gemini CLI",
-      status: providerStatus(geminiRootExists, geminiSessionLogs),
-      capability_level: capabilityLevel(providerStatus(geminiRootExists, geminiSessionLogs), false),
+      status: geminiStatus,
+      capability_level: capabilityLevel(geminiStatus, geminiStatus !== "missing"),
       capabilities: {
         read_sessions: geminiRootExists,
         analyze_context: geminiSessionLogs > 0,
-        safe_cleanup: false,
-        hard_delete: false,
+        safe_cleanup: geminiStatus !== "missing",
+        hard_delete: geminiStatus !== "missing",
       },
       evidence: {
         roots: [GEMINI_HOME, GEMINI_TMP_DIR],
         session_log_count: geminiSessionLogs,
-        notes: "read/analyze phase only (cleanup disabled)",
+        notes: "dev mode: local archive/delete enabled when storage is detected",
       },
     },
     {
       provider: "copilot" as ProviderId,
       name: "Copilot Chat",
-      status: providerStatus(copilotVsCodeExists || copilotCursorExists, copilotSignalFiles),
-      capability_level: capabilityLevel(
-        providerStatus(copilotVsCodeExists || copilotCursorExists, copilotSignalFiles),
-        false,
-      ),
+      status: copilotStatus,
+      capability_level: capabilityLevel(copilotStatus, copilotStatus !== "missing"),
       capabilities: {
         read_sessions: copilotVsCodeExists || copilotCursorExists,
-        analyze_context: false,
-        safe_cleanup: false,
-        hard_delete: false,
+        analyze_context: copilotSignalFiles > 0,
+        safe_cleanup: copilotStatus !== "missing",
+        hard_delete: copilotStatus !== "missing",
       },
       evidence: {
         roots: [COPILOT_VSCODE_GLOBAL, COPILOT_CURSOR_GLOBAL],
         session_log_count: copilotSignalFiles,
-        notes: "metadata detection only; transcript parser not enabled yet",
+        notes: "dev mode: local archive/delete enabled when storage is detected",
       },
     },
   ];
@@ -910,8 +924,8 @@ async function getProviderMatrixTs() {
     summary,
     providers,
     policy: {
-      cleanup_gate: "only providers with safe_cleanup=true can expose cleanup/delete actions",
-      default_non_codex: "read/analyze only",
+      cleanup_gate: "dev mode: all detected providers can expose cleanup/delete actions",
+      default_non_codex: "all providers enabled for local testing",
     },
   };
 }
@@ -1071,6 +1085,121 @@ function providerRootSpecs(provider: ProviderId): ProviderRootSpec[] {
     { source: "vscode", root: COPILOT_VSCODE_GLOBAL, exts: [".jsonl", ".json"] },
     { source: "cursor", root: COPILOT_CURSOR_GLOBAL, exts: [".jsonl", ".json"] },
   ];
+}
+
+function isAllowedProviderFilePath(provider: ProviderId, filePath: string): boolean {
+  const specs = providerRootSpecs(provider);
+  const ext = path.extname(filePath).toLowerCase();
+  return specs.some((spec) => spec.exts.includes(ext) && isPathInsideRoot(filePath, spec.root));
+}
+
+function providerActionToken(provider: ProviderId, action: ProviderSessionAction, targets: number): string {
+  return `provider:${provider}:${action}:${targets}`;
+}
+
+async function runProviderSessionAction(
+  provider: ProviderId,
+  action: ProviderSessionAction,
+  filePaths: string[],
+  dryRun: boolean,
+  confirmToken: string,
+) {
+  const uniquePaths = Array.from(new Set(filePaths.map((item) => String(item || "").trim()).filter(Boolean)));
+  const skipped: Array<{ file_path: string; reason: string }> = [];
+  const valid: string[] = [];
+
+  for (const candidate of uniquePaths) {
+    if (!isAllowedProviderFilePath(provider, candidate)) {
+      skipped.push({ file_path: candidate, reason: "outside-provider-root-or-extension" });
+      continue;
+    }
+    try {
+      const st = await stat(candidate);
+      if (!st.isFile()) {
+        skipped.push({ file_path: candidate, reason: "not-a-file" });
+        continue;
+      }
+      valid.push(candidate);
+    } catch {
+      skipped.push({ file_path: candidate, reason: "not-found" });
+    }
+  }
+
+  const expectedToken = providerActionToken(provider, action, valid.length);
+  if (!dryRun && confirmToken !== expectedToken) {
+    return {
+      ok: false,
+      provider,
+      action,
+      dry_run: false,
+      target_count: uniquePaths.length,
+      valid_count: valid.length,
+      applied_count: 0,
+      confirm_token_expected: expectedToken,
+      confirm_token_accepted: false,
+      skipped,
+      error: "confirm-token-mismatch",
+    };
+  }
+
+  if (dryRun) {
+    return {
+      ok: true,
+      provider,
+      action,
+      dry_run: true,
+      target_count: uniquePaths.length,
+      valid_count: valid.length,
+      applied_count: 0,
+      confirm_token_expected: expectedToken,
+      confirm_token_accepted: false,
+      skipped,
+      mode: "preview",
+    };
+  }
+
+  let applied = 0;
+  let archivedTo: string | null = null;
+  if (action === "archive_local") {
+    const folderName = nowIsoUtc().replace(/[:.]/g, "-");
+    const destination = path.join(BACKUP_ROOT, "provider_actions", provider, folderName);
+    await mkdir(destination, { recursive: true });
+    for (let i = 0; i < valid.length; i += 1) {
+      const sourcePath = valid[i];
+      const base = path.basename(sourcePath);
+      const targetPath = path.join(destination, `${provider}-${Date.now()}-${i + 1}-${base}`);
+      await copyFile(sourcePath, targetPath);
+      await unlink(sourcePath);
+      applied += 1;
+    }
+    archivedTo = destination;
+  } else {
+    for (const sourcePath of valid) {
+      await unlink(sourcePath);
+      applied += 1;
+    }
+  }
+
+  for (const key of providerScanCache.keys()) {
+    if (key.startsWith(`${provider}:`)) {
+      providerScanCache.delete(key);
+    }
+  }
+
+  return {
+    ok: true,
+    provider,
+    action,
+    dry_run: false,
+    target_count: uniquePaths.length,
+    valid_count: valid.length,
+    applied_count: applied,
+    confirm_token_expected: expectedToken,
+    confirm_token_accepted: true,
+    skipped,
+    archived_to: archivedTo,
+    mode: "applied",
+  };
 }
 
 async function scanProviderSessions(provider: ProviderId, limit = 120): Promise<ProviderSessionScan> {
@@ -1535,6 +1664,14 @@ export async function createServer(): Promise<FastifyInstance> {
       confirm_token: value.confirm_token,
     }));
 
+  const providerSessionActionSchema = z.object({
+    provider: z.enum(["codex", "claude", "gemini", "copilot"]),
+    action: z.enum(["archive_local", "delete_local"]),
+    file_paths: z.array(z.string().min(1)).min(1).max(500),
+    dry_run: z.boolean().optional().default(true),
+    confirm_token: z.string().optional().default(""),
+  });
+
   app.post<{ Body: unknown }>("/api/local-cleanup", async (req, reply) => {
     const parsed = cleanupPayloadSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -1545,6 +1682,26 @@ export async function createServer(): Promise<FastifyInstance> {
       return reply.code(proxied.status).send(proxied.payload);
     } catch (error) {
       return reply.code(502).send(envelope(null, `python-backend-unreachable: ${String(error)}`));
+    }
+  });
+
+  app.post<{ Body: unknown }>("/api/provider-session-action", async (req, reply) => {
+    const parsed = providerSessionActionSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send(envelope(null, parsed.error.message));
+    }
+    try {
+      const result = await runProviderSessionAction(
+        parsed.data.provider,
+        parsed.data.action,
+        parsed.data.file_paths,
+        parsed.data.dry_run,
+        parsed.data.confirm_token,
+      );
+      const status = result.ok ? 200 : 400;
+      return reply.code(status).send(withSchemaVersion(result));
+    } catch (error) {
+      return reply.code(500).send(envelope(null, `provider-session-action-error: ${String(error)}`));
     }
   });
 
@@ -1641,10 +1798,7 @@ export async function createServer(): Promise<FastifyInstance> {
     try {
       const providerRaw = Array.isArray(req.query.provider) ? req.query.provider[0] : req.query.provider;
       const limitRaw = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
-      const provider =
-        providerRaw === "codex" || providerRaw === "claude" || providerRaw === "gemini" || providerRaw === "copilot"
-          ? providerRaw
-          : undefined;
+      const provider = parseProviderId(providerRaw);
       if (providerRaw && !provider) {
         return reply.code(400).send(envelope(null, "invalid provider"));
       }
@@ -1660,10 +1814,7 @@ export async function createServer(): Promise<FastifyInstance> {
     try {
       const providerRaw = Array.isArray(req.query.provider) ? req.query.provider[0] : req.query.provider;
       const limitRaw = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
-      const provider =
-        providerRaw === "codex" || providerRaw === "claude" || providerRaw === "gemini" || providerRaw === "copilot"
-          ? providerRaw
-          : undefined;
+      const provider = parseProviderId(providerRaw);
       if (providerRaw && !provider) {
         return reply.code(400).send(envelope(null, "invalid provider"));
       }
