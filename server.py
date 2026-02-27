@@ -393,23 +393,23 @@ def collect_overview(include_threads=True):
             title = state_title
             title_source = "global-state"
         elif meta.get("first_user_text"):
-            title = f"{meta.get('first_user_text')} (세션로그 복원)"
+            title = clean_title_text(meta.get("first_user_text"), 90)
             title_source = "session-log"
         elif history_title:
-            title = f"{history_title} (history 복원)"
+            title = clean_title_text(history_title, 90)
             title_source = "history-log"
         elif tid in manual_map:
-            title = manual_map[tid]
+            title = clean_title_text(manual_map[tid], 90)
             title_source = "manual-map"
         elif tid in all_local_thread_ids:
             buckets = sorted(list(project_refs.get(tid, set())))
             bucket_hint = buckets[0] if buckets else "unlinked"
             when = inferred_time[:19].replace("T", " ") if inferred_time else "time-unknown"
-            title = f"[추정] local-cache thread ({bucket_hint}, {when})"
+            title = f"local-cache thread ({bucket_hint}, {when})"
             title_source = "local-cache-inferred"
         else:
             when = inferred_time[:19].replace("T", " ") if inferred_time else "time-unknown"
-            title = f"[복구매핑] meta-only {tid[:8]} ({when})"
+            title = f"meta-recovered thread {tid[:8]} ({when})"
             title_source = "meta-fallback"
 
         threads.append(

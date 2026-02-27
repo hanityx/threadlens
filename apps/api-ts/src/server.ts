@@ -392,7 +392,7 @@ async function getCachedThreadsRefresh(query: QueryMap, key: string): Promise<{ 
   const inflight = threadsInflight.get(key);
   if (inflight) return inflight;
 
-  const task = requestPythonJson("/api/threads", "GET", { query, timeoutMs: 12000 })
+  const task = requestPythonJson("/api/threads", "GET", { query, timeoutMs: 30000 })
     .then((result) => {
       threadsCache.set(key, {
         expires_at: Date.now() + THREADS_CACHE_TTL_MS,
@@ -1092,12 +1092,15 @@ type ProviderSessionProbe = {
   ok: boolean;
   format: "jsonl" | "json" | "unknown";
   error: string | null;
+  detected_title: string;
+  title_source: string | null;
 };
 
 type ProviderSessionRow = {
   provider: ProviderId;
   source: string;
   session_id: string;
+  display_title: string;
   file_path: string;
   size_bytes: number;
   mtime: string;
@@ -1119,6 +1122,11 @@ type ProviderRootSpec = {
   exts: string[];
 };
 
+type CodexTitleMapCacheEntry = {
+  expires_at: number;
+  map: Map<string, string>;
+};
+
 type ProviderScanCacheEntry = {
   expires_at: number;
   scan: ProviderSessionScan;
@@ -1127,6 +1135,7 @@ type ProviderScanCacheEntry = {
 const PROVIDER_SCAN_CACHE_TTL_MS = 60_000;
 const providerScanCache = new Map<string, ProviderScanCacheEntry>();
 const providerScanInflight = new Map<string, Promise<ProviderSessionScan>>();
+let codexTitleMapCache: CodexTitleMapCacheEntry | null = null;
 
 function providerScanCacheKey(provider: ProviderId, limit: number): string {
   return `${provider}:${limit}`;
@@ -1151,6 +1160,194 @@ function inferSessionId(filePath: string): string {
   const ext = path.extname(base);
   if (!ext) return base;
   return base.slice(0, -ext.length);
+}
+
+function extractUuidFromText(text: string): string {
+  const m = String(text || "").match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+  return m ? m[0] : "";
+}
+
+function extractCodexThreadIdFromSessionName(name: string): string {
+  return extractUuidFromText(name);
+}
+
+async function getCodexThreadTitleMap(): Promise<Map<string, string>> {
+  const now = Date.now();
+  if (codexTitleMapCache && codexTitleMapCache.expires_at > now) {
+    return codexTitleMapCache.map;
+  }
+  const titleMap = new Map<string, string>();
+  try {
+    const raw = await readFile(path.join(CODEX_HOME, ".codex-global-state.json"), "utf-8");
+    const parsed = safeJsonParse(raw);
+    const blob = isRecord(parsed) && isRecord(parsed["thread-titles"]) ? (parsed["thread-titles"] as Record<string, unknown>) : null;
+    const titles = blob && isRecord(blob.titles) ? (blob.titles as Record<string, unknown>) : null;
+    if (titles) {
+      for (const [id, title] of Object.entries(titles)) {
+        const tid = extractUuidFromText(id);
+        const txt = normalizeDetectedTitle(String(title ?? ""));
+        if (tid && txt) titleMap.set(tid, txt);
+      }
+    }
+  } catch {
+    // no-op
+  }
+  codexTitleMapCache = {
+    expires_at: now + 60_000,
+    map: titleMap,
+  };
+  return titleMap;
+}
+
+function normalizeDetectedTitle(text: string, maxLen = 96): string {
+  const cleaned = String(text || "")
+    .replace(/\s+/g, " ")
+    .replace(/[\u0000-\u001f]/g, " ")
+    .trim();
+  if (!cleaned) return "";
+  if (cleaned.length <= maxLen) return cleaned;
+  return `${cleaned.slice(0, maxLen - 1).trim()}…`;
+}
+
+function isBoilerplateTitle(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  if (!t) return true;
+  if (t === "input_text" || t === "output_text" || t === "default") return true;
+  if (t.includes("<instructions>")) return true;
+  if (t.includes("<environment_context>")) return true;
+  if (t.includes("<cwd>") && t.includes("<shell>")) return true;
+  if (t.startsWith("# agents.md instructions")) return true;
+  if (t.includes("## skills a skill is a set")) return true;
+  if (t.includes("you are codex, a coding agent")) return true;
+  return false;
+}
+
+function looksLikeIdOnly(text: string): boolean {
+  const t = text.trim();
+  if (!t) return true;
+  if (/^[0-9a-f]{8,}$/i.test(t)) return true;
+  if (/^[0-9a-f-]{16,}$/i.test(t)) return true;
+  return false;
+}
+
+function looksLikeTimestampOnly(text: string): boolean {
+  const t = text.trim();
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?Z?$/.test(t);
+}
+
+function pickTextCandidate(value: unknown, depth = 0): string {
+  if (depth > 3 || value === null || value === undefined) return "";
+  if (typeof value === "string") {
+    const t = normalizeDetectedTitle(value);
+    if (t.length < 4 || looksLikeIdOnly(t) || looksLikeTimestampOnly(t) || isBoilerplateTitle(t)) return "";
+    return t;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value.slice(0, 6)) {
+      const hit = pickTextCandidate(item, depth + 1);
+      if (hit) return hit;
+    }
+    return "";
+  }
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const priorityKeys = [
+      "title",
+      "summary",
+      "prompt",
+      "input",
+      "text",
+      "content",
+      "message",
+      "body",
+      "query",
+      "question",
+    ];
+    for (const key of priorityKeys) {
+      if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+      const hit = pickTextCandidate(obj[key], depth + 1);
+      if (hit) return hit;
+    }
+    const fallbackEntries = Object.entries(obj).filter(([key]) => {
+      const k = key.toLowerCase();
+      return k !== "type" && k !== "role" && k !== "timestamp";
+    });
+    for (const [, item] of fallbackEntries.slice(0, 8)) {
+      const hit = pickTextCandidate(item, depth + 1);
+      if (hit) return hit;
+    }
+  }
+  return "";
+}
+
+function detectSessionTitleFromHead(
+  head: string,
+  format: "jsonl" | "json" | "unknown",
+): { title: string; source: string | null } {
+  const trimmed = head.trim();
+  if (!trimmed) return { title: "", source: null };
+
+  if (format === "jsonl") {
+    const lines = trimmed
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(0, 40);
+    for (const line of lines) {
+      try {
+        const obj = JSON.parse(line);
+        if (obj && typeof obj === "object" && (obj as Record<string, unknown>).type === "session_meta") {
+          continue;
+        }
+        if (obj && typeof obj === "object" && (obj as Record<string, unknown>).type === "response_item") {
+          const payload = (obj as Record<string, unknown>).payload;
+          if (payload && typeof payload === "object") {
+            const payloadObj = payload as Record<string, unknown>;
+            if (payloadObj.type === "message") {
+              const role = String(payloadObj.role ?? "").toLowerCase();
+              if (role === "user") {
+                const hit = pickTextCandidate(payloadObj.content);
+                if (hit && !isBoilerplateTitle(hit)) return { title: hit, source: "jsonl-response-item-user" };
+              }
+              if (role === "developer" || role === "system") {
+                continue;
+              }
+            }
+          }
+        }
+        if (obj && typeof obj === "object" && (obj as Record<string, unknown>).type === "response_item") {
+          const payload = (obj as Record<string, unknown>).payload;
+          if (payload && typeof payload === "object") {
+            const payloadObj = payload as Record<string, unknown>;
+            if (payloadObj.type === "message" && payloadObj.role === "user") {
+              const hit = pickTextCandidate(payloadObj.content);
+              if (hit && !isBoilerplateTitle(hit)) return { title: hit, source: "jsonl-user-message" };
+            }
+          }
+        }
+        const hit = pickTextCandidate(obj);
+        if (hit && !isBoilerplateTitle(hit)) return { title: hit, source: "jsonl-content" };
+      } catch {
+        // no-op
+      }
+    }
+    const fallbackLine = normalizeDetectedTitle(lines.find((line) => !line.startsWith("{")) ?? "");
+    return { title: fallbackLine, source: fallbackLine ? "jsonl-line" : null };
+  }
+
+  if (format === "json") {
+    try {
+      const obj = JSON.parse(trimmed);
+      const hit = pickTextCandidate(obj);
+      if (hit) return { title: hit, source: "json-content" };
+    } catch {
+      const m = trimmed.match(/"title"\s*:\s*"([^"]+)"/i);
+      const hit = normalizeDetectedTitle(m?.[1] ?? "");
+      if (hit) return { title: hit, source: "json-title-field" };
+    }
+  }
+
+  return { title: "", source: null };
 }
 
 async function readFileHead(filePath: string, maxBytes = 8192): Promise<string> {
@@ -1196,11 +1393,31 @@ async function walkFilesByExt(root: string, exts: string[], maxItems = 1000): Pr
 async function probeSessionFile(filePath: string): Promise<ProviderSessionProbe> {
   const format = inferFormat(filePath);
   if (format === "unknown") {
-    return { ok: false, format, error: "unsupported extension" };
+    return {
+      ok: false,
+      format,
+      error: "unsupported extension",
+      detected_title: "",
+      title_source: null,
+    };
   }
-  const head = await readFileHead(filePath, 12288);
+  let head = await readFileHead(filePath, format === "jsonl" ? 12288 : 12288);
+  if (format === "jsonl") {
+    const lineCount = head.split("\n").length;
+    const likelyTruncatedSingleLine = head.length >= 12000 && lineCount <= 2;
+    if (likelyTruncatedSingleLine) {
+      head = await readFileHead(filePath, 524288);
+    }
+  }
+  const detected = detectSessionTitleFromHead(head, format);
   if (!head.trim()) {
-    return { ok: false, format, error: "empty file" };
+    return {
+      ok: false,
+      format,
+      error: "empty file",
+      detected_title: detected.title,
+      title_source: detected.source,
+    };
   }
 
   if (format === "jsonl") {
@@ -1209,21 +1426,51 @@ async function probeSessionFile(filePath: string): Promise<ProviderSessionProbe>
       .map((line) => line.trim())
       .find(Boolean);
     if (!first) {
-      return { ok: false, format, error: "no json line found" };
+      return {
+        ok: false,
+        format,
+        error: "no json line found",
+        detected_title: detected.title,
+        title_source: detected.source,
+      };
     }
     try {
       JSON.parse(first);
-      return { ok: true, format, error: null };
+      return {
+        ok: true,
+        format,
+        error: null,
+        detected_title: detected.title,
+        title_source: detected.source,
+      };
     } catch (error) {
-      return { ok: false, format, error: `invalid json line: ${String(error)}` };
+      return {
+        ok: false,
+        format,
+        error: `invalid json line: ${String(error)}`,
+        detected_title: detected.title,
+        title_source: detected.source,
+      };
     }
   }
 
   const prefix = head.trimStart();
   if (!(prefix.startsWith("{") || prefix.startsWith("["))) {
-    return { ok: false, format, error: "json prefix not found" };
+    return {
+      ok: false,
+      format,
+      error: "json prefix not found",
+      detected_title: detected.title,
+      title_source: detected.source,
+    };
   }
-  return { ok: true, format, error: null };
+  return {
+    ok: true,
+    format,
+    error: null,
+    detected_title: detected.title,
+    title_source: detected.source,
+  };
 }
 
 function providerRootSpecs(provider: ProviderId): ProviderRootSpec[] {
@@ -1390,16 +1637,27 @@ async function scanProviderSessions(provider: ProviderId, limit = 80): Promise<P
 
   candidates.sort((a, b) => b.mtime_ms - a.mtime_ms);
   const selected = candidates.slice(0, safeLimit);
+  const codexTitleMap = provider === "codex" ? await getCodexThreadTitleMap() : null;
   const rows: ProviderSessionRow[] = await Promise.all(
-    selected.map(async (candidate) => ({
-      provider,
-      source: candidate.source,
-      session_id: inferSessionId(candidate.file_path),
-      file_path: candidate.file_path,
-      size_bytes: candidate.size_bytes,
-      mtime: candidate.mtime,
-      probe: await probeSessionFile(candidate.file_path),
-    })),
+    selected.map(async (candidate) => {
+      const rawSessionId = inferSessionId(candidate.file_path);
+      const codexThreadId = provider === "codex" ? extractCodexThreadIdFromSessionName(rawSessionId) : "";
+      const sessionId = codexThreadId || rawSessionId;
+      const probe = await probeSessionFile(candidate.file_path);
+      return {
+        provider,
+        source: candidate.source,
+        session_id: sessionId,
+        display_title:
+          (codexTitleMap && codexThreadId ? codexTitleMap.get(codexThreadId) : "") ||
+          probe.detected_title ||
+          sessionId,
+        file_path: candidate.file_path,
+        size_bytes: candidate.size_bytes,
+        mtime: candidate.mtime,
+        probe,
+      };
+    }),
   );
 
   return {

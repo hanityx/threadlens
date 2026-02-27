@@ -11,12 +11,19 @@ type RuntimeEnvelope = ApiEnvelope<{
 }>;
 
 type ThreadRow = {
+  id?: string;
   thread_id: string;
   title: string;
+  title_source?: string;
   risk_score: number;
   is_pinned: boolean;
   source: string;
   project_bucket?: string;
+  cwd?: string;
+  timestamp?: string;
+  activity_status?: string;
+  risk_level?: string;
+  risk_tags?: string[];
 };
 
 type ThreadsResponse = {
@@ -63,6 +70,7 @@ type ProviderSessionRow = {
   provider: string;
   source: string;
   session_id: string;
+  display_title: string;
   file_path: string;
   size_bytes: number;
   mtime: string;
@@ -70,6 +78,8 @@ type ProviderSessionRow = {
     ok: boolean;
     format: "jsonl" | "json" | "unknown";
     error: string | null;
+    detected_title: string;
+    title_source: string | null;
   };
 };
 
@@ -147,6 +157,26 @@ type AnalyzeDeleteData = {
   reports?: AnalyzeDeleteReport[];
 };
 
+type ThreadForensicsEnvelope = {
+  count?: number;
+  reports?: Array<{
+    id: string;
+    title?: string;
+    title_source?: string;
+    cwd?: string;
+    summary?: string;
+    artifact_count?: number;
+    artifact_count_by_kind?: Record<string, number>;
+    artifact_paths_preview?: string[];
+    impact?: {
+      risk_level?: string;
+      risk_score?: number;
+      parents?: string[];
+      summary?: string;
+    };
+  }>;
+};
+
 type CleanupPreviewData = {
   ok?: boolean;
   mode?: string;
@@ -187,16 +217,39 @@ function parseNum(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function normalizeThreadRow(input: Record<string, unknown>): ThreadRow {
+  const threadId = String(input.thread_id ?? input.id ?? "");
+  return {
+    id: String(input.id ?? threadId),
+    thread_id: threadId,
+    title: String(input.title ?? ""),
+    title_source: input.title_source ? String(input.title_source) : undefined,
+    risk_score: parseNum(input.risk_score),
+    is_pinned: Boolean(input.is_pinned ?? input.pinned),
+    source: String(input.source ?? input.session_source ?? ""),
+    project_bucket: input.project_bucket ? String(input.project_bucket) : undefined,
+    cwd: input.cwd ? String(input.cwd) : undefined,
+    timestamp: input.timestamp ? String(input.timestamp) : undefined,
+    activity_status: input.activity_status ? String(input.activity_status) : undefined,
+    risk_level: input.risk_level ? String(input.risk_level) : undefined,
+    risk_tags: Array.isArray(input.risk_tags) ? input.risk_tags.map((x) => String(x)) : undefined,
+  };
+}
+
 export function App() {
   const [query, setQuery] = useState("");
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
   const [providerView, setProviderView] = useState<ProviderView>("all");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [selectedProviderFiles, setSelectedProviderFiles] = useState<Record<string, boolean>>({});
+  const [selectedThreadId, setSelectedThreadId] = useState<string>("");
+  const [selectedSessionPath, setSelectedSessionPath] = useState<string>("");
   const [renderLimit, setRenderLimit] = useState(INITIAL_CHUNK);
   const [analysisRaw, setAnalysisRaw] = useState<unknown>(null);
   const [cleanupRaw, setCleanupRaw] = useState<unknown>(null);
   const [providerActionRaw, setProviderActionRaw] = useState<unknown>(null);
+  const [threadDetailRaw, setThreadDetailRaw] = useState<unknown>(null);
+  const [threadDetailLoading, setThreadDetailLoading] = useState(false);
   const queryClient = useQueryClient();
   const deferredQuery = useDeferredValue(query);
 
@@ -331,7 +384,10 @@ export function App() {
     },
   });
 
-  const rows = threads.data?.rows ?? [];
+  const rows = useMemo(
+    () => ((threads.data?.rows ?? []) as Array<Record<string, unknown>>).map((row) => normalizeThreadRow(row)),
+    [threads.data?.rows],
+  );
   const filteredRows = useMemo(() => {
     const q = deferredQuery.trim().toLowerCase();
     return rows.filter((row) => {
@@ -473,6 +529,38 @@ export function App() {
   const providerSessionsLoading = providerSessions.isLoading && allProviderSessionRows.length === 0;
   const parserLoading = providerParserHealth.isLoading && allParserReports.length === 0;
   const threadsLoading = threads.isLoading && rows.length === 0;
+  const selectedThread = useMemo(
+    () => rows.find((row) => row.thread_id === selectedThreadId) ?? null,
+    [rows, selectedThreadId],
+  );
+  const selectedSession = useMemo(
+    () => providerSessionRows.find((row) => row.file_path === selectedSessionPath) ?? null,
+    [providerSessionRows, selectedSessionPath],
+  );
+  const threadDetailData = extractEnvelopeData<ThreadForensicsEnvelope>(threadDetailRaw);
+  const selectedThreadDetail = threadDetailData?.reports?.[0] ?? null;
+
+  useEffect(() => {
+    if (!selectedThreadId) {
+      setThreadDetailRaw(null);
+      return;
+    }
+    let cancelled = false;
+    setThreadDetailLoading(true);
+    apiPost<unknown>("/api/thread-forensics", { ids: [selectedThreadId] })
+      .then((data) => {
+        if (!cancelled) setThreadDetailRaw(data);
+      })
+      .catch(() => {
+        if (!cancelled) setThreadDetailRaw(null);
+      })
+      .finally(() => {
+        if (!cancelled) setThreadDetailLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedThreadId]);
 
   const busy =
     bulkPin.isPending ||
@@ -704,7 +792,11 @@ export function App() {
               </thead>
               <tbody>
                 {providerSessionRows.slice(0, 120).map((row) => (
-                  <tr key={`${row.provider}-${row.session_id}-${row.file_path}`}>
+                  <tr
+                    key={`${row.provider}-${row.session_id}-${row.file_path}`}
+                    className={selectedSessionPath === row.file_path ? "active-row" : undefined}
+                    onClick={() => setSelectedSessionPath(row.file_path)}
+                  >
                     <td>
                       <input
                         type="checkbox"
@@ -715,7 +807,10 @@ export function App() {
                       />
                     </td>
                     <td>{row.provider}</td>
-                    <td className="title-col">{row.session_id}</td>
+                    <td className="title-col">
+                      <div>{row.display_title || row.probe.detected_title || row.session_id}</div>
+                      <div className="mono-sub">{row.session_id}</div>
+                    </td>
                     <td>{row.source}</td>
                     <td>{row.probe.format}</td>
                     <td>{row.probe.ok ? "ok" : "fail"}</td>
@@ -873,7 +968,11 @@ export function App() {
                   const checked = Boolean(selected[row.thread_id]);
                   const isHighRisk = Number(row.risk_score ?? 0) >= 70;
                   return (
-                    <tr key={row.thread_id} className={isHighRisk ? "risk-row" : undefined}>
+                    <tr
+                      key={row.thread_id}
+                      className={`${isHighRisk ? "risk-row" : ""} ${selectedThreadId === row.thread_id ? "active-row" : ""}`.trim()}
+                      onClick={() => setSelectedThreadId(row.thread_id)}
+                    >
                       <td>
                         <input
                           type="checkbox"
@@ -881,7 +980,10 @@ export function App() {
                           onChange={(e) => setSelected((prev) => ({ ...prev, [row.thread_id]: e.target.checked }))}
                         />
                       </td>
-                      <td className="title-col">{row.title || row.thread_id}</td>
+                      <td className="title-col">
+                        <div>{row.title || row.thread_id}</div>
+                        <div className="mono-sub">{row.thread_id}</div>
+                      </td>
                       <td>{row.risk_score ?? 0}</td>
                       <td>{row.is_pinned ? "Y" : "N"}</td>
                       <td>{row.source || row.project_bucket || "-"}</td>
@@ -954,6 +1056,103 @@ export function App() {
             {(analyzeDelete.isError || cleanupDryRun.isError) ? (
               <div className="error-box">analysis/dry-run 요청 실패</div>
             ) : null}
+          </div>
+        </section>
+      </section>
+
+      <section className="detail-layout">
+        <section className="panel">
+          <header>
+            <h2>Thread Detail</h2>
+            <span>{selectedThreadId ? "selected" : "none"}</span>
+          </header>
+          <div className="impact-body">
+            {!selectedThread ? (
+              <p className="sub-hint">스레드를 클릭하면 상세정보가 표시됩니다.</p>
+            ) : (
+              <>
+                <div className="impact-kv">
+                  <span>제목</span>
+                  <strong>{selectedThread.title || "-"}</strong>
+                </div>
+                <div className="impact-kv">
+                  <span>ID</span>
+                  <strong className="mono-sub">{selectedThread.thread_id}</strong>
+                </div>
+                <div className="impact-kv">
+                  <span>Source</span>
+                  <strong>{selectedThread.source || selectedThread.project_bucket || "-"}</strong>
+                </div>
+                <div className="impact-kv">
+                  <span>Risk</span>
+                  <strong>
+                    {selectedThread.risk_score ?? 0}
+                    {selectedThread.risk_level ? ` (${selectedThread.risk_level})` : ""}
+                  </strong>
+                </div>
+                {selectedThread.cwd ? (
+                  <div className="impact-kv">
+                    <span>CWD</span>
+                    <strong className="mono-sub">{selectedThread.cwd}</strong>
+                  </div>
+                ) : null}
+                {threadDetailLoading ? <div className="skeleton-line" /> : null}
+                {selectedThreadDetail?.summary ? (
+                  <p className="sub-hint">{selectedThreadDetail.summary}</p>
+                ) : null}
+                {selectedThreadDetail?.artifact_count ? (
+                  <div className="impact-kv">
+                    <span>Artifacts</span>
+                    <strong>{selectedThreadDetail.artifact_count}</strong>
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
+        </section>
+
+        <section className="panel">
+          <header>
+            <h2>Session Detail</h2>
+            <span>{selectedSession ? selectedSession.provider : "none"}</span>
+          </header>
+          <div className="impact-body">
+            {!selectedSession ? (
+              <p className="sub-hint">세션 행을 클릭하면 제목/ID/경로가 표시됩니다.</p>
+            ) : (
+              <>
+                <div className="impact-kv">
+                  <span>제목</span>
+                  <strong>{selectedSession.display_title || selectedSession.probe.detected_title || "-"}</strong>
+                </div>
+                <div className="impact-kv">
+                  <span>Title Source</span>
+                  <strong>{selectedSession.probe.title_source ?? "-"}</strong>
+                </div>
+                <div className="impact-kv">
+                  <span>Session ID</span>
+                  <strong className="mono-sub">{selectedSession.session_id}</strong>
+                </div>
+                <div className="impact-kv">
+                  <span>Provider</span>
+                  <strong>{selectedSession.provider}</strong>
+                </div>
+                <div className="impact-kv">
+                  <span>Source</span>
+                  <strong>{selectedSession.source}</strong>
+                </div>
+                <div className="impact-kv">
+                  <span>Format/Probe</span>
+                  <strong>
+                    {selectedSession.probe.format} / {selectedSession.probe.ok ? "ok" : "fail"}
+                  </strong>
+                </div>
+                <div className="impact-kv">
+                  <span>Path</span>
+                  <strong className="mono-sub">{selectedSession.file_path}</strong>
+                </div>
+              </>
+            )}
           </div>
         </section>
       </section>

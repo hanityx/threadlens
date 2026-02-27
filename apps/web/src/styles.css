@@ -233,6 +233,12 @@ button:disabled {
   gap: 14px;
 }
 
+.detail-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
 .panel header {
   display: flex;
   justify-content: space-between;
@@ -336,6 +342,17 @@ th {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.mono-sub {
+  font-family: "JetBrains Mono", "Menlo", "Monaco", monospace;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.active-row {
+  outline: 1px solid rgba(86, 208, 188, 0.55);
+  background: rgba(86, 208, 188, 0.08);
 }
 
 .notes-col {
@@ -461,6 +478,10 @@ pre {
   }
 
   .provider-ops-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-layout {
     grid-template-columns: 1fr;
   }
 
