@@ -206,6 +206,7 @@ type TranscriptPayload = {
 
 type FilterMode = "all" | "high-risk" | "pinned";
 type ProviderView = "all" | "codex" | "claude" | "gemini" | "copilot";
+type LayoutView = "overview" | "threads" | "providers" | "forensics";
 
 const PAGE_SIZE = 160;
 const INITIAL_CHUNK = 80;
@@ -255,6 +256,12 @@ function normalizeThreadRow(input: Record<string, unknown>): ThreadRow {
 }
 
 export function App() {
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    if (typeof window === "undefined") return "dark";
+    const saved = window.localStorage.getItem("cmc-theme");
+    return saved === "light" ? "light" : "dark";
+  });
+  const [layoutView, setLayoutView] = useState<LayoutView>("threads");
   const [query, setQuery] = useState("");
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
   const [providerView, setProviderView] = useState<ProviderView>("all");
@@ -276,6 +283,11 @@ export function App() {
   const [sessionTranscriptLimit, setSessionTranscriptLimit] = useState(250);
   const queryClient = useQueryClient();
   const deferredQuery = useDeferredValue(query);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    window.localStorage.setItem("cmc-theme", theme);
+  }, [theme]);
 
   const runtime = useQuery({
     queryKey: ["runtime"],
@@ -644,6 +656,10 @@ export function App() {
     analyzeDelete.isPending ||
     cleanupDryRun.isPending ||
     providerSessionAction.isPending;
+  const showProviders = layoutView === "overview" || layoutView === "providers";
+  const showThreadsTable = layoutView === "overview" || layoutView === "threads";
+  const showForensics = layoutView === "overview" || layoutView === "forensics";
+  const showDetails = layoutView !== "providers";
 
   const toggleSelectAllFiltered = (checked: boolean) => {
     if (checked) {
@@ -699,7 +715,66 @@ export function App() {
   };
 
   return (
-    <main className="page">
+    <main className="shell">
+      <aside className="side-panel">
+        <div className="side-brand">
+          <h2>Mission Control V3</h2>
+          <p>Thread, Provider, Forensics를 분리해 한눈에 관리</p>
+        </div>
+        <section className="side-nav">
+          <button
+            type="button"
+            className={`view-btn ${layoutView === "threads" ? "is-active" : ""}`}
+            onClick={() => setLayoutView("threads")}
+          >
+            Threads
+          </button>
+          <button
+            type="button"
+            className={`view-btn ${layoutView === "providers" ? "is-active" : ""}`}
+            onClick={() => setLayoutView("providers")}
+          >
+            Providers
+          </button>
+          <button
+            type="button"
+            className={`view-btn ${layoutView === "forensics" ? "is-active" : ""}`}
+            onClick={() => setLayoutView("forensics")}
+          >
+            Forensics
+          </button>
+          <button
+            type="button"
+            className={`view-btn ${layoutView === "overview" ? "is-active" : ""}`}
+            onClick={() => setLayoutView("overview")}
+          >
+            Overview
+          </button>
+        </section>
+        <section className="side-meta">
+          <div className="side-meta-row">
+            <span>Threads</span>
+            <strong>{rows.length}</strong>
+          </div>
+          <div className="side-meta-row">
+            <span>Providers</span>
+            <strong>{providers.length}</strong>
+          </div>
+          <div className="side-meta-row">
+            <span>High Risk</span>
+            <strong>{highRiskCount}</strong>
+          </div>
+          <button
+            type="button"
+            className="btn-outline"
+            onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+          >
+            {theme === "dark" ? "Switch To Light" : "Switch To Dark"}
+          </button>
+        </section>
+      </aside>
+
+      <section className="page">
       <section className="hero">
         <div className="hero-top">
           <h1>Mission Control</h1>
@@ -739,6 +814,8 @@ export function App() {
         />
       </section>
 
+      {showProviders ? (
+      <>
       <section className="panel provider-panel">
         <header>
           <h2>Multi AI Provider Matrix</h2>
@@ -998,7 +1075,10 @@ export function App() {
           </div>
         </section>
       </section>
+      </>
+      ) : null}
 
+      {showThreadsTable ? (
       <section className="toolbar">
         <input
           placeholder="스레드 검색"
@@ -1017,8 +1097,11 @@ export function App() {
         </select>
         <span className="sub-hint">선택 액션은 상세 패널 또는 Threads 내부 Bulk Actions에서 실행</span>
       </section>
+      ) : null}
 
-      <section className="ops-layout">
+      {(showThreadsTable || showForensics) ? (
+      <section className={`ops-layout ${showForensics ? "" : "single"}`.trim()}>
+        {showThreadsTable ? (
         <section className="panel">
           <header>
             <h2>Threads</h2>
@@ -1111,7 +1194,9 @@ export function App() {
           </div>
           {threads.isError ? <div className="error-box">threads load error</div> : null}
         </section>
+        ) : null}
 
+        {showForensics ? (
         <section className="panel impact-panel">
           <header>
             <h2>삭제 영향 / 정리 안전성</h2>
@@ -1165,8 +1250,11 @@ export function App() {
             ) : null}
           </div>
         </section>
+        ) : null}
       </section>
+      ) : null}
 
+      {showDetails ? (
       <section className="detail-layout">
         <section className="panel">
           <header>
@@ -1431,6 +1519,7 @@ export function App() {
           </div>
         </section>
       </section>
+      ) : null}
 
       {runtime.isError ? <div className="error-box">runtime 연결 실패</div> : null}
       {recovery.isError ? <div className="error-box">recovery 데이터 로드 실패</div> : null}
@@ -1443,6 +1532,7 @@ export function App() {
           batch action running...
         </div>
       ) : null}
+      </section>
     </main>
   );
 }
