@@ -28,6 +28,28 @@ const CODEX_HOME = process.env.CODEX_HOME ?? path.join(process.env.HOME ?? "", "
 const BACKUP_ROOT = path.join(CODEX_HOME, "local_cleanup_backups");
 const HOME_DIR = process.env.HOME ?? "";
 const CHAT_DIR = path.join(HOME_DIR, "Library", "Application Support", "com.openai.chat");
+const CLAUDE_HOME = path.join(HOME_DIR, ".claude");
+const CLAUDE_PROJECTS_DIR = path.join(CLAUDE_HOME, "projects");
+const GEMINI_HOME = path.join(HOME_DIR, ".gemini");
+const GEMINI_TMP_DIR = path.join(GEMINI_HOME, "tmp");
+const COPILOT_VSCODE_GLOBAL = path.join(
+  HOME_DIR,
+  "Library",
+  "Application Support",
+  "Code",
+  "User",
+  "globalStorage",
+  "github.copilot-chat",
+);
+const COPILOT_CURSOR_GLOBAL = path.join(
+  HOME_DIR,
+  "Library",
+  "Application Support",
+  "Cursor",
+  "User",
+  "globalStorage",
+  "github.copilot-chat",
+);
 
 const directApiPaths = new Set([
   "/api/healthz",
@@ -48,6 +70,7 @@ const directApiPaths = new Set([
   "/api/compare-apps",
   "/api/runtime-health",
   "/api/data-sources",
+  "/api/provider-matrix",
   "/api/agent-loops",
   "/api/agent-loops/action",
   "/api/alert-hooks",
@@ -726,6 +749,12 @@ async function getDataSourceInventoryTs() {
 
   const codexRoot = await scanPathStatsTs(CODEX_HOME, true, "*");
   const chatRoot = await scanPathStatsTs(CHAT_DIR, true, "*");
+  const claudeRoot = await scanPathStatsTs(CLAUDE_HOME, false, "*");
+  const claudeProjects = await scanPathStatsTs(CLAUDE_PROJECTS_DIR, false, "*.jsonl");
+  const geminiRoot = await scanPathStatsTs(GEMINI_HOME, false, "*");
+  const geminiTmp = await scanPathStatsTs(GEMINI_TMP_DIR, false, "*.jsonl");
+  const copilotVsCode = await scanPathStatsTs(COPILOT_VSCODE_GLOBAL, false, "*");
+  const copilotCursor = await scanPathStatsTs(COPILOT_CURSOR_GLOBAL, false, "*");
   const sessions = await scanPathStatsTs(path.join(CODEX_HOME, "sessions"), true, "*.jsonl");
   const archivedSessions = await scanPathStatsTs(path.join(CODEX_HOME, "archived_sessions"), true, "*.jsonl");
   const history = await scanPathStatsTs(historyPath, false, "*");
@@ -736,6 +765,12 @@ async function getDataSourceInventoryTs() {
     sources: {
       codex_root: codexRoot,
       chat_root: chatRoot,
+      claude_root: claudeRoot,
+      claude_projects: claudeProjects,
+      gemini_root: geminiRoot,
+      gemini_tmp: geminiTmp,
+      copilot_vscode: copilotVsCode,
+      copilot_cursor: copilotCursor,
       sessions,
       archived_sessions: archivedSessions,
       history: {
@@ -750,6 +785,131 @@ async function getDataSourceInventoryTs() {
         size_bytes: globalState.total_bytes,
         mtime: globalState.latest_mtime,
       },
+    },
+  };
+}
+
+type ProviderId = "codex" | "claude" | "gemini" | "copilot";
+type ProviderStatus = "active" | "detected" | "missing";
+
+function providerStatus(rootExists: boolean, sessionLogs: number): ProviderStatus {
+  if (sessionLogs > 0) return "active";
+  if (rootExists) return "detected";
+  return "missing";
+}
+
+function capabilityLevel(status: ProviderStatus, safeCleanup: boolean): "full" | "read-only" | "unavailable" {
+  if (safeCleanup) return "full";
+  if (status !== "missing") return "read-only";
+  return "unavailable";
+}
+
+async function getProviderMatrixTs() {
+  const codexRootExists = await pathExists(CODEX_HOME);
+  const claudeRootExists = await pathExists(CLAUDE_HOME);
+  const geminiRootExists = await pathExists(GEMINI_HOME);
+  const copilotVsCodeExists = await pathExists(COPILOT_VSCODE_GLOBAL);
+  const copilotCursorExists = await pathExists(COPILOT_CURSOR_GLOBAL);
+
+  const codexSessionLogs =
+    (await countJsonlFilesRecursive(path.join(CODEX_HOME, "sessions"))) +
+    (await countJsonlFilesRecursive(path.join(CODEX_HOME, "archived_sessions")));
+  const claudeSessionLogs = await countJsonlFilesRecursive(CLAUDE_PROJECTS_DIR);
+  const geminiSessionLogs = await countJsonlFilesRecursive(GEMINI_TMP_DIR);
+  const copilotSignalFiles =
+    (await quickFileCount(COPILOT_VSCODE_GLOBAL)) + (await quickFileCount(COPILOT_CURSOR_GLOBAL));
+
+  const providers = [
+    {
+      provider: "codex" as ProviderId,
+      name: "Codex",
+      status: providerStatus(codexRootExists, codexSessionLogs),
+      capability_level: capabilityLevel(providerStatus(codexRootExists, codexSessionLogs), true),
+      capabilities: {
+        read_sessions: true,
+        analyze_context: true,
+        safe_cleanup: true,
+        hard_delete: true,
+      },
+      evidence: {
+        roots: [CODEX_HOME, CHAT_DIR],
+        session_log_count: codexSessionLogs,
+        notes: "full safety cleanup and forensics available",
+      },
+    },
+    {
+      provider: "claude" as ProviderId,
+      name: "Claude CLI",
+      status: providerStatus(claudeRootExists, claudeSessionLogs),
+      capability_level: capabilityLevel(providerStatus(claudeRootExists, claudeSessionLogs), false),
+      capabilities: {
+        read_sessions: claudeRootExists,
+        analyze_context: claudeSessionLogs > 0,
+        safe_cleanup: false,
+        hard_delete: false,
+      },
+      evidence: {
+        roots: [CLAUDE_HOME, CLAUDE_PROJECTS_DIR],
+        session_log_count: claudeSessionLogs,
+        notes: "read/analyze phase only (cleanup disabled)",
+      },
+    },
+    {
+      provider: "gemini" as ProviderId,
+      name: "Gemini CLI",
+      status: providerStatus(geminiRootExists, geminiSessionLogs),
+      capability_level: capabilityLevel(providerStatus(geminiRootExists, geminiSessionLogs), false),
+      capabilities: {
+        read_sessions: geminiRootExists,
+        analyze_context: geminiSessionLogs > 0,
+        safe_cleanup: false,
+        hard_delete: false,
+      },
+      evidence: {
+        roots: [GEMINI_HOME, GEMINI_TMP_DIR],
+        session_log_count: geminiSessionLogs,
+        notes: "read/analyze phase only (cleanup disabled)",
+      },
+    },
+    {
+      provider: "copilot" as ProviderId,
+      name: "Copilot Chat",
+      status: providerStatus(copilotVsCodeExists || copilotCursorExists, copilotSignalFiles),
+      capability_level: capabilityLevel(
+        providerStatus(copilotVsCodeExists || copilotCursorExists, copilotSignalFiles),
+        false,
+      ),
+      capabilities: {
+        read_sessions: copilotVsCodeExists || copilotCursorExists,
+        analyze_context: false,
+        safe_cleanup: false,
+        hard_delete: false,
+      },
+      evidence: {
+        roots: [COPILOT_VSCODE_GLOBAL, COPILOT_CURSOR_GLOBAL],
+        session_log_count: copilotSignalFiles,
+        notes: "metadata detection only; transcript parser not enabled yet",
+      },
+    },
+  ];
+
+  const summary = {
+    total: providers.length,
+    active: providers.filter((x) => x.status === "active").length,
+    detected: providers.filter((x) => x.status !== "missing").length,
+    read_analyze_ready: providers.filter((x) => x.capabilities.read_sessions && x.capabilities.analyze_context).length,
+    safe_cleanup_ready: providers.filter((x) => x.capabilities.safe_cleanup).length,
+    hard_delete_ready: providers.filter((x) => x.capabilities.hard_delete).length,
+  };
+
+  return {
+    generated_at: nowIsoUtc(),
+    mode: "multi-provider-phase-1",
+    summary,
+    providers,
+    policy: {
+      cleanup_gate: "only providers with safe_cleanup=true can expose cleanup/delete actions",
+      default_non_codex: "read/analyze only",
     },
   };
 }
@@ -1164,6 +1324,15 @@ export async function createServer(): Promise<FastifyInstance> {
       return reply.code(200).send(withSchemaVersion(data));
     } catch (error) {
       return reply.code(500).send(envelope(null, `data-sources-error: ${String(error)}`));
+    }
+  });
+
+  app.get("/api/provider-matrix", async (_req, reply) => {
+    try {
+      const data = await getProviderMatrixTs();
+      return reply.code(200).send(withSchemaVersion(data));
+    } catch (error) {
+      return reply.code(500).send(envelope(null, `provider-matrix-error: ${String(error)}`));
     }
   });
 

@@ -155,6 +155,18 @@ describe("api-ts direct endpoints", () => {
     expect(root.sources.sessions).toBeTruthy();
   });
 
+  it("GET /api/provider-matrix returns provider capability matrix", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/provider-matrix" });
+    expect(res.statusCode).toBe(200);
+    const payload = res.json();
+    const root = payload.data ?? payload;
+    expect(root.summary).toBeTruthy();
+    expect(Array.isArray(root.providers)).toBe(true);
+    const codex = root.providers.find((p: { provider: string }) => p.provider === "codex");
+    expect(codex).toBeTruthy();
+    expect(codex.capabilities.safe_cleanup).toBe(true);
+  });
+
   it("GET /api/agent-loops responds through TS route", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ count: 0, rows: [] }), {

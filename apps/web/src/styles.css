@@ -129,6 +129,15 @@ button:disabled {
   overflow: hidden;
 }
 
+.provider-panel {
+  overflow: hidden;
+}
+
+.provider-table-wrap {
+  max-height: 280px;
+  overflow: auto;
+}
+
 .ops-layout {
   display: grid;
   grid-template-columns: 1.5fr 1fr;
@@ -197,6 +206,34 @@ th {
 
 .risk-row {
   background: rgba(246, 173, 85, 0.09);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 2px 8px;
+  font-size: 0.74rem;
+  text-transform: lowercase;
+}
+
+.status-active {
+  background: rgba(56, 161, 105, 0.2);
+  border-color: rgba(56, 161, 105, 0.45);
+  color: #b8f5d4;
+}
+
+.status-detected {
+  background: rgba(246, 173, 85, 0.17);
+  border-color: rgba(246, 173, 85, 0.45);
+  color: #f9deb8;
+}
+
+.status-missing {
+  background: rgba(113, 128, 150, 0.2);
+  border-color: rgba(113, 128, 150, 0.45);
+  color: #cdd6e6;
 }
 
 .title-col {

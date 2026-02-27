@@ -30,6 +30,35 @@ type RecoveryResponse = {
   generated_at?: string;
 };
 
+type ProviderMatrixProvider = {
+  provider: string;
+  name: string;
+  status: "active" | "detected" | "missing";
+  capability_level: "full" | "read-only" | "unavailable";
+  capabilities: {
+    read_sessions: boolean;
+    analyze_context: boolean;
+    safe_cleanup: boolean;
+    hard_delete: boolean;
+  };
+  evidence?: {
+    session_log_count?: number;
+    notes?: string;
+  };
+};
+
+type ProviderMatrixEnvelope = ApiEnvelope<{
+  summary?: {
+    total: number;
+    active: number;
+    detected: number;
+    read_analyze_ready: number;
+    safe_cleanup_ready: number;
+    hard_delete_ready: number;
+  };
+  providers?: ProviderMatrixProvider[];
+}>;
+
 type AnalyzeDeleteReport = {
   id: string;
   exists: boolean;
@@ -106,6 +135,12 @@ export function App() {
     queryKey: ["recovery"],
     queryFn: () => apiGet<RecoveryResponse>("/api/recovery-center"),
     refetchInterval: 15000,
+  });
+
+  const providerMatrix = useQuery({
+    queryKey: ["provider-matrix"],
+    queryFn: () => apiGet<ProviderMatrixEnvelope>("/api/provider-matrix"),
+    refetchInterval: 30000,
   });
 
   const bulkPin = useMutation({
@@ -207,6 +242,8 @@ export function App() {
   const analysisData = extractEnvelopeData<AnalyzeDeleteData>(analysisRaw);
   const cleanupData = extractEnvelopeData<CleanupPreviewData>(cleanupRaw);
   const selectedImpactRows = (analysisData?.reports ?? []).filter((r) => selectedSet.has(r.id));
+  const providers = providerMatrix.data?.data?.providers ?? [];
+  const providerSummary = providerMatrix.data?.data?.summary;
 
   const busy =
     bulkPin.isPending ||
@@ -252,6 +289,54 @@ export function App() {
           value={`${recovery.data?.summary?.checklist_done ?? 0}/${recovery.data?.summary?.checklist_total ?? 0}`}
           hint={`backup sets ${recovery.data?.summary?.backup_sets ?? 0}`}
         />
+      </section>
+
+      <section className="panel provider-panel">
+        <header>
+          <h2>Multi AI Provider Matrix</h2>
+          <span>
+            active {providerSummary?.active ?? 0}/{providerSummary?.total ?? providers.length}
+          </span>
+        </header>
+        <div className="provider-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Provider</th>
+                <th>Status</th>
+                <th>Capability</th>
+                <th>Read</th>
+                <th>Analyze</th>
+                <th>Safe Cleanup</th>
+                <th>Hard Delete</th>
+                <th>Logs</th>
+              </tr>
+            </thead>
+            <tbody>
+              {providers.map((p) => (
+                <tr key={p.provider}>
+                  <td className="title-col">{p.name}</td>
+                  <td>
+                    <span className={`status-pill status-${p.status}`}>{p.status}</span>
+                  </td>
+                  <td>{p.capability_level}</td>
+                  <td>{p.capabilities.read_sessions ? "Y" : "-"}</td>
+                  <td>{p.capabilities.analyze_context ? "Y" : "-"}</td>
+                  <td>{p.capabilities.safe_cleanup ? "Y" : "-"}</td>
+                  <td>{p.capabilities.hard_delete ? "Y" : "-"}</td>
+                  <td>{p.evidence?.session_log_count ?? 0}</td>
+                </tr>
+              ))}
+              {providers.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="sub-hint">
+                    provider matrix loading...
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="toolbar">
@@ -401,6 +486,7 @@ export function App() {
 
       {runtime.isError ? <div className="error-box">runtime 연결 실패</div> : null}
       {recovery.isError ? <div className="error-box">recovery 데이터 로드 실패</div> : null}
+      {providerMatrix.isError ? <div className="error-box">provider matrix 로드 실패</div> : null}
       {busy ? (
         <div className="busy-indicator">
           batch action running...
