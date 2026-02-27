@@ -141,6 +141,15 @@ describe("api contract parity (python vs ts)", () => {
     expect(tsRes.status).toBeGreaterThanOrEqual(400);
   }, 15000);
 
+  it("/api/local-cleanup invalid payload status parity", async () => {
+    if (!tsReachable || !pyReachable) return;
+    const payload = { ids: ["sample-thread"], dry_run: true, options: [] };
+    const tsRes = await postJson(`${TS_BASE}/api/local-cleanup`, payload, 12000);
+    const pyRes = await postJson(`${PY_BASE}/api/local-cleanup`, payload, 12000);
+    expect(tsRes.status).toBe(pyRes.status);
+    expect([200, 400]).toContain(tsRes.status);
+  }, 18000);
+
   it("/api/recovery-drill returns operational payload shape", async () => {
     if (!tsReachable) return;
     const tsRes = await postJson(`${TS_BASE}/api/recovery-drill`, {}, 30000);

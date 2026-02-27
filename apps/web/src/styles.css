@@ -95,6 +95,15 @@ body {
   padding: 10px;
 }
 
+.filter-select {
+  min-width: 170px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg-alt);
+  color: var(--text);
+  padding: 10px;
+}
+
 button {
   border: 1px solid var(--line);
   background: #1c2430;
@@ -120,6 +129,12 @@ button:disabled {
   overflow: hidden;
 }
 
+.ops-layout {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 14px;
+}
+
 .panel header {
   display: flex;
   justify-content: space-between;
@@ -131,6 +146,29 @@ button:disabled {
 .panel h2 {
   margin: 0;
   font-size: 1rem;
+}
+
+.sub-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid #202a3a;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.check-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+
+.sub-hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0;
 }
 
 .table-wrap {
@@ -150,6 +188,17 @@ td {
   text-align: left;
 }
 
+th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #1a2230;
+}
+
+.risk-row {
+  background: rgba(246, 173, 85, 0.09);
+}
+
 .title-col {
   max-width: 620px;
   overflow: hidden;
@@ -157,9 +206,91 @@ td {
   white-space: nowrap;
 }
 
+.impact-panel {
+  min-height: 420px;
+}
+
+.impact-body {
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.impact-kv {
+  display: flex;
+  justify-content: space-between;
+  border: 1px solid #243248;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.impact-list h3 {
+  margin: 8px 0;
+  font-size: 0.92rem;
+}
+
+.impact-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.impact-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #243248;
+  border-radius: 9px;
+  padding: 8px;
+}
+
+details {
+  border: 1px solid #243248;
+  border-radius: 10px;
+  padding: 8px;
+}
+
+summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+pre {
+  margin: 8px 0 0;
+  max-height: 180px;
+  overflow: auto;
+  background: #0e141f;
+  border: 1px solid #243248;
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 0.78rem;
+}
+
+.error-box {
+  border: 1px solid #8a3b2d;
+  background: rgba(157, 54, 35, 0.25);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: #ffd9d0;
+}
+
+.busy-indicator {
+  border: 1px solid #1d4f65;
+  background: rgba(18, 67, 91, 0.35);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: #c2f1ff;
+}
+
 @media (max-width: 860px) {
   .page {
     padding: 14px;
+  }
+
+  .ops-layout {
+    grid-template-columns: 1fr;
   }
 
   .hero h1 {

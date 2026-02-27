@@ -284,4 +284,75 @@ describe("api-ts direct endpoints", () => {
     const payload = res.json();
     expect(payload.ok).toBe(false);
   });
+
+  it("POST /api/recovery-checklist returns 400 for unknown checklist item", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/recovery-checklist",
+      payload: { item_id: "not-found-item", done: true },
+    });
+    expect(res.statusCode).toBe(400);
+    const payload = res.json();
+    expect(payload.ok).toBe(false);
+  });
+
+  it("POST /api/analyze-delete validates ids schema", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/analyze-delete",
+      payload: { ids: [] },
+    });
+    expect(res.statusCode).toBe(400);
+    const payload = res.json();
+    expect(payload.ok).toBe(false);
+  });
+
+  it("POST /api/analyze-delete forwards valid ids to python", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true, count: 1, reports: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/analyze-delete",
+        payload: { ids: ["thread-1"] },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+      const sent = JSON.parse(String(init.body));
+      expect(sent).toEqual({ ids: ["thread-1"] });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("POST /api/local-cleanup normalizes non-object options for python parity", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true, mode: "dry-run" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/local-cleanup",
+        payload: { ids: ["thread-1"], dry_run: true, options: ["x"] },
+      });
+      expect(res.statusCode).toBe(200);
+      const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+      const sent = JSON.parse(String(init.body));
+      expect(sent.options).toEqual({});
+      expect(sent.ids).toEqual(["thread-1"]);
+      expect(sent.dry_run).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

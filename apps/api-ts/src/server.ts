@@ -1060,12 +1060,19 @@ export async function createServer(): Promise<FastifyInstance> {
     }
   });
 
-  const cleanupPayloadSchema = z.object({
-    ids: z.array(z.string().min(1)).min(1).max(500),
-    dry_run: z.boolean().optional().default(true),
-    options: z.record(z.string(), z.unknown()).optional().default({}),
-    confirm_token: z.string().optional().default(""),
-  });
+  const cleanupPayloadSchema = z
+    .object({
+      ids: z.array(z.string().min(1)).min(1).max(500),
+      dry_run: z.boolean().optional().default(true),
+      options: z.unknown().optional(),
+      confirm_token: z.string().optional().default(""),
+    })
+    .transform((value) => ({
+      ids: value.ids,
+      dry_run: value.dry_run,
+      options: isRecord(value.options) ? value.options : {},
+      confirm_token: value.confirm_token,
+    }));
 
   app.post<{ Body: unknown }>("/api/local-cleanup", async (req, reply) => {
     const parsed = cleanupPayloadSchema.safeParse(req.body);
