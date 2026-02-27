@@ -422,6 +422,24 @@ pre {
   color: #c2f1ff;
 }
 
+.skeleton-line {
+  width: 100%;
+  height: 14px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(54, 73, 96, 0.35), rgba(102, 129, 161, 0.32), rgba(54, 73, 96, 0.35));
+  background-size: 180% 100%;
+  animation: skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 150% 0;
+  }
+  100% {
+    background-position: -50% 0;
+  }
+}
+
 @keyframes rise-in {
   from {
     opacity: 0;

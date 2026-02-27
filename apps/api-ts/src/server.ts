@@ -26,6 +26,7 @@ const RECOVERY_CHECKLIST_FILE = path.join(PROJECT_ROOT, "w4_checklist.json");
 const RECOVERY_PLAN_DIR = path.join(PROJECT_ROOT, "recovery_plans");
 const CODEX_HOME = process.env.CODEX_HOME ?? path.join(process.env.HOME ?? "", ".codex");
 const BACKUP_ROOT = path.join(CODEX_HOME, "local_cleanup_backups");
+const THREADS_BOOT_CACHE_FILE = path.join(PROJECT_ROOT, ".run", "threads_boot_cache.json");
 const HOME_DIR = process.env.HOME ?? "";
 const CHAT_DIR = path.join(HOME_DIR, "Library", "Application Support", "com.openai.chat");
 const CLAUDE_HOME = path.join(HOME_DIR, ".claude");
@@ -134,15 +135,12 @@ function withSchemaVersion(payload: unknown): unknown {
 }
 
 function getTmuxSessions(): string[] {
-  try {
-    const out = execSync("tmux ls -F '#S'", { encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] });
-    return out
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
-  } catch {
-    return [];
-  }
+  const out = runCmdText("tmux ls -F '#S'", 700);
+  if (!out) return [];
+  return out
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
 }
 
 function runCmdText(command: string, timeout = 4000): string {
@@ -169,19 +167,24 @@ async function pathExists(p: string): Promise<boolean> {
 }
 
 async function getAgentRuntimeState(): Promise<AgentRuntimeState> {
+  const nowMs = Date.now();
+  if (runtimeStateCache && runtimeStateCache.expires_at > nowMs) return runtimeStateCache.payload;
+  if (runtimeStateInflight) return runtimeStateInflight;
+
+  runtimeStateInflight = (async () => {
   const now = new Date().toISOString();
   let start = Date.now();
   let reachable = false;
   let latencyMs: number | null = null;
 
   try {
-    const res = await fetchWithTimeout(`${PYTHON_BACKEND_URL}/api/runtime-health`, {}, 4500);
+    const res = await fetchWithTimeout(`${PYTHON_BACKEND_URL}/api/runtime-health`, {}, 1200);
     reachable = res.ok;
     latencyMs = Date.now() - start;
   } catch {
     try {
       start = Date.now();
-      const fallback = await fetchWithTimeout(`${PYTHON_BACKEND_URL}/api/overview?include_threads=0`, {}, 6500);
+      const fallback = await fetchWithTimeout(`${PYTHON_BACKEND_URL}/api/overview?include_threads=0`, {}, 1800);
       reachable = fallback.ok;
       latencyMs = Date.now() - start;
     } catch {
@@ -209,6 +212,19 @@ async function getAgentRuntimeState(): Promise<AgentRuntimeState> {
       sessions,
     },
   };
+  })()
+    .then((payload) => {
+      runtimeStateCache = {
+        expires_at: Date.now() + RUNTIME_CACHE_TTL_MS,
+        payload,
+      };
+      return payload;
+    })
+    .finally(() => {
+      runtimeStateInflight = null;
+    });
+
+  return runtimeStateInflight;
 }
 
 const bulkRequestSchema = z.object({
@@ -223,6 +239,62 @@ type ProxyRequest = FastifyRequest<{
 }>;
 
 type QueryMap = Record<string, string | string[] | undefined>;
+
+type RuntimeCacheEntry = {
+  expires_at: number;
+  payload: AgentRuntimeState;
+};
+
+type ThreadsCacheEntry = {
+  expires_at: number;
+  status: number;
+  payload: unknown;
+};
+
+const RUNTIME_CACHE_TTL_MS = 8_000;
+const THREADS_CACHE_TTL_MS = 12_000;
+const THREADS_STALE_TTL_MS = 120_000;
+let runtimeStateCache: RuntimeCacheEntry | null = null;
+let runtimeStateInflight: Promise<AgentRuntimeState> | null = null;
+const threadsCache = new Map<string, ThreadsCacheEntry>();
+const threadsInflight = new Map<string, Promise<{ status: number; payload: unknown } | null>>();
+let threadsBootCacheLoaded = false;
+
+function canonicalizeQuery(query?: QueryMap): string {
+  if (!query) return "";
+  const keys = Object.keys(query).sort();
+  const parts: string[] = [];
+  for (const key of keys) {
+    const value = query[key];
+    if (value === undefined) continue;
+    if (Array.isArray(value)) {
+      [...value].sort().forEach((item) => {
+        parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(item)}`);
+      });
+      continue;
+    }
+    parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
+  }
+  return parts.join("&");
+}
+
+function parseQueryString(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return String(value[0] ?? "");
+  return String(value ?? "");
+}
+
+function parseQueryNumber(value: string | string[] | undefined, fallback: number): number {
+  const n = Number(parseQueryString(value));
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function isBootThreadsQuery(query: QueryMap): boolean {
+  const offset = parseQueryNumber(query.offset, 0);
+  const limit = parseQueryNumber(query.limit, 160);
+  const q = parseQueryString(query.q);
+  const sort = parseQueryString(query.sort);
+  return offset === 0 && limit <= 160 && q.trim() === "" && (sort === "" || sort === "updated_desc");
+}
 
 function buildProxyUrl(pathname: string, query?: Record<string, string | string[] | undefined>): string {
   const url = new URL(pathname, PYTHON_BACKEND_URL);
@@ -269,6 +341,92 @@ async function requestPythonJson(
     status: res.status,
     payload: withSchemaVersion(parsed ?? text),
   };
+}
+
+async function getCachedThreads(query: QueryMap): Promise<{ status: number; payload: unknown }> {
+  const key = canonicalizeQuery(query);
+  const nowMs = Date.now();
+  const cached = threadsCache.get(key);
+  if (cached && cached.expires_at > nowMs) {
+    return { status: cached.status, payload: cached.payload };
+  }
+
+  if (!cached && isBootThreadsQuery(query) && !threadsBootCacheLoaded) {
+    threadsBootCacheLoaded = true;
+    try {
+      const raw = await readFile(THREADS_BOOT_CACHE_FILE, "utf-8");
+      const parsed = safeJsonParse(raw);
+      if (isRecord(parsed) && typeof parsed.status === "number" && Object.prototype.hasOwnProperty.call(parsed, "payload")) {
+        const status = Number(parsed.status);
+        const payload = withSchemaVersion(parsed.payload);
+        threadsCache.set(key, {
+          expires_at: nowMs + THREADS_CACHE_TTL_MS,
+          status,
+          payload,
+        });
+        const warm = threadsCache.get(key);
+        if (warm) {
+          void getCachedThreadsRefresh(query, key);
+          return { status: warm.status, payload: warm.payload };
+        }
+      }
+    } catch {
+      // no boot cache file
+    }
+  }
+
+  if (cached) {
+    void getCachedThreadsRefresh(query, key);
+    return { status: cached.status, payload: cached.payload };
+  }
+
+  const fresh = await getCachedThreadsRefresh(query, key);
+  if (fresh) return fresh;
+
+  const fallback = threadsCache.get(key);
+  if (fallback) return { status: fallback.status, payload: fallback.payload };
+  throw new Error("threads-refresh-failed");
+}
+
+async function getCachedThreadsRefresh(query: QueryMap, key: string): Promise<{ status: number; payload: unknown } | null> {
+  const inflight = threadsInflight.get(key);
+  if (inflight) return inflight;
+
+  const task = requestPythonJson("/api/threads", "GET", { query, timeoutMs: 12000 })
+    .then((result) => {
+      threadsCache.set(key, {
+        expires_at: Date.now() + THREADS_CACHE_TTL_MS,
+        status: result.status,
+        payload: result.payload,
+      });
+      if (isBootThreadsQuery(query)) {
+        void mkdir(path.dirname(THREADS_BOOT_CACHE_FILE), { recursive: true })
+          .then(() =>
+            writeFile(
+              THREADS_BOOT_CACHE_FILE,
+              JSON.stringify({ status: result.status, payload: result.payload }, null, 0),
+              "utf-8",
+            ),
+          )
+          .catch(() => {
+            // ignore boot cache write failure
+          });
+      }
+      return result;
+    })
+    .catch(() => {
+      const stale = threadsCache.get(key);
+      if (stale && stale.expires_at + THREADS_STALE_TTL_MS > Date.now()) {
+        return { status: stale.status, payload: stale.payload };
+      }
+      return null;
+    })
+    .finally(() => {
+      threadsInflight.delete(key);
+    });
+
+  threadsInflight.set(key, task);
+  return task;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -966,7 +1124,7 @@ type ProviderScanCacheEntry = {
   scan: ProviderSessionScan;
 };
 
-const PROVIDER_SCAN_CACHE_TTL_MS = 20_000;
+const PROVIDER_SCAN_CACHE_TTL_MS = 60_000;
 const providerScanCache = new Map<string, ProviderScanCacheEntry>();
 const providerScanInflight = new Map<string, Promise<ProviderSessionScan>>();
 
@@ -1202,13 +1360,13 @@ async function runProviderSessionAction(
   };
 }
 
-async function scanProviderSessions(provider: ProviderId, limit = 120): Promise<ProviderSessionScan> {
-  const safeLimit = Math.max(1, Math.min(400, Number(limit) || 120));
+async function scanProviderSessions(provider: ProviderId, limit = 80): Promise<ProviderSessionScan> {
+  const safeLimit = Math.max(1, Math.min(240, Number(limit) || 80));
   const roots = providerRootSpecs(provider);
   const rootExists = (await Promise.all(roots.map((r) => pathExists(r.root)))).some(Boolean);
 
   const candidates: Array<{ source: string; file_path: string; size_bytes: number; mtime: string; mtime_ms: number }> = [];
-  const gatherLimit = Math.max(safeLimit * 3, 120);
+  const gatherLimit = Math.max(safeLimit * 2, 80);
 
   const rootFiles = await Promise.all(roots.map((spec) => walkFilesByExt(spec.root, spec.exts, gatherLimit)));
   for (let i = 0; i < roots.length; i += 1) {
@@ -1254,8 +1412,8 @@ async function scanProviderSessions(provider: ProviderId, limit = 120): Promise<
   };
 }
 
-async function getProviderSessionScan(provider: ProviderId, limit = 120): Promise<ProviderSessionScan> {
-  const safeLimit = Math.max(1, Math.min(400, Number(limit) || 120));
+async function getProviderSessionScan(provider: ProviderId, limit = 80): Promise<ProviderSessionScan> {
+  const safeLimit = Math.max(1, Math.min(240, Number(limit) || 80));
   const key = providerScanCacheKey(provider, safeLimit);
   const now = Date.now();
   const cached = providerScanCache.get(key);
@@ -1277,7 +1435,7 @@ async function getProviderSessionScan(provider: ProviderId, limit = 120): Promis
   return task;
 }
 
-async function getProviderSessionsTs(provider?: ProviderId, limit = 120) {
+async function getProviderSessionsTs(provider?: ProviderId, limit = 80) {
   const targets: ProviderId[] = provider ? [provider] : ["codex", "claude", "gemini", "copilot"];
   const scans = await Promise.all(targets.map((p) => getProviderSessionScan(p, limit)));
 
@@ -1301,7 +1459,7 @@ async function getProviderSessionsTs(provider?: ProviderId, limit = 120) {
   };
 }
 
-async function getProviderParserHealthTs(provider?: ProviderId, limitPerProvider = 120) {
+async function getProviderParserHealthTs(provider?: ProviderId, limitPerProvider = 80) {
   const targets: ProviderId[] = provider ? [provider] : ["codex", "claude", "gemini", "copilot"];
   const scans = await Promise.all(targets.map((item) => getProviderSessionScan(item, limitPerProvider)));
   const reports: Array<Record<string, unknown>> = scans.map((scan) => {
@@ -1582,7 +1740,7 @@ export async function createServer(): Promise<FastifyInstance> {
 
   app.get<{ Querystring: QueryMap }>("/api/threads", async (req, reply) => {
     try {
-      const proxied = await requestPythonJson("/api/threads", "GET", { query: req.query, timeoutMs: 40000 });
+      const proxied = await getCachedThreads(req.query);
       return reply.code(proxied.status).send(proxied.payload);
     } catch (error) {
       return reply.code(502).send(envelope(null, `python-backend-unreachable: ${String(error)}`));
@@ -1802,7 +1960,7 @@ export async function createServer(): Promise<FastifyInstance> {
       if (providerRaw && !provider) {
         return reply.code(400).send(envelope(null, "invalid provider"));
       }
-      const limit = Math.max(1, Math.min(400, Number(limitRaw) || 120));
+      const limit = Math.max(1, Math.min(240, Number(limitRaw) || 80));
       const data = await getProviderSessionsTs(provider, limit);
       return reply.code(200).send(withSchemaVersion(data));
     } catch (error) {
@@ -1818,7 +1976,7 @@ export async function createServer(): Promise<FastifyInstance> {
       if (providerRaw && !provider) {
         return reply.code(400).send(envelope(null, "invalid provider"));
       }
-      const limit = Math.max(1, Math.min(200, Number(limitRaw) || 120));
+      const limit = Math.max(1, Math.min(120, Number(limitRaw) || 80));
       const data = await getProviderParserHealthTs(provider, limit);
       return reply.code(200).send(withSchemaVersion(data));
     } catch (error) {

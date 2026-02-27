@@ -159,10 +159,11 @@ type CleanupPreviewData = {
 type FilterMode = "all" | "high-risk" | "pinned";
 type ProviderView = "all" | "codex" | "claude" | "gemini" | "copilot";
 
-const PAGE_SIZE = 300;
+const PAGE_SIZE = 160;
 const INITIAL_CHUNK = 80;
 const CHUNK_SIZE = 80;
 const PROVIDER_ORDER: Exclude<ProviderView, "all">[] = ["codex", "claude", "gemini", "copilot"];
+const SKELETON_ROWS = 8;
 
 function extractEnvelopeData<T>(payload: unknown): T | null {
   if (!payload || typeof payload !== "object") return null;
@@ -202,7 +203,10 @@ export function App() {
   const runtime = useQuery({
     queryKey: ["runtime"],
     queryFn: () => apiGet<RuntimeEnvelope>("/api/agent-runtime"),
-    refetchInterval: 5000,
+    refetchInterval: 10000,
+    staleTime: 5000,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   const threads = useQuery({
@@ -211,32 +215,46 @@ export function App() {
       apiGet<ThreadsResponse>(
         `/api/threads?offset=0&limit=${PAGE_SIZE}&q=${encodeURIComponent(deferredQuery)}&sort=updated_desc`,
       ),
+    placeholderData: (previous) => previous,
+    staleTime: 10000,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   const recovery = useQuery({
     queryKey: ["recovery"],
     queryFn: () => apiGet<RecoveryResponse>("/api/recovery-center"),
     refetchInterval: 15000,
+    staleTime: 10000,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   const providerMatrix = useQuery({
     queryKey: ["provider-matrix"],
     queryFn: () => apiGet<ProviderMatrixEnvelope>("/api/provider-matrix"),
-    refetchInterval: 30000,
+    refetchInterval: 60000,
+    staleTime: 30000,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   const providerSessions = useQuery({
     queryKey: ["provider-sessions", "all"],
-    queryFn: () => apiGet<ProviderSessionsEnvelope>("/api/provider-sessions?limit=160"),
-    refetchInterval: 45000,
-    staleTime: 15000,
+    queryFn: () => apiGet<ProviderSessionsEnvelope>("/api/provider-sessions?limit=80"),
+    refetchInterval: 60000,
+    staleTime: 30000,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   const providerParserHealth = useQuery({
     queryKey: ["provider-parser-health", "all"],
-    queryFn: () => apiGet<ProviderParserHealthEnvelope>("/api/provider-parser-health?limit=160"),
-    refetchInterval: 45000,
-    staleTime: 15000,
+    queryFn: () => apiGet<ProviderParserHealthEnvelope>("/api/provider-parser-health?limit=80"),
+    refetchInterval: 60000,
+    staleTime: 30000,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   const bulkPin = useMutation({
@@ -444,6 +462,12 @@ export function App() {
     () => providers.filter((p) => p.capabilities.safe_cleanup).map((p) => p.name),
     [providers],
   );
+  const runtimeLoading = runtime.isLoading && !runtime.data;
+  const recoveryLoading = recovery.isLoading && !recovery.data;
+  const providerMatrixLoading = providerMatrix.isLoading && providers.length === 0;
+  const providerSessionsLoading = providerSessions.isLoading && allProviderSessionRows.length === 0;
+  const parserLoading = providerParserHealth.isLoading && allParserReports.length === 0;
+  const threadsLoading = threads.isLoading && rows.length === 0;
 
   const busy =
     bulkPin.isPending ||
@@ -512,19 +536,23 @@ export function App() {
       <section className="kpi-grid">
         <KpiCard
           label="Python Backend"
-          value={runtime.data?.data?.python_backend.reachable ? "Reachable" : "Down"}
+          value={runtimeLoading ? "..." : runtime.data?.data?.python_backend.reachable ? "Reachable" : "Down"}
           hint={runtime.data?.data?.python_backend.url}
         />
         <KpiCard
           label="Latency"
-          value={runtime.data?.data?.python_backend.latency_ms ?? "-"}
+          value={runtimeLoading ? "..." : runtime.data?.data?.python_backend.latency_ms ?? "-"}
           hint="ms"
         />
-        <KpiCard label="Pinned" value={pinnedCount} hint={`/${rows.length}`} />
-        <KpiCard label="High Risk" value={highRiskCount} hint="risk_score >= 70" />
+        <KpiCard label="Pinned" value={threadsLoading ? "..." : pinnedCount} hint={`/${rows.length}`} />
+        <KpiCard label="High Risk" value={threadsLoading ? "..." : highRiskCount} hint="risk_score >= 70" />
         <KpiCard
           label="Recovery"
-          value={`${recovery.data?.summary?.checklist_done ?? 0}/${recovery.data?.summary?.checklist_total ?? 0}`}
+          value={
+            recoveryLoading
+              ? "..."
+              : `${recovery.data?.summary?.checklist_done ?? 0}/${recovery.data?.summary?.checklist_total ?? 0}`
+          }
           hint={`backup sets ${recovery.data?.summary?.backup_sets ?? 0}`}
         />
       </section>
@@ -567,7 +595,16 @@ export function App() {
                   <td className="notes-col">{p.evidence?.notes ?? "-"}</td>
                 </tr>
               ))}
-              {providers.length === 0 ? (
+              {providerMatrixLoading
+                ? Array.from({ length: 4 }).map((_, idx) => (
+                    <tr key={`provider-matrix-skeleton-${idx}`}>
+                      <td colSpan={9}>
+                        <div className="skeleton-line" />
+                      </td>
+                    </tr>
+                  ))
+                : null}
+              {providers.length === 0 && !providerMatrixLoading ? (
                 <tr>
                   <td colSpan={9} className="sub-hint">
                     provider matrix loading...
@@ -680,7 +717,16 @@ export function App() {
                     <td>{row.size_bytes.toLocaleString()}</td>
                   </tr>
                 ))}
-                {providerSessionRows.length === 0 ? (
+                {providerSessionsLoading
+                  ? Array.from({ length: SKELETON_ROWS }).map((_, idx) => (
+                      <tr key={`provider-session-skeleton-${idx}`}>
+                        <td colSpan={7}>
+                          <div className="skeleton-line" />
+                        </td>
+                      </tr>
+                    ))
+                  : null}
+                {providerSessionRows.length === 0 && !providerSessionsLoading ? (
                   <tr>
                     <td colSpan={7} className="sub-hint">
                       provider sessions loading...
@@ -730,7 +776,16 @@ export function App() {
                     <td>{report.parse_score ?? "-"}</td>
                   </tr>
                 ))}
-                {parserReports.length === 0 ? (
+                {parserLoading
+                  ? Array.from({ length: 4 }).map((_, idx) => (
+                      <tr key={`parser-health-skeleton-${idx}`}>
+                        <td colSpan={6}>
+                          <div className="skeleton-line" />
+                        </td>
+                      </tr>
+                    ))
+                  : null}
+                {parserReports.length === 0 && !parserLoading ? (
                   <tr>
                     <td colSpan={6} className="sub-hint">
                       parser health loading...
@@ -828,6 +883,15 @@ export function App() {
                     </tr>
                   );
                 })}
+                {threadsLoading
+                  ? Array.from({ length: SKELETON_ROWS }).map((_, idx) => (
+                      <tr key={`threads-skeleton-${idx}`}>
+                        <td colSpan={5}>
+                          <div className="skeleton-line" />
+                        </td>
+                      </tr>
+                    ))
+                  : null}
               </tbody>
             </table>
           </div>
