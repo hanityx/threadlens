@@ -244,6 +244,14 @@ export function App() {
   const selectedImpactRows = (analysisData?.reports ?? []).filter((r) => selectedSet.has(r.id));
   const providers = providerMatrix.data?.data?.providers ?? [];
   const providerSummary = providerMatrix.data?.data?.summary;
+  const readOnlyProviders = useMemo(
+    () => providers.filter((p) => p.capability_level === "read-only").map((p) => p.name),
+    [providers],
+  );
+  const cleanupReadyProviders = useMemo(
+    () => providers.filter((p) => p.capabilities.safe_cleanup).map((p) => p.name),
+    [providers],
+  );
 
   const busy =
     bulkPin.isPending ||
@@ -267,8 +275,18 @@ export function App() {
   return (
     <main className="page">
       <section className="hero">
-        <h1>Codex Mission Control</h1>
-        <p>Tauri + Fastify 하이브리드 운영 대시보드</p>
+        <div className="hero-top">
+          <h1>Mission Control</h1>
+          <span className="hero-badge">Safety + Forensics</span>
+        </div>
+        <p>멀티 AI 운영을 한 화면에서 보고, 실제 정리는 안전 capability가 열린 provider만 수행합니다.</p>
+        <div className="hero-meta">
+          <span className="meta-chip">
+            active {providerSummary?.active ?? 0}/{providerSummary?.total ?? providers.length}
+          </span>
+          <span className="meta-chip">safe cleanup {cleanupReadyProviders.join(", ") || "-"}</span>
+          <span className="meta-chip">read-only {readOnlyProviders.join(", ") || "-"}</span>
+        </div>
       </section>
 
       <section className="kpi-grid">
@@ -310,6 +328,7 @@ export function App() {
                 <th>Safe Cleanup</th>
                 <th>Hard Delete</th>
                 <th>Logs</th>
+                <th>Notes</th>
               </tr>
             </thead>
             <tbody>
@@ -325,11 +344,12 @@ export function App() {
                   <td>{p.capabilities.safe_cleanup ? "Y" : "-"}</td>
                   <td>{p.capabilities.hard_delete ? "Y" : "-"}</td>
                   <td>{p.evidence?.session_log_count ?? 0}</td>
+                  <td className="notes-col">{p.evidence?.notes ?? "-"}</td>
                 </tr>
               ))}
               {providers.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="sub-hint">
+                  <td colSpan={9} className="sub-hint">
                     provider matrix loading...
                   </td>
                 </tr>
@@ -355,22 +375,23 @@ export function App() {
           <option value="high-risk">High Risk (70+)</option>
           <option value="pinned">Pinned</option>
         </select>
-        <button disabled={selectedIds.length === 0 || busy} onClick={() => bulkPin.mutate(selectedIds)}>
+        <button className="btn-base" disabled={selectedIds.length === 0 || busy} onClick={() => bulkPin.mutate(selectedIds)}>
           선택 Pin
         </button>
-        <button disabled={selectedIds.length === 0 || busy} onClick={() => bulkUnpin.mutate(selectedIds)}>
+        <button className="btn-base" disabled={selectedIds.length === 0 || busy} onClick={() => bulkUnpin.mutate(selectedIds)}>
           선택 Unpin
         </button>
         <button
+          className="btn-accent"
           disabled={selectedIds.length === 0 || busy}
           onClick={() => bulkArchive.mutate(selectedIds)}
         >
           선택 Local Archive
         </button>
-        <button disabled={selectedIds.length === 0 || busy} onClick={() => analyzeDelete.mutate(selectedIds)}>
+        <button className="btn-outline" disabled={selectedIds.length === 0 || busy} onClick={() => analyzeDelete.mutate(selectedIds)}>
           삭제 영향 분석
         </button>
-        <button disabled={selectedIds.length === 0 || busy} onClick={() => cleanupDryRun.mutate(selectedIds)}>
+        <button className="btn-outline" disabled={selectedIds.length === 0 || busy} onClick={() => cleanupDryRun.mutate(selectedIds)}>
           정리 Dry-Run
         </button>
       </section>
