@@ -376,11 +376,16 @@ export function App() {
   const analysisData = extractEnvelopeData<AnalyzeDeleteData>(analysisRaw);
   const cleanupData = extractEnvelopeData<CleanupPreviewData>(cleanupRaw);
   const selectedImpactRows = (analysisData?.reports ?? []).filter((r) => selectedSet.has(r.id));
-  const providers = providerMatrix.data?.data?.providers ?? [];
-  const providerSummary = providerMatrix.data?.data?.summary;
-  const allProviderSessionRows = providerSessions.data?.data?.rows ?? [];
-  const allProviderSessionProviders = providerSessions.data?.data?.providers ?? [];
-  const allParserReports = providerParserHealth.data?.data?.reports ?? [];
+  const providerMatrixRoot = extractEnvelopeData<NonNullable<ProviderMatrixEnvelope["data"]>>(providerMatrix.data) ?? {};
+  const providerSessionsRoot = extractEnvelopeData<NonNullable<ProviderSessionsEnvelope["data"]>>(providerSessions.data) ?? {};
+  const providerParserRoot =
+    extractEnvelopeData<NonNullable<ProviderParserHealthEnvelope["data"]>>(providerParserHealth.data) ?? {};
+
+  const providers = providerMatrixRoot.providers ?? [];
+  const providerSummary = providerMatrixRoot.summary;
+  const allProviderSessionRows = providerSessionsRoot.rows ?? [];
+  const allProviderSessionProviders = providerSessionsRoot.providers ?? [];
+  const allParserReports = providerParserRoot.reports ?? [];
   const providerById = useMemo(() => new Map(providers.map((p) => [p.provider, p])), [providers]);
   const scannedByProvider = useMemo(
     () => new Map(allProviderSessionProviders.map((p) => [p.provider, p.scanned])),
