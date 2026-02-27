@@ -193,6 +193,22 @@ describe("api-ts direct endpoints", () => {
     expect(Array.isArray(root.reports)).toBe(true);
   });
 
+  it("GET /api/provider-parser-health supports provider filter", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/provider-parser-health?provider=codex&limit=10" });
+    expect(res.statusCode).toBe(200);
+    const payload = res.json();
+    const root = payload.data ?? payload;
+    expect(Array.isArray(root.reports)).toBe(true);
+    expect(root.reports.length).toBeLessThanOrEqual(1);
+  });
+
+  it("GET /api/provider-parser-health rejects invalid provider", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/provider-parser-health?provider=invalid" });
+    expect(res.statusCode).toBe(400);
+    const payload = res.json();
+    expect(payload.ok).toBe(false);
+  });
+
   it("GET /api/agent-loops responds through TS route", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ count: 0, rows: [] }), {

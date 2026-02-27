@@ -141,10 +141,12 @@ type CleanupPreviewData = {
 };
 
 type FilterMode = "all" | "high-risk" | "pinned";
+type ProviderView = "all" | "codex" | "claude" | "gemini" | "copilot";
 
 const PAGE_SIZE = 300;
 const INITIAL_CHUNK = 80;
 const CHUNK_SIZE = 80;
+const PROVIDER_ORDER: Exclude<ProviderView, "all">[] = ["codex", "claude", "gemini", "copilot"];
 
 function extractEnvelopeData<T>(payload: unknown): T | null {
   if (!payload || typeof payload !== "object") return null;
@@ -163,10 +165,15 @@ function prettyJson(value: unknown): string {
   }
 }
 
+function parseNum(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export function App() {
   const [query, setQuery] = useState("");
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
-  const [providerView, setProviderView] = useState<"all" | "codex" | "claude" | "gemini" | "copilot">("all");
+  const [providerView, setProviderView] = useState<ProviderView>("all");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [renderLimit, setRenderLimit] = useState(INITIAL_CHUNK);
   const [analysisRaw, setAnalysisRaw] = useState<unknown>(null);
@@ -201,18 +208,17 @@ export function App() {
   });
 
   const providerSessions = useQuery({
-    queryKey: ["provider-sessions", providerView],
-    queryFn: () =>
-      apiGet<ProviderSessionsEnvelope>(
-        `/api/provider-sessions?limit=120${providerView !== "all" ? `&provider=${providerView}` : ""}`,
-      ),
-    refetchInterval: 30000,
+    queryKey: ["provider-sessions", "all"],
+    queryFn: () => apiGet<ProviderSessionsEnvelope>("/api/provider-sessions?limit=160"),
+    refetchInterval: 45000,
+    staleTime: 15000,
   });
 
   const providerParserHealth = useQuery({
-    queryKey: ["provider-parser-health"],
-    queryFn: () => apiGet<ProviderParserHealthEnvelope>("/api/provider-parser-health?limit=80"),
-    refetchInterval: 30000,
+    queryKey: ["provider-parser-health", "all"],
+    queryFn: () => apiGet<ProviderParserHealthEnvelope>("/api/provider-parser-health?limit=160"),
+    refetchInterval: 45000,
+    staleTime: 15000,
   });
 
   const bulkPin = useMutation({
@@ -316,10 +322,70 @@ export function App() {
   const selectedImpactRows = (analysisData?.reports ?? []).filter((r) => selectedSet.has(r.id));
   const providers = providerMatrix.data?.data?.providers ?? [];
   const providerSummary = providerMatrix.data?.data?.summary;
-  const providerSessionRows = providerSessions.data?.data?.rows ?? [];
-  const providerSessionSummary = providerSessions.data?.data?.summary;
-  const parserSummary = providerParserHealth.data?.data?.summary;
-  const parserReports = providerParserHealth.data?.data?.reports ?? [];
+  const allProviderSessionRows = providerSessions.data?.data?.rows ?? [];
+  const allProviderSessionProviders = providerSessions.data?.data?.providers ?? [];
+  const allParserReports = providerParserHealth.data?.data?.reports ?? [];
+  const providerById = useMemo(() => new Map(providers.map((p) => [p.provider, p])), [providers]);
+  const scannedByProvider = useMemo(
+    () => new Map(allProviderSessionProviders.map((p) => [p.provider, p.scanned])),
+    [allProviderSessionProviders],
+  );
+  const providerSessionRows = useMemo(
+    () =>
+      providerView === "all"
+        ? allProviderSessionRows
+        : allProviderSessionRows.filter((row) => row.provider === providerView),
+    [providerView, allProviderSessionRows],
+  );
+  const providerSessionSummary = useMemo(() => {
+    const parseOk = providerSessionRows.filter((row) => row.probe.ok).length;
+    const parseFail = providerSessionRows.length - parseOk;
+    return {
+      providers: providerView === "all" ? providers.length || PROVIDER_ORDER.length : 1,
+      rows: providerSessionRows.length,
+      parse_ok: parseOk,
+      parse_fail: parseFail,
+    };
+  }, [providerView, providerSessionRows, providers.length]);
+  const parserReports = useMemo(
+    () => (providerView === "all" ? allParserReports : allParserReports.filter((report) => report.provider === providerView)),
+    [providerView, allParserReports],
+  );
+  const parserSummary = useMemo(() => {
+    const scanned = parserReports.reduce((sum, report) => sum + parseNum(report.scanned), 0);
+    const parseOk = parserReports.reduce((sum, report) => sum + parseNum(report.parse_ok), 0);
+    const parseFail = parserReports.reduce((sum, report) => sum + parseNum(report.parse_fail), 0);
+    return {
+      providers: parserReports.length,
+      scanned,
+      parse_ok: parseOk,
+      parse_fail: parseFail,
+      parse_score: scanned ? Number(((parseOk / scanned) * 100).toFixed(1)) : null,
+    };
+  }, [parserReports]);
+  const providerTabs = useMemo(
+    () => [
+      {
+        id: "all" as ProviderView,
+        name: "All AI",
+        status: "active" as const,
+        scanned: allProviderSessionRows.length,
+      },
+      ...PROVIDER_ORDER.map((id) => {
+        const meta = providerById.get(id);
+        return {
+          id,
+          name: meta?.name ?? id,
+          status: meta?.status ?? ("missing" as const),
+          scanned:
+            scannedByProvider.get(id) ??
+            allProviderSessionRows.filter((row) => row.provider === id).length,
+        };
+      }),
+    ],
+    [providerById, scannedByProvider, allProviderSessionRows],
+  );
+  const selectedProviderLabel = providerView === "all" ? "All AI" : providerById.get(providerView)?.name ?? providerView;
   const readOnlyProviders = useMemo(
     () => providers.filter((p) => p.capability_level === "read-only").map((p) => p.name),
     [providers],
@@ -435,6 +501,23 @@ export function App() {
         </div>
       </section>
 
+      <section className="provider-tabs" role="tablist" aria-label="Provider Tabs">
+        {providerTabs.map((tab) => (
+          <button
+            key={`provider-tab-${tab.id}`}
+            type="button"
+            role="tab"
+            aria-selected={providerView === tab.id}
+            className={`provider-tab ${providerView === tab.id ? "is-active" : ""}`}
+            onClick={() => setProviderView(tab.id)}
+          >
+            <span className="provider-tab-title">{tab.name}</span>
+            <span className="provider-tab-meta">{tab.scanned} sessions</span>
+            <span className={`status-pill status-${tab.status}`}>{tab.status}</span>
+          </button>
+        ))}
+      </section>
+
       <section className="provider-ops-layout">
         <section className="panel">
           <header>
@@ -445,13 +528,7 @@ export function App() {
             </span>
           </header>
           <div className="sub-toolbar">
-            <select className="filter-select" value={providerView} onChange={(e) => setProviderView(e.target.value as typeof providerView)}>
-              <option value="all">all providers</option>
-              <option value="codex">codex</option>
-              <option value="claude">claude</option>
-              <option value="gemini">gemini</option>
-              <option value="copilot">copilot</option>
-            </select>
+            <strong>{selectedProviderLabel}</strong>
             <span className="sub-hint">삭제 기능 없음 · read/analyze 전용</span>
           </div>
           <div className="provider-table-wrap">
@@ -531,6 +608,12 @@ export function App() {
           </div>
         </section>
       </section>
+
+      {providerView !== "all" && providerView !== "codex" ? (
+        <div className="busy-indicator">
+          현재 탭({selectedProviderLabel})은 read/analyze 전용입니다. Pin/Archive/Cleanup 같은 실제 정리 액션은 Codex 탭에서만 실행됩니다.
+        </div>
+      ) : null}
 
       <section className="toolbar">
         <input

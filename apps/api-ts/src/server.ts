@@ -947,6 +947,19 @@ type ProviderRootSpec = {
   exts: string[];
 };
 
+type ProviderScanCacheEntry = {
+  expires_at: number;
+  scan: ProviderSessionScan;
+};
+
+const PROVIDER_SCAN_CACHE_TTL_MS = 20_000;
+const providerScanCache = new Map<string, ProviderScanCacheEntry>();
+const providerScanInflight = new Map<string, Promise<ProviderSessionScan>>();
+
+function providerScanCacheKey(provider: ProviderId, limit: number): string {
+  return `${provider}:${limit}`;
+}
+
 function providerName(provider: ProviderId): string {
   if (provider === "codex") return "Codex";
   if (provider === "claude") return "Claude CLI";
@@ -1068,8 +1081,10 @@ async function scanProviderSessions(provider: ProviderId, limit = 120): Promise<
   const candidates: Array<{ source: string; file_path: string; size_bytes: number; mtime: string; mtime_ms: number }> = [];
   const gatherLimit = Math.max(safeLimit * 3, 120);
 
-  for (const spec of roots) {
-    const files = await walkFilesByExt(spec.root, spec.exts, gatherLimit);
+  const rootFiles = await Promise.all(roots.map((spec) => walkFilesByExt(spec.root, spec.exts, gatherLimit)));
+  for (let i = 0; i < roots.length; i += 1) {
+    const spec = roots[i];
+    const files = rootFiles[i] ?? [];
     for (const file of files) {
       try {
         const st = await stat(file);
@@ -1088,9 +1103,8 @@ async function scanProviderSessions(provider: ProviderId, limit = 120): Promise<
 
   candidates.sort((a, b) => b.mtime_ms - a.mtime_ms);
   const selected = candidates.slice(0, safeLimit);
-  const rows: ProviderSessionRow[] = [];
-  for (const candidate of selected) {
-    rows.push({
+  const rows: ProviderSessionRow[] = await Promise.all(
+    selected.map(async (candidate) => ({
       provider,
       source: candidate.source,
       session_id: inferSessionId(candidate.file_path),
@@ -1098,8 +1112,8 @@ async function scanProviderSessions(provider: ProviderId, limit = 120): Promise<
       size_bytes: candidate.size_bytes,
       mtime: candidate.mtime,
       probe: await probeSessionFile(candidate.file_path),
-    });
-  }
+    })),
+  );
 
   return {
     provider,
@@ -1111,12 +1125,32 @@ async function scanProviderSessions(provider: ProviderId, limit = 120): Promise<
   };
 }
 
+async function getProviderSessionScan(provider: ProviderId, limit = 120): Promise<ProviderSessionScan> {
+  const safeLimit = Math.max(1, Math.min(400, Number(limit) || 120));
+  const key = providerScanCacheKey(provider, safeLimit);
+  const now = Date.now();
+  const cached = providerScanCache.get(key);
+  if (cached && cached.expires_at > now) return cached.scan;
+
+  const inflight = providerScanInflight.get(key);
+  if (inflight) return inflight;
+
+  const task = scanProviderSessions(provider, safeLimit)
+    .then((scan) => {
+      providerScanCache.set(key, { expires_at: Date.now() + PROVIDER_SCAN_CACHE_TTL_MS, scan });
+      return scan;
+    })
+    .finally(() => {
+      providerScanInflight.delete(key);
+    });
+
+  providerScanInflight.set(key, task);
+  return task;
+}
+
 async function getProviderSessionsTs(provider?: ProviderId, limit = 120) {
   const targets: ProviderId[] = provider ? [provider] : ["codex", "claude", "gemini", "copilot"];
-  const scans: ProviderSessionScan[] = [];
-  for (const p of targets) {
-    scans.push(await scanProviderSessions(p, limit));
-  }
+  const scans = await Promise.all(targets.map((p) => getProviderSessionScan(p, limit)));
 
   const rows = scans.flatMap((scan) => scan.rows);
   return {
@@ -1138,15 +1172,14 @@ async function getProviderSessionsTs(provider?: ProviderId, limit = 120) {
   };
 }
 
-async function getProviderParserHealthTs(limitPerProvider = 80) {
-  const targets: ProviderId[] = ["codex", "claude", "gemini", "copilot"];
-  const reports: Array<Record<string, unknown>> = [];
-  for (const provider of targets) {
-    const scan = await scanProviderSessions(provider, limitPerProvider);
+async function getProviderParserHealthTs(provider?: ProviderId, limitPerProvider = 120) {
+  const targets: ProviderId[] = provider ? [provider] : ["codex", "claude", "gemini", "copilot"];
+  const scans = await Promise.all(targets.map((item) => getProviderSessionScan(item, limitPerProvider)));
+  const reports: Array<Record<string, unknown>> = scans.map((scan) => {
     const parseOk = scan.rows.filter((row) => row.probe.ok).length;
     const parseFail = scan.rows.length - parseOk;
     const score = scan.rows.length ? Number(((parseOk / scan.rows.length) * 100).toFixed(1)) : null;
-    reports.push({
+    return {
       provider: scan.provider,
       name: scan.name,
       status: scan.status,
@@ -1164,8 +1197,8 @@ async function getProviderParserHealthTs(limitPerProvider = 80) {
           format: row.probe.format,
           error: row.probe.error,
         })),
-    });
-  }
+    };
+  });
   const totalScanned = reports.reduce((sum, row) => sum + parseNumber((row as Record<string, unknown>).scanned), 0);
   const totalFail = reports.reduce((sum, row) => sum + parseNumber((row as Record<string, unknown>).parse_fail), 0);
   const totalOk = reports.reduce((sum, row) => sum + parseNumber((row as Record<string, unknown>).parse_ok), 0);
@@ -1625,9 +1658,17 @@ export async function createServer(): Promise<FastifyInstance> {
 
   app.get<{ Querystring: QueryMap }>("/api/provider-parser-health", async (req, reply) => {
     try {
+      const providerRaw = Array.isArray(req.query.provider) ? req.query.provider[0] : req.query.provider;
       const limitRaw = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
-      const limit = Math.max(1, Math.min(200, Number(limitRaw) || 80));
-      const data = await getProviderParserHealthTs(limit);
+      const provider =
+        providerRaw === "codex" || providerRaw === "claude" || providerRaw === "gemini" || providerRaw === "copilot"
+          ? providerRaw
+          : undefined;
+      if (providerRaw && !provider) {
+        return reply.code(400).send(envelope(null, "invalid provider"));
+      }
+      const limit = Math.max(1, Math.min(200, Number(limitRaw) || 120));
+      const data = await getProviderParserHealthTs(provider, limit);
       return reply.code(200).send(withSchemaVersion(data));
     } catch (error) {
       return reply.code(500).send(envelope(null, `provider-parser-health-error: ${String(error)}`));

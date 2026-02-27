@@ -198,6 +198,35 @@ button:disabled {
   gap: 14px;
 }
 
+.provider-tabs {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.provider-tab {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: rgba(15, 22, 33, 0.9);
+}
+
+.provider-tab.is-active {
+  border-color: rgba(86, 208, 188, 0.7);
+  background: linear-gradient(180deg, rgba(64, 154, 143, 0.22), rgba(22, 37, 50, 0.95));
+}
+
+.provider-tab-title {
+  font-weight: 700;
+}
+
+.provider-tab-meta {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
 .ops-layout {
   display: grid;
   grid-template-columns: 1.45fr 1fr;
@@ -415,6 +444,10 @@ pre {
 
   .provider-ops-layout {
     grid-template-columns: 1fr;
+  }
+
+  .provider-tabs {
+    grid-template-columns: 1fr 1fr;
   }
 
   .hero-top {
