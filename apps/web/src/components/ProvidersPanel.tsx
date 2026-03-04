@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Messages } from "../i18n";
 import type {
   ProviderMatrixProvider,
@@ -109,6 +109,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const [sessionFilter, setSessionFilter] = useState("");
   const [sessionSort, setSessionSort] = useState<ProviderSessionSort>("mtime_desc");
   const [probeFilter, setProbeFilter] = useState<ProviderProbeFilter>("all");
+  const [renderLimit, setRenderLimit] = useState(120);
 
   const statusLabel = (status: "active" | "detected" | "missing") => {
     if (status === "active") return messages.providers.statusActive;
@@ -165,7 +166,13 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     });
     return rows;
   }, [filteredProviderSessionRows, sessionSort]);
-  const renderedProviderSessionRows = useMemo(() => sortedProviderSessionRows.slice(0, 120), [sortedProviderSessionRows]);
+  const renderedProviderSessionRows = useMemo(
+    () => sortedProviderSessionRows.slice(0, renderLimit),
+    [sortedProviderSessionRows, renderLimit],
+  );
+  useEffect(() => {
+    setRenderLimit(120);
+  }, [providerView, sessionFilter, sessionSort, probeFilter]);
   const filteredProviderFilePaths = useMemo(
     () => sortedProviderSessionRows.map((row) => row.file_path),
     [sortedProviderSessionRows],
@@ -422,6 +429,17 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
               </tbody>
             </table>
           </div>
+          {sortedProviderSessionRows.length > renderedProviderSessionRows.length ? (
+            <div className="sub-toolbar">
+              <button
+                className="btn-outline"
+                type="button"
+                onClick={() => setRenderLimit((prev) => prev + 120)}
+              >
+                {messages.providers.loadMoreRows} {renderedProviderSessionRows.length}/{sortedProviderSessionRows.length}
+              </button>
+            </div>
+          ) : null}
           {providerActionData ? (
             <div className="sub-toolbar">
               <span className="sub-hint">
