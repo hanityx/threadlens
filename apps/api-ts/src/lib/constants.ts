@@ -76,6 +76,14 @@ export const COPILOT_VSCODE_GLOBAL = path.join(
   "globalStorage",
   "github.copilot-chat",
 );
+export const COPILOT_VSCODE_WORKSPACE_STORAGE = path.join(
+  HOME_DIR,
+  "Library",
+  "Application Support",
+  "Code",
+  "User",
+  "workspaceStorage",
+);
 export const COPILOT_CURSOR_GLOBAL = path.join(
   HOME_DIR,
   "Library",
@@ -84,6 +92,14 @@ export const COPILOT_CURSOR_GLOBAL = path.join(
   "User",
   "globalStorage",
   "github.copilot-chat",
+);
+export const COPILOT_CURSOR_WORKSPACE_STORAGE = path.join(
+  HOME_DIR,
+  "Library",
+  "Application Support",
+  "Cursor",
+  "User",
+  "workspaceStorage",
 );
 
 /* ── API path sets ────────────────────────────────────────────────── */

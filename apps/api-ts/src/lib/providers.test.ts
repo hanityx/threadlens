@@ -68,4 +68,22 @@ describe("provider registry", () => {
     );
     expect(hasPbRoot).toBe(true);
   });
+
+  it("includes Copilot workspace chat roots", () => {
+    const roots = providerRootSpecs("copilot");
+    expect(
+      roots.some(
+        (spec) =>
+          spec.source === "vscode_workspace_chats" &&
+          spec.exts.includes(".json"),
+      ),
+    ).toBe(true);
+    expect(
+      roots.some(
+        (spec) =>
+          spec.source === "cursor_workspace_chats" &&
+          spec.exts.includes(".json"),
+      ),
+    ).toBe(true);
+  });
 });

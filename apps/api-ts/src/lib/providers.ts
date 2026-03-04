@@ -28,7 +28,9 @@ import {
   GEMINI_TMP_DIR,
   GEMINI_ANTIGRAVITY_CONVERSATIONS_DIR,
   COPILOT_VSCODE_GLOBAL,
+  COPILOT_VSCODE_WORKSPACE_STORAGE,
   COPILOT_CURSOR_GLOBAL,
+  COPILOT_CURSOR_WORKSPACE_STORAGE,
   HOME_DIR,
   CHAT_DIR,
 } from "./constants.js";
@@ -278,6 +280,17 @@ function shortSessionId(sessionId: string): string {
   if (!id) return "unknown";
   if (id.length <= 20) return id;
   return `${id.slice(0, 8)}…${id.slice(-4)}`;
+}
+
+function isWorkspaceChatSessionPath(filePath: string): boolean {
+  const normalized = path.resolve(filePath);
+  const marker = `${path.sep}chatSessions${path.sep}`;
+  return normalized.includes(marker) && normalized.endsWith(".json");
+}
+
+function isCopilotGlobalSessionLikeFile(filePath: string): boolean {
+  const base = path.basename(filePath).toLowerCase();
+  return base.includes("session");
 }
 
 function fallbackDisplayTitle(
@@ -807,14 +820,24 @@ export function providerRootSpecs(provider: ProviderId): ProviderRootSpec[] {
   }
   return [
     {
-      source: "vscode",
+      source: "vscode_global",
       root: COPILOT_VSCODE_GLOBAL,
       exts: [".jsonl", ".json"],
     },
     {
-      source: "cursor",
+      source: "cursor_global",
       root: COPILOT_CURSOR_GLOBAL,
       exts: [".jsonl", ".json"],
+    },
+    {
+      source: "vscode_workspace_chats",
+      root: COPILOT_VSCODE_WORKSPACE_STORAGE,
+      exts: [".json"],
+    },
+    {
+      source: "cursor_workspace_chats",
+      root: COPILOT_CURSOR_WORKSPACE_STORAGE,
+      exts: [".json"],
     },
   ];
 }
@@ -857,6 +880,12 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
   const geminiRootExists = await pathExists(GEMINI_HOME);
   const copilotVsCodeExists = await pathExists(COPILOT_VSCODE_GLOBAL);
   const copilotCursorExists = await pathExists(COPILOT_CURSOR_GLOBAL);
+  const copilotVsCodeWorkspaceExists = await pathExists(
+    COPILOT_VSCODE_WORKSPACE_STORAGE,
+  );
+  const copilotCursorWorkspaceExists = await pathExists(
+    COPILOT_CURSOR_WORKSPACE_STORAGE,
+  );
   const chatGptConversationRoots = await discoverChatGptConversationRoots();
 
   const codexSessionLogs =
@@ -876,16 +905,40 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
       chatGptConversationRoots.map((spec) => quickFileCount(spec.root)),
     )
   ).reduce((sum, count) => sum + count, 0);
-  const copilotSignalFiles =
-    (await quickFileCount(COPILOT_VSCODE_GLOBAL)) +
-    (await quickFileCount(COPILOT_CURSOR_GLOBAL));
+  const copilotGlobalSessionFiles = (
+    await Promise.all(
+      [COPILOT_VSCODE_GLOBAL, COPILOT_CURSOR_GLOBAL].map(async (root) => {
+        const files = await walkFilesByExt(root, [".jsonl", ".json"], 1500);
+        return files.filter((filePath) =>
+          isCopilotGlobalSessionLikeFile(filePath),
+        ).length;
+      }),
+    )
+  ).reduce((sum, value) => sum + value, 0);
+  const copilotWorkspaceChatFiles = (
+    await Promise.all(
+      [
+        COPILOT_VSCODE_WORKSPACE_STORAGE,
+        COPILOT_CURSOR_WORKSPACE_STORAGE,
+      ].map(async (root) => {
+        const files = await walkFilesByExt(root, [".json"], 8000);
+        return files.filter((filePath) =>
+          isWorkspaceChatSessionPath(filePath),
+        ).length;
+      }),
+    )
+  ).reduce((sum, value) => sum + value, 0);
+  const copilotSignalFiles = copilotGlobalSessionFiles + copilotWorkspaceChatFiles;
 
   const codexStatus = providerStatus(codexRootExists, codexSessionLogs);
   const chatGptStatus = providerStatus(chatGptRootExists, chatGptSessionLogs);
   const claudeStatus = providerStatus(claudeRootExists, claudeSessionLogs);
   const geminiStatus = providerStatus(geminiRootExists, geminiSessionLogs);
   const copilotStatus = providerStatus(
-    copilotVsCodeExists || copilotCursorExists,
+    copilotVsCodeExists ||
+      copilotCursorExists ||
+      copilotVsCodeWorkspaceExists ||
+      copilotCursorWorkspaceExists,
     copilotSignalFiles,
   );
 
@@ -984,7 +1037,11 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
         supportsProviderCleanup("copilot") && copilotStatus !== "missing",
       ),
       capabilities: {
-        read_sessions: copilotVsCodeExists || copilotCursorExists,
+        read_sessions:
+          copilotVsCodeExists ||
+          copilotCursorExists ||
+          copilotVsCodeWorkspaceExists ||
+          copilotCursorWorkspaceExists,
         analyze_context: copilotSignalFiles > 0,
         safe_cleanup:
           supportsProviderCleanup("copilot") && copilotStatus !== "missing",
@@ -992,10 +1049,15 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
           supportsProviderCleanup("copilot") && copilotStatus !== "missing",
       },
       evidence: {
-        roots: [COPILOT_VSCODE_GLOBAL, COPILOT_CURSOR_GLOBAL],
+        roots: [
+          COPILOT_VSCODE_GLOBAL,
+          COPILOT_CURSOR_GLOBAL,
+          COPILOT_VSCODE_WORKSPACE_STORAGE,
+          COPILOT_CURSOR_WORKSPACE_STORAGE,
+        ],
         session_log_count: copilotSignalFiles,
         notes:
-          "dev mode: local archive/delete enabled when storage is detected",
+          "dev mode: scans global session artifacts + workspace chat sessions",
       },
     },
   ];
@@ -1375,12 +1437,31 @@ async function scanProviderSessions(
   const gatherLimit = Math.max(safeLimit * 2, 80);
 
   const rootFiles = await Promise.all(
-    roots.map((spec) => walkFilesByExt(spec.root, spec.exts, gatherLimit)),
+    roots.map((spec) => {
+      const providerLimit =
+        provider === "copilot" &&
+        (spec.source === "vscode_workspace_chats" ||
+          spec.source === "cursor_workspace_chats")
+          ? Math.max(gatherLimit * 8, 1200)
+          : gatherLimit;
+      return walkFilesByExt(spec.root, spec.exts, providerLimit);
+    }),
   );
   for (let i = 0; i < roots.length; i += 1) {
     const spec = roots[i];
     const files = rootFiles[i] ?? [];
-    for (const file of files) {
+    const filteredFiles =
+      provider === "copilot" &&
+      (spec.source === "vscode_workspace_chats" ||
+        spec.source === "cursor_workspace_chats")
+        ? files.filter((filePath) => isWorkspaceChatSessionPath(filePath))
+        : provider === "copilot" &&
+            (spec.source === "vscode_global" || spec.source === "cursor_global")
+          ? files.filter((filePath) =>
+              isCopilotGlobalSessionLikeFile(filePath),
+            )
+          : files;
+    for (const file of filteredFiles) {
       try {
         const st = await stat(file);
         candidates.push({
