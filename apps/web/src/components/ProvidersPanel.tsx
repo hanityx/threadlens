@@ -168,6 +168,7 @@ export interface ProvidersPanelProps {
   selectedSessionPath: string;
   setSelectedSessionPath: (path: string) => void;
   providersRefreshing: boolean;
+  providersLastRefreshAt: string;
   refreshProvidersData: () => void;
 }
 
@@ -203,6 +204,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     selectedSessionPath,
     setSelectedSessionPath,
     providersRefreshing,
+    providersLastRefreshAt,
     refreshProvidersData,
   } = props;
   const [sessionFilter, setSessionFilter] = useState("");
@@ -615,7 +617,12 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
             ? messages.providers.refreshing
             : messages.providers.refreshNow}
         </button>
-        <span className="sub-hint">{messages.providers.parserHint}</span>
+        <span className="sub-hint">
+          {messages.providers.parserHint}
+          {providersLastRefreshAt
+            ? ` · ${messages.providers.lastRefresh} ${formatLocalDate(providersLastRefreshAt)}`
+            : ""}
+        </span>
       </section>
 
       <section className="provider-ops-layout">

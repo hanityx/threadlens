@@ -208,6 +208,7 @@ export type ProviderView = "all" | (string & {});
 export type ProviderDataDepth = "fast" | "balanced" | "deep";
 export type LayoutView = "overview" | "threads" | "providers" | "forensics" | "routing";
 export type Locale = "ko" | "en";
+export type UiDensity = "comfortable" | "compact";
 
 export type ExecutionGraphEnvelope = ApiEnvelope<ExecutionGraphData>;
 

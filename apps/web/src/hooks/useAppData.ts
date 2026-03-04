@@ -22,6 +22,7 @@ import type {
   ProviderDataDepth,
   LayoutView,
   Locale,
+  UiDensity,
 } from "../types";
 import { PAGE_SIZE, INITIAL_CHUNK, CHUNK_SIZE } from "../types";
 
@@ -48,6 +49,11 @@ export function useAppData() {
     return saved === "light" ? "light" : "dark";
   });
   const [locale, setLocale] = useState<Locale>(() => detectInitialLocale());
+  const [density, setDensity] = useState<UiDensity>(() => {
+    if (typeof window === "undefined") return "comfortable";
+    const saved = window.localStorage.getItem("cmc-density");
+    return saved === "compact" ? "compact" : "comfortable";
+  });
   const [layoutView, setLayoutView] = useState<LayoutView>("threads");
   const [query, setQuery] = useState("");
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
@@ -77,6 +83,8 @@ export function useAppData() {
   const [providerActionTokens, setProviderActionTokens] = useState<
     Record<string, string>
   >({});
+  const [providersRefreshPending, setProvidersRefreshPending] = useState(false);
+  const [providersLastRefreshAt, setProvidersLastRefreshAt] = useState<string>("");
 
   /* ---- detail / transcript state ---- */
   const [threadDetailRaw, setThreadDetailRaw] = useState<unknown>(null);
@@ -104,6 +112,11 @@ export function useAppData() {
   useEffect(() => {
     window.localStorage.setItem("cmc-locale", locale);
   }, [locale]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-density", density);
+    window.localStorage.setItem("cmc-density", density);
+  }, [density]);
 
   useEffect(() => {
     window.localStorage.setItem("cmc-provider-view", providerView);
@@ -835,25 +848,31 @@ export function useAppData() {
     });
   }, [queryClient, executionGraphQueryKey]);
 
-  const refreshProvidersData = useCallback(() => {
-    void queryClient.fetchQuery({
-      queryKey: ["provider-matrix"],
-      queryFn: () =>
-        apiGet<ProviderMatrixEnvelope>("/api/provider-matrix?refresh=1"),
-      staleTime: 0,
-    });
-    void queryClient.fetchQuery({
-      queryKey: providerSessionsQueryKey,
-      queryFn: () =>
-        apiGet<ProviderSessionsEnvelope>(`${providerSessionsQueryPath}&refresh=1`),
-      staleTime: 0,
-    });
-    void queryClient.fetchQuery({
-      queryKey: providerParserQueryKey,
-      queryFn: () =>
-        apiGet<ProviderParserHealthEnvelope>(`${providerParserQueryPath}&refresh=1`),
-      staleTime: 0,
-    });
+  const refreshProvidersData = useCallback(async () => {
+    setProvidersRefreshPending(true);
+    try {
+      await queryClient.fetchQuery({
+        queryKey: ["provider-matrix"],
+        queryFn: () =>
+          apiGet<ProviderMatrixEnvelope>("/api/provider-matrix?refresh=1"),
+        staleTime: 0,
+      });
+      await queryClient.fetchQuery({
+        queryKey: providerSessionsQueryKey,
+        queryFn: () =>
+          apiGet<ProviderSessionsEnvelope>(`${providerSessionsQueryPath}&refresh=1`),
+        staleTime: 0,
+      });
+      await queryClient.fetchQuery({
+        queryKey: providerParserQueryKey,
+        queryFn: () =>
+          apiGet<ProviderParserHealthEnvelope>(`${providerParserQueryPath}&refresh=1`),
+        staleTime: 0,
+      });
+      setProvidersLastRefreshAt(new Date().toISOString());
+    } finally {
+      setProvidersRefreshPending(false);
+    }
   }, [
     queryClient,
     providerSessionsQueryKey,
@@ -899,6 +918,7 @@ export function useAppData() {
   }, [wantsProvidersData, wantsRoutingData, prefetchProvidersData, prefetchRoutingData]);
 
   const providersRefreshing =
+    providersRefreshPending ||
     providerMatrix.isFetching ||
     providerSessions.isFetching ||
     providerParserHealth.isFetching;
@@ -911,6 +931,7 @@ export function useAppData() {
     /* UI state */
     theme, setTheme,
     locale, setLocale,
+    density, setDensity,
     layoutView, setLayoutView,
     query, setQuery,
     filterMode, setFilterMode,
@@ -977,6 +998,7 @@ export function useAppData() {
     providerMatrixLoading, providerSessionsLoading,
     parserLoading, executionGraphLoading,
     providersRefreshing,
+    providersLastRefreshAt,
 
     /* computed UI flags */
     busy,

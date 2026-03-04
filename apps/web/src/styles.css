@@ -258,6 +258,40 @@ body::before {
   color: var(--accent);
 }
 
+.density-switch {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--tab-bg);
+}
+
+.density-btn {
+  border: 0;
+  border-right: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: transparent;
+  padding: 8px 12px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.density-btn:last-child {
+  border-right: 0;
+}
+
+.density-btn:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.density-btn.is-active {
+  background: var(--tab-active-bg);
+  color: var(--accent);
+}
+
 /* ── Hero ──────────────────────────────────────────────── */
 .hero {
   background: var(--hero-bg);
@@ -586,6 +620,25 @@ button:disabled {
   border-bottom: 1px solid var(--line-soft);
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.sticky-action-stack {
+  position: sticky;
+  top: 8px;
+  z-index: 6;
+}
+
+.sticky-action-bar {
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.sticky-action-bar + .sticky-action-bar {
+  border-top: 0;
+}
+
+.action-toolbar {
+  border-top: 1px solid var(--line-soft);
 }
 
 .check-inline {
@@ -947,6 +1000,17 @@ tr:hover td {
   flex-wrap: wrap;
 }
 
+.detail-action-bar {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  padding: 8px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  backdrop-filter: blur(8px);
+}
+
 .chat-log {
   max-height: 420px;
   overflow: auto;
@@ -1109,6 +1173,85 @@ pre {
 @keyframes pulse-opacity {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
+}
+
+/* ── Density: Compact ─────────────────────────────────── */
+:root[data-density="compact"] body {
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+:root[data-density="compact"] .page {
+  max-width: 1540px;
+  padding: 24px 30px;
+  gap: 18px;
+}
+
+:root[data-density="compact"] .hero {
+  padding: 24px 28px;
+}
+
+:root[data-density="compact"] .hero-meta {
+  margin-top: 14px;
+}
+
+:root[data-density="compact"] .meta-chip {
+  padding: 5px 12px;
+  font-size: 0.75rem;
+}
+
+:root[data-density="compact"] .kpi-grid {
+  gap: 12px;
+}
+
+:root[data-density="compact"] .kpi-card {
+  padding: 16px 18px;
+}
+
+:root[data-density="compact"] .kpi-value {
+  font-size: 1.58rem;
+}
+
+:root[data-density="compact"] .panel header {
+  padding: 14px 16px;
+}
+
+:root[data-density="compact"] .sub-toolbar {
+  padding: 8px 12px;
+  gap: 8px;
+}
+
+:root[data-density="compact"] .sticky-action-stack {
+  top: 4px;
+}
+
+:root[data-density="compact"] .detail-action-bar {
+  top: 4px;
+  padding: 6px 8px;
+}
+
+:root[data-density="compact"] th,
+:root[data-density="compact"] td {
+  padding: 10px 12px;
+  font-size: 0.82rem;
+}
+
+:root[data-density="compact"] .impact-body {
+  padding: 14px 16px;
+  gap: 12px;
+}
+
+:root[data-density="compact"] .impact-kv {
+  padding: 9px 10px;
+}
+
+:root[data-density="compact"] .chat-log {
+  max-height: 340px;
+  padding: 10px;
+}
+
+:root[data-density="compact"] .chat-item {
+  padding: 10px 12px;
 }
 
 /* ── Responsive ───────────────────────────────────────── */

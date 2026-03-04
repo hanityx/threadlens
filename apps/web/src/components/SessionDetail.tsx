@@ -113,7 +113,7 @@ export function SessionDetail(props: SessionDetailProps) {
               <span>{messages.sessionDetail.fieldModified}</span>
               <strong>{selectedSession.mtime || "-"}</strong>
             </div>
-            <div className="chat-toolbar">
+            <div className="chat-toolbar detail-action-bar">
               <button
                 type="button"
                 className="btn-outline"
@@ -142,7 +142,7 @@ export function SessionDetail(props: SessionDetailProps) {
               </button>
             </div>
             {copyNotice ? <p className="sub-hint">{copyNotice}</p> : null}
-            <div className="chat-toolbar">
+            <div className="chat-toolbar detail-action-bar">
               <button
                 type="button"
                 className="btn-outline"

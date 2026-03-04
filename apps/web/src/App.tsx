@@ -40,6 +40,8 @@ export function App() {
     setTheme,
     locale,
     setLocale,
+    density,
+    setDensity,
     layoutView,
     setLayoutView,
     query,
@@ -129,6 +131,7 @@ export function App() {
     parserLoading,
     executionGraphLoading,
     providersRefreshing,
+    providersLastRefreshAt,
 
     busy,
     showProviders,
@@ -279,6 +282,22 @@ export function App() {
               {messages.nav.languageEn}
             </button>
           </div>
+          <div className="density-switch" role="group" aria-label={messages.nav.density}>
+            <button
+              type="button"
+              className={`density-btn ${density === "comfortable" ? "is-active" : ""}`}
+              onClick={() => setDensity("comfortable")}
+            >
+              {messages.nav.densityComfortable}
+            </button>
+            <button
+              type="button"
+              className={`density-btn ${density === "compact" ? "is-active" : ""}`}
+              onClick={() => setDensity("compact")}
+            >
+              {messages.nav.densityCompact}
+            </button>
+          </div>
           <button
             type="button"
             className="btn-outline"
@@ -388,6 +407,7 @@ export function App() {
             selectedSessionPath={selectedSessionPath}
             setSelectedSessionPath={setSelectedSessionPath}
             providersRefreshing={providersRefreshing}
+            providersLastRefreshAt={providersLastRefreshAt}
             refreshProvidersData={refreshProvidersData}
           />
         </Suspense>
