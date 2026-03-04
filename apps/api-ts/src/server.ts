@@ -107,6 +107,11 @@ type ThreadsCacheEntry = {
   payload: unknown;
 };
 
+type DataSourcesCacheEntry = {
+  expires_at: number;
+  payload: unknown;
+};
+
 /* ─────────────────────────────────────────────────────────────────── *
  *  Runtime state (cached)                                             *
  * ─────────────────────────────────────────────────────────────────── */
@@ -198,6 +203,10 @@ const threadsInflight = new Map<
 >();
 let threadsBootCacheLoaded = false;
 
+const DATA_SOURCES_CACHE_TTL_MS = 60_000;
+let dataSourcesCache: DataSourcesCacheEntry | null = null;
+let dataSourcesInflight: Promise<unknown> | null = null;
+
 function isBootThreadsQuery(query: QueryMap): boolean {
   const offset = parseQueryNumber(query.offset, 0);
   const limit = parseQueryNumber(query.limit, 160);
@@ -260,6 +269,31 @@ async function getCachedThreads(
   const fallback = threadsCache.get(key);
   if (fallback) return { status: fallback.status, payload: fallback.payload };
   throw new Error("threads-refresh-failed");
+}
+
+async function getCachedDataSources(forceRefresh: boolean): Promise<unknown> {
+  const nowMs = Date.now();
+  if (
+    !forceRefresh &&
+    dataSourcesCache &&
+    dataSourcesCache.expires_at > nowMs
+  ) {
+    return dataSourcesCache.payload;
+  }
+  if (dataSourcesInflight) return dataSourcesInflight;
+
+  dataSourcesInflight = getDataSourceInventoryTs()
+    .then((payload) => {
+      dataSourcesCache = {
+        expires_at: Date.now() + DATA_SOURCES_CACHE_TTL_MS,
+        payload,
+      };
+      return payload;
+    })
+    .finally(() => {
+      dataSourcesInflight = null;
+    });
+  return dataSourcesInflight;
 }
 
 async function getCachedThreadsRefresh(
@@ -801,9 +835,13 @@ export async function createServer(): Promise<FastifyInstance> {
     }
   });
 
-  app.get("/api/data-sources", async (_req, reply) => {
+  app.get<{ Querystring: QueryMap }>("/api/data-sources", async (req, reply) => {
     try {
-      const data = await getDataSourceInventoryTs();
+      const refreshRaw = Array.isArray(req.query.refresh)
+        ? req.query.refresh[0]
+        : req.query.refresh;
+      const forceRefresh = Number(refreshRaw) > 0;
+      const data = await getCachedDataSources(forceRefresh);
       return reply.code(200).send(withSchemaVersion(data));
     } catch (error) {
       return reply

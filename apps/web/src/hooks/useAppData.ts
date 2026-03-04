@@ -942,7 +942,7 @@ export function useAppData() {
     try {
       await queryClient.fetchQuery({
         queryKey: ["data-sources"],
-        queryFn: () => apiGet<DataSourcesEnvelope>("/api/data-sources"),
+        queryFn: () => apiGet<DataSourcesEnvelope>("/api/data-sources?refresh=1"),
         staleTime: 0,
       });
       await queryClient.fetchQuery({

@@ -261,6 +261,25 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     sourceKey
       .replace(/_/g, " ")
       .replace(/\b[a-z]/g, (ch) => ch.toUpperCase());
+  const providerFromDataSource = (sourceKey: string): ProviderView | null => {
+    const key = sourceKey.toLowerCase();
+    if (key.startsWith("claude")) return "claude";
+    if (key.startsWith("gemini")) return "gemini";
+    if (key.startsWith("copilot")) return "copilot";
+    if (key.startsWith("chat_")) return "chatgpt";
+    if (
+      key.startsWith("codex_") ||
+      key === "sessions" ||
+      key === "archived_sessions" ||
+      key === "history" ||
+      key === "global_state"
+    ) {
+      return "codex";
+    }
+    return null;
+  };
+  const canOpenProviderById = (providerId: ProviderView | null): providerId is ProviderView =>
+    Boolean(providerId && providerTabs.some((tab) => tab.id === providerId));
 
   const providerLabel = providerView === "all" ? messages.common.allAi : selectedProviderLabel;
   const detectedDataSourceCount = dataSourceRows.filter((row) => row.present).length;
@@ -664,34 +683,49 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
                   <div className="skeleton-line" />
                 </div>
               ))
-            : dataSourceRows.map((row) => (
-                <article
-                  key={`data-source-${row.source_key}`}
-                  className={`data-source-card ${row.present ? "is-present" : "is-missing"}`}
-                >
-                  <div className="data-source-top">
-                    <strong>{dataSourceLabel(row.source_key)}</strong>
-                    <span className={`status-pill ${row.present ? "status-active" : "status-missing"}`}>
-                      {row.present ? messages.common.ok : messages.common.fail}
-                    </span>
-                  </div>
-                  <div className="mono-sub data-source-path">{row.path || "-"}</div>
-                  <div className="data-source-meta">
-                    <span>
-                      {messages.providers.dataSourcesFiles} {row.file_count}
-                    </span>
-                    <span>
-                      {messages.providers.dataSourcesDirs} {row.dir_count}
-                    </span>
-                    <span>
-                      {messages.providers.dataSourcesSize} {formatBytes(row.total_bytes)}
-                    </span>
-                    <span>
-                      {messages.providers.dataSourcesUpdated} {formatLocalDate(row.latest_mtime)}
-                    </span>
-                  </div>
-                </article>
-              ))}
+            : dataSourceRows.map((row) => {
+                const mappedProvider = providerFromDataSource(row.source_key);
+                const canJump = canOpenProviderById(mappedProvider);
+                return (
+                  <article
+                    key={`data-source-${row.source_key}`}
+                    className={`data-source-card ${row.present ? "is-present" : "is-missing"}`}
+                  >
+                    <div className="data-source-top">
+                      <strong>{dataSourceLabel(row.source_key)}</strong>
+                      <div className="data-source-top-actions">
+                        {canJump ? (
+                          <button
+                            type="button"
+                            className="inline-link-btn"
+                            onClick={() => jumpToProviderSessions(mappedProvider)}
+                          >
+                            {messages.providers.openSessions}
+                          </button>
+                        ) : null}
+                        <span className={`status-pill ${row.present ? "status-active" : "status-missing"}`}>
+                          {row.present ? messages.common.ok : messages.common.fail}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mono-sub data-source-path">{row.path || "-"}</div>
+                    <div className="data-source-meta">
+                      <span>
+                        {messages.providers.dataSourcesFiles} {row.file_count}
+                      </span>
+                      <span>
+                        {messages.providers.dataSourcesDirs} {row.dir_count}
+                      </span>
+                      <span>
+                        {messages.providers.dataSourcesSize} {formatBytes(row.total_bytes)}
+                      </span>
+                      <span>
+                        {messages.providers.dataSourcesUpdated} {formatLocalDate(row.latest_mtime)}
+                      </span>
+                    </div>
+                  </article>
+                );
+              })}
         </div>
       </section>
 

@@ -1020,6 +1020,12 @@ tr:hover td {
   gap: 8px;
 }
 
+.data-source-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .data-source-path {
   overflow: hidden;
   text-overflow: ellipsis;
