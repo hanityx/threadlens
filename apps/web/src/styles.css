@@ -940,6 +940,30 @@ tr:hover td {
   font-size: 0.8rem;
 }
 
+.provider-roots {
+  margin-top: 8px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  padding: 0;
+  background: color-mix(in srgb, var(--bg-elev) 68%, transparent);
+}
+
+.provider-roots > summary {
+  padding: 6px 10px;
+  font-size: 0.74rem;
+}
+
+.provider-roots > ul {
+  margin: 0;
+  padding: 0 10px 8px 20px;
+  display: grid;
+  gap: 4px;
+}
+
+.provider-roots li {
+  list-style: disc;
+}
+
 /* ── Impact / Detail ──────────────────────────────────── */
 .impact-panel {
   min-height: 420px;
@@ -1284,6 +1308,15 @@ pre {
 :root[data-density="compact"] .impact-body {
   padding: 14px 16px;
   gap: 12px;
+}
+
+:root[data-density="compact"] .provider-roots > summary {
+  padding: 5px 8px;
+  font-size: 0.7rem;
+}
+
+:root[data-density="compact"] .provider-roots > ul {
+  padding: 0 8px 7px 18px;
 }
 
 :root[data-density="compact"] .detail-section > summary {

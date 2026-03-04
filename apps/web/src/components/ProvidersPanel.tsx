@@ -548,9 +548,25 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
                   <td>{p.capabilities.hard_delete ? messages.common.yes : "-"}</td>
                   <td>{p.evidence?.session_log_count ?? 0}</td>
                   <td className="notes-col">
-                    {p.status === "detected" && (p.evidence?.session_log_count ?? 0) === 0
+                    <div>{p.status === "detected" && (p.evidence?.session_log_count ?? 0) === 0
                       ? messages.providers.installDetected
-                      : p.evidence?.notes ?? "-"}
+                      : p.evidence?.notes ?? "-"}</div>
+                    <details className="provider-roots">
+                      <summary>
+                        {messages.providers.rootsLabel} ({p.evidence?.roots?.length ?? 0})
+                      </summary>
+                      <ul>
+                        {(p.evidence?.roots ?? []).length === 0 ? (
+                          <li className="mono-sub">{messages.providers.rootsNone}</li>
+                        ) : (
+                          (p.evidence?.roots ?? []).map((root) => (
+                            <li key={`${p.provider}-${root}`} className="mono-sub">
+                              {root}
+                            </li>
+                          ))
+                        )}
+                      </ul>
+                    </details>
                   </td>
                 </tr>
               ))}

@@ -52,6 +52,7 @@ export type ProviderMatrixProvider = {
   evidence?: {
     session_log_count?: number;
     notes?: string;
+    roots?: string[];
   };
 };
 
