@@ -93,6 +93,8 @@ export function App() {
     providers,
     providerSummary,
     providerTabs,
+    slowProviderIds,
+    slowProviderThresholdMs,
     providerSessionRows,
     providerSessionSummary,
     providerSessionsLimit,
@@ -264,7 +266,12 @@ export function App() {
             >
               {providerTabs.map((tab) => (
                 <option key={`provider-scope-${tab.id}`} value={tab.id}>
-                  {tab.id === "all" ? messages.common.allAi : tab.name} ({tab.scanned})
+                  {tab.id === "all" ? messages.common.allAi : tab.name}
+                  {" ("}
+                  {tab.scanned}
+                  {tab.scan_ms !== null ? ` · ${tab.scan_ms}ms` : ""}
+                  {tab.is_slow ? ` · ${messages.providers.slowProviderBadge}` : ""}
+                  {")"}
                 </option>
               ))}
             </select>
@@ -385,6 +392,8 @@ export function App() {
             providerSummary={providerSummary}
             providerMatrixLoading={providerMatrixLoading}
             providerTabs={providerTabs}
+            slowProviderIds={slowProviderIds}
+            slowProviderThresholdMs={slowProviderThresholdMs}
             providerView={providerView}
             setProviderView={setProviderView}
             providerDataDepth={providerDataDepth}

@@ -89,6 +89,7 @@ export type ProviderSessionScan = {
   rows: ProviderSessionRow[];
   scanned: number;
   truncated: boolean;
+  scan_ms: number;
 };
 
 export type TranscriptMessage = {
@@ -1420,6 +1421,7 @@ async function scanProviderSessions(
   provider: ProviderId,
   limit = 80,
 ): Promise<ProviderSessionScan> {
+  const startedAt = Date.now();
   const safeLimit = Math.max(1, Math.min(240, Number(limit) || 80));
   const roots = await providerScanRootSpecs(provider);
   const rootExists =
@@ -1515,6 +1517,7 @@ async function scanProviderSessions(
     rows,
     scanned: rows.length,
     truncated: candidates.length > safeLimit,
+    scan_ms: Math.max(0, Date.now() - startedAt),
   };
 }
 
@@ -1578,6 +1581,7 @@ export async function getProviderSessionsTs(
       status: scan.status,
       scanned: scan.scanned,
       truncated: scan.truncated,
+      scan_ms: scan.scan_ms,
     })),
     rows,
   };
@@ -1609,6 +1613,7 @@ export async function getProviderParserHealthTs(
       parse_fail: parseFail,
       parse_score: score,
       truncated: scan.truncated,
+      scan_ms: scan.scan_ms,
       sample_errors: scan.rows
         .filter((row) => !row.probe.ok)
         .slice(0, 8)

@@ -139,7 +139,11 @@ export interface ProvidersPanelProps {
     name: string;
     status: "active" | "detected" | "missing";
     scanned: number;
+    scan_ms: number | null;
+    is_slow: boolean;
   }>;
+  slowProviderIds: string[];
+  slowProviderThresholdMs: number;
   providerView: ProviderView;
   setProviderView: (v: ProviderView) => void;
   providerDataDepth: ProviderDataDepth;
@@ -177,6 +181,7 @@ export interface ProvidersPanelProps {
     parse_fail: number;
     parse_score: number | null;
     truncated: boolean;
+    scan_ms?: number;
     sample_errors?: Array<{ session_id: string; format: string; error: string | null }>;
   }>;
   parserLoading: boolean;
@@ -208,6 +213,8 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     providerSummary,
     providerMatrixLoading,
     providerTabs,
+    slowProviderIds,
+    slowProviderThresholdMs,
     providerView,
     setProviderView,
     providerDataDepth,
@@ -294,6 +301,21 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     Boolean(providerId && providerTabs.some((tab) => tab.id === providerId));
 
   const providerLabel = providerView === "all" ? messages.common.allAi : selectedProviderLabel;
+  const slowProviderSet = useMemo(
+    () => new Set(slowProviderIds),
+    [slowProviderIds],
+  );
+  const providerTabById = useMemo(
+    () => new Map(providerTabs.map((tab) => [tab.id, tab])),
+    [providerTabs],
+  );
+  const slowProviderSummary = useMemo(() => {
+    const names = slowProviderIds
+      .map((providerId) => providerTabById.get(providerId as ProviderView)?.name ?? providerId)
+      .slice(0, 3);
+    return names.join(", ");
+  }, [slowProviderIds, providerTabById]);
+  const providerTabCount = providerTabs.filter((tab) => tab.id !== "all").length;
   const detectedDataSourceCount = dataSourceRows.filter((row) => row.present).length;
   const hasSlowProviderFetch =
     providerFetchMetrics.data_sources !== null && providerFetchMetrics.data_sources >= 1200 ||
@@ -619,52 +641,62 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
               </tr>
             </thead>
             <tbody>
-              {providers.map((p) => (
-                <tr key={p.provider}>
-                  <td className="title-col">
-                    <div className="provider-name-cell">
-                      <span>{p.name}</span>
-                      <button
-                        type="button"
-                        className="inline-link-btn"
-                        onClick={() => jumpToProviderSessions(p.provider)}
-                      >
-                        {messages.providers.openSessions}
-                      </button>
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`status-pill status-${p.status}`}>{statusLabel(p.status)}</span>
-                  </td>
-                  <td>{p.capability_level}</td>
-                  <td>{p.capabilities.read_sessions ? messages.common.yes : "-"}</td>
-                  <td>{p.capabilities.analyze_context ? messages.common.yes : "-"}</td>
-                  <td>{p.capabilities.safe_cleanup ? messages.common.yes : "-"}</td>
-                  <td>{p.capabilities.hard_delete ? messages.common.yes : "-"}</td>
-                  <td>{p.evidence?.session_log_count ?? 0}</td>
-                  <td className="notes-col">
-                    <div>{p.status === "detected" && (p.evidence?.session_log_count ?? 0) === 0
-                      ? messages.providers.installDetected
-                      : p.evidence?.notes ?? "-"}</div>
-                    <details className="provider-roots">
-                      <summary>
-                        {messages.providers.rootsLabel} ({p.evidence?.roots?.length ?? 0})
-                      </summary>
-                      <ul>
-                        {(p.evidence?.roots ?? []).length === 0 ? (
-                          <li className="mono-sub">{messages.providers.rootsNone}</li>
-                        ) : (
-                          (p.evidence?.roots ?? []).map((root) => (
-                            <li key={`${p.provider}-${root}`} className="mono-sub">
-                              {root}
-                            </li>
-                          ))
-                        )}
-                      </ul>
-                    </details>
-                  </td>
-                </tr>
-              ))}
+              {providers.map((p) => {
+                const providerScanMs = providerTabById.get(p.provider as ProviderView)?.scan_ms ?? null;
+                const providerSlow = slowProviderSet.has(p.provider);
+                return (
+                  <tr key={p.provider} className={providerSlow ? "provider-slow-row" : undefined}>
+                    <td className="title-col">
+                      <div className="provider-name-cell">
+                        <span>{p.name}</span>
+                        {providerSlow ? (
+                          <span className="provider-slow-badge">
+                            {messages.providers.slowProviderBadge}
+                            {providerScanMs !== null ? ` ${formatFetchMs(providerScanMs)}` : ""}
+                          </span>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="inline-link-btn"
+                          onClick={() => jumpToProviderSessions(p.provider)}
+                        >
+                          {messages.providers.openSessions}
+                        </button>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`status-pill status-${p.status}`}>{statusLabel(p.status)}</span>
+                    </td>
+                    <td>{p.capability_level}</td>
+                    <td>{p.capabilities.read_sessions ? messages.common.yes : "-"}</td>
+                    <td>{p.capabilities.analyze_context ? messages.common.yes : "-"}</td>
+                    <td>{p.capabilities.safe_cleanup ? messages.common.yes : "-"}</td>
+                    <td>{p.capabilities.hard_delete ? messages.common.yes : "-"}</td>
+                    <td>{p.evidence?.session_log_count ?? 0}</td>
+                    <td className="notes-col">
+                      <div>{p.status === "detected" && (p.evidence?.session_log_count ?? 0) === 0
+                        ? messages.providers.installDetected
+                        : p.evidence?.notes ?? "-"}</div>
+                      <details className="provider-roots">
+                        <summary>
+                          {messages.providers.rootsLabel} ({p.evidence?.roots?.length ?? 0})
+                        </summary>
+                        <ul>
+                          {(p.evidence?.roots ?? []).length === 0 ? (
+                            <li className="mono-sub">{messages.providers.rootsNone}</li>
+                          ) : (
+                            (p.evidence?.roots ?? []).map((root) => (
+                              <li key={`${p.provider}-${root}`} className="mono-sub">
+                                {root}
+                              </li>
+                            ))
+                          )}
+                        </ul>
+                      </details>
+                    </td>
+                  </tr>
+                );
+              })}
               {providerMatrixLoading
                 ? Array.from({ length: 4 }).map((_, idx) => (
                     <tr key={`provider-matrix-skeleton-${idx}`}>
@@ -753,13 +785,19 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
             type="button"
             role="tab"
             aria-selected={providerView === tab.id}
-            className={`provider-tab ${providerView === tab.id ? "is-active" : ""}`}
+            className={`provider-tab ${providerView === tab.id ? "is-active" : ""} ${tab.is_slow ? "is-slow" : ""}`.trim()}
             onClick={() => setProviderView(tab.id)}
           >
             <span className="provider-tab-title">{tab.id === "all" ? messages.common.allAi : tab.name}</span>
             <span className="provider-tab-meta">
               {tab.scanned} {messages.providers.sessionsSuffix}
             </span>
+            {tab.scan_ms !== null ? (
+              <span className="provider-tab-meta">{formatFetchMs(tab.scan_ms)}</span>
+            ) : null}
+            {tab.is_slow ? (
+              <span className="provider-slow-badge">{messages.providers.slowProviderBadge}</span>
+            ) : null}
             <span className={`status-pill status-${tab.status}`}>{statusLabel(tab.status)}</span>
           </button>
         ))}
@@ -798,6 +836,11 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
           {` · ${messages.providers.fetchMsMatrix} ${formatFetchMs(providerFetchMetrics.matrix)}`}
           {` · ${messages.providers.fetchMsSessions} ${formatFetchMs(providerFetchMetrics.sessions)}`}
           {` · ${messages.providers.fetchMsParser} ${formatFetchMs(providerFetchMetrics.parser)}`}
+          {` · ${messages.providers.slowProvidersLabel} ${slowProviderIds.length}/${providerTabCount}`}
+          {` · ${messages.providers.slowThresholdLabel} ${slowProviderThresholdMs}ms`}
+          {slowProviderIds.length > 0
+            ? ` · ${slowProviderSummary}`
+            : ` · ${messages.providers.slowProvidersNone}`}
           {hasSlowProviderFetch ? ` · ${messages.providers.fetchMsSlow}` : ""}
         </span>
       </section>
@@ -992,7 +1035,10 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
                   <tr
                     key={`${row.provider}-${row.session_id}-${row.file_path}`}
                     data-file-key={encodeURIComponent(row.file_path)}
-                    className={selectedSessionPath === row.file_path ? "active-row" : undefined}
+                    className={[
+                      selectedSessionPath === row.file_path ? "active-row" : "",
+                      slowProviderSet.has(row.provider) ? "provider-slow-row" : "",
+                    ].filter(Boolean).join(" ") || undefined}
                     onClick={() => {
                       setSelectedSessionPath(row.file_path);
                       setParserDetailProvider(row.provider);
@@ -1127,7 +1173,11 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
                   <tr
                     key={`parser-${report.provider}`}
                     data-parser-provider-key={encodeURIComponent(report.provider)}
-                    className={`parser-jump-row ${selectedSessionProvider === report.provider ? "parser-linked-row" : ""}`.trim()}
+                    className={[
+                      "parser-jump-row",
+                      selectedSessionProvider === report.provider ? "parser-linked-row" : "",
+                      slowProviderSet.has(report.provider) ? "provider-slow-row" : "",
+                    ].filter(Boolean).join(" ")}
                     role="button"
                     tabIndex={0}
                     onClick={() => jumpToProviderSessions(report.provider, Number(report.parse_fail))}

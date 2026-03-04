@@ -115,6 +115,7 @@ export type ProviderSessionsEnvelope = ApiEnvelope<{
     status: "active" | "detected" | "missing";
     scanned: number;
     truncated: boolean;
+    scan_ms?: number;
   }>;
   rows?: ProviderSessionRow[];
 }>;
@@ -137,6 +138,7 @@ export type ProviderParserHealthEnvelope = ApiEnvelope<{
     parse_fail: number;
     parse_score: number | null;
     truncated: boolean;
+    scan_ms?: number;
     sample_errors?: Array<{
       session_id: string;
       format: string;

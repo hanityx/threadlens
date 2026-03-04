@@ -706,8 +706,18 @@ button:disabled {
   background: var(--tab-active-bg);
 }
 
+.provider-tab.is-slow {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: color-mix(in srgb, var(--tab-bg) 84%, var(--warn-dim));
+}
+
 .provider-tab.is-active::before {
   opacity: 1;
+}
+
+.provider-tab.is-slow::before {
+  opacity: 0.75;
+  background: linear-gradient(180deg, rgba(251, 191, 36, 0.95), rgba(245, 158, 11, 0.85));
 }
 
 .provider-tab:hover {
@@ -916,7 +926,30 @@ tr:hover td {
 .provider-name-cell {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.provider-slow-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: color-mix(in srgb, var(--warn-dim) 80%, transparent);
+  color: var(--warn);
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+}
+
+.provider-slow-row td {
+  background: color-mix(in srgb, var(--warn-dim) 55%, transparent);
+}
+
+.provider-slow-row:hover td {
+  background: color-mix(in srgb, var(--warn-dim) 70%, var(--hover));
 }
 
 .inline-link-btn {

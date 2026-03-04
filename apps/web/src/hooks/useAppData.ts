@@ -45,6 +45,7 @@ function providerActionSelectionKey(
 }
 
 const THREADS_BOOTSTRAP_CACHE_KEY = "cmc-threads-cache-v1";
+const SLOW_PROVIDER_SCAN_MS = 1200;
 type ProviderFetchMetrics = {
   data_sources: number | null;
   matrix: number | null;
@@ -589,31 +590,68 @@ export function useAppData() {
   const allProviderSessionRows = providerSessionsRoot.rows ?? [];
   const allProviderSessionProviders = providerSessionsRoot.providers ?? [];
   const allParserReports = providerParserRoot.reports ?? [];
+  const providerRowsByProvider = useMemo(() => {
+    const map = new Map<string, typeof allProviderSessionRows>();
+    allProviderSessionRows.forEach((row) => {
+      const provider = String(row.provider || "").trim();
+      if (!provider) return;
+      const existing = map.get(provider);
+      if (existing) {
+        existing.push(row);
+      } else {
+        map.set(provider, [row]);
+      }
+    });
+    return map;
+  }, [allProviderSessionRows]);
+  const sessionCountByProvider = useMemo(
+    () => new Map(Array.from(providerRowsByProvider.entries()).map(([provider, rows]) => [provider, rows.length])),
+    [providerRowsByProvider],
+  );
   const providerById = useMemo(() => new Map(providers.map((p) => [p.provider, p])), [providers]);
   const scannedByProvider = useMemo(
     () => new Map(allProviderSessionProviders.map((p) => [p.provider, p.scanned])),
     [allProviderSessionProviders],
   );
+  const scanMsByProvider = useMemo(() => {
+    const map = new Map<string, number>();
+    allProviderSessionProviders.forEach((provider) => {
+      const ms = parseNum(provider.scan_ms);
+      if (ms > 0) map.set(provider.provider, ms);
+    });
+    allParserReports.forEach((report) => {
+      if (map.has(report.provider)) return;
+      const ms = parseNum(report.scan_ms);
+      if (ms > 0) map.set(report.provider, ms);
+    });
+    return map;
+  }, [allProviderSessionProviders, allParserReports]);
+  const slowProviderIds = useMemo(
+    () =>
+      Array.from(scanMsByProvider.entries())
+        .filter(([, ms]) => ms >= SLOW_PROVIDER_SCAN_MS)
+        .sort((a, b) => b[1] - a[1])
+        .map(([provider]) => provider),
+    [scanMsByProvider],
+  );
   const providerSessionRows = useMemo(
     () =>
       providerView === "all"
         ? allProviderSessionRows
-        : allProviderSessionRows.filter((row) => row.provider === providerView),
-    [providerView, allProviderSessionRows],
+        : providerRowsByProvider.get(providerView) ?? [],
+    [providerView, allProviderSessionRows, providerRowsByProvider],
   );
   const providerSessionSummary = useMemo(() => {
     const parseOk = providerSessionRows.filter((row) => row.probe.ok).length;
     const parseFail = providerSessionRows.length - parseOk;
-    const providerCountFromRows = new Set(
-      allProviderSessionRows.map((row) => String(row.provider || "").trim()).filter(Boolean),
-    ).size;
+    const providerCountFromRows = sessionCountByProvider.size;
     return {
       providers: providerView === "all" ? providers.length || providerCountFromRows : 1,
       rows: providerSessionRows.length,
       parse_ok: parseOk,
       parse_fail: parseFail,
     };
-  }, [providerView, providerSessionRows, providers.length, allProviderSessionRows]);
+  }, [providerView, providerSessionRows, providers.length, sessionCountByProvider.size]);
 
   const parserReports = useMemo(
     () => (providerView === "all" ? allParserReports : allParserReports.filter((report) => report.provider === providerView)),
@@ -640,27 +678,42 @@ export function useAppData() {
       .map((row) => String(row.provider || "").trim())
       .filter(Boolean);
     const mergedIds = Array.from(new Set([...idsFromMatrix, ...idsFromRows]));
+    const providerItems = mergedIds.map((id) => {
+      const meta = providerById.get(id);
+      const scanned =
+        scannedByProvider.get(id) ??
+        sessionCountByProvider.get(id) ??
+        0;
+      const scanMs = scanMsByProvider.get(id) ?? null;
+      return {
+        id: id as ProviderView,
+        name: meta?.name ?? id,
+        status: meta?.status ?? (scanned > 0 ? "active" : "missing"),
+        scanned,
+        scan_ms: scanMs,
+        is_slow: scanMs !== null && scanMs >= SLOW_PROVIDER_SCAN_MS,
+      };
+    });
+    providerItems.sort((a, b) => {
+      if (a.is_slow !== b.is_slow) return a.is_slow ? -1 : 1;
+      const aScanMs = a.scan_ms ?? -1;
+      const bScanMs = b.scan_ms ?? -1;
+      if (aScanMs !== bScanMs) return bScanMs - aScanMs;
+      if (a.scanned !== b.scanned) return b.scanned - a.scanned;
+      return a.name.localeCompare(b.name);
+    });
     return [
       {
         id: "all" as ProviderView,
         name: "All AI",
         status: "active" as const,
         scanned: allProviderSessionRows.length,
+        scan_ms: null,
+        is_slow: false,
       },
-      ...mergedIds.map((id) => {
-        const meta = providerById.get(id);
-        const scanned =
-          scannedByProvider.get(id) ??
-          allProviderSessionRows.filter((row) => row.provider === id).length;
-        return {
-          id: id as ProviderView,
-          name: meta?.name ?? id,
-          status: meta?.status ?? (scanned > 0 ? "active" : "missing"),
-          scanned,
-        };
-      }),
+      ...providerItems,
     ];
-  }, [providers, allProviderSessionRows, providerById, scannedByProvider]);
+  }, [providers, allProviderSessionRows, providerById, scannedByProvider, sessionCountByProvider, scanMsByProvider]);
 
   useEffect(() => {
     if (providerView === "all") return;
@@ -1112,6 +1165,8 @@ export function useAppData() {
     /* derived – providers */
     providers, providerSummary,
     providerTabs, providerSessionRows,
+    slowProviderIds,
+    slowProviderThresholdMs: SLOW_PROVIDER_SCAN_MS,
     providerSessionSummary,
     providerSessionsLimit,
     providerRowsSampled,
