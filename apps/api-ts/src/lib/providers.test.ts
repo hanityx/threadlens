@@ -3,6 +3,7 @@ import {
   buildProviderActionToken,
   listProviderIds,
   parseProviderId,
+  providerRootSpecs,
 } from "./providers";
 
 describe("buildProviderActionToken", () => {
@@ -56,5 +57,15 @@ describe("provider registry", () => {
   it("parses provider id case-insensitively", () => {
     expect(parseProviderId("CHATGPT")).toBe("chatgpt");
     expect(parseProviderId("CoDeX")).toBe("codex");
+  });
+
+  it("includes Gemini antigravity conversation root for pb sessions", () => {
+    const roots = providerRootSpecs("gemini");
+    const hasPbRoot = roots.some(
+      (spec) =>
+        spec.source === "antigravity_conversations" &&
+        spec.exts.includes(".pb"),
+    );
+    expect(hasPbRoot).toBe(true);
   });
 });

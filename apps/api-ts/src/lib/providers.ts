@@ -24,7 +24,9 @@ import {
   CLAUDE_PROJECTS_DIR,
   CLAUDE_TRANSCRIPTS_DIR,
   GEMINI_HOME,
+  GEMINI_HISTORY_DIR,
   GEMINI_TMP_DIR,
+  GEMINI_ANTIGRAVITY_CONVERSATIONS_DIR,
   COPILOT_VSCODE_GLOBAL,
   COPILOT_CURSOR_GLOBAL,
   HOME_DIR,
@@ -35,6 +37,7 @@ import {
   readFileHead,
   readFileTail,
   walkFilesByExt,
+  countFilesRecursiveByExt,
   countJsonlFilesRecursive,
   quickFileCount,
   safeJsonParse,
@@ -794,6 +797,12 @@ export function providerRootSpecs(provider: ProviderId): ProviderRootSpec[] {
   if (provider === "gemini") {
     return [
       { source: "tmp", root: GEMINI_TMP_DIR, exts: [".jsonl", ".json"] },
+      { source: "history", root: GEMINI_HISTORY_DIR, exts: [".jsonl", ".json"] },
+      {
+        source: "antigravity_conversations",
+        root: GEMINI_ANTIGRAVITY_CONVERSATIONS_DIR,
+        exts: [".pb"],
+      },
     ];
   }
   return [
@@ -856,9 +865,12 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
       path.join(CODEX_HOME, "archived_sessions"),
     ));
   const claudeSessionLogs =
-    (await countJsonlFilesRecursive(CLAUDE_PROJECTS_DIR)) +
-    (await countJsonlFilesRecursive(CLAUDE_TRANSCRIPTS_DIR));
-  const geminiSessionLogs = await countJsonlFilesRecursive(GEMINI_TMP_DIR);
+    (await countFilesRecursiveByExt(CLAUDE_PROJECTS_DIR, [".jsonl", ".json"])) +
+    (await countFilesRecursiveByExt(CLAUDE_TRANSCRIPTS_DIR, [".jsonl", ".json"]));
+  const geminiSessionLogs =
+    (await countFilesRecursiveByExt(GEMINI_TMP_DIR, [".jsonl", ".json"])) +
+    (await countFilesRecursiveByExt(GEMINI_HISTORY_DIR, [".jsonl", ".json"])) +
+    (await countFilesRecursiveByExt(GEMINI_ANTIGRAVITY_CONVERSATIONS_DIR, [".pb"]));
   const chatGptSessionLogs = (
     await Promise.all(
       chatGptConversationRoots.map((spec) => quickFileCount(spec.root)),
@@ -952,10 +964,15 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
         hard_delete: supportsProviderCleanup("gemini") && geminiStatus !== "missing",
       },
       evidence: {
-        roots: [GEMINI_HOME, GEMINI_TMP_DIR],
+        roots: [
+          GEMINI_HOME,
+          GEMINI_TMP_DIR,
+          GEMINI_HISTORY_DIR,
+          GEMINI_ANTIGRAVITY_CONVERSATIONS_DIR,
+        ],
         session_log_count: geminiSessionLogs,
         notes:
-          "dev mode: local archive/delete enabled when storage is detected",
+          "dev mode: scans tmp/history plus antigravity conversation store",
       },
     },
     {
