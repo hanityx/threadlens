@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Messages } from "../i18n";
 import type {
   ProviderMatrixProvider,
@@ -11,11 +11,99 @@ import { SKELETON_ROWS } from "../types";
 
 type ProviderSessionSort = "mtime_desc" | "mtime_asc" | "size_desc" | "size_asc" | "title_asc" | "title_desc";
 type ProviderProbeFilter = "all" | "ok" | "fail";
+type ParserSort = "fail_desc" | "fail_asc" | "score_desc" | "score_asc" | "name_asc" | "name_desc";
+type CsvColumnKey =
+  | "provider"
+  | "session_id"
+  | "title"
+  | "title_source"
+  | "source"
+  | "format"
+  | "probe_ok"
+  | "size_bytes"
+  | "modified"
+  | "file_path";
+
+const CSV_COLUMN_KEYS: CsvColumnKey[] = [
+  "provider",
+  "session_id",
+  "title",
+  "title_source",
+  "source",
+  "format",
+  "probe_ok",
+  "size_bytes",
+  "modified",
+  "file_path",
+];
+
+const DEFAULT_CSV_COLUMNS: Record<CsvColumnKey, boolean> = {
+  provider: true,
+  session_id: true,
+  title: true,
+  title_source: true,
+  source: true,
+  format: true,
+  probe_ok: true,
+  size_bytes: true,
+  modified: true,
+  file_path: true,
+};
+
+const COMPACT_CSV_COLUMNS: Record<CsvColumnKey, boolean> = {
+  provider: true,
+  session_id: true,
+  title: true,
+  title_source: false,
+  source: false,
+  format: true,
+  probe_ok: true,
+  size_bytes: true,
+  modified: true,
+  file_path: true,
+};
+
+const FORENSICS_CSV_COLUMNS: Record<CsvColumnKey, boolean> = {
+  provider: true,
+  session_id: true,
+  title: true,
+  title_source: false,
+  source: true,
+  format: true,
+  probe_ok: true,
+  size_bytes: true,
+  modified: true,
+  file_path: true,
+};
+
+function csvCell(value: unknown): string {
+  const raw = String(value ?? "");
+  if (/[",\n]/.test(raw)) {
+    return `"${raw.replace(/"/g, "\"\"")}"`;
+  }
+  return raw;
+}
 
 function formatLocalDate(value: string): string {
   const t = Date.parse(value);
   if (Number.isNaN(t)) return "-";
   return new Date(t).toLocaleString();
+}
+
+function readCsvColumnPrefs(): Record<CsvColumnKey, boolean> {
+  if (typeof window === "undefined") return DEFAULT_CSV_COLUMNS;
+  try {
+    const raw = window.localStorage.getItem("cmc-provider-csv-columns");
+    if (!raw) return DEFAULT_CSV_COLUMNS;
+    const parsed = JSON.parse(raw) as Partial<Record<CsvColumnKey, boolean>>;
+    const next: Record<CsvColumnKey, boolean> = { ...DEFAULT_CSV_COLUMNS };
+    CSV_COLUMN_KEYS.forEach((key) => {
+      if (typeof parsed[key] === "boolean") next[key] = parsed[key] as boolean;
+    });
+    return next;
+  } catch {
+    return DEFAULT_CSV_COLUMNS;
+  }
 }
 
 export interface ProvidersPanelProps {
@@ -117,6 +205,19 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const [sessionSort, setSessionSort] = useState<ProviderSessionSort>("mtime_desc");
   const [probeFilter, setProbeFilter] = useState<ProviderProbeFilter>("all");
   const [renderLimit, setRenderLimit] = useState(120);
+  const [csvExportedRows, setCsvExportedRows] = useState<number | null>(null);
+  const [parserDetailProvider, setParserDetailProvider] = useState<string>("");
+  const [parserFailOnly, setParserFailOnly] = useState(false);
+  const [parserSort, setParserSort] = useState<ParserSort>("fail_desc");
+  const [csvColumns, setCsvColumns] = useState<Record<CsvColumnKey, boolean>>(readCsvColumnPrefs);
+  const providerSessionsSectionRef = useRef<HTMLElement | null>(null);
+  const parserSectionRef = useRef<HTMLElement | null>(null);
+  const [pendingSessionJump, setPendingSessionJump] = useState<{
+    provider: string;
+    sessionId: string;
+  } | null>(null);
+  const [pendingParserFocusProvider, setPendingParserFocusProvider] = useState<string>("");
+  const [parserJumpStatus, setParserJumpStatus] = useState<"idle" | "found" | "not_found">("idle");
 
   const statusLabel = (status: "active" | "detected" | "missing") => {
     if (status === "active") return messages.providers.statusActive;
@@ -187,6 +288,204 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const allFilteredProviderRowsSelected =
     sortedProviderSessionRows.length > 0 &&
     sortedProviderSessionRows.every((row) => Boolean(selectedProviderFiles[row.file_path]));
+  const enabledCsvColumns = useMemo(
+    () => CSV_COLUMN_KEYS.filter((key) => Boolean(csvColumns[key])),
+    [csvColumns],
+  );
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("cmc-provider-csv-columns", JSON.stringify(csvColumns));
+  }, [csvColumns]);
+  const filteredParserReports = useMemo(
+    () => (parserFailOnly ? parserReports.filter((report) => Number(report.parse_fail) > 0) : parserReports),
+    [parserReports, parserFailOnly],
+  );
+  const sortedParserReports = useMemo(() => {
+    const rows = [...filteredParserReports];
+    rows.sort((a, b) => {
+      if (parserSort === "fail_desc") return Number(b.parse_fail) - Number(a.parse_fail);
+      if (parserSort === "fail_asc") return Number(a.parse_fail) - Number(b.parse_fail);
+      if (parserSort === "score_desc") return Number(b.parse_score ?? -1) - Number(a.parse_score ?? -1);
+      if (parserSort === "score_asc") return Number(a.parse_score ?? 101) - Number(b.parse_score ?? 101);
+      if (parserSort === "name_desc") return String(b.name || "").localeCompare(String(a.name || ""));
+      return String(a.name || "").localeCompare(String(b.name || ""));
+    });
+    return rows;
+  }, [filteredParserReports, parserSort]);
+  const parserReportsWithErrors = useMemo(
+    () =>
+      sortedParserReports.filter(
+        (report) => Array.isArray(report.sample_errors) && report.sample_errors.length > 0,
+      ),
+    [sortedParserReports],
+  );
+  useEffect(() => {
+    if (parserReportsWithErrors.length === 0) {
+      setParserDetailProvider("");
+      return;
+    }
+    const exists = parserReportsWithErrors.some((report) => report.provider === parserDetailProvider);
+    if (!exists) setParserDetailProvider(parserReportsWithErrors[0].provider);
+  }, [parserReportsWithErrors, parserDetailProvider]);
+  const parserDetailReport = useMemo(
+    () => parserReportsWithErrors.find((report) => report.provider === parserDetailProvider) ?? null,
+    [parserReportsWithErrors, parserDetailProvider],
+  );
+  const selectedSessionProvider = useMemo(
+    () =>
+      providerSessionRows.find((row) => row.file_path === selectedSessionPath)?.provider ?? "",
+    [providerSessionRows, selectedSessionPath],
+  );
+  const selectedSessionProviderVisibleInParser = useMemo(
+    () =>
+      !selectedSessionProvider ||
+      sortedParserReports.some((report) => report.provider === selectedSessionProvider),
+    [sortedParserReports, selectedSessionProvider],
+  );
+  const parseFailByProvider = useMemo(() => {
+    const map: Record<string, number> = {};
+    parserReports.forEach((report) => {
+      map[report.provider] = Number(report.parse_fail);
+    });
+    return map;
+  }, [parserReports]);
+  const selectedSessionParseFailCount = selectedSessionProvider
+    ? parseFailByProvider[selectedSessionProvider]
+    : undefined;
+
+  const exportFilteredSessionsCsv = () => {
+    const headers = enabledCsvColumns.length > 0 ? enabledCsvColumns : CSV_COLUMN_KEYS;
+    const lines = [headers.map(csvCell).join(",")];
+    sortedProviderSessionRows.forEach((row) => {
+      const valuesByKey: Record<CsvColumnKey, unknown> = {
+        provider: row.provider,
+        session_id: row.session_id,
+        title: row.display_title || row.probe.detected_title || row.session_id,
+        title_source: row.probe.title_source ?? "",
+        source: row.source,
+        format: row.probe.format,
+        probe_ok: row.probe.ok ? "ok" : "fail",
+        size_bytes: row.size_bytes,
+        modified: row.mtime,
+        file_path: row.file_path,
+      };
+      lines.push(headers.map((key) => csvCell(valuesByKey[key])).join(","));
+    });
+    const payload = `\uFEFF${lines.join("\n")}`;
+    const blob = new Blob([payload], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const scope = providerView === "all" ? "all" : providerView;
+    anchor.href = url;
+    anchor.download = `provider-sessions-${scope}-${stamp}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    setCsvExportedRows(sortedProviderSessionRows.length);
+  };
+
+  const csvColumnLabel = (key: CsvColumnKey): string => {
+    if (key === "provider") return messages.providers.csvColumnProvider;
+    if (key === "session_id") return messages.providers.csvColumnSessionId;
+    if (key === "title") return messages.providers.csvColumnTitle;
+    if (key === "title_source") return messages.providers.csvColumnTitleSource;
+    if (key === "source") return messages.providers.csvColumnSource;
+    if (key === "format") return messages.providers.csvColumnFormat;
+    if (key === "probe_ok") return messages.providers.csvColumnProbe;
+    if (key === "size_bytes") return messages.providers.csvColumnSize;
+    if (key === "modified") return messages.providers.csvColumnModified;
+    return messages.providers.csvColumnPath;
+  };
+
+  const jumpToProviderSessions = (providerId: string, parseFail: number) => {
+    setProviderView(providerId as ProviderView);
+    setProbeFilter(parseFail > 0 ? "fail" : "all");
+    setParserDetailProvider(providerId);
+    setSessionFilter("");
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => {
+        providerSessionsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 0);
+    }
+  };
+  const scrollToSessionRow = (filePath: string) => {
+    if (typeof window === "undefined") return;
+    const key = encodeURIComponent(filePath);
+    window.setTimeout(() => {
+      const row = document.querySelector(`tr[data-file-key="${key}"]`);
+      if (row instanceof HTMLElement) {
+        row.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      providerSessionsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  };
+  const scrollToParserProviderRow = (providerId: string) => {
+    if (typeof window === "undefined") return;
+    const key = encodeURIComponent(providerId);
+    window.setTimeout(() => {
+      const row = document.querySelector(`tr[data-parser-provider-key="${key}"]`);
+      if (row instanceof HTMLElement) {
+        row.scrollIntoView({ behavior: "smooth", block: "center" });
+        row.focus({ preventScroll: true });
+        return;
+      }
+      parserSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  };
+  const jumpToParserProvider = (providerId: string) => {
+    if (!providerId) return;
+    if (parserFailOnly) setParserFailOnly(false);
+    setParserDetailProvider(providerId);
+    setPendingParserFocusProvider(providerId);
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => {
+        parserSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 0);
+    }
+  };
+  const jumpToSessionFromParserError = (providerId: string, sessionId: string) => {
+    setProviderView(providerId as ProviderView);
+    setProbeFilter("all");
+    setSessionFilter("");
+    setParserDetailProvider(providerId);
+    setPendingSessionJump({ provider: providerId, sessionId });
+    setParserJumpStatus("idle");
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => {
+        providerSessionsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 0);
+    }
+  };
+  useEffect(() => {
+    if (!pendingSessionJump) return;
+    if (providerView !== pendingSessionJump.provider) return;
+    if (providerSessionsLoading) return;
+    const hit = providerSessionRows.find(
+      (row) => row.provider === pendingSessionJump.provider && row.session_id === pendingSessionJump.sessionId,
+    );
+    if (hit) {
+      setSelectedSessionPath(hit.file_path);
+      setParserJumpStatus("found");
+      scrollToSessionRow(hit.file_path);
+    } else {
+      setParserJumpStatus("not_found");
+    }
+    setPendingSessionJump(null);
+  }, [
+    pendingSessionJump,
+    providerView,
+    providerSessionsLoading,
+    providerSessionRows,
+    setSelectedSessionPath,
+  ]);
+  useEffect(() => {
+    if (!pendingParserFocusProvider) return;
+    const exists = sortedParserReports.some((report) => report.provider === pendingParserFocusProvider);
+    if (!exists) return;
+    scrollToParserProviderRow(pendingParserFocusProvider);
+    setPendingParserFocusProvider("");
+  }, [pendingParserFocusProvider, sortedParserReports]);
 
   return (
     <>
@@ -289,7 +588,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
       </section>
 
       <section className="provider-ops-layout">
-        <section className="panel">
+        <section className="panel" ref={providerSessionsSectionRef}>
           <header>
             <h2>{messages.providers.sessionsTitle}</h2>
             <span>
@@ -336,6 +635,55 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
                 ? ` · ${messages.providers.renderingWindow} ${renderedProviderSessionRows.length}/${sortedProviderSessionRows.length}`
                 : ""}
             </span>
+            <button
+              className="btn-outline"
+              type="button"
+              disabled={sortedProviderSessionRows.length === 0 || enabledCsvColumns.length === 0}
+              onClick={exportFilteredSessionsCsv}
+            >
+              {messages.providers.exportCsv}
+            </button>
+            <details>
+              <summary>{messages.providers.csvColumns}</summary>
+              <div className="sub-toolbar">
+                <button
+                  className="btn-outline"
+                  type="button"
+                  onClick={() => setCsvColumns({ ...DEFAULT_CSV_COLUMNS })}
+                >
+                  {messages.providers.csvPresetAll}
+                </button>
+                <button
+                  className="btn-outline"
+                  type="button"
+                  onClick={() => setCsvColumns({ ...COMPACT_CSV_COLUMNS })}
+                >
+                  {messages.providers.csvPresetCompact}
+                </button>
+                <button
+                  className="btn-outline"
+                  type="button"
+                  onClick={() => setCsvColumns({ ...FORENSICS_CSV_COLUMNS })}
+                >
+                  {messages.providers.csvPresetForensics}
+                </button>
+              </div>
+              <div className="sub-toolbar">
+                {CSV_COLUMN_KEYS.map((key) => (
+                  <label key={`csv-col-${key}`} className="check-inline">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(csvColumns[key])}
+                      onChange={(e) => setCsvColumns((prev) => ({ ...prev, [key]: e.target.checked }))}
+                    />
+                    {csvColumnLabel(key)}
+                  </label>
+                ))}
+                <span className="sub-hint">
+                  {messages.providers.csvSelectedColumns} {enabledCsvColumns.length}/{CSV_COLUMN_KEYS.length}
+                </span>
+              </div>
+            </details>
           </div>
           <div className="sub-toolbar">
             <label className="check-inline">
@@ -351,6 +699,17 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
             <span className="sub-hint">
               {providerLabel} · {messages.providers.selected} {selectedProviderFilePaths.length}
             </span>
+            {selectedSessionProvider ? (
+              <button
+                type="button"
+                className={`status-pill status-pill-button ${Number(selectedSessionParseFailCount ?? 0) > 0 ? "status-detected" : "status-active"}`}
+                onClick={() => jumpToParserProvider(selectedSessionProvider)}
+              >
+                {messages.providers.parserLinkedBadge} {selectedSessionProvider} · {messages.providers.parserLinkedFails}{" "}
+                {selectedSessionParseFailCount ?? messages.common.unknown}
+                <span className="status-pill-action">{messages.providers.parserLinkedOpen}</span>
+              </button>
+            ) : null}
           </div>
           <div className="sub-toolbar">
             <button
@@ -404,9 +763,11 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
                 {renderedProviderSessionRows.map((row) => (
                   <tr
                     key={`${row.provider}-${row.session_id}-${row.file_path}`}
+                    data-file-key={encodeURIComponent(row.file_path)}
                     className={selectedSessionPath === row.file_path ? "active-row" : undefined}
                     onClick={() => {
                       setSelectedSessionPath(row.file_path);
+                      setParserDetailProvider(row.provider);
                     }}
                   >
                     <td>
@@ -470,15 +831,57 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
               </span>
             </div>
           ) : null}
+          {csvExportedRows !== null ? (
+            <div className="sub-toolbar">
+              <span className="sub-hint">
+                {messages.providers.csvExported} {csvExportedRows}
+              </span>
+            </div>
+          ) : null}
         </section>
 
-        <section className="panel">
+        <section className="panel" ref={parserSectionRef}>
           <header>
             <h2>{messages.providers.parserTitle}</h2>
             <span>
               {messages.providers.score} {parserSummary.parse_score ?? "-"}
             </span>
           </header>
+          <div className="sub-toolbar">
+            <span className="sub-hint">{messages.providers.parserJumpHint}</span>
+            {selectedSessionProvider ? (
+              <span className="sub-hint">
+                {messages.providers.parserLinkedProvider} {selectedSessionProvider}
+                {!selectedSessionProviderVisibleInParser ? ` · ${messages.providers.parserLinkedHidden}` : ""}
+              </span>
+            ) : null}
+          </div>
+          <div className="sub-toolbar">
+            <label className="check-inline">
+              <input
+                type="checkbox"
+                checked={parserFailOnly}
+                onChange={(e) => setParserFailOnly(e.target.checked)}
+              />
+              {messages.providers.parserFailOnly}
+            </label>
+            <span className="sub-hint">
+              {messages.providers.filteredRows} {filteredParserReports.length}/{parserReports.length}
+            </span>
+            <select
+              className="filter-select"
+              aria-label={messages.providers.parserSortLabel}
+              value={parserSort}
+              onChange={(e) => setParserSort(e.target.value as ParserSort)}
+            >
+              <option value="fail_desc">{messages.providers.parserSortFailDesc}</option>
+              <option value="fail_asc">{messages.providers.parserSortFailAsc}</option>
+              <option value="score_desc">{messages.providers.parserSortScoreDesc}</option>
+              <option value="score_asc">{messages.providers.parserSortScoreAsc}</option>
+              <option value="name_asc">{messages.providers.parserSortNameAsc}</option>
+              <option value="name_desc">{messages.providers.parserSortNameDesc}</option>
+            </select>
+          </div>
           <div className="provider-table-wrap">
             <table>
               <thead>
@@ -492,8 +895,21 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
                 </tr>
               </thead>
               <tbody>
-                {parserReports.map((report) => (
-                  <tr key={`parser-${report.provider}`}>
+                {sortedParserReports.map((report) => (
+                  <tr
+                    key={`parser-${report.provider}`}
+                    data-parser-provider-key={encodeURIComponent(report.provider)}
+                    className={`parser-jump-row ${selectedSessionProvider === report.provider ? "parser-linked-row" : ""}`.trim()}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => jumpToProviderSessions(report.provider, Number(report.parse_fail))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        jumpToProviderSessions(report.provider, Number(report.parse_fail));
+                      }
+                    }}
+                  >
                     <td>{report.name}</td>
                     <td>
                       <span className={`status-pill status-${report.status}`}>{statusLabel(report.status)}</span>
@@ -513,7 +929,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
                       </tr>
                     ))
                   : null}
-                {parserReports.length === 0 && !parserLoading ? (
+                {sortedParserReports.length === 0 && !parserLoading ? (
                   <tr>
                     <td colSpan={6} className="sub-hint">
                       {messages.providers.parserLoading}
@@ -522,6 +938,74 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
                 ) : null}
               </tbody>
             </table>
+          </div>
+          <div className="sub-toolbar">
+            <label className="provider-quick-switch">
+              <span>{messages.providers.parserDetailLabel}</span>
+              <select
+                className="provider-quick-select"
+                value={parserDetailProvider}
+                onChange={(e) => setParserDetailProvider(e.target.value)}
+                disabled={parserReportsWithErrors.length === 0}
+              >
+                {parserReportsWithErrors.length === 0 ? (
+                  <option value="">{messages.providers.parserNoSampleErrors}</option>
+                ) : (
+                  parserReportsWithErrors.map((report) => (
+                    <option key={`parser-detail-${report.provider}`} value={report.provider}>
+                      {report.name} ({report.sample_errors?.length ?? 0})
+                    </option>
+                  ))
+                )}
+              </select>
+            </label>
+          </div>
+          <div className="parser-errors">
+            {parserJumpStatus === "found" ? (
+              <p className="sub-hint">{messages.providers.parserJumpFound}</p>
+            ) : null}
+            {parserJumpStatus === "not_found" ? (
+              <p className="sub-hint">{messages.providers.parserJumpNotFound}</p>
+            ) : null}
+            {parserDetailReport?.sample_errors?.length ? (
+              <>
+                <p className="sub-hint">
+                  {messages.providers.parserSelectedErrors} {parserDetailReport.name}
+                </p>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>{messages.providers.parserFieldSessionId}</th>
+                      <th>{messages.providers.parserFieldFormat}</th>
+                      <th>{messages.providers.parserFieldError}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {parserDetailReport.sample_errors.map((entry, idx) => (
+                      <tr
+                        key={`parser-error-${parserDetailReport.provider}-${entry.session_id}-${idx}`}
+                        className="parser-error-jump-row"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => jumpToSessionFromParserError(parserDetailReport.provider, entry.session_id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            jumpToSessionFromParserError(parserDetailReport.provider, entry.session_id);
+                          }
+                        }}
+                      >
+                        <td className="mono-sub">{entry.session_id}</td>
+                        <td>{entry.format}</td>
+                        <td>{entry.error ?? "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            ) : (
+              <p className="sub-hint">{messages.providers.parserNoSampleErrors}</p>
+            )}
           </div>
         </section>
       </section>
