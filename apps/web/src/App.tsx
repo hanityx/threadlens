@@ -134,6 +134,7 @@ export function App() {
     executionGraphLoading,
     providersRefreshing,
     providersLastRefreshAt,
+    providerFetchMetrics,
 
     busy,
     showProviders,
@@ -412,6 +413,7 @@ export function App() {
             setSelectedSessionPath={setSelectedSessionPath}
             providersRefreshing={providersRefreshing}
             providersLastRefreshAt={providersLastRefreshAt}
+            providerFetchMetrics={providerFetchMetrics}
             refreshProvidersData={refreshProvidersData}
           />
         </Suspense>

@@ -106,6 +106,11 @@ function formatBytes(value: number): string {
   return `${size.toFixed(size < 10 ? 1 : 0)} ${units[idx]}`;
 }
 
+function formatFetchMs(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "-";
+  return `${Math.max(0, Math.round(value))}ms`;
+}
+
 function readCsvColumnPrefs(): Record<CsvColumnKey, boolean> {
   if (typeof window === "undefined") return DEFAULT_CSV_COLUMNS;
   try {
@@ -187,6 +192,12 @@ export interface ProvidersPanelProps {
   setSelectedSessionPath: (path: string) => void;
   providersRefreshing: boolean;
   providersLastRefreshAt: string;
+  providerFetchMetrics: {
+    data_sources: number | null;
+    matrix: number | null;
+    sessions: number | null;
+    parser: number | null;
+  };
   refreshProvidersData: () => void;
 }
 
@@ -225,6 +236,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     setSelectedSessionPath,
     providersRefreshing,
     providersLastRefreshAt,
+    providerFetchMetrics,
     refreshProvidersData,
   } = props;
   const [sessionFilter, setSessionFilter] = useState("");
@@ -283,6 +295,11 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
 
   const providerLabel = providerView === "all" ? messages.common.allAi : selectedProviderLabel;
   const detectedDataSourceCount = dataSourceRows.filter((row) => row.present).length;
+  const hasSlowProviderFetch =
+    providerFetchMetrics.data_sources !== null && providerFetchMetrics.data_sources >= 1200 ||
+    providerFetchMetrics.matrix !== null && providerFetchMetrics.matrix >= 1200 ||
+    providerFetchMetrics.sessions !== null && providerFetchMetrics.sessions >= 1200 ||
+    providerFetchMetrics.parser !== null && providerFetchMetrics.parser >= 1200;
   const sourceFilterOptions = useMemo(() => {
     const counts = new Map<string, number>();
     providerSessionRows.forEach((row) => {
@@ -776,6 +793,12 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
           {providersLastRefreshAt
             ? ` · ${messages.providers.lastRefresh} ${formatLocalDate(providersLastRefreshAt)}`
             : ""}
+          {` · ${messages.providers.fetchMsLabel} `}
+          {`${messages.providers.fetchMsDataSources} ${formatFetchMs(providerFetchMetrics.data_sources)}`}
+          {` · ${messages.providers.fetchMsMatrix} ${formatFetchMs(providerFetchMetrics.matrix)}`}
+          {` · ${messages.providers.fetchMsSessions} ${formatFetchMs(providerFetchMetrics.sessions)}`}
+          {` · ${messages.providers.fetchMsParser} ${formatFetchMs(providerFetchMetrics.parser)}`}
+          {hasSlowProviderFetch ? ` · ${messages.providers.fetchMsSlow}` : ""}
         </span>
       </section>
 

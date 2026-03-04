@@ -45,6 +45,12 @@ function providerActionSelectionKey(
 }
 
 const THREADS_BOOTSTRAP_CACHE_KEY = "cmc-threads-cache-v1";
+type ProviderFetchMetrics = {
+  data_sources: number | null;
+  matrix: number | null;
+  sessions: number | null;
+  parser: number | null;
+};
 
 export function useAppData() {
   /* ---- UI state ---- */
@@ -102,6 +108,18 @@ export function useAppData() {
   >({});
   const [providersRefreshPending, setProvidersRefreshPending] = useState(false);
   const [providersLastRefreshAt, setProvidersLastRefreshAt] = useState<string>("");
+  const [providerFetchMetrics, setProviderFetchMetrics] = useState<ProviderFetchMetrics>({
+    data_sources: null,
+    matrix: null,
+    sessions: null,
+    parser: null,
+  });
+  const providerFetchStartRef = useRef<ProviderFetchMetrics>({
+    data_sources: null,
+    matrix: null,
+    sessions: null,
+    parser: null,
+  });
 
   /* ---- detail / transcript state ---- */
   const [threadDetailRaw, setThreadDetailRaw] = useState<unknown>(null);
@@ -332,6 +350,36 @@ export function useAppData() {
     refetchOnWindowFocus: false,
     retry: 1,
   });
+
+  const settleProviderFetchMetric = useCallback(
+    (key: keyof ProviderFetchMetrics, isFetching: boolean) => {
+      if (isFetching) {
+        if (providerFetchStartRef.current[key] === null) {
+          providerFetchStartRef.current[key] = Date.now();
+        }
+        return;
+      }
+      const startedAt = providerFetchStartRef.current[key];
+      if (startedAt === null) return;
+      providerFetchStartRef.current[key] = null;
+      const elapsedMs = Math.max(0, Date.now() - startedAt);
+      setProviderFetchMetrics((prev) => ({ ...prev, [key]: elapsedMs }));
+    },
+    [],
+  );
+
+  useEffect(() => {
+    settleProviderFetchMetric("data_sources", dataSources.isFetching);
+  }, [dataSources.isFetching, settleProviderFetchMetric]);
+  useEffect(() => {
+    settleProviderFetchMetric("matrix", providerMatrix.isFetching);
+  }, [providerMatrix.isFetching, settleProviderFetchMetric]);
+  useEffect(() => {
+    settleProviderFetchMetric("sessions", providerSessions.isFetching);
+  }, [providerSessions.isFetching, settleProviderFetchMetric]);
+  useEffect(() => {
+    settleProviderFetchMetric("parser", providerParserHealth.isFetching);
+  }, [providerParserHealth.isFetching, settleProviderFetchMetric]);
 
   /* ================================================================ */
   /*  Mutations                                                       */
@@ -1094,6 +1142,7 @@ export function useAppData() {
     parserLoading, executionGraphLoading,
     providersRefreshing,
     providersLastRefreshAt,
+    providerFetchMetrics,
 
     /* computed UI flags */
     busy,
