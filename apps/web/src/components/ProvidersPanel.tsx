@@ -11,6 +11,7 @@ import { SKELETON_ROWS } from "../types";
 
 type ProviderSessionSort = "mtime_desc" | "mtime_asc" | "size_desc" | "size_asc" | "title_asc" | "title_desc";
 type ProviderProbeFilter = "all" | "ok" | "fail";
+type ProviderSourceFilter = "all" | (string & {});
 type ParserSort = "fail_desc" | "fail_asc" | "score_desc" | "score_asc" | "name_asc" | "name_desc";
 type CsvColumnKey =
   | "provider"
@@ -211,6 +212,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const deferredSessionFilter = useDeferredValue(sessionFilter);
   const [sessionSort, setSessionSort] = useState<ProviderSessionSort>("mtime_desc");
   const [probeFilter, setProbeFilter] = useState<ProviderProbeFilter>("all");
+  const [sourceFilter, setSourceFilter] = useState<ProviderSourceFilter>("all");
   const [renderLimit, setRenderLimit] = useState(120);
   const [csvExportedRows, setCsvExportedRows] = useState<number | null>(null);
   const [parserDetailProvider, setParserDetailProvider] = useState<string>("");
@@ -238,6 +240,21 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   };
 
   const providerLabel = providerView === "all" ? messages.common.allAi : selectedProviderLabel;
+  const sourceFilterOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    providerSessionRows.forEach((row) => {
+      const source = String(row.source || "").trim() || "unknown";
+      counts.set(source, (counts.get(source) ?? 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([source, count]) => ({ source, count }));
+  }, [providerSessionRows]);
+  useEffect(() => {
+    if (sourceFilter === "all") return;
+    const exists = sourceFilterOptions.some((item) => item.source === sourceFilter);
+    if (!exists) setSourceFilter("all");
+  }, [sourceFilter, sourceFilterOptions]);
   const providerSessionComputedIndex = useMemo(() => {
     const searchText = new Map<string, string>();
     const mtimeTs = new Map<string, number>();
@@ -262,6 +279,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const filteredProviderSessionRows = useMemo(() => {
     const q = deferredSessionFilter.trim().toLowerCase();
     return providerSessionRows.filter((row) => {
+      if (sourceFilter !== "all" && row.source !== sourceFilter) return false;
       if (probeFilter === "ok" && !row.probe.ok) return false;
       if (probeFilter === "fail" && row.probe.ok) return false;
 
@@ -269,7 +287,13 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
       const text = providerSessionComputedIndex.searchText.get(row.file_path) ?? "";
       return text.includes(q);
     });
-  }, [providerSessionRows, providerSessionComputedIndex, deferredSessionFilter, probeFilter]);
+  }, [
+    providerSessionRows,
+    providerSessionComputedIndex,
+    deferredSessionFilter,
+    probeFilter,
+    sourceFilter,
+  ]);
   const sortedProviderSessionRows = useMemo(() => {
     const rows = [...filteredProviderSessionRows];
     rows.sort((a, b) => {
@@ -303,7 +327,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   );
   useEffect(() => {
     setRenderLimit(120);
-  }, [providerView, sessionFilter, sessionSort, probeFilter]);
+  }, [providerView, sessionFilter, sessionSort, probeFilter, sourceFilter]);
   const filteredProviderFilePaths = useMemo(
     () => sortedProviderSessionRows.map((row) => row.file_path),
     [sortedProviderSessionRows],
@@ -420,7 +444,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     return messages.providers.csvColumnPath;
   };
 
-  const jumpToProviderSessions = (providerId: string, parseFail: number) => {
+  const jumpToProviderSessions = (providerId: string, parseFail = 0) => {
     setProviderView(providerId as ProviderView);
     setProbeFilter(parseFail > 0 ? "fail" : "all");
     setParserDetailProvider(providerId);
@@ -537,7 +561,18 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
             <tbody>
               {providers.map((p) => (
                 <tr key={p.provider}>
-                  <td className="title-col">{p.name}</td>
+                  <td className="title-col">
+                    <div className="provider-name-cell">
+                      <span>{p.name}</span>
+                      <button
+                        type="button"
+                        className="inline-link-btn"
+                        onClick={() => jumpToProviderSessions(p.provider)}
+                      >
+                        {messages.providers.openSessions}
+                      </button>
+                    </div>
+                  </td>
                   <td>
                     <span className={`status-pill status-${p.status}`}>{statusLabel(p.status)}</span>
                   </td>
@@ -669,6 +704,19 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
               <option value="all">{messages.providers.probeAll}</option>
               <option value="ok">{messages.providers.probeOk}</option>
               <option value="fail">{messages.providers.probeFail}</option>
+            </select>
+            <select
+              className="filter-select"
+              aria-label={messages.providers.sourceFilterLabel}
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value as ProviderSourceFilter)}
+            >
+              <option value="all">{messages.providers.sourceAll}</option>
+              {sourceFilterOptions.map((item) => (
+                <option key={`source-filter-${item.source}`} value={item.source}>
+                  {item.source} ({item.count})
+                </option>
+              ))}
             </select>
             <select
               className="filter-select"

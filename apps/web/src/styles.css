@@ -913,6 +913,32 @@ tr:hover td {
   max-width: 560px;
 }
 
+.provider-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inline-link-btn {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.73rem;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+}
+
+.inline-link-btn:hover {
+  text-decoration: underline;
+}
+
+.inline-link-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-ring);
+  border-radius: 6px;
+}
+
 .title-main {
   display: -webkit-box;
   -webkit-box-orient: vertical;
