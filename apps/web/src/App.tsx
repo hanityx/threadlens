@@ -1,14 +1,40 @@
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { useAppData } from "./hooks/useAppData";
 import { KpiCard } from "./components/KpiCard";
-import { RoutingPanel } from "./components/RoutingPanel";
-import { ProvidersPanel } from "./components/ProvidersPanel";
 import { ThreadsTable } from "./components/ThreadsTable";
-import { ForensicsPanel } from "./components/ForensicsPanel";
 import { ThreadDetail } from "./components/ThreadDetail";
 import { SessionDetail } from "./components/SessionDetail";
 import { getMessages } from "./i18n";
 
+const ProvidersPanel = lazy(async () => {
+  const mod = await import("./components/ProvidersPanel");
+  return { default: mod.ProvidersPanel };
+});
+
+const RoutingPanel = lazy(async () => {
+  const mod = await import("./components/RoutingPanel");
+  return { default: mod.RoutingPanel };
+});
+
+const ForensicsPanel = lazy(async () => {
+  const mod = await import("./components/ForensicsPanel");
+  return { default: mod.ForensicsPanel };
+});
+
+const preloadProvidersPanel = () => {
+  void import("./components/ProvidersPanel");
+};
+
+const preloadRoutingPanel = () => {
+  void import("./components/RoutingPanel");
+};
+
+const preloadForensicsPanel = () => {
+  void import("./components/ForensicsPanel");
+};
+
 export function App() {
+  const panelChunkWarmupStartedRef = useRef(false);
   const {
     theme,
     setTheme,
@@ -114,9 +140,62 @@ export function App() {
     toggleSelectAllProviderRows,
     runProviderAction,
     runSingleProviderAction,
+    prefetchProvidersData,
+    prefetchRoutingData,
   } = useAppData();
 
   const messages = getMessages(locale);
+
+  const handleProvidersIntent = () => {
+    prefetchProvidersData();
+    preloadProvidersPanel();
+  };
+
+  const handleRoutingIntent = () => {
+    prefetchRoutingData();
+    preloadRoutingPanel();
+  };
+
+  const handleForensicsIntent = () => {
+    preloadForensicsPanel();
+  };
+
+  useEffect(() => {
+    if (layoutView !== "threads") return;
+    if (panelChunkWarmupStartedRef.current) return;
+    if (typeof window === "undefined") return;
+
+    panelChunkWarmupStartedRef.current = true;
+    let cancelled = false;
+    let timeoutId: number | null = null;
+    let idleId: number | null = null;
+
+    const runWarmup = () => {
+      if (cancelled) return;
+      preloadProvidersPanel();
+      preloadRoutingPanel();
+      preloadForensicsPanel();
+    };
+
+    const w = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+
+    if (typeof w.requestIdleCallback === "function") {
+      idleId = w.requestIdleCallback(runWarmup, { timeout: 2500 });
+    } else {
+      timeoutId = window.setTimeout(runWarmup, 1200);
+    }
+
+    return () => {
+      cancelled = true;
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+      if (idleId !== null && typeof w.cancelIdleCallback === "function") {
+        w.cancelIdleCallback(idleId);
+      }
+    };
+  }, [layoutView]);
 
   return (
     <main className="page">
@@ -140,6 +219,9 @@ export function App() {
             type="button"
             className={`view-btn ${layoutView === "providers" ? "is-active" : ""}`}
             onClick={() => setLayoutView("providers")}
+            onMouseEnter={handleProvidersIntent}
+            onFocus={handleProvidersIntent}
+            onTouchStart={handleProvidersIntent}
           >
             {messages.nav.providers}
           </button>
@@ -147,6 +229,9 @@ export function App() {
             type="button"
             className={`view-btn ${layoutView === "forensics" ? "is-active" : ""}`}
             onClick={() => setLayoutView("forensics")}
+            onMouseEnter={handleForensicsIntent}
+            onFocus={handleForensicsIntent}
+            onTouchStart={handleForensicsIntent}
           >
             {messages.nav.forensics}
           </button>
@@ -154,6 +239,9 @@ export function App() {
             type="button"
             className={`view-btn ${layoutView === "routing" ? "is-active" : ""}`}
             onClick={() => setLayoutView("routing")}
+            onMouseEnter={handleRoutingIntent}
+            onFocus={handleRoutingIntent}
+            onTouchStart={handleRoutingIntent}
           >
             {messages.nav.routing}
           </button>
@@ -254,40 +342,70 @@ export function App() {
       </section>
 
       {showProviders ? (
-        <ProvidersPanel
-          messages={messages}
-          providers={providers}
-          providerSummary={providerSummary}
-          providerMatrixLoading={providerMatrixLoading}
-          providerTabs={providerTabs}
-          providerView={providerView}
-          setProviderView={setProviderView}
-          providerDataDepth={providerDataDepth}
-          setProviderDataDepth={setProviderDataDepth}
-          providerSessionRows={providerSessionRows}
-          providerSessionSummary={providerSessionSummary}
-          providerSessionsLimit={providerSessionsLimit}
-          providerRowsSampled={providerRowsSampled}
-          providerSessionsLoading={providerSessionsLoading}
-          selectedProviderFiles={selectedProviderFiles}
-          setSelectedProviderFiles={setSelectedProviderFiles}
-          allProviderRowsSelected={allProviderRowsSelected}
-          toggleSelectAllProviderRows={toggleSelectAllProviderRows}
-          selectedProviderLabel={selectedProviderLabel}
-          selectedProviderFilePaths={selectedProviderFilePaths}
-          canRunProviderAction={canRunProviderAction}
-          busy={busy}
-          runProviderAction={runProviderAction}
-          providerActionData={providerActionData}
-          parserReports={parserReports}
-          parserLoading={parserLoading}
-          parserSummary={parserSummary}
-          selectedSessionPath={selectedSessionPath}
-          setSelectedSessionPath={setSelectedSessionPath}
-        />
+        <Suspense
+          fallback={
+            <section className="panel">
+              <header>
+                <h2>{messages.nav.providers}</h2>
+                <span>{messages.common.loading}</span>
+              </header>
+              <div className="sub-toolbar">
+                <div className="skeleton-line" />
+              </div>
+            </section>
+          }
+        >
+          <ProvidersPanel
+            messages={messages}
+            providers={providers}
+            providerSummary={providerSummary}
+            providerMatrixLoading={providerMatrixLoading}
+            providerTabs={providerTabs}
+            providerView={providerView}
+            setProviderView={setProviderView}
+            providerDataDepth={providerDataDepth}
+            setProviderDataDepth={setProviderDataDepth}
+            providerSessionRows={providerSessionRows}
+            providerSessionSummary={providerSessionSummary}
+            providerSessionsLimit={providerSessionsLimit}
+            providerRowsSampled={providerRowsSampled}
+            providerSessionsLoading={providerSessionsLoading}
+            selectedProviderFiles={selectedProviderFiles}
+            setSelectedProviderFiles={setSelectedProviderFiles}
+            allProviderRowsSelected={allProviderRowsSelected}
+            toggleSelectAllProviderRows={toggleSelectAllProviderRows}
+            selectedProviderLabel={selectedProviderLabel}
+            selectedProviderFilePaths={selectedProviderFilePaths}
+            canRunProviderAction={canRunProviderAction}
+            busy={busy}
+            runProviderAction={runProviderAction}
+            providerActionData={providerActionData}
+            parserReports={parserReports}
+            parserLoading={parserLoading}
+            parserSummary={parserSummary}
+            selectedSessionPath={selectedSessionPath}
+            setSelectedSessionPath={setSelectedSessionPath}
+          />
+        </Suspense>
       ) : null}
 
-      {showRouting ? <RoutingPanel messages={messages} data={executionGraphData} loading={executionGraphLoading} /> : null}
+      {showRouting ? (
+        <Suspense
+          fallback={
+            <section className="panel">
+              <header>
+                <h2>{messages.nav.routing}</h2>
+                <span>{messages.common.loading}</span>
+              </header>
+              <div className="sub-toolbar">
+                <div className="skeleton-line" />
+              </div>
+            </section>
+          }
+        >
+          <RoutingPanel messages={messages} data={executionGraphData} loading={executionGraphLoading} />
+        </Suspense>
+      ) : null}
 
       {showThreadsTable ? (
         <section className="toolbar">
@@ -337,17 +455,31 @@ export function App() {
           ) : null}
 
           {showForensics ? (
-            <ForensicsPanel
-              messages={messages}
-              selectedIds={selectedIds}
-              rows={rows}
-              cleanupData={cleanupData}
-              selectedImpactRows={selectedImpactRows}
-              analysisRaw={analysisRaw}
-              cleanupRaw={cleanupRaw}
-              analyzeDeleteError={analyzeDeleteError}
-              cleanupDryRunError={cleanupDryRunError}
-            />
+            <Suspense
+              fallback={
+                <section className="panel">
+                  <header>
+                    <h2>{messages.nav.forensics}</h2>
+                    <span>{messages.common.loading}</span>
+                  </header>
+                  <div className="sub-toolbar">
+                    <div className="skeleton-line" />
+                  </div>
+                </section>
+              }
+            >
+              <ForensicsPanel
+                messages={messages}
+                selectedIds={selectedIds}
+                rows={rows}
+                cleanupData={cleanupData}
+                selectedImpactRows={selectedImpactRows}
+                analysisRaw={analysisRaw}
+                cleanupRaw={cleanupRaw}
+                analyzeDeleteError={analyzeDeleteError}
+                cleanupDryRunError={cleanupDryRunError}
+              />
+            </Suspense>
           ) : null}
         </section>
       ) : null}

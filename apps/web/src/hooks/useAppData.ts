@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ApiEnvelope, BulkThreadActionResult } from "@codex/shared-contracts";
 import { apiGet, apiPost } from "../api";
@@ -63,6 +63,7 @@ export function useAppData() {
     if (saved === "fast" || saved === "balanced" || saved === "deep") return saved;
     return "balanced";
   });
+  const [secondaryDataHydrated, setSecondaryDataHydrated] = useState(false);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [selectedProviderFiles, setSelectedProviderFiles] = useState<Record<string, boolean>>({});
   const [selectedThreadId, setSelectedThreadId] = useState<string>("");
@@ -86,6 +87,10 @@ export function useAppData() {
   const [sessionTranscriptRaw, setSessionTranscriptRaw] = useState<unknown>(null);
   const [sessionTranscriptLoading, setSessionTranscriptLoading] = useState(false);
   const [sessionTranscriptLimit, setSessionTranscriptLimit] = useState(250);
+  const idleWarmupStartedRef = useRef(false);
+  const threadDetailCacheRef = useRef<Map<string, unknown>>(new Map());
+  const threadTranscriptCacheRef = useRef<Map<string, unknown>>(new Map());
+  const sessionTranscriptCacheRef = useRef<Map<string, unknown>>(new Map());
 
   const queryClient = useQueryClient();
   const deferredQuery = useDeferredValue(query);
@@ -107,13 +112,60 @@ export function useAppData() {
     window.localStorage.setItem("cmc-provider-depth", providerDataDepth);
   }, [providerDataDepth]);
 
+  const wantsProvidersData = layoutView === "overview" || layoutView === "providers";
+  const wantsRoutingData = layoutView === "overview" || layoutView === "routing";
+  const wantsRecoveryData = layoutView === "overview" || layoutView === "forensics";
+  const recoveryQueryEnabled = wantsRecoveryData || secondaryDataHydrated;
+  const providerMatrixQueryEnabled = wantsProvidersData || secondaryDataHydrated;
+
+  useEffect(() => {
+    if (secondaryDataHydrated) return;
+    if (typeof window === "undefined") {
+      setSecondaryDataHydrated(true);
+      return;
+    }
+    if (layoutView !== "threads") {
+      setSecondaryDataHydrated(true);
+      return;
+    }
+
+    let cancelled = false;
+    let timeoutId: number | null = null;
+    let idleId: number | null = null;
+
+    const runWarmup = () => {
+      if (cancelled) return;
+      setSecondaryDataHydrated(true);
+    };
+
+    const w = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+
+    if (typeof w.requestIdleCallback === "function") {
+      idleId = w.requestIdleCallback(runWarmup, { timeout: 1800 });
+    } else {
+      timeoutId = window.setTimeout(runWarmup, 900);
+    }
+
+    return () => {
+      cancelled = true;
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+      if (idleId !== null && typeof w.cancelIdleCallback === "function") {
+        w.cancelIdleCallback(idleId);
+      }
+    };
+  }, [layoutView, secondaryDataHydrated]);
+
   /* ================================================================ */
   /*  Queries                                                         */
   /* ================================================================ */
 
   const runtime = useQuery({
     queryKey: ["runtime"],
-    queryFn: () => apiGet<RuntimeEnvelope>("/api/agent-runtime"),
+    queryFn: ({ signal }) =>
+      apiGet<RuntimeEnvelope>("/api/agent-runtime", { signal }),
     refetchInterval: 10000,
     staleTime: 5000,
     refetchOnWindowFocus: false,
@@ -122,9 +174,10 @@ export function useAppData() {
 
   const threads = useQuery({
     queryKey: ["threads", deferredQuery],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       apiGet<ThreadsResponse>(
         `/api/threads?offset=0&limit=${PAGE_SIZE}&q=${encodeURIComponent(deferredQuery)}&sort=updated_desc`,
+        { signal },
       ),
     placeholderData: (previous) => previous,
     staleTime: 10000,
@@ -134,7 +187,9 @@ export function useAppData() {
 
   const recovery = useQuery({
     queryKey: ["recovery"],
-    queryFn: () => apiGet<RecoveryResponse>("/api/recovery-center"),
+    queryFn: ({ signal }) =>
+      apiGet<RecoveryResponse>("/api/recovery-center", { signal }),
+    enabled: recoveryQueryEnabled,
     refetchInterval: 15000,
     staleTime: 10000,
     refetchOnWindowFocus: false,
@@ -143,7 +198,9 @@ export function useAppData() {
 
   const providerMatrix = useQuery({
     queryKey: ["provider-matrix"],
-    queryFn: () => apiGet<ProviderMatrixEnvelope>("/api/provider-matrix"),
+    queryFn: ({ signal }) =>
+      apiGet<ProviderMatrixEnvelope>("/api/provider-matrix", { signal }),
+    enabled: providerMatrixQueryEnabled,
     refetchInterval: 60000,
     staleTime: 30000,
     refetchOnWindowFocus: false,
@@ -173,13 +230,30 @@ export function useAppData() {
     providerQueryView === "all"
       ? ""
       : `&provider=${encodeURIComponent(providerQueryView)}`;
+  const providerSessionsQueryKey = [
+    "provider-sessions",
+    providerQueryView,
+    providerDataDepth,
+    providerSessionsLimit,
+  ] as const;
+  const providerSessionsQueryPath =
+    `/api/provider-sessions?limit=${providerSessionsLimit}${providerScopeQuery}`;
+  const providerParserQueryKey = [
+    "provider-parser-health",
+    providerQueryView,
+    providerDataDepth,
+    providerParserLimit,
+  ] as const;
+  const providerParserQueryPath =
+    `/api/provider-parser-health?limit=${providerParserLimit}${providerScopeQuery}`;
+  const executionGraphQueryKey = ["execution-graph"] as const;
 
   const providerSessions = useQuery({
-    queryKey: ["provider-sessions", providerQueryView, providerDataDepth, providerSessionsLimit],
-    queryFn: () =>
-      apiGet<ProviderSessionsEnvelope>(
-        `/api/provider-sessions?limit=${providerSessionsLimit}${providerScopeQuery}`,
-      ),
+    queryKey: providerSessionsQueryKey,
+    queryFn: ({ signal }) =>
+      apiGet<ProviderSessionsEnvelope>(providerSessionsQueryPath, { signal }),
+    placeholderData: (previous) => previous,
+    enabled: wantsProvidersData,
     refetchInterval: 60000,
     staleTime: 30000,
     refetchOnWindowFocus: false,
@@ -187,11 +261,11 @@ export function useAppData() {
   });
 
   const providerParserHealth = useQuery({
-    queryKey: ["provider-parser-health", providerQueryView, providerDataDepth, providerParserLimit],
-    queryFn: () =>
-      apiGet<ProviderParserHealthEnvelope>(
-        `/api/provider-parser-health?limit=${providerParserLimit}${providerScopeQuery}`,
-      ),
+    queryKey: providerParserQueryKey,
+    queryFn: ({ signal }) =>
+      apiGet<ProviderParserHealthEnvelope>(providerParserQueryPath, { signal }),
+    placeholderData: (previous) => previous,
+    enabled: wantsProvidersData,
     refetchInterval: 60000,
     staleTime: 30000,
     refetchOnWindowFocus: false,
@@ -199,8 +273,11 @@ export function useAppData() {
   });
 
   const executionGraph = useQuery({
-    queryKey: ["execution-graph"],
-    queryFn: () => apiGet<ExecutionGraphEnvelope>("/api/execution-graph"),
+    queryKey: executionGraphQueryKey,
+    queryFn: ({ signal }) =>
+      apiGet<ExecutionGraphEnvelope>("/api/execution-graph", { signal }),
+    placeholderData: (previous) => previous,
+    enabled: wantsRoutingData,
     refetchInterval: 20000,
     staleTime: 10000,
     refetchOnWindowFocus: false,
@@ -518,13 +595,33 @@ export function useAppData() {
       setThreadTranscriptLimit(250);
       return;
     }
+    const cached = threadDetailCacheRef.current.get(selectedThreadId);
+    if (cached) {
+      setThreadDetailRaw(cached);
+      setThreadDetailLoading(false);
+      return;
+    }
     let cancelled = false;
+    const controller = new AbortController();
     setThreadDetailLoading(true);
-    apiPost<unknown>("/api/thread-forensics", { ids: [selectedThreadId] })
+    apiPost<unknown>(
+      "/api/thread-forensics",
+      { ids: [selectedThreadId] },
+      { signal: controller.signal },
+    )
       .then((data) => {
-        if (!cancelled) setThreadDetailRaw(data);
+        if (!cancelled) {
+          threadDetailCacheRef.current.set(selectedThreadId, data);
+          setThreadDetailRaw(data);
+        }
       })
-      .catch(() => {
+      .catch((error) => {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
         if (!cancelled) setThreadDetailRaw(null);
       })
       .finally(() => {
@@ -532,6 +629,7 @@ export function useAppData() {
       });
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [selectedThreadId]);
 
@@ -540,13 +638,33 @@ export function useAppData() {
       setThreadTranscriptRaw(null);
       return;
     }
+    const cacheKey = `${selectedThreadId}|${threadTranscriptLimit}`;
+    const cached = threadTranscriptCacheRef.current.get(cacheKey);
+    if (cached) {
+      setThreadTranscriptRaw(cached);
+      setThreadTranscriptLoading(false);
+      return;
+    }
     let cancelled = false;
+    const controller = new AbortController();
     setThreadTranscriptLoading(true);
-    apiGet<unknown>(`/api/thread-transcript?thread_id=${encodeURIComponent(selectedThreadId)}&limit=${threadTranscriptLimit}`)
+    apiGet<unknown>(
+      `/api/thread-transcript?thread_id=${encodeURIComponent(selectedThreadId)}&limit=${threadTranscriptLimit}`,
+      { signal: controller.signal },
+    )
       .then((data) => {
-        if (!cancelled) setThreadTranscriptRaw(data);
+        if (!cancelled) {
+          threadTranscriptCacheRef.current.set(cacheKey, data);
+          setThreadTranscriptRaw(data);
+        }
       })
-      .catch(() => {
+      .catch((error) => {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
         if (!cancelled) setThreadTranscriptRaw(null);
       })
       .finally(() => {
@@ -554,6 +672,7 @@ export function useAppData() {
       });
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [selectedThreadId, threadTranscriptLimit]);
 
@@ -563,15 +682,33 @@ export function useAppData() {
       setSessionTranscriptLimit(250);
       return;
     }
+    const cacheKey = `${selectedSession.provider}|${selectedSession.file_path}|${sessionTranscriptLimit}`;
+    const cached = sessionTranscriptCacheRef.current.get(cacheKey);
+    if (cached) {
+      setSessionTranscriptRaw(cached);
+      setSessionTranscriptLoading(false);
+      return;
+    }
     let cancelled = false;
+    const controller = new AbortController();
     setSessionTranscriptLoading(true);
     apiGet<unknown>(
       `/api/session-transcript?provider=${encodeURIComponent(selectedSession.provider)}&file_path=${encodeURIComponent(selectedSession.file_path)}&limit=${sessionTranscriptLimit}`,
+      { signal: controller.signal },
     )
       .then((data) => {
-        if (!cancelled) setSessionTranscriptRaw(data);
+        if (!cancelled) {
+          sessionTranscriptCacheRef.current.set(cacheKey, data);
+          setSessionTranscriptRaw(data);
+        }
       })
-      .catch(() => {
+      .catch((error) => {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
         if (!cancelled) setSessionTranscriptRaw(null);
       })
       .finally(() => {
@@ -579,6 +716,7 @@ export function useAppData() {
       });
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [selectedSession, sessionTranscriptLimit]);
 
@@ -670,6 +808,69 @@ export function useAppData() {
     });
   };
 
+  const prefetchProvidersData = useCallback(() => {
+    void queryClient.prefetchQuery({
+      queryKey: providerSessionsQueryKey,
+      queryFn: () => apiGet<ProviderSessionsEnvelope>(providerSessionsQueryPath),
+      staleTime: 30000,
+    });
+    void queryClient.prefetchQuery({
+      queryKey: providerParserQueryKey,
+      queryFn: () => apiGet<ProviderParserHealthEnvelope>(providerParserQueryPath),
+      staleTime: 30000,
+    });
+  }, [
+    queryClient,
+    providerSessionsQueryKey,
+    providerSessionsQueryPath,
+    providerParserQueryKey,
+    providerParserQueryPath,
+  ]);
+
+  const prefetchRoutingData = useCallback(() => {
+    void queryClient.prefetchQuery({
+      queryKey: executionGraphQueryKey,
+      queryFn: () => apiGet<ExecutionGraphEnvelope>("/api/execution-graph"),
+      staleTime: 10000,
+    });
+  }, [queryClient, executionGraphQueryKey]);
+
+  useEffect(() => {
+    if (wantsProvidersData || wantsRoutingData) return;
+    if (idleWarmupStartedRef.current) return;
+    if (typeof window === "undefined") return;
+
+    idleWarmupStartedRef.current = true;
+    let cancelled = false;
+    let timeoutId: number | null = null;
+    let idleId: number | null = null;
+
+    const runWarmup = () => {
+      if (cancelled) return;
+      prefetchProvidersData();
+      prefetchRoutingData();
+    };
+
+    const w = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+
+    if (typeof w.requestIdleCallback === "function") {
+      idleId = w.requestIdleCallback(runWarmup, { timeout: 2000 });
+    } else {
+      timeoutId = window.setTimeout(runWarmup, 900);
+    }
+
+    return () => {
+      cancelled = true;
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+      if (idleId !== null && typeof w.cancelIdleCallback === "function") {
+        w.cancelIdleCallback(idleId);
+      }
+    };
+  }, [wantsProvidersData, wantsRoutingData, prefetchProvidersData, prefetchRoutingData]);
+
   /* ================================================================ */
   /*  Public API                                                      */
   /* ================================================================ */
@@ -754,5 +955,7 @@ export function useAppData() {
     toggleSelectAllProviderRows,
     runProviderAction,
     runSingleProviderAction,
+    prefetchProvidersData,
+    prefetchRoutingData,
   };
 }

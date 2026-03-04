@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { Messages } from "../i18n";
 import type {
   ProviderMatrixProvider,
@@ -202,6 +202,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     setSelectedSessionPath,
   } = props;
   const [sessionFilter, setSessionFilter] = useState("");
+  const deferredSessionFilter = useDeferredValue(sessionFilter);
   const [sessionSort, setSessionSort] = useState<ProviderSessionSort>("mtime_desc");
   const [probeFilter, setProbeFilter] = useState<ProviderProbeFilter>("all");
   const [renderLimit, setRenderLimit] = useState(120);
@@ -231,49 +232,65 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   };
 
   const providerLabel = providerView === "all" ? messages.common.allAi : selectedProviderLabel;
+  const providerSessionComputedIndex = useMemo(() => {
+    const searchText = new Map<string, string>();
+    const mtimeTs = new Map<string, number>();
+    const sortTitle = new Map<string, string>();
+    providerSessionRows.forEach((row) => {
+      const normalizedTitle = row.display_title || row.probe?.detected_title || row.session_id;
+      const ts = Date.parse(row.mtime);
+      const text = [normalizedTitle, row.probe?.detected_title, row.session_id, row.file_path, row.provider]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      searchText.set(row.file_path, text);
+      mtimeTs.set(row.file_path, Number.isNaN(ts) ? 0 : ts);
+      sortTitle.set(row.file_path, normalizedTitle);
+    });
+    return { searchText, mtimeTs, sortTitle };
+  }, [providerSessionRows]);
+  const providerTitleCollator = useMemo(
+    () => new Intl.Collator(undefined, { sensitivity: "base" }),
+    [],
+  );
   const filteredProviderSessionRows = useMemo(() => {
-    const q = sessionFilter.trim().toLowerCase();
+    const q = deferredSessionFilter.trim().toLowerCase();
     return providerSessionRows.filter((row) => {
       if (probeFilter === "ok" && !row.probe.ok) return false;
       if (probeFilter === "fail" && row.probe.ok) return false;
 
       if (!q) return true;
-      const text = [row.display_title, row.probe?.detected_title, row.session_id, row.file_path, row.provider]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+      const text = providerSessionComputedIndex.searchText.get(row.file_path) ?? "";
       return text.includes(q);
     });
-  }, [providerSessionRows, sessionFilter, probeFilter]);
+  }, [providerSessionRows, providerSessionComputedIndex, deferredSessionFilter, probeFilter]);
   const sortedProviderSessionRows = useMemo(() => {
     const rows = [...filteredProviderSessionRows];
     rows.sort((a, b) => {
+      const aPath = a.file_path;
+      const bPath = b.file_path;
+      const aTs = providerSessionComputedIndex.mtimeTs.get(aPath) ?? 0;
+      const bTs = providerSessionComputedIndex.mtimeTs.get(bPath) ?? 0;
+      const aTitle = providerSessionComputedIndex.sortTitle.get(aPath) ?? a.session_id;
+      const bTitle = providerSessionComputedIndex.sortTitle.get(bPath) ?? b.session_id;
       switch (sessionSort) {
         case "mtime_asc":
-          return Date.parse(a.mtime) - Date.parse(b.mtime);
+          return aTs - bTs;
         case "size_desc":
           return b.size_bytes - a.size_bytes;
         case "size_asc":
           return a.size_bytes - b.size_bytes;
         case "title_asc":
-          return (a.display_title || a.probe?.detected_title || a.session_id).localeCompare(
-            b.display_title || b.probe?.detected_title || b.session_id,
-            undefined,
-            { sensitivity: "base" },
-          );
+          return providerTitleCollator.compare(aTitle, bTitle);
         case "title_desc":
-          return (b.display_title || b.probe?.detected_title || b.session_id).localeCompare(
-            a.display_title || a.probe?.detected_title || a.session_id,
-            undefined,
-            { sensitivity: "base" },
-          );
+          return providerTitleCollator.compare(bTitle, aTitle);
         case "mtime_desc":
         default:
-          return Date.parse(b.mtime) - Date.parse(a.mtime);
+          return bTs - aTs;
       }
     });
     return rows;
-  }, [filteredProviderSessionRows, sessionSort]);
+  }, [filteredProviderSessionRows, providerSessionComputedIndex, providerTitleCollator, sessionSort]);
   const renderedProviderSessionRows = useMemo(
     () => sortedProviderSessionRows.slice(0, renderLimit),
     [sortedProviderSessionRows, renderLimit],
