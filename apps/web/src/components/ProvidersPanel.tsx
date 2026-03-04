@@ -490,6 +490,44 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     });
     return map;
   }, [parserReports]);
+  const parseScoreByProvider = useMemo(() => {
+    const map: Record<string, number | null> = {};
+    parserReports.forEach((report) => {
+      map[report.provider] = report.parse_score;
+    });
+    return map;
+  }, [parserReports]);
+  const slowHotspotCards = useMemo(() => {
+    return slowProviderIds
+      .map((providerId) => {
+        const tab = providerTabById.get(providerId as ProviderView);
+        if (!tab || tab.id === "all") return null;
+        return {
+          provider: providerId,
+          name: tab.name,
+          scanMs: tab.scan_ms,
+          scanned: tab.scanned,
+          parseFail: parseFailByProvider[providerId] ?? 0,
+          parseScore: parseScoreByProvider[providerId] ?? null,
+        };
+      })
+      .filter((item): item is {
+        provider: string;
+        name: string;
+        scanMs: number | null;
+        scanned: number;
+        parseFail: number;
+        parseScore: number | null;
+      } => item !== null)
+      .sort((a, b) => {
+        const aMs = a.scanMs ?? -1;
+        const bMs = b.scanMs ?? -1;
+        if (aMs !== bMs) return bMs - aMs;
+        if (a.parseFail !== b.parseFail) return b.parseFail - a.parseFail;
+        return b.scanned - a.scanned;
+      })
+      .slice(0, 6);
+  }, [slowProviderIds, providerTabById, parseFailByProvider, parseScoreByProvider]);
   const selectedSessionParseFailCount = selectedSessionProvider
     ? parseFailByProvider[selectedSessionProvider]
     : undefined;
@@ -813,6 +851,53 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
             <span className={`status-pill status-${tab.status}`}>{statusLabel(tab.status)}</span>
           </button>
         ))}
+      </section>
+
+      <section className="panel">
+        <header>
+          <h2>{messages.providers.hotspotTitle}</h2>
+          <span>
+            {slowHotspotCards.length}/{providerTabCount}
+          </span>
+        </header>
+        {slowHotspotCards.length === 0 ? (
+          <p className="sub-hint">{messages.providers.hotspotEmpty}</p>
+        ) : (
+          <div className="hotspot-grid">
+            {slowHotspotCards.map((card) => (
+              <article key={`hotspot-${card.provider}`} className="hotspot-card">
+                <div className="hotspot-head">
+                  <strong>{card.name}</strong>
+                  <span className="provider-slow-badge">
+                    {messages.providers.slowProviderBadge} {formatFetchMs(card.scanMs)}
+                  </span>
+                </div>
+                <div className="hotspot-meta">
+                  <span>{messages.providers.hotspotScan} {formatFetchMs(card.scanMs)}</span>
+                  <span>{messages.providers.hotspotRows} {card.scanned}</span>
+                  <span>{messages.providers.hotspotParseFail} {card.parseFail}</span>
+                  <span>{messages.providers.score} {card.parseScore ?? "-"}</span>
+                </div>
+                <div className="hotspot-actions">
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    onClick={() => jumpToProviderSessions(card.provider, card.parseFail)}
+                  >
+                    {messages.providers.openSessions}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    onClick={() => jumpToParserProvider(card.provider)}
+                  >
+                    {messages.providers.hotspotOpenParser}
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="toolbar">

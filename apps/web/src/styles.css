@@ -673,6 +673,41 @@ button:disabled {
   gap: 10px;
 }
 
+.hotspot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.hotspot-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-elev) 90%, transparent);
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.hotspot-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.hotspot-meta {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.hotspot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .provider-tab {
   display: grid;
   gap: 5px;
