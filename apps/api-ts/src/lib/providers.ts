@@ -22,6 +22,7 @@ import {
   BACKUP_ROOT,
   CLAUDE_HOME,
   CLAUDE_PROJECTS_DIR,
+  CLAUDE_TRANSCRIPTS_DIR,
   GEMINI_HOME,
   GEMINI_TMP_DIR,
   COPILOT_VSCODE_GLOBAL,
@@ -783,6 +784,11 @@ export function providerRootSpecs(provider: ProviderId): ProviderRootSpec[] {
   if (provider === "claude") {
     return [
       { source: "projects", root: CLAUDE_PROJECTS_DIR, exts: [".jsonl"] },
+      {
+        source: "transcripts",
+        root: CLAUDE_TRANSCRIPTS_DIR,
+        exts: [".jsonl", ".json"],
+      },
     ];
   }
   if (provider === "gemini") {
@@ -849,7 +855,9 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
     (await countJsonlFilesRecursive(
       path.join(CODEX_HOME, "archived_sessions"),
     ));
-  const claudeSessionLogs = await countJsonlFilesRecursive(CLAUDE_PROJECTS_DIR);
+  const claudeSessionLogs =
+    (await countJsonlFilesRecursive(CLAUDE_PROJECTS_DIR)) +
+    (await countJsonlFilesRecursive(CLAUDE_TRANSCRIPTS_DIR));
   const geminiSessionLogs = await countJsonlFilesRecursive(GEMINI_TMP_DIR);
   const chatGptSessionLogs = (
     await Promise.all(
@@ -923,10 +931,10 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
         hard_delete: supportsProviderCleanup("claude") && claudeStatus !== "missing",
       },
       evidence: {
-        roots: [CLAUDE_HOME, CLAUDE_PROJECTS_DIR],
+        roots: [CLAUDE_HOME, CLAUDE_PROJECTS_DIR, CLAUDE_TRANSCRIPTS_DIR],
         session_log_count: claudeSessionLogs,
         notes:
-          "dev mode: local archive/delete enabled when storage is detected",
+          "dev mode: scans projects + transcripts storage for local archive/delete",
       },
     },
     {
