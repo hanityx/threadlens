@@ -1163,6 +1163,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
                   <th>{messages.providers.colProvider}</th>
                   <th>{messages.providers.colStatus}</th>
                   <th>{messages.providers.colScanned}</th>
+                  <th>{messages.providers.colScanMs}</th>
                   <th>{messages.providers.colParseOk}</th>
                   <th>{messages.providers.colParseFail}</th>
                   <th>{messages.providers.colScore}</th>
@@ -1193,6 +1194,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
                       <span className={`status-pill status-${report.status}`}>{statusLabel(report.status)}</span>
                     </td>
                     <td>{report.scanned}</td>
+                    <td>{formatFetchMs(report.scan_ms ?? null)}</td>
                     <td>{report.parse_ok}</td>
                     <td>{report.parse_fail}</td>
                     <td>{report.parse_score ?? "-"}</td>
@@ -1201,7 +1203,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
                 {parserLoading
                   ? Array.from({ length: 4 }).map((_, idx) => (
                       <tr key={`parser-health-skeleton-${idx}`}>
-                        <td colSpan={6}>
+                        <td colSpan={7}>
                           <div className="skeleton-line" />
                         </td>
                       </tr>
@@ -1209,7 +1211,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
                   : null}
                 {sortedParserReports.length === 0 && !parserLoading ? (
                   <tr>
-                    <td colSpan={6} className="sub-hint">
+                    <td colSpan={7} className="sub-hint">
                       {messages.providers.parserLoading}
                     </td>
                   </tr>
