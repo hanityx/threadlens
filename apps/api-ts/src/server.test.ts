@@ -278,6 +278,22 @@ describe("api-ts direct endpoints", () => {
     expect(root.error).toBe("cleanup-disabled-provider");
   });
 
+  it("POST /api/provider-session-action rejects invalid provider id", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/provider-session-action",
+      payload: {
+        provider: "invalid-provider",
+        action: "archive_local",
+        file_paths: ["/tmp/anything.jsonl"],
+        dry_run: true,
+      },
+    });
+    expect(res.statusCode).toBe(400);
+    const payload = res.json();
+    expect(payload.ok).toBe(false);
+  });
+
   it("GET /api/agent-loops responds through TS route", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ count: 0, rows: [] }), {

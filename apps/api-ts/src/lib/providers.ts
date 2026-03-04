@@ -419,6 +419,16 @@ async function probeSessionFile(
 ): Promise<ProviderSessionProbe> {
   const format = inferFormat(filePath);
   if (format === "unknown") {
+    if (path.extname(filePath).toLowerCase() === ".data") {
+      const idHint = normalizeDetectedTitle(inferSessionId(filePath));
+      return {
+        ok: true,
+        format,
+        error: null,
+        detected_title: idHint,
+        title_source: idHint ? "binary-cache-id" : null,
+      };
+    }
     return {
       ok: false,
       format,
