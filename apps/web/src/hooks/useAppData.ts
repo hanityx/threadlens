@@ -7,6 +7,7 @@ import { detectInitialLocale } from "../i18n";
 import type {
   RuntimeEnvelope,
   ThreadsResponse,
+  ThreadRow,
   RecoveryResponse,
   ProviderMatrixEnvelope,
   ProviderSessionsEnvelope,
@@ -40,6 +41,8 @@ function providerActionSelectionKey(
   ).sort();
   return `${provider}|${action}|${normalized.join("||")}`;
 }
+
+const THREADS_BOOTSTRAP_CACHE_KEY = "cmc-threads-cache-v1";
 
 export function useAppData() {
   /* ---- UI state ---- */
@@ -75,6 +78,18 @@ export function useAppData() {
   const [selectedThreadId, setSelectedThreadId] = useState<string>("");
   const [selectedSessionPath, setSelectedSessionPath] = useState<string>("");
   const [renderLimit, setRenderLimit] = useState(INITIAL_CHUNK);
+  const [threadsBootstrapRows, setThreadsBootstrapRows] = useState<ThreadRow[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = window.localStorage.getItem(THREADS_BOOTSTRAP_CACHE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as { rows?: Array<Record<string, unknown>> };
+      if (!Array.isArray(parsed.rows)) return [];
+      return parsed.rows.map((row) => normalizeThreadRow(row)).slice(0, PAGE_SIZE);
+    } catch {
+      return [];
+    }
+  });
 
   /* ---- action result state ---- */
   const [analysisRaw, setAnalysisRaw] = useState<unknown>(null);
@@ -130,6 +145,12 @@ export function useAppData() {
   const wantsRecoveryData = layoutView === "overview" || layoutView === "forensics";
   const recoveryQueryEnabled = wantsRecoveryData || secondaryDataHydrated;
   const providerMatrixQueryEnabled = wantsProvidersData || secondaryDataHydrated;
+  const providerSessionsQueryEnabled = wantsProvidersData || secondaryDataHydrated;
+  const providerParserQueryEnabled = wantsProvidersData || secondaryDataHydrated;
+  const recoveryRefetchInterval = wantsRecoveryData ? 15000 : false;
+  const providerMatrixRefetchInterval = wantsProvidersData ? 60000 : false;
+  const providerSessionsRefetchInterval = wantsProvidersData ? 60000 : false;
+  const providerParserRefetchInterval = wantsProvidersData ? 60000 : false;
 
   useEffect(() => {
     if (secondaryDataHydrated) return;
@@ -203,7 +224,7 @@ export function useAppData() {
     queryFn: ({ signal }) =>
       apiGet<RecoveryResponse>("/api/recovery-center", { signal }),
     enabled: recoveryQueryEnabled,
-    refetchInterval: 15000,
+    refetchInterval: recoveryRefetchInterval,
     staleTime: 10000,
     refetchOnWindowFocus: false,
     retry: 1,
@@ -214,7 +235,7 @@ export function useAppData() {
     queryFn: ({ signal }) =>
       apiGet<ProviderMatrixEnvelope>("/api/provider-matrix", { signal }),
     enabled: providerMatrixQueryEnabled,
-    refetchInterval: 60000,
+    refetchInterval: providerMatrixRefetchInterval,
     staleTime: 30000,
     refetchOnWindowFocus: false,
     retry: 1,
@@ -266,8 +287,8 @@ export function useAppData() {
     queryFn: ({ signal }) =>
       apiGet<ProviderSessionsEnvelope>(providerSessionsQueryPath, { signal }),
     placeholderData: (previous) => previous,
-    enabled: wantsProvidersData,
-    refetchInterval: 60000,
+    enabled: providerSessionsQueryEnabled,
+    refetchInterval: providerSessionsRefetchInterval,
     staleTime: 30000,
     refetchOnWindowFocus: false,
     retry: 1,
@@ -278,8 +299,8 @@ export function useAppData() {
     queryFn: ({ signal }) =>
       apiGet<ProviderParserHealthEnvelope>(providerParserQueryPath, { signal }),
     placeholderData: (previous) => previous,
-    enabled: wantsProvidersData,
-    refetchInterval: 60000,
+    enabled: providerParserQueryEnabled,
+    refetchInterval: providerParserRefetchInterval,
     staleTime: 30000,
     refetchOnWindowFocus: false,
     retry: 1,
@@ -395,10 +416,29 @@ export function useAppData() {
   /*  Derived / Memoized values                                       */
   /* ================================================================ */
 
-  const rows = useMemo(
+  const rowsFromApi = useMemo(
     () => ((threads.data?.rows ?? []) as Array<Record<string, unknown>>).map((row) => normalizeThreadRow(row)),
     [threads.data?.rows],
   );
+  const hasApiRows = Array.isArray(threads.data?.rows);
+  const rows = hasApiRows ? rowsFromApi : threadsBootstrapRows;
+
+  useEffect(() => {
+    if (!hasApiRows || rowsFromApi.length === 0) return;
+    setThreadsBootstrapRows(rowsFromApi);
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        THREADS_BOOTSTRAP_CACHE_KEY,
+        JSON.stringify({
+          saved_at: Date.now(),
+          rows: rowsFromApi.slice(0, PAGE_SIZE),
+        }),
+      );
+    } catch {
+      // ignore storage write failure
+    }
+  }, [hasApiRows, rowsFromApi]);
 
   const filteredRows = useMemo(() => {
     const q = deferredQuery.trim().toLowerCase();
