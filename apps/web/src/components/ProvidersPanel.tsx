@@ -13,7 +13,15 @@ import { SKELETON_ROWS } from "../types";
 type ProviderSessionSort = "mtime_desc" | "mtime_asc" | "size_desc" | "size_asc" | "title_asc" | "title_desc";
 type ProviderProbeFilter = "all" | "ok" | "fail";
 type ProviderSourceFilter = "all" | (string & {});
-type ParserSort = "fail_desc" | "fail_asc" | "score_desc" | "score_asc" | "name_asc" | "name_desc";
+type ParserSort =
+  | "fail_desc"
+  | "fail_asc"
+  | "score_desc"
+  | "score_asc"
+  | "scan_ms_desc"
+  | "scan_ms_asc"
+  | "name_asc"
+  | "name_desc";
 type CsvColumnKey =
   | "provider"
   | "session_id"
@@ -124,6 +132,15 @@ function readCsvColumnPrefs(): Record<CsvColumnKey, boolean> {
     return next;
   } catch {
     return DEFAULT_CSV_COLUMNS;
+  }
+}
+
+function readSlowOnlyPref(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem("cmc-provider-slow-only") === "1";
+  } catch {
+    return false;
   }
 }
 
@@ -256,7 +273,8 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const [parserDetailProvider, setParserDetailProvider] = useState<string>("");
   const [parserFailOnly, setParserFailOnly] = useState(false);
   const [parserSort, setParserSort] = useState<ParserSort>("fail_desc");
-  const [slowOnly, setSlowOnly] = useState(false);
+  const [slowOnly, setSlowOnly] = useState(readSlowOnlyPref);
+  const [hotspotScopeOrigin, setHotspotScopeOrigin] = useState<ProviderView | null>(null);
   const [csvColumns, setCsvColumns] = useState<Record<CsvColumnKey, boolean>>(readCsvColumnPrefs);
   const providerSessionsSectionRef = useRef<HTMLElement | null>(null);
   const parserSectionRef = useRef<HTMLElement | null>(null);
@@ -303,6 +321,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
 
   const providerLabel = providerView === "all" ? messages.common.allAi : selectedProviderLabel;
   const canApplySlowOnly = providerView === "all";
+  const effectiveSlowOnly = canApplySlowOnly && slowOnly;
   const slowProviderSet = useMemo(
     () => new Set(slowProviderIds),
     [slowProviderIds],
@@ -340,9 +359,9 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     if (!exists) setSourceFilter("all");
   }, [sourceFilter, sourceFilterOptions]);
   useEffect(() => {
-    if (canApplySlowOnly) return;
-    if (slowOnly) setSlowOnly(false);
-  }, [canApplySlowOnly, slowOnly]);
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("cmc-provider-slow-only", slowOnly ? "1" : "0");
+  }, [slowOnly]);
   const providerSessionComputedIndex = useMemo(() => {
     const searchText = new Map<string, string>();
     const mtimeTs = new Map<string, number>();
@@ -370,7 +389,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
       if (sourceFilter !== "all" && row.source !== sourceFilter) return false;
       if (probeFilter === "ok" && !row.probe.ok) return false;
       if (probeFilter === "fail" && row.probe.ok) return false;
-      if (slowOnly && canApplySlowOnly && !slowProviderSet.has(row.provider)) return false;
+      if (effectiveSlowOnly && !slowProviderSet.has(row.provider)) return false;
 
       if (!q) return true;
       const text = providerSessionComputedIndex.searchText.get(row.file_path) ?? "";
@@ -382,8 +401,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     deferredSessionFilter,
     probeFilter,
     sourceFilter,
-    slowOnly,
-    canApplySlowOnly,
+    effectiveSlowOnly,
     slowProviderSet,
   ]);
   const sortedProviderSessionRows = useMemo(() => {
@@ -438,8 +456,8 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const filteredParserReports = useMemo(
     () =>
       (parserFailOnly ? parserReports.filter((report) => Number(report.parse_fail) > 0) : parserReports)
-        .filter((report) => !slowOnly || !canApplySlowOnly || slowProviderSet.has(report.provider)),
-    [parserReports, parserFailOnly, slowOnly, canApplySlowOnly, slowProviderSet],
+        .filter((report) => !effectiveSlowOnly || slowProviderSet.has(report.provider)),
+    [parserReports, parserFailOnly, effectiveSlowOnly, slowProviderSet],
   );
   const sortedParserReports = useMemo(() => {
     const rows = [...filteredParserReports];
@@ -448,6 +466,8 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
       if (parserSort === "fail_asc") return Number(a.parse_fail) - Number(b.parse_fail);
       if (parserSort === "score_desc") return Number(b.parse_score ?? -1) - Number(a.parse_score ?? -1);
       if (parserSort === "score_asc") return Number(a.parse_score ?? 101) - Number(b.parse_score ?? 101);
+      if (parserSort === "scan_ms_desc") return Number(b.scan_ms ?? -1) - Number(a.scan_ms ?? -1);
+      if (parserSort === "scan_ms_asc") return Number(a.scan_ms ?? Number.MAX_SAFE_INTEGER) - Number(b.scan_ms ?? Number.MAX_SAFE_INTEGER);
       if (parserSort === "name_desc") return String(b.name || "").localeCompare(String(a.name || ""));
       return String(a.name || "").localeCompare(String(b.name || ""));
     });
@@ -576,7 +596,16 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     return messages.providers.csvColumnPath;
   };
 
-  const jumpToProviderSessions = (providerId: string, parseFail = 0) => {
+  const jumpToProviderSessions = (
+    providerId: string,
+    parseFail = 0,
+    options?: { fromHotspot?: boolean },
+  ) => {
+    if (options?.fromHotspot) {
+      setHotspotScopeOrigin(providerView);
+    } else {
+      setHotspotScopeOrigin(null);
+    }
     setProviderView(providerId as ProviderView);
     setProbeFilter(parseFail > 0 ? "fail" : "all");
     setParserDetailProvider(providerId);
@@ -624,6 +653,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     }
   };
   const jumpToSessionFromParserError = (providerId: string, sessionId: string) => {
+    setHotspotScopeOrigin(null);
     setProviderView(providerId as ProviderView);
     setProbeFilter("all");
     setSessionFilter("");
@@ -665,6 +695,29 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     scrollToParserProviderRow(pendingParserFocusProvider);
     setPendingParserFocusProvider("");
   }, [pendingParserFocusProvider, sortedParserReports]);
+  const hotspotOriginLabel = useMemo(() => {
+    if (!hotspotScopeOrigin) return "";
+    if (hotspotScopeOrigin === "all") return messages.common.allAi;
+    return providerTabById.get(hotspotScopeOrigin)?.name ?? hotspotScopeOrigin;
+  }, [hotspotScopeOrigin, providerTabById, messages.common.allAi]);
+  const canReturnHotspotScope = Boolean(
+    hotspotScopeOrigin &&
+    hotspotScopeOrigin !== providerView,
+  );
+  const slowFocusActive = canApplySlowOnly && slowOnly;
+  const focusSlowProviders = () => {
+    setProviderView("all");
+    setSlowOnly(true);
+    setHotspotScopeOrigin(null);
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => {
+        providerSessionsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 0);
+    }
+  };
+  const clearSlowFocus = () => {
+    setSlowOnly(false);
+  };
 
   return (
     <>
@@ -836,7 +889,10 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
             role="tab"
             aria-selected={providerView === tab.id}
             className={`provider-tab ${providerView === tab.id ? "is-active" : ""} ${tab.is_slow ? "is-slow" : ""}`.trim()}
-            onClick={() => setProviderView(tab.id)}
+            onClick={() => {
+              setHotspotScopeOrigin(null);
+              setProviderView(tab.id);
+            }}
           >
             <span className="provider-tab-title">{tab.id === "all" ? messages.common.allAi : tab.name}</span>
             <span className="provider-tab-meta">
@@ -856,9 +912,28 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
       <section className="panel">
         <header>
           <h2>{messages.providers.hotspotTitle}</h2>
-          <span>
-            {slowHotspotCards.length}/{providerTabCount}
-          </span>
+          <div className="hotspot-header-actions">
+            <span>
+              {slowHotspotCards.length}/{providerTabCount}
+            </span>
+            {!slowFocusActive ? (
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={focusSlowProviders}
+              >
+                {messages.providers.hotspotFocusSlow}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={clearSlowFocus}
+              >
+                {messages.providers.hotspotClearFocus}
+              </button>
+            )}
+          </div>
         </header>
         {slowHotspotCards.length === 0 ? (
           <p className="sub-hint">{messages.providers.hotspotEmpty}</p>
@@ -882,7 +957,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
                   <button
                     type="button"
                     className="btn-outline"
-                    onClick={() => jumpToProviderSessions(card.provider, card.parseFail)}
+                    onClick={() => jumpToProviderSessions(card.provider, card.parseFail, { fromHotspot: true })}
                   >
                     {messages.providers.openSessions}
                   </button>
@@ -923,6 +998,19 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
             ? messages.providers.refreshing
             : messages.providers.refreshNow}
         </button>
+        {canReturnHotspotScope ? (
+          <button
+            className="btn-outline"
+            type="button"
+            onClick={() => {
+              if (!hotspotScopeOrigin) return;
+              setProviderView(hotspotScopeOrigin);
+              setHotspotScopeOrigin(null);
+            }}
+          >
+            {messages.providers.scopeReturn} {hotspotOriginLabel}
+          </button>
+        ) : null}
         <span className="sub-hint">
           {messages.providers.parserHint}
           {providersLastRefreshAt
@@ -1006,6 +1094,18 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
               />
               {messages.providers.slowOnlyFilter}
             </label>
+            {!canApplySlowOnly && slowOnly ? (
+              <>
+                <span className="sub-hint">{messages.providers.slowOnlyDormant}</span>
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={() => setProviderView("all")}
+                >
+                  {messages.common.allAi}
+                </button>
+              </>
+            ) : null}
             <span className="sub-hint">
               {messages.providers.filteredRows} {sortedProviderSessionRows.length}/{providerSessionRows.length}
               {sortedProviderSessionRows.length > renderedProviderSessionRows.length
@@ -1258,6 +1358,8 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
               <option value="fail_asc">{messages.providers.parserSortFailAsc}</option>
               <option value="score_desc">{messages.providers.parserSortScoreDesc}</option>
               <option value="score_asc">{messages.providers.parserSortScoreAsc}</option>
+              <option value="scan_ms_desc">{messages.providers.parserSortScanDesc}</option>
+              <option value="scan_ms_asc">{messages.providers.parserSortScanAsc}</option>
               <option value="name_asc">{messages.providers.parserSortNameAsc}</option>
               <option value="name_desc">{messages.providers.parserSortNameDesc}</option>
             </select>
