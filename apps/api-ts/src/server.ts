@@ -814,9 +814,13 @@ export async function createServer(): Promise<FastifyInstance> {
 
   /* ── Providers ────────────────────────────────────────────────── */
 
-  app.get("/api/provider-matrix", async (_req, reply) => {
+  app.get<{ Querystring: QueryMap }>("/api/provider-matrix", async (req, reply) => {
     try {
-      const data = await getProviderMatrixTs();
+      const refreshRaw = Array.isArray(req.query.refresh)
+        ? req.query.refresh[0]
+        : req.query.refresh;
+      const forceRefresh = Number(refreshRaw) > 0;
+      const data = await getProviderMatrixTs({ forceRefresh });
       return reply.code(200).send(withSchemaVersion(data));
     } catch (error) {
       return reply
@@ -840,7 +844,13 @@ export async function createServer(): Promise<FastifyInstance> {
           return reply.code(400).send(envelope(null, "invalid provider"));
         }
         const limit = Math.max(1, Math.min(240, Number(limitRaw) || 80));
-        const data = await getProviderSessionsTs(provider, limit);
+        const refreshRaw = Array.isArray(req.query.refresh)
+          ? req.query.refresh[0]
+          : req.query.refresh;
+        const forceRefresh = Number(refreshRaw) > 0;
+        const data = await getProviderSessionsTs(provider, limit, {
+          forceRefresh,
+        });
         return reply.code(200).send(withSchemaVersion(data));
       } catch (error) {
         return reply
@@ -865,7 +875,13 @@ export async function createServer(): Promise<FastifyInstance> {
           return reply.code(400).send(envelope(null, "invalid provider"));
         }
         const limit = Math.max(1, Math.min(120, Number(limitRaw) || 80));
-        const data = await getProviderParserHealthTs(provider, limit);
+        const refreshRaw = Array.isArray(req.query.refresh)
+          ? req.query.refresh[0]
+          : req.query.refresh;
+        const forceRefresh = Number(refreshRaw) > 0;
+        const data = await getProviderParserHealthTs(provider, limit, {
+          forceRefresh,
+        });
         return reply.code(200).send(withSchemaVersion(data));
       } catch (error) {
         return reply

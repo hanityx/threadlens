@@ -128,6 +128,7 @@ export function App() {
     providerSessionsLoading,
     parserLoading,
     executionGraphLoading,
+    providersRefreshing,
 
     busy,
     showProviders,
@@ -142,6 +143,7 @@ export function App() {
     runSingleProviderAction,
     prefetchProvidersData,
     prefetchRoutingData,
+    refreshProvidersData,
   } = useAppData();
 
   const messages = getMessages(locale);
@@ -385,6 +387,8 @@ export function App() {
             parserSummary={parserSummary}
             selectedSessionPath={selectedSessionPath}
             setSelectedSessionPath={setSelectedSessionPath}
+            providersRefreshing={providersRefreshing}
+            refreshProvidersData={refreshProvidersData}
           />
         </Suspense>
       ) : null}

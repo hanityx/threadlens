@@ -835,6 +835,33 @@ export function useAppData() {
     });
   }, [queryClient, executionGraphQueryKey]);
 
+  const refreshProvidersData = useCallback(() => {
+    void queryClient.fetchQuery({
+      queryKey: ["provider-matrix"],
+      queryFn: () =>
+        apiGet<ProviderMatrixEnvelope>("/api/provider-matrix?refresh=1"),
+      staleTime: 0,
+    });
+    void queryClient.fetchQuery({
+      queryKey: providerSessionsQueryKey,
+      queryFn: () =>
+        apiGet<ProviderSessionsEnvelope>(`${providerSessionsQueryPath}&refresh=1`),
+      staleTime: 0,
+    });
+    void queryClient.fetchQuery({
+      queryKey: providerParserQueryKey,
+      queryFn: () =>
+        apiGet<ProviderParserHealthEnvelope>(`${providerParserQueryPath}&refresh=1`),
+      staleTime: 0,
+    });
+  }, [
+    queryClient,
+    providerSessionsQueryKey,
+    providerSessionsQueryPath,
+    providerParserQueryKey,
+    providerParserQueryPath,
+  ]);
+
   useEffect(() => {
     if (wantsProvidersData || wantsRoutingData) return;
     if (idleWarmupStartedRef.current) return;
@@ -870,6 +897,11 @@ export function useAppData() {
       }
     };
   }, [wantsProvidersData, wantsRoutingData, prefetchProvidersData, prefetchRoutingData]);
+
+  const providersRefreshing =
+    providerMatrix.isFetching ||
+    providerSessions.isFetching ||
+    providerParserHealth.isFetching;
 
   /* ================================================================ */
   /*  Public API                                                      */
@@ -944,6 +976,7 @@ export function useAppData() {
     runtimeLoading, recoveryLoading, threadsLoading,
     providerMatrixLoading, providerSessionsLoading,
     parserLoading, executionGraphLoading,
+    providersRefreshing,
 
     /* computed UI flags */
     busy,
@@ -957,5 +990,6 @@ export function useAppData() {
     runSingleProviderAction,
     prefetchProvidersData,
     prefetchRoutingData,
+    refreshProvidersData,
   };
 }

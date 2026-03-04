@@ -167,6 +167,8 @@ export interface ProvidersPanelProps {
 
   selectedSessionPath: string;
   setSelectedSessionPath: (path: string) => void;
+  providersRefreshing: boolean;
+  refreshProvidersData: () => void;
 }
 
 export function ProvidersPanel(props: ProvidersPanelProps) {
@@ -200,6 +202,8 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     parserSummary,
     selectedSessionPath,
     setSelectedSessionPath,
+    providersRefreshing,
+    refreshProvidersData,
   } = props;
   const [sessionFilter, setSessionFilter] = useState("");
   const deferredSessionFilter = useDeferredValue(sessionFilter);
@@ -601,6 +605,16 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
             <option value="deep">{messages.providers.depthDeep}</option>
           </select>
         </label>
+        <button
+          className="btn-outline"
+          type="button"
+          onClick={refreshProvidersData}
+          disabled={providersRefreshing}
+        >
+          {providersRefreshing
+            ? messages.providers.refreshing
+            : messages.providers.refreshNow}
+        </button>
         <span className="sub-hint">{messages.providers.parserHint}</span>
       </section>
 

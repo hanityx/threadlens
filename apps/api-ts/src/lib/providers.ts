@@ -119,6 +119,45 @@ type ProviderScanCacheEntry = {
   scan: ProviderSessionScan;
 };
 
+type ProviderMatrixData = {
+  generated_at: string;
+  mode: string;
+  summary: {
+    total: number;
+    active: number;
+    detected: number;
+    read_analyze_ready: number;
+    safe_cleanup_ready: number;
+    hard_delete_ready: number;
+  };
+  providers: Array<{
+    provider: ProviderId;
+    name: string;
+    status: ProviderStatus;
+    capability_level: "full" | "read-only" | "unavailable";
+    capabilities: {
+      read_sessions: boolean;
+      analyze_context: boolean;
+      safe_cleanup: boolean;
+      hard_delete: boolean;
+    };
+    evidence: {
+      roots: string[];
+      session_log_count: number;
+      notes: string;
+    };
+  }>;
+  policy: {
+    cleanup_gate: string;
+    default_non_codex: string;
+  };
+};
+
+type ProviderMatrixCacheEntry = {
+  expires_at: number;
+  data: ProviderMatrixData;
+};
+
 type ProviderActionTokenEntry = {
   provider: ProviderId;
   action: ProviderSessionAction;
@@ -136,11 +175,14 @@ type ChatGptRootsCacheEntry = {
  * ─────────────────────────────────────────────────────────────────── */
 
 const PROVIDER_SCAN_CACHE_TTL_MS = 60_000;
+const PROVIDER_MATRIX_CACHE_TTL_MS = 30_000;
 const PROVIDER_ACTION_TOKEN_TTL_MS = 10 * 60_000;
 const CHATGPT_ROOT_DISCOVERY_TTL_MS = 45_000;
 const providerScanCache = new Map<string, ProviderScanCacheEntry>();
 const providerScanInflight = new Map<string, Promise<ProviderSessionScan>>();
 const providerActionTokenCache = new Map<string, ProviderActionTokenEntry>();
+let providerMatrixCache: ProviderMatrixCacheEntry | null = null;
+let providerMatrixInflight: Promise<ProviderMatrixData> | null = null;
 let codexTitleMapCache: CodexTitleMapCacheEntry | null = null;
 let chatGptRootsCache: ChatGptRootsCacheEntry | null = null;
 
@@ -793,7 +835,7 @@ export function isAllowedProviderFilePath(
  *  Exported business logic                                            *
  * ─────────────────────────────────────────────────────────────────── */
 
-export async function getProviderMatrixTs() {
+async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
   const codexRootExists = await pathExists(CODEX_HOME);
   const chatGptRootExists = await pathExists(CHAT_DIR);
   const claudeRootExists = await pathExists(CLAUDE_HOME);
@@ -956,6 +998,34 @@ export async function getProviderMatrixTs() {
       default_non_codex: "all detected providers are visible for local analysis",
     },
   };
+}
+
+export async function getProviderMatrixTs(options?: { forceRefresh?: boolean }) {
+  const forceRefresh = Boolean(options?.forceRefresh);
+  const now = Date.now();
+  if (!forceRefresh && providerMatrixCache && providerMatrixCache.expires_at > now) {
+    return providerMatrixCache.data;
+  }
+  if (forceRefresh) {
+    providerMatrixCache = null;
+  }
+  if (providerMatrixInflight) {
+    return providerMatrixInflight;
+  }
+
+  providerMatrixInflight = buildProviderMatrixData()
+    .then((data) => {
+      providerMatrixCache = {
+        expires_at: Date.now() + PROVIDER_MATRIX_CACHE_TTL_MS,
+        data,
+      };
+      return data;
+    })
+    .finally(() => {
+      providerMatrixInflight = null;
+    });
+
+  return providerMatrixInflight;
 }
 
 /* ── Session actions ──────────────────────────────────────────────── */
@@ -1238,6 +1308,7 @@ export async function runProviderSessionAction(
       providerScanCache.delete(key);
     }
   }
+  providerMatrixCache = null;
 
   return {
     ok: failed.length === 0,
@@ -1344,12 +1415,18 @@ async function scanProviderSessions(
 export async function getProviderSessionScan(
   provider: ProviderId,
   limit = 80,
+  options?: { forceRefresh?: boolean },
 ): Promise<ProviderSessionScan> {
   const safeLimit = Math.max(1, Math.min(240, Number(limit) || 80));
   const key = providerScanCacheKey(provider, safeLimit);
+  const forceRefresh = Boolean(options?.forceRefresh);
   const now = Date.now();
-  const cached = providerScanCache.get(key);
-  if (cached && cached.expires_at > now) return cached.scan;
+  if (!forceRefresh) {
+    const cached = providerScanCache.get(key);
+    if (cached && cached.expires_at > now) return cached.scan;
+  } else {
+    providerScanCache.delete(key);
+  }
 
   const inflight = providerScanInflight.get(key);
   if (inflight) return inflight;
@@ -1373,10 +1450,11 @@ export async function getProviderSessionScan(
 export async function getProviderSessionsTs(
   provider?: ProviderId,
   limit = 80,
+  options?: { forceRefresh?: boolean },
 ) {
   const targets: ProviderId[] = provider ? [provider] : listProviderIds();
   const scans = await Promise.all(
-    targets.map((p) => getProviderSessionScan(p, limit)),
+    targets.map((p) => getProviderSessionScan(p, limit, options)),
   );
 
   const rows = scans.flatMap((scan) => scan.rows);
@@ -1402,10 +1480,13 @@ export async function getProviderSessionsTs(
 export async function getProviderParserHealthTs(
   provider?: ProviderId,
   limitPerProvider = 80,
+  options?: { forceRefresh?: boolean },
 ) {
   const targets: ProviderId[] = provider ? [provider] : listProviderIds();
   const scans = await Promise.all(
-    targets.map((item) => getProviderSessionScan(item, limitPerProvider)),
+    targets.map((item) =>
+      getProviderSessionScan(item, limitPerProvider, options),
+    ),
   );
   const reports: Array<Record<string, unknown>> = scans.map((scan) => {
     const parseOk = scan.rows.filter((row) => row.probe.ok).length;

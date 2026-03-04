@@ -167,6 +167,14 @@ describe("api-ts direct endpoints", () => {
     expect(codex.capabilities.safe_cleanup).toBe(true);
   });
 
+  it("GET /api/provider-matrix accepts refresh=1 for forced rescan", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/provider-matrix?refresh=1" });
+    expect(res.statusCode).toBe(200);
+    const payload = res.json();
+    const root = payload.data ?? payload;
+    expect(Array.isArray(root.providers)).toBe(true);
+  });
+
   it("GET /api/provider-sessions returns rows and summary", async () => {
     const res = await app.inject({ method: "GET", url: "/api/provider-sessions?limit=20" });
     expect(res.statusCode).toBe(200);
@@ -175,6 +183,17 @@ describe("api-ts direct endpoints", () => {
     expect(root.summary).toBeTruthy();
     expect(Array.isArray(root.rows)).toBe(true);
     expect(Array.isArray(root.providers)).toBe(true);
+  });
+
+  it("GET /api/provider-sessions accepts refresh=1 for forced rescan", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/provider-sessions?limit=20&refresh=1",
+    });
+    expect(res.statusCode).toBe(200);
+    const payload = res.json();
+    const root = payload.data ?? payload;
+    expect(Array.isArray(root.rows)).toBe(true);
   });
 
   it("GET /api/provider-sessions rejects invalid provider", async () => {
@@ -190,6 +209,17 @@ describe("api-ts direct endpoints", () => {
     const payload = res.json();
     const root = payload.data ?? payload;
     expect(root.summary).toBeTruthy();
+    expect(Array.isArray(root.reports)).toBe(true);
+  });
+
+  it("GET /api/provider-parser-health accepts refresh=1 for forced rescan", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/provider-parser-health?limit=10&refresh=1",
+    });
+    expect(res.statusCode).toBe(200);
+    const payload = res.json();
+    const root = payload.data ?? payload;
     expect(Array.isArray(root.reports)).toBe(true);
   });
 
