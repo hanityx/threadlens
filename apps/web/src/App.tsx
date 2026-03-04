@@ -22,6 +22,8 @@ export function App() {
     setFilterMode,
     providerView,
     setProviderView,
+    providerDataDepth,
+    setProviderDataDepth,
     selected,
     setSelected,
     selectedProviderFiles,
@@ -65,6 +67,7 @@ export function App() {
     providerTabs,
     providerSessionRows,
     providerSessionSummary,
+    providerSessionsLimit,
     providerRowsSampled,
     allProviderRowsSelected,
     selectedProviderLabel,
@@ -259,8 +262,11 @@ export function App() {
           providerTabs={providerTabs}
           providerView={providerView}
           setProviderView={setProviderView}
+          providerDataDepth={providerDataDepth}
+          setProviderDataDepth={setProviderDataDepth}
           providerSessionRows={providerSessionRows}
           providerSessionSummary={providerSessionSummary}
+          providerSessionsLimit={providerSessionsLimit}
           providerRowsSampled={providerRowsSampled}
           providerSessionsLoading={providerSessionsLoading}
           selectedProviderFiles={selectedProviderFiles}

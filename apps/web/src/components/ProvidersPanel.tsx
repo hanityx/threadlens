@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Messages } from "../i18n";
 import type {
   ProviderMatrixProvider,
+  ProviderDataDepth,
   ProviderView,
   ProviderSessionRow,
   ProviderSessionActionResult,
@@ -32,6 +33,8 @@ export interface ProvidersPanelProps {
   }>;
   providerView: ProviderView;
   setProviderView: (v: ProviderView) => void;
+  providerDataDepth: ProviderDataDepth;
+  setProviderDataDepth: (v: ProviderDataDepth) => void;
 
   providerSessionRows: ProviderSessionRow[];
   providerSessionSummary: {
@@ -40,6 +43,7 @@ export interface ProvidersPanelProps {
     parse_ok: number;
     parse_fail: number;
   };
+  providerSessionsLimit: number;
   providerRowsSampled: boolean;
   providerSessionsLoading: boolean;
   selectedProviderFiles: Record<string, boolean>;
@@ -86,8 +90,11 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     providerTabs,
     providerView,
     setProviderView,
+    providerDataDepth,
+    setProviderDataDepth,
     providerSessionRows,
     providerSessionSummary,
+    providerSessionsLimit,
     providerRowsSampled,
     providerSessionsLoading,
     selectedProviderFiles,
@@ -266,6 +273,18 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
       </section>
 
       <section className="toolbar">
+        <label className="provider-quick-switch">
+          <span>{messages.providers.depthLabel}</span>
+          <select
+            className="provider-quick-select"
+            value={providerDataDepth}
+            onChange={(e) => setProviderDataDepth(e.target.value as ProviderDataDepth)}
+          >
+            <option value="fast">{messages.providers.depthFast}</option>
+            <option value="balanced">{messages.providers.depthBalanced}</option>
+            <option value="deep">{messages.providers.depthDeep}</option>
+          </select>
+        </label>
         <span className="sub-hint">{messages.providers.parserHint}</span>
       </section>
 
@@ -276,6 +295,8 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
             <span>
               {providerSessionSummary.rows ?? providerSessionRows.length} {messages.providers.rows} · {messages.providers.parseOk}{" "}
               {providerSessionSummary.parse_ok ?? 0}
+              {" · "}
+              {messages.providers.queryLimit} {providerSessionsLimit}
               {providerRowsSampled ? ` · ${messages.providers.sampledHint}` : ""}
             </span>
           </header>

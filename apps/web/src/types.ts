@@ -205,6 +205,7 @@ export type TranscriptPayload = {
 /* ── UI State ─────────────────────────────────────────── */
 export type FilterMode = "all" | "high-risk" | "pinned";
 export type ProviderView = "all" | (string & {});
+export type ProviderDataDepth = "fast" | "balanced" | "deep";
 export type LayoutView = "overview" | "threads" | "providers" | "forensics" | "routing";
 export type Locale = "ko" | "en";
 

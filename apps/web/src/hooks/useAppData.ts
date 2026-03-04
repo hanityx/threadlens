@@ -19,6 +19,7 @@ import type {
   ExecutionGraphEnvelope,
   FilterMode,
   ProviderView,
+  ProviderDataDepth,
   LayoutView,
   Locale,
 } from "../types";
@@ -55,6 +56,12 @@ export function useAppData() {
     const saved = window.localStorage.getItem("cmc-provider-view");
     if (!saved || saved === "all") return "all";
     return saved;
+  });
+  const [providerDataDepth, setProviderDataDepth] = useState<ProviderDataDepth>(() => {
+    if (typeof window === "undefined") return "balanced";
+    const saved = window.localStorage.getItem("cmc-provider-depth");
+    if (saved === "fast" || saved === "balanced" || saved === "deep") return saved;
+    return "balanced";
   });
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [selectedProviderFiles, setSelectedProviderFiles] = useState<Record<string, boolean>>({});
@@ -96,6 +103,9 @@ export function useAppData() {
   useEffect(() => {
     window.localStorage.setItem("cmc-provider-view", providerView);
   }, [providerView]);
+  useEffect(() => {
+    window.localStorage.setItem("cmc-provider-depth", providerDataDepth);
+  }, [providerDataDepth]);
 
   /* ================================================================ */
   /*  Queries                                                         */
@@ -151,15 +161,21 @@ export function useAppData() {
     providerView !== "all" && knownProviderIds.has(providerView)
       ? providerView
       : "all";
-  const providerSessionsLimit = providerQueryView === "all" ? 40 : 160;
-  const providerParserLimit = providerQueryView === "all" ? 40 : 120;
+  const providerSessionsLimit =
+    providerQueryView === "all"
+      ? { fast: 30, balanced: 60, deep: 140 }[providerDataDepth]
+      : { fast: 120, balanced: 240, deep: 500 }[providerDataDepth];
+  const providerParserLimit =
+    providerQueryView === "all"
+      ? { fast: 25, balanced: 40, deep: 80 }[providerDataDepth]
+      : { fast: 80, balanced: 120, deep: 220 }[providerDataDepth];
   const providerScopeQuery =
     providerQueryView === "all"
       ? ""
       : `&provider=${encodeURIComponent(providerQueryView)}`;
 
   const providerSessions = useQuery({
-    queryKey: ["provider-sessions", providerQueryView, providerSessionsLimit],
+    queryKey: ["provider-sessions", providerQueryView, providerDataDepth, providerSessionsLimit],
     queryFn: () =>
       apiGet<ProviderSessionsEnvelope>(
         `/api/provider-sessions?limit=${providerSessionsLimit}${providerScopeQuery}`,
@@ -171,7 +187,7 @@ export function useAppData() {
   });
 
   const providerParserHealth = useQuery({
-    queryKey: ["provider-parser-health", providerQueryView, providerParserLimit],
+    queryKey: ["provider-parser-health", providerQueryView, providerDataDepth, providerParserLimit],
     queryFn: () =>
       apiGet<ProviderParserHealthEnvelope>(
         `/api/provider-parser-health?limit=${providerParserLimit}${providerScopeQuery}`,
@@ -666,6 +682,7 @@ export function useAppData() {
     query, setQuery,
     filterMode, setFilterMode,
     providerView, setProviderView,
+    providerDataDepth, setProviderDataDepth,
     selected, setSelected,
     selectedProviderFiles, setSelectedProviderFiles,
     selectedThreadId, setSelectedThreadId,
@@ -700,6 +717,7 @@ export function useAppData() {
     providers, providerSummary,
     providerTabs, providerSessionRows,
     providerSessionSummary,
+    providerSessionsLimit,
     providerRowsSampled,
     allProviderRowsSelected,
     selectedProviderLabel,
