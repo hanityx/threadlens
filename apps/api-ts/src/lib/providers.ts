@@ -227,6 +227,28 @@ function inferSessionId(filePath: string): string {
   return base.slice(0, -ext.length);
 }
 
+function shortSessionId(sessionId: string): string {
+  const id = String(sessionId || "").trim();
+  if (!id) return "unknown";
+  if (id.length <= 20) return id;
+  return `${id.slice(0, 8)}…${id.slice(-4)}`;
+}
+
+function fallbackDisplayTitle(
+  provider: ProviderId,
+  sessionId: string,
+  source: string,
+): string {
+  const shortId = shortSessionId(sessionId);
+  if (provider === "chatgpt") {
+    if (source === "project-conversations") {
+      return `ChatGPT Project · ${shortId}`;
+    }
+    return `ChatGPT Conversation · ${shortId}`;
+  }
+  return shortId;
+}
+
 function extractUuidFromText(text: string): string {
   const m = String(text || "").match(
     /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
@@ -1300,7 +1322,7 @@ async function scanProviderSessions(
             ? codexTitleMap.get(codexThreadId)
             : "") ||
           probe.detected_title ||
-          sessionId,
+          fallbackDisplayTitle(provider, sessionId, candidate.source),
         file_path: candidate.file_path,
         size_bytes: candidate.size_bytes,
         mtime: candidate.mtime,

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { Messages } from "../i18n";
 import type { ProviderSessionRow, TranscriptPayload } from "../types";
 import { TranscriptLog } from "./TranscriptLog";
@@ -31,6 +32,35 @@ export function SessionDetail(props: SessionDetailProps) {
     canRunSessionAction,
     runSingleProviderAction,
   } = props;
+  const [copyNotice, setCopyNotice] = useState("");
+
+  useEffect(() => {
+    if (!copyNotice) return;
+    const timer = window.setTimeout(() => setCopyNotice(""), 1400);
+    return () => window.clearTimeout(timer);
+  }, [copyNotice]);
+
+  const copyText = async (text: string, label: string) => {
+    const value = String(text ?? "").trim();
+    if (!value) return;
+    try {
+      if (window?.navigator?.clipboard?.writeText) {
+        await window.navigator.clipboard.writeText(value);
+      } else {
+        const input = document.createElement("textarea");
+        input.value = value;
+        input.style.position = "fixed";
+        input.style.left = "-9999px";
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand("copy");
+        document.body.removeChild(input);
+      }
+      setCopyNotice(`${label} ${messages.sessionDetail.copied}`);
+    } catch {
+      setCopyNotice(`${messages.errors.providerAction}`);
+    }
+  };
 
   return (
     <section className="panel">
@@ -75,6 +105,43 @@ export function SessionDetail(props: SessionDetailProps) {
               <span>{messages.sessionDetail.fieldPath}</span>
               <strong className="mono-sub">{selectedSession.file_path}</strong>
             </div>
+            <div className="impact-kv">
+              <span>{messages.sessionDetail.fieldSize}</span>
+              <strong>{selectedSession.size_bytes.toLocaleString()}</strong>
+            </div>
+            <div className="impact-kv">
+              <span>{messages.sessionDetail.fieldModified}</span>
+              <strong>{selectedSession.mtime || "-"}</strong>
+            </div>
+            <div className="chat-toolbar">
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() =>
+                  copyText(
+                    selectedSession.display_title || selectedSession.probe.detected_title || "",
+                    messages.sessionDetail.copyTitle,
+                  )
+                }
+              >
+                {messages.sessionDetail.copyTitle}
+              </button>
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => copyText(selectedSession.session_id, messages.sessionDetail.copyId)}
+              >
+                {messages.sessionDetail.copyId}
+              </button>
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => copyText(selectedSession.file_path, messages.sessionDetail.copyPath)}
+              >
+                {messages.sessionDetail.copyPath}
+              </button>
+            </div>
+            {copyNotice ? <p className="sub-hint">{copyNotice}</p> : null}
             <div className="chat-toolbar">
               <button
                 type="button"

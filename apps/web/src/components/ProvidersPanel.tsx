@@ -8,6 +8,15 @@ import type {
 } from "../types";
 import { SKELETON_ROWS } from "../types";
 
+type ProviderSessionSort = "mtime_desc" | "mtime_asc" | "size_desc" | "size_asc" | "title_asc" | "title_desc";
+type ProviderProbeFilter = "all" | "ok" | "fail";
+
+function formatLocalDate(value: string): string {
+  const t = Date.parse(value);
+  if (Number.isNaN(t)) return "-";
+  return new Date(t).toLocaleString();
+}
+
 export interface ProvidersPanelProps {
   messages: Messages;
 
@@ -31,11 +40,12 @@ export interface ProvidersPanelProps {
     parse_ok: number;
     parse_fail: number;
   };
+  providerRowsSampled: boolean;
   providerSessionsLoading: boolean;
   selectedProviderFiles: Record<string, boolean>;
   setSelectedProviderFiles: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   allProviderRowsSelected: boolean;
-  toggleSelectAllProviderRows: (checked: boolean) => void;
+  toggleSelectAllProviderRows: (checked: boolean, scopeFilePaths?: string[]) => void;
   selectedProviderLabel: string;
   selectedProviderFilePaths: string[];
   canRunProviderAction: boolean;
@@ -78,6 +88,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     setProviderView,
     providerSessionRows,
     providerSessionSummary,
+    providerRowsSampled,
     providerSessionsLoading,
     selectedProviderFiles,
     setSelectedProviderFiles,
@@ -96,6 +107,8 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     setSelectedSessionPath,
   } = props;
   const [sessionFilter, setSessionFilter] = useState("");
+  const [sessionSort, setSessionSort] = useState<ProviderSessionSort>("mtime_desc");
+  const [probeFilter, setProbeFilter] = useState<ProviderProbeFilter>("all");
 
   const statusLabel = (status: "active" | "detected" | "missing") => {
     if (status === "active") return messages.providers.statusActive;
@@ -111,21 +124,55 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const providerLabel = providerView === "all" ? messages.common.allAi : selectedProviderLabel;
   const filteredProviderSessionRows = useMemo(() => {
     const q = sessionFilter.trim().toLowerCase();
-    if (!q) return providerSessionRows;
     return providerSessionRows.filter((row) => {
-      const text = [
-        row.display_title,
-        row.probe?.detected_title,
-        row.session_id,
-        row.file_path,
-        row.provider,
-      ]
+      if (probeFilter === "ok" && !row.probe.ok) return false;
+      if (probeFilter === "fail" && row.probe.ok) return false;
+
+      if (!q) return true;
+      const text = [row.display_title, row.probe?.detected_title, row.session_id, row.file_path, row.provider]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
       return text.includes(q);
     });
-  }, [providerSessionRows, sessionFilter]);
+  }, [providerSessionRows, sessionFilter, probeFilter]);
+  const sortedProviderSessionRows = useMemo(() => {
+    const rows = [...filteredProviderSessionRows];
+    rows.sort((a, b) => {
+      switch (sessionSort) {
+        case "mtime_asc":
+          return Date.parse(a.mtime) - Date.parse(b.mtime);
+        case "size_desc":
+          return b.size_bytes - a.size_bytes;
+        case "size_asc":
+          return a.size_bytes - b.size_bytes;
+        case "title_asc":
+          return (a.display_title || a.probe?.detected_title || a.session_id).localeCompare(
+            b.display_title || b.probe?.detected_title || b.session_id,
+            undefined,
+            { sensitivity: "base" },
+          );
+        case "title_desc":
+          return (b.display_title || b.probe?.detected_title || b.session_id).localeCompare(
+            a.display_title || a.probe?.detected_title || a.session_id,
+            undefined,
+            { sensitivity: "base" },
+          );
+        case "mtime_desc":
+        default:
+          return Date.parse(b.mtime) - Date.parse(a.mtime);
+      }
+    });
+    return rows;
+  }, [filteredProviderSessionRows, sessionSort]);
+  const renderedProviderSessionRows = useMemo(() => sortedProviderSessionRows.slice(0, 120), [sortedProviderSessionRows]);
+  const filteredProviderFilePaths = useMemo(
+    () => sortedProviderSessionRows.map((row) => row.file_path),
+    [sortedProviderSessionRows],
+  );
+  const allFilteredProviderRowsSelected =
+    sortedProviderSessionRows.length > 0 &&
+    sortedProviderSessionRows.every((row) => Boolean(selectedProviderFiles[row.file_path]));
 
   return (
     <>
@@ -222,6 +269,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
             <span>
               {providerSessionSummary.rows ?? providerSessionRows.length} {messages.providers.rows} · {messages.providers.parseOk}{" "}
               {providerSessionSummary.parse_ok ?? 0}
+              {providerRowsSampled ? ` · ${messages.providers.sampledHint}` : ""}
             </span>
           </header>
           <div className="sub-toolbar">
@@ -231,16 +279,44 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
               value={sessionFilter}
               onChange={(e) => setSessionFilter(e.target.value)}
             />
+            <select
+              className="filter-select"
+              aria-label={messages.providers.probeFilterLabel}
+              value={probeFilter}
+              onChange={(e) => setProbeFilter(e.target.value as ProviderProbeFilter)}
+            >
+              <option value="all">{messages.providers.probeAll}</option>
+              <option value="ok">{messages.providers.probeOk}</option>
+              <option value="fail">{messages.providers.probeFail}</option>
+            </select>
+            <select
+              className="filter-select"
+              aria-label={messages.providers.sortLabel}
+              value={sessionSort}
+              onChange={(e) => setSessionSort(e.target.value as ProviderSessionSort)}
+            >
+              <option value="mtime_desc">{messages.providers.sortNewest}</option>
+              <option value="mtime_asc">{messages.providers.sortOldest}</option>
+              <option value="size_desc">{messages.providers.sortSizeDesc}</option>
+              <option value="size_asc">{messages.providers.sortSizeAsc}</option>
+              <option value="title_asc">{messages.providers.sortTitleAsc}</option>
+              <option value="title_desc">{messages.providers.sortTitleDesc}</option>
+            </select>
             <span className="sub-hint">
-              {messages.providers.filteredRows} {filteredProviderSessionRows.length}/{providerSessionRows.length}
+              {messages.providers.filteredRows} {sortedProviderSessionRows.length}/{providerSessionRows.length}
+              {sortedProviderSessionRows.length > renderedProviderSessionRows.length
+                ? ` · ${messages.providers.renderingWindow} ${renderedProviderSessionRows.length}/${sortedProviderSessionRows.length}`
+                : ""}
             </span>
           </div>
           <div className="sub-toolbar">
             <label className="check-inline">
               <input
                 type="checkbox"
-                checked={allProviderRowsSelected}
-                onChange={(e) => toggleSelectAllProviderRows(e.target.checked)}
+                checked={allFilteredProviderRowsSelected || allProviderRowsSelected}
+                onChange={(e) =>
+                  toggleSelectAllProviderRows(e.target.checked, filteredProviderFilePaths)
+                }
               />
               {messages.providers.selectAllInTab}
             </label>
@@ -278,6 +354,9 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
               {messages.providers.delete}
             </button>
             <span className="sub-hint">{messages.providers.alwaysDryRun}</span>
+            {!canRunProviderAction && providerView !== "all" ? (
+              <span className="sub-hint">{messages.providers.readOnlyHint}</span>
+            ) : null}
           </div>
           <div className="provider-table-wrap">
             <table>
@@ -289,23 +368,24 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
                   <th>{messages.threadDetail.fieldSource}</th>
                   <th>{messages.providers.colFormat}</th>
                   <th>{messages.providers.colProbe}</th>
+                  <th>{messages.sessionDetail.fieldModified}</th>
                   <th>{messages.providers.colSize}</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredProviderSessionRows.slice(0, 120).map((row) => (
+                {renderedProviderSessionRows.map((row) => (
                   <tr
                     key={`${row.provider}-${row.session_id}-${row.file_path}`}
                     className={selectedSessionPath === row.file_path ? "active-row" : undefined}
                     onClick={() => {
                       setSelectedSessionPath(row.file_path);
-                      setSelectedProviderFiles((prev) => ({ ...prev, [row.file_path]: true }));
                     }}
                   >
                     <td>
                       <input
                         type="checkbox"
                         checked={Boolean(selectedProviderFiles[row.file_path])}
+                        onClick={(e) => e.stopPropagation()}
                         onChange={(e) =>
                           setSelectedProviderFiles((prev) => ({ ...prev, [row.file_path]: e.target.checked }))
                         }
@@ -319,21 +399,22 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
                     <td>{row.source}</td>
                     <td>{row.probe.format}</td>
                     <td>{row.probe.ok ? messages.common.ok : messages.common.fail}</td>
+                    <td>{formatLocalDate(row.mtime)}</td>
                     <td>{row.size_bytes.toLocaleString()}</td>
                   </tr>
                 ))}
                 {providerSessionsLoading
                   ? Array.from({ length: SKELETON_ROWS }).map((_, idx) => (
                       <tr key={`provider-session-skeleton-${idx}`}>
-                        <td colSpan={7}>
+                        <td colSpan={8}>
                           <div className="skeleton-line" />
                         </td>
                       </tr>
                     ))
                   : null}
-                {filteredProviderSessionRows.length === 0 && !providerSessionsLoading ? (
+                {sortedProviderSessionRows.length === 0 && !providerSessionsLoading ? (
                   <tr>
-                    <td colSpan={7} className="sub-hint">
+                    <td colSpan={8} className="sub-hint">
                       {messages.providers.sessionsLoading}
                     </td>
                   </tr>

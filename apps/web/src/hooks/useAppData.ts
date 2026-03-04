@@ -440,6 +440,13 @@ export function useAppData() {
   );
   const allProviderRowsSelected =
     providerSessionRows.length > 0 && providerSessionRows.every((row) => Boolean(selectedProviderFiles[row.file_path]));
+  const providerRowsSampled = useMemo(() => {
+    if (providerView === "all") {
+      return allProviderSessionProviders.some((row) => Boolean(row.truncated));
+    }
+    const hit = allProviderSessionProviders.find((row) => row.provider === providerView);
+    return Boolean(hit?.truncated);
+  }, [providerView, allProviderSessionProviders]);
   const providerActionData = extractEnvelopeData<ProviderSessionActionResult>(providerActionRaw);
   const selectedProviderMeta = providerView === "all" ? null : providerById.get(providerView);
   const canRunProviderAction =
@@ -589,18 +596,24 @@ export function useAppData() {
     setSelected({});
   };
 
-  const toggleSelectAllProviderRows = (checked: boolean) => {
+  const toggleSelectAllProviderRows = (
+    checked: boolean,
+    scopeFilePaths?: string[],
+  ) => {
+    const scope = (scopeFilePaths ?? providerSessionRows.map((row) => row.file_path))
+      .map((item) => String(item || "").trim())
+      .filter(Boolean);
     if (checked) {
       const next: Record<string, boolean> = { ...selectedProviderFiles };
-      providerSessionRows.forEach((row) => {
-        next[row.file_path] = true;
+      scope.forEach((filePath) => {
+        next[filePath] = true;
       });
       setSelectedProviderFiles(next);
       return;
     }
     const next: Record<string, boolean> = { ...selectedProviderFiles };
-    providerSessionRows.forEach((row) => {
-      delete next[row.file_path];
+    scope.forEach((filePath) => {
+      delete next[filePath];
     });
     setSelectedProviderFiles(next);
   };
@@ -687,6 +700,7 @@ export function useAppData() {
     providers, providerSummary,
     providerTabs, providerSessionRows,
     providerSessionSummary,
+    providerRowsSampled,
     allProviderRowsSelected,
     selectedProviderLabel,
     selectedProviderFilePaths,

@@ -65,6 +65,7 @@ export function App() {
     providerTabs,
     providerSessionRows,
     providerSessionSummary,
+    providerRowsSampled,
     allProviderRowsSelected,
     selectedProviderLabel,
     selectedProviderFilePaths,
@@ -260,6 +261,7 @@ export function App() {
           setProviderView={setProviderView}
           providerSessionRows={providerSessionRows}
           providerSessionSummary={providerSessionSummary}
+          providerRowsSampled={providerRowsSampled}
           providerSessionsLoading={providerSessionsLoading}
           selectedProviderFiles={selectedProviderFiles}
           setSelectedProviderFiles={setSelectedProviderFiles}
