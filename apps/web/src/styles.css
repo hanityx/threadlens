@@ -990,6 +990,49 @@ tr:hover td {
   list-style: disc;
 }
 
+.data-source-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.data-source-card {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  background: color-mix(in srgb, var(--bg-elev) 72%, transparent);
+  display: grid;
+  gap: 8px;
+}
+
+.data-source-card.is-present {
+  border-color: color-mix(in srgb, var(--success) 35%, var(--line-soft));
+}
+
+.data-source-card.is-missing {
+  border-color: color-mix(in srgb, var(--muted) 45%, var(--line-soft));
+}
+
+.data-source-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.data-source-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.data-source-meta {
+  display: grid;
+  gap: 4px;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
 /* ── Impact / Detail ──────────────────────────────────── */
 .impact-panel {
   min-height: 420px;

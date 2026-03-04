@@ -4,6 +4,7 @@ import type {
   ProviderMatrixProvider,
   ProviderDataDepth,
   ProviderView,
+  DataSourceInventoryRow,
   ProviderSessionRow,
   ProviderSessionActionResult,
 } from "../types";
@@ -91,6 +92,20 @@ function formatLocalDate(value: string): string {
   return new Date(t).toLocaleString();
 }
 
+function formatBytes(value: number): string {
+  const bytes = Number(value || 0);
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let size = bytes / 1024;
+  let idx = 0;
+  while (size >= 1024 && idx < units.length - 1) {
+    size /= 1024;
+    idx += 1;
+  }
+  return `${size.toFixed(size < 10 ? 1 : 0)} ${units[idx]}`;
+}
+
 function readCsvColumnPrefs(): Record<CsvColumnKey, boolean> {
   if (typeof window === "undefined") return DEFAULT_CSV_COLUMNS;
   try {
@@ -132,6 +147,8 @@ export interface ProvidersPanelProps {
     parse_ok: number;
     parse_fail: number;
   };
+  dataSourceRows: DataSourceInventoryRow[];
+  dataSourcesLoading: boolean;
   providerSessionsLimit: number;
   providerRowsSampled: boolean;
   providerSessionsLoading: boolean;
@@ -186,6 +203,8 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     setProviderDataDepth,
     providerSessionRows,
     providerSessionSummary,
+    dataSourceRows,
+    dataSourcesLoading,
     providerSessionsLimit,
     providerRowsSampled,
     providerSessionsLoading,
@@ -238,8 +257,13 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     if (action === "archive_local") return messages.providers.actionArchiveLocal;
     return messages.providers.actionDeleteLocal;
   };
+  const dataSourceLabel = (sourceKey: string) =>
+    sourceKey
+      .replace(/_/g, " ")
+      .replace(/\b[a-z]/g, (ch) => ch.toUpperCase());
 
   const providerLabel = providerView === "all" ? messages.common.allAi : selectedProviderLabel;
+  const detectedDataSourceCount = dataSourceRows.filter((row) => row.present).length;
   const sourceFilterOptions = useMemo(() => {
     const counts = new Map<string, number>();
     providerSessionRows.forEach((row) => {
@@ -623,6 +647,51 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
               ) : null}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section className="panel">
+        <header>
+          <h2>{messages.providers.dataSourcesTitle}</h2>
+          <span>
+            {messages.providers.dataSourcesDetected} {detectedDataSourceCount}/{dataSourceRows.length}
+          </span>
+        </header>
+        <div className="data-source-grid">
+          {dataSourcesLoading && dataSourceRows.length === 0
+            ? Array.from({ length: 6 }).map((_, idx) => (
+                <div key={`data-source-skeleton-${idx}`} className="data-source-card">
+                  <div className="skeleton-line" />
+                </div>
+              ))
+            : dataSourceRows.map((row) => (
+                <article
+                  key={`data-source-${row.source_key}`}
+                  className={`data-source-card ${row.present ? "is-present" : "is-missing"}`}
+                >
+                  <div className="data-source-top">
+                    <strong>{dataSourceLabel(row.source_key)}</strong>
+                    <span className={`status-pill ${row.present ? "status-active" : "status-missing"}`}>
+                      {row.present ? messages.common.ok : messages.common.fail}
+                    </span>
+                  </div>
+                  <div className="mono-sub data-source-path">{row.path || "-"}</div>
+                  <div className="data-source-meta">
+                    <span>
+                      {messages.providers.dataSourcesFiles} {row.file_count}
+                    </span>
+                    <span>
+                      {messages.providers.dataSourcesDirs} {row.dir_count}
+                    </span>
+                    <span>
+                      {messages.providers.dataSourcesSize} {formatBytes(row.total_bytes)}
+                    </span>
+                    <span>
+                      {messages.providers.dataSourcesUpdated} {formatLocalDate(row.latest_mtime)}
+                    </span>
+                  </div>
+                </article>
+              ))}
         </div>
       </section>
 

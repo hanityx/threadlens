@@ -9,6 +9,8 @@ import type {
   ThreadsResponse,
   ThreadRow,
   RecoveryResponse,
+  DataSourcesEnvelope,
+  DataSourceInventoryRow,
   ProviderMatrixEnvelope,
   ProviderSessionsEnvelope,
   ProviderParserHealthEnvelope,
@@ -147,10 +149,12 @@ export function useAppData() {
   const providerMatrixQueryEnabled = wantsProvidersData || secondaryDataHydrated;
   const providerSessionsQueryEnabled = wantsProvidersData || secondaryDataHydrated;
   const providerParserQueryEnabled = wantsProvidersData || secondaryDataHydrated;
+  const dataSourcesQueryEnabled = wantsProvidersData || secondaryDataHydrated;
   const recoveryRefetchInterval = wantsRecoveryData ? 15000 : false;
   const providerMatrixRefetchInterval = wantsProvidersData ? 60000 : false;
   const providerSessionsRefetchInterval = wantsProvidersData ? 60000 : false;
   const providerParserRefetchInterval = wantsProvidersData ? 60000 : false;
+  const dataSourcesRefetchInterval = wantsProvidersData ? 120000 : false;
 
   useEffect(() => {
     if (secondaryDataHydrated) return;
@@ -226,6 +230,17 @@ export function useAppData() {
     enabled: recoveryQueryEnabled,
     refetchInterval: recoveryRefetchInterval,
     staleTime: 10000,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  });
+
+  const dataSources = useQuery({
+    queryKey: ["data-sources"],
+    queryFn: ({ signal }) =>
+      apiGet<DataSourcesEnvelope>("/api/data-sources", { signal }),
+    enabled: dataSourcesQueryEnabled,
+    refetchInterval: dataSourcesRefetchInterval,
+    staleTime: 60000,
     refetchOnWindowFocus: false,
     retry: 1,
   });
@@ -488,6 +503,34 @@ export function useAppData() {
   const selectedImpactRows = (analysisData?.reports ?? []).filter((r) => selectedSet.has(r.id));
 
   /* ---- provider derived ---- */
+  const dataSourcesRoot = extractEnvelopeData<NonNullable<DataSourcesEnvelope["data"]>>(dataSources.data) ?? {};
+  const dataSourceRows = useMemo<DataSourceInventoryRow[]>(() => {
+    const sourceObj = dataSourcesRoot.sources;
+    if (!sourceObj || typeof sourceObj !== "object") return [];
+    const rows = Object.entries(sourceObj).map(([sourceKey, rawValue]) => {
+      const value =
+        rawValue && typeof rawValue === "object"
+          ? (rawValue as Record<string, unknown>)
+          : {};
+      return {
+        source_key: sourceKey,
+        path: String(value.path ?? ""),
+        present: Boolean(value.present),
+        file_count: parseNum(value.file_count),
+        dir_count: parseNum(value.dir_count),
+        total_bytes: parseNum(value.total_bytes ?? value.size_bytes),
+        latest_mtime: String(value.latest_mtime ?? value.mtime ?? ""),
+      };
+    });
+    rows.sort((a, b) => {
+      if (a.present !== b.present) return a.present ? -1 : 1;
+      if (a.file_count !== b.file_count) return b.file_count - a.file_count;
+      if (a.total_bytes !== b.total_bytes) return b.total_bytes - a.total_bytes;
+      return a.source_key.localeCompare(b.source_key);
+    });
+    return rows;
+  }, [dataSourcesRoot.sources]);
+
   const providerMatrixRoot = extractEnvelopeData<NonNullable<ProviderMatrixEnvelope["data"]>>(providerMatrix.data) ?? {};
   const providerSessionsRoot = extractEnvelopeData<NonNullable<ProviderSessionsEnvelope["data"]>>(providerSessions.data) ?? {};
   const providerParserRoot =
@@ -611,6 +654,7 @@ export function useAppData() {
   /* ---- loading flags ---- */
   const runtimeLoading = runtime.isLoading && !runtime.data;
   const recoveryLoading = recovery.isLoading && !recovery.data;
+  const dataSourcesLoading = dataSources.isLoading && dataSourceRows.length === 0;
   const providerMatrixLoading = providerMatrix.isLoading && providers.length === 0;
   const providerSessionsLoading = providerSessions.isLoading && allProviderSessionRows.length === 0;
   const parserLoading = providerParserHealth.isLoading && allParserReports.length === 0;
@@ -863,6 +907,11 @@ export function useAppData() {
 
   const prefetchProvidersData = useCallback(() => {
     void queryClient.prefetchQuery({
+      queryKey: ["data-sources"],
+      queryFn: () => apiGet<DataSourcesEnvelope>("/api/data-sources"),
+      staleTime: 60000,
+    });
+    void queryClient.prefetchQuery({
       queryKey: providerSessionsQueryKey,
       queryFn: () => apiGet<ProviderSessionsEnvelope>(providerSessionsQueryPath),
       staleTime: 30000,
@@ -891,6 +940,11 @@ export function useAppData() {
   const refreshProvidersData = useCallback(async () => {
     setProvidersRefreshPending(true);
     try {
+      await queryClient.fetchQuery({
+        queryKey: ["data-sources"],
+        queryFn: () => apiGet<DataSourcesEnvelope>("/api/data-sources"),
+        staleTime: 0,
+      });
       await queryClient.fetchQuery({
         queryKey: ["provider-matrix"],
         queryFn: () =>
@@ -983,7 +1037,7 @@ export function useAppData() {
     selectedSessionPath, setSelectedSessionPath,
 
     /* query results (raw react-query objects for error states) */
-    runtime, threads, recovery,
+    runtime, threads, recovery, dataSources,
     providerMatrix, providerSessions, providerParserHealth,
     executionGraph,
 
@@ -1013,6 +1067,7 @@ export function useAppData() {
     providerSessionSummary,
     providerSessionsLimit,
     providerRowsSampled,
+    dataSourceRows,
     allProviderRowsSelected,
     selectedProviderLabel,
     selectedProviderFilePaths,
@@ -1034,7 +1089,7 @@ export function useAppData() {
     executionGraphData,
 
     /* loading flags */
-    runtimeLoading, recoveryLoading, threadsLoading,
+    runtimeLoading, recoveryLoading, threadsLoading, dataSourcesLoading,
     providerMatrixLoading, providerSessionsLoading,
     parserLoading, executionGraphLoading,
     providersRefreshing,

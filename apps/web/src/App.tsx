@@ -97,6 +97,7 @@ export function App() {
     providerSessionSummary,
     providerSessionsLimit,
     providerRowsSampled,
+    dataSourceRows,
     allProviderRowsSelected,
     selectedProviderLabel,
     selectedProviderFilePaths,
@@ -126,6 +127,7 @@ export function App() {
     runtimeLoading,
     recoveryLoading,
     threadsLoading,
+    dataSourcesLoading,
     providerMatrixLoading,
     providerSessionsLoading,
     parserLoading,
@@ -390,6 +392,8 @@ export function App() {
             providerSessionSummary={providerSessionSummary}
             providerSessionsLimit={providerSessionsLimit}
             providerRowsSampled={providerRowsSampled}
+            dataSourceRows={dataSourceRows}
+            dataSourcesLoading={dataSourcesLoading}
             providerSessionsLoading={providerSessionsLoading}
             selectedProviderFiles={selectedProviderFiles}
             setSelectedProviderFiles={setSelectedProviderFiles}

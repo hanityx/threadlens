@@ -37,6 +37,22 @@ export type RecoveryResponse = {
   generated_at?: string;
 };
 
+/* ── Data Sources ─────────────────────────────────────── */
+export type DataSourcesEnvelope = ApiEnvelope<{
+  generated_at?: string;
+  sources?: Record<string, Record<string, unknown>>;
+}>;
+
+export type DataSourceInventoryRow = {
+  source_key: string;
+  path: string;
+  present: boolean;
+  file_count: number;
+  dir_count: number;
+  total_bytes: number;
+  latest_mtime: string;
+};
+
 /* ── Provider Matrix ──────────────────────────────────── */
 export type ProviderMatrixProvider = {
   provider: string;
