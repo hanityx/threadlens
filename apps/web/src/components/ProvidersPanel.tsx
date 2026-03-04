@@ -256,6 +256,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const [parserDetailProvider, setParserDetailProvider] = useState<string>("");
   const [parserFailOnly, setParserFailOnly] = useState(false);
   const [parserSort, setParserSort] = useState<ParserSort>("fail_desc");
+  const [slowOnly, setSlowOnly] = useState(false);
   const [csvColumns, setCsvColumns] = useState<Record<CsvColumnKey, boolean>>(readCsvColumnPrefs);
   const providerSessionsSectionRef = useRef<HTMLElement | null>(null);
   const parserSectionRef = useRef<HTMLElement | null>(null);
@@ -301,6 +302,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     Boolean(providerId && providerTabs.some((tab) => tab.id === providerId));
 
   const providerLabel = providerView === "all" ? messages.common.allAi : selectedProviderLabel;
+  const canApplySlowOnly = providerView === "all";
   const slowProviderSet = useMemo(
     () => new Set(slowProviderIds),
     [slowProviderIds],
@@ -337,6 +339,10 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     const exists = sourceFilterOptions.some((item) => item.source === sourceFilter);
     if (!exists) setSourceFilter("all");
   }, [sourceFilter, sourceFilterOptions]);
+  useEffect(() => {
+    if (canApplySlowOnly) return;
+    if (slowOnly) setSlowOnly(false);
+  }, [canApplySlowOnly, slowOnly]);
   const providerSessionComputedIndex = useMemo(() => {
     const searchText = new Map<string, string>();
     const mtimeTs = new Map<string, number>();
@@ -364,6 +370,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
       if (sourceFilter !== "all" && row.source !== sourceFilter) return false;
       if (probeFilter === "ok" && !row.probe.ok) return false;
       if (probeFilter === "fail" && row.probe.ok) return false;
+      if (slowOnly && canApplySlowOnly && !slowProviderSet.has(row.provider)) return false;
 
       if (!q) return true;
       const text = providerSessionComputedIndex.searchText.get(row.file_path) ?? "";
@@ -375,6 +382,9 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     deferredSessionFilter,
     probeFilter,
     sourceFilter,
+    slowOnly,
+    canApplySlowOnly,
+    slowProviderSet,
   ]);
   const sortedProviderSessionRows = useMemo(() => {
     const rows = [...filteredProviderSessionRows];
@@ -426,8 +436,10 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     window.localStorage.setItem("cmc-provider-csv-columns", JSON.stringify(csvColumns));
   }, [csvColumns]);
   const filteredParserReports = useMemo(
-    () => (parserFailOnly ? parserReports.filter((report) => Number(report.parse_fail) > 0) : parserReports),
-    [parserReports, parserFailOnly],
+    () =>
+      (parserFailOnly ? parserReports.filter((report) => Number(report.parse_fail) > 0) : parserReports)
+        .filter((report) => !slowOnly || !canApplySlowOnly || slowProviderSet.has(report.provider)),
+    [parserReports, parserFailOnly, slowOnly, canApplySlowOnly, slowProviderSet],
   );
   const sortedParserReports = useMemo(() => {
     const rows = [...filteredParserReports];
@@ -900,6 +912,15 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
               <option value="title_asc">{messages.providers.sortTitleAsc}</option>
               <option value="title_desc">{messages.providers.sortTitleDesc}</option>
             </select>
+            <label className="check-inline">
+              <input
+                type="checkbox"
+                checked={slowOnly}
+                disabled={!canApplySlowOnly}
+                onChange={(e) => setSlowOnly(e.target.checked)}
+              />
+              {messages.providers.slowOnlyFilter}
+            </label>
             <span className="sub-hint">
               {messages.providers.filteredRows} {sortedProviderSessionRows.length}/{providerSessionRows.length}
               {sortedProviderSessionRows.length > renderedProviderSessionRows.length
