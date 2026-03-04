@@ -951,6 +951,51 @@ tr:hover td {
   gap: 16px;
 }
 
+.detail-section {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  padding: 0;
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  overflow: clip;
+}
+
+.detail-section[open] {
+  border-color: var(--line);
+}
+
+.detail-section > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 12px 14px;
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-elev) 68%, transparent);
+  border-bottom: 1px solid transparent;
+}
+
+.detail-section > summary:hover {
+  color: var(--text);
+}
+
+.detail-section[open] > summary {
+  border-bottom-color: var(--line-soft);
+}
+
+.detail-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.detail-section-body {
+  padding: 12px;
+  display: grid;
+  gap: 12px;
+}
+
+.detail-section-transcript .detail-section-body {
+  padding-top: 10px;
+}
+
 .impact-kv {
   display: flex;
   justify-content: space-between;
@@ -1239,6 +1284,16 @@ pre {
 :root[data-density="compact"] .impact-body {
   padding: 14px 16px;
   gap: 12px;
+}
+
+:root[data-density="compact"] .detail-section > summary {
+  padding: 10px 11px;
+  font-size: 0.78rem;
+}
+
+:root[data-density="compact"] .detail-section-body {
+  padding: 10px;
+  gap: 10px;
 }
 
 :root[data-density="compact"] .impact-kv {

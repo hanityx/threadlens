@@ -226,6 +226,10 @@ const MESSAGES = {
     threadDetail: {
       title: "Thread Detail",
       clickHint: "Click a thread to view details",
+      sectionOverview: "Overview",
+      sectionActions: "Actions",
+      sectionForensics: "Forensics",
+      sectionTranscript: "Transcript",
       fieldTitle: "Title",
       fieldId: "ID",
       fieldSource: "Source",
@@ -241,6 +245,9 @@ const MESSAGES = {
     sessionDetail: {
       title: "Session Detail",
       clickHint: "Click a session row to view title, ID, and file path",
+      sectionOverview: "Overview",
+      sectionActions: "Actions",
+      sectionTranscript: "Transcript",
       fieldTitle: "Title",
       fieldTitleSource: "Title Source",
       fieldSessionId: "Session ID",
@@ -501,6 +508,10 @@ const MESSAGES = {
     threadDetail: {
       title: "스레드 상세",
       clickHint: "스레드를 클릭하면 상세 정보를 볼 수 있어",
+      sectionOverview: "개요",
+      sectionActions: "작업",
+      sectionForensics: "포렌식",
+      sectionTranscript: "대화 기록",
       fieldTitle: "제목",
       fieldId: "ID",
       fieldSource: "소스",
@@ -516,6 +527,9 @@ const MESSAGES = {
     sessionDetail: {
       title: "세션 상세",
       clickHint: "세션 행을 클릭하면 제목, ID, 경로를 확인할 수 있어",
+      sectionOverview: "개요",
+      sectionActions: "작업",
+      sectionTranscript: "대화 기록",
       fieldTitle: "제목",
       fieldTitleSource: "제목 출처",
       fieldSessionId: "세션 ID",
