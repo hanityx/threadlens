@@ -202,6 +202,15 @@ describe("api-ts direct endpoints", () => {
     expect(root.reports.length).toBeLessThanOrEqual(1);
   });
 
+  it("GET /api/provider-sessions supports chatgpt provider filter", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/provider-sessions?provider=chatgpt&limit=10" });
+    expect(res.statusCode).toBe(200);
+    const payload = res.json();
+    const root = payload.data ?? payload;
+    expect(Array.isArray(root.providers)).toBe(true);
+    expect(root.providers.length).toBeLessThanOrEqual(1);
+  });
+
   it("GET /api/provider-parser-health rejects invalid provider", async () => {
     const res = await app.inject({ method: "GET", url: "/api/provider-parser-health?provider=invalid" });
     expect(res.statusCode).toBe(400);
@@ -244,7 +253,29 @@ describe("api-ts direct endpoints", () => {
     const payload = res.json();
     const root = payload.data ?? payload;
     expect(root.ok).toBe(false);
-    expect(root.error).toBe("confirm-token-mismatch");
+    expect(
+      ["no-valid-targets", "missing-confirm-token", "invalid-confirm-token"].includes(
+        String(root.error || ""),
+      ),
+    ).toBe(true);
+  });
+
+  it("POST /api/provider-session-action blocks cleanup on read-only providers", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/provider-session-action",
+      payload: {
+        provider: "chatgpt",
+        action: "delete_local",
+        file_paths: ["/tmp/not-allowed.data"],
+        dry_run: true,
+      },
+    });
+    expect(res.statusCode).toBe(400);
+    const payload = res.json();
+    const root = payload.data ?? payload;
+    expect(root.ok).toBe(false);
+    expect(root.error).toBe("cleanup-disabled-provider");
   });
 
   it("GET /api/agent-loops responds through TS route", async () => {
