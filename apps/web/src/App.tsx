@@ -95,6 +95,7 @@ export function App() {
     providerTabs,
     slowProviderIds,
     slowProviderThresholdMs,
+    setSlowProviderThresholdMs,
     providerSessionRows,
     providerSessionSummary,
     providerSessionsLimit,
@@ -394,6 +395,7 @@ export function App() {
             providerTabs={providerTabs}
             slowProviderIds={slowProviderIds}
             slowProviderThresholdMs={slowProviderThresholdMs}
+            setSlowProviderThresholdMs={setSlowProviderThresholdMs}
             providerView={providerView}
             setProviderView={setProviderView}
             providerDataDepth={providerDataDepth}

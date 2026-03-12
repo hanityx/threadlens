@@ -45,7 +45,10 @@ function providerActionSelectionKey(
 }
 
 const THREADS_BOOTSTRAP_CACHE_KEY = "cmc-threads-cache-v1";
-const SLOW_PROVIDER_SCAN_MS = 1200;
+const SLOW_PROVIDER_SCAN_MS_DEFAULT = 1200;
+const SLOW_PROVIDER_SCAN_MS_MIN = 400;
+const SLOW_PROVIDER_SCAN_MS_MAX = 6000;
+const SLOW_PROVIDER_SCAN_MS_STORAGE_KEY = "cmc-slow-provider-threshold-ms";
 type ProviderFetchMetrics = {
   data_sources: number | null;
   matrix: number | null;
@@ -80,6 +83,18 @@ export function useAppData() {
     const saved = window.localStorage.getItem("cmc-provider-depth");
     if (saved === "fast" || saved === "balanced" || saved === "deep") return saved;
     return "balanced";
+  });
+  const [slowProviderThresholdMs, setSlowProviderThresholdMs] = useState<number>(() => {
+    if (typeof window === "undefined") return SLOW_PROVIDER_SCAN_MS_DEFAULT;
+    try {
+      const raw = Number(window.localStorage.getItem(SLOW_PROVIDER_SCAN_MS_STORAGE_KEY));
+      if (Number.isFinite(raw)) {
+        return Math.min(SLOW_PROVIDER_SCAN_MS_MAX, Math.max(SLOW_PROVIDER_SCAN_MS_MIN, Math.round(raw)));
+      }
+    } catch {
+      // ignore parse failures and use default
+    }
+    return SLOW_PROVIDER_SCAN_MS_DEFAULT;
   });
   const [secondaryDataHydrated, setSecondaryDataHydrated] = useState(false);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
@@ -160,6 +175,13 @@ export function useAppData() {
   useEffect(() => {
     window.localStorage.setItem("cmc-provider-depth", providerDataDepth);
   }, [providerDataDepth]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      SLOW_PROVIDER_SCAN_MS_STORAGE_KEY,
+      String(Math.min(SLOW_PROVIDER_SCAN_MS_MAX, Math.max(SLOW_PROVIDER_SCAN_MS_MIN, Math.round(slowProviderThresholdMs)))),
+    );
+  }, [slowProviderThresholdMs]);
 
   const wantsProvidersData = layoutView === "overview" || layoutView === "providers";
   const wantsRoutingData = layoutView === "overview" || layoutView === "routing";
@@ -629,10 +651,10 @@ export function useAppData() {
   const slowProviderIds = useMemo(
     () =>
       Array.from(scanMsByProvider.entries())
-        .filter(([, ms]) => ms >= SLOW_PROVIDER_SCAN_MS)
+        .filter(([, ms]) => ms >= slowProviderThresholdMs)
         .sort((a, b) => b[1] - a[1])
         .map(([provider]) => provider),
-    [scanMsByProvider],
+    [scanMsByProvider, slowProviderThresholdMs],
   );
   const providerSessionRows = useMemo(
     () =>
@@ -691,7 +713,7 @@ export function useAppData() {
         status: meta?.status ?? (scanned > 0 ? "active" : "missing"),
         scanned,
         scan_ms: scanMs,
-        is_slow: scanMs !== null && scanMs >= SLOW_PROVIDER_SCAN_MS,
+        is_slow: scanMs !== null && scanMs >= slowProviderThresholdMs,
       };
     });
     providerItems.sort((a, b) => {
@@ -713,7 +735,15 @@ export function useAppData() {
       },
       ...providerItems,
     ];
-  }, [providers, allProviderSessionRows, providerById, scannedByProvider, sessionCountByProvider, scanMsByProvider]);
+  }, [
+    providers,
+    allProviderSessionRows,
+    providerById,
+    scannedByProvider,
+    sessionCountByProvider,
+    scanMsByProvider,
+    slowProviderThresholdMs,
+  ]);
 
   useEffect(() => {
     if (providerView === "all") return;
@@ -1132,6 +1162,7 @@ export function useAppData() {
     filterMode, setFilterMode,
     providerView, setProviderView,
     providerDataDepth, setProviderDataDepth,
+    slowProviderThresholdMs, setSlowProviderThresholdMs,
     selected, setSelected,
     selectedProviderFiles, setSelectedProviderFiles,
     selectedThreadId, setSelectedThreadId,
@@ -1166,7 +1197,6 @@ export function useAppData() {
     providers, providerSummary,
     providerTabs, providerSessionRows,
     slowProviderIds,
-    slowProviderThresholdMs: SLOW_PROVIDER_SCAN_MS,
     providerSessionSummary,
     providerSessionsLimit,
     providerRowsSampled,

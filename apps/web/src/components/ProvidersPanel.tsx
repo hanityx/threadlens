@@ -85,6 +85,7 @@ const FORENSICS_CSV_COLUMNS: Record<CsvColumnKey, boolean> = {
   modified: true,
   file_path: true,
 };
+const SLOW_THRESHOLD_OPTIONS_MS = [800, 1200, 1600, 2200, 3000];
 
 function csvCell(value: unknown): string {
   const raw = String(value ?? "");
@@ -161,6 +162,7 @@ export interface ProvidersPanelProps {
   }>;
   slowProviderIds: string[];
   slowProviderThresholdMs: number;
+  setSlowProviderThresholdMs: (value: number) => void;
   providerView: ProviderView;
   setProviderView: (v: ProviderView) => void;
   providerDataDepth: ProviderDataDepth;
@@ -232,6 +234,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     providerTabs,
     slowProviderIds,
     slowProviderThresholdMs,
+    setSlowProviderThresholdMs,
     providerView,
     setProviderView,
     providerDataDepth,
@@ -330,6 +333,12 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     () => new Map(providerTabs.map((tab) => [tab.id, tab])),
     [providerTabs],
   );
+  const slowThresholdOptions = useMemo(() => {
+    if (SLOW_THRESHOLD_OPTIONS_MS.includes(slowProviderThresholdMs)) {
+      return SLOW_THRESHOLD_OPTIONS_MS;
+    }
+    return [...SLOW_THRESHOLD_OPTIONS_MS, slowProviderThresholdMs].sort((a, b) => a - b);
+  }, [slowProviderThresholdMs]);
   const slowProviderSummary = useMemo(() => {
     const names = slowProviderIds
       .map((providerId) => providerTabById.get(providerId as ProviderView)?.name ?? providerId)
@@ -339,10 +348,10 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const providerTabCount = providerTabs.filter((tab) => tab.id !== "all").length;
   const detectedDataSourceCount = dataSourceRows.filter((row) => row.present).length;
   const hasSlowProviderFetch =
-    providerFetchMetrics.data_sources !== null && providerFetchMetrics.data_sources >= 1200 ||
-    providerFetchMetrics.matrix !== null && providerFetchMetrics.matrix >= 1200 ||
-    providerFetchMetrics.sessions !== null && providerFetchMetrics.sessions >= 1200 ||
-    providerFetchMetrics.parser !== null && providerFetchMetrics.parser >= 1200;
+    providerFetchMetrics.data_sources !== null && providerFetchMetrics.data_sources >= slowProviderThresholdMs ||
+    providerFetchMetrics.matrix !== null && providerFetchMetrics.matrix >= slowProviderThresholdMs ||
+    providerFetchMetrics.sessions !== null && providerFetchMetrics.sessions >= slowProviderThresholdMs ||
+    providerFetchMetrics.parser !== null && providerFetchMetrics.parser >= slowProviderThresholdMs;
   const sourceFilterOptions = useMemo(() => {
     const counts = new Map<string, number>();
     providerSessionRows.forEach((row) => {
@@ -986,6 +995,23 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
             <option value="fast">{messages.providers.depthFast}</option>
             <option value="balanced">{messages.providers.depthBalanced}</option>
             <option value="deep">{messages.providers.depthDeep}</option>
+          </select>
+        </label>
+        <label className="provider-quick-switch">
+          <span>{messages.providers.slowThresholdLabel}</span>
+          <select
+            className="provider-quick-select"
+            value={String(slowProviderThresholdMs)}
+            onChange={(e) => {
+              const nextValue = Number(e.target.value);
+              if (Number.isFinite(nextValue)) setSlowProviderThresholdMs(nextValue);
+            }}
+          >
+            {slowThresholdOptions.map((thresholdMs) => (
+              <option key={`slow-threshold-${thresholdMs}`} value={thresholdMs}>
+                {thresholdMs}ms
+              </option>
+            ))}
           </select>
         </label>
         <button
