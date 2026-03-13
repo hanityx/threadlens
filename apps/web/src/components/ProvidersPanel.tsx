@@ -347,6 +347,15 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   }, [slowProviderIds, providerTabById]);
   const providerTabCount = providerTabs.filter((tab) => tab.id !== "all").length;
   const detectedDataSourceCount = dataSourceRows.filter((row) => row.present).length;
+  const selectedProviderDataSources = useMemo(() => {
+    if (providerView === "all") return [];
+    return dataSourceRows.filter((row) => providerFromDataSource(row.source_key) === providerView);
+  }, [dataSourceRows, providerView]);
+  const selectedProviderHasPresentSource = selectedProviderDataSources.some((row) => row.present);
+  const showProviderSessionsZeroState =
+    providerView !== "all" &&
+    !providerSessionsLoading &&
+    providerSessionRows.length === 0;
   const hasSlowProviderFetch =
     providerFetchMetrics.data_sources !== null && providerFetchMetrics.data_sources >= slowProviderThresholdMs ||
     providerFetchMetrics.matrix !== null && providerFetchMetrics.matrix >= slowProviderThresholdMs ||
@@ -1068,6 +1077,26 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
               {providerRowsSampled ? ` · ${messages.providers.sampledHint}` : ""}
             </span>
           </header>
+          {showProviderSessionsZeroState ? (
+            <div className="sub-toolbar">
+              <span className="sub-hint">
+                {selectedProviderHasPresentSource
+                  ? messages.providers.sessionsEmptyDetectedNoLogs
+                  : messages.providers.sessionsEmptyNoSources}
+                {` · ${messages.providers.sessionsEmptyActionHint}`}
+              </span>
+              <button
+                className="btn-outline"
+                type="button"
+                onClick={() => {
+                  setProviderDataDepth("deep");
+                  refreshProvidersData();
+                }}
+              >
+                {messages.providers.depthDeep} + {messages.providers.refreshNow}
+              </button>
+            </div>
+          ) : null}
           <div className="sub-toolbar">
             <input
               className="search-input"
