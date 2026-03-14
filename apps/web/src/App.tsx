@@ -75,6 +75,8 @@ export function App() {
     cleanupDryRun,
     analyzeDeleteError,
     cleanupDryRunError,
+    analyzeDeleteErrorMessage,
+    cleanupDryRunErrorMessage,
     providerSessionActionError,
 
     rows,
@@ -519,6 +521,8 @@ export function App() {
                 cleanupRaw={cleanupRaw}
                 analyzeDeleteError={analyzeDeleteError}
                 cleanupDryRunError={cleanupDryRunError}
+                analyzeDeleteErrorMessage={analyzeDeleteErrorMessage}
+                cleanupDryRunErrorMessage={cleanupDryRunErrorMessage}
               />
             </Suspense>
           ) : null}

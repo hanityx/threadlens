@@ -96,6 +96,8 @@ export async function requestPythonJson(
     query?: QueryMap;
     body?: unknown;
     timeoutMs?: number;
+    retryCount?: number;
+    retryDelayMs?: number;
   } = {},
 ): Promise<{ status: number; payload: unknown }> {
   const url = buildProxyUrl(pathname, options.query);
@@ -106,21 +108,36 @@ export async function requestPythonJson(
     body = JSON.stringify(options.body ?? {});
   }
 
-  const res = await fetchWithTimeout(
-    url,
-    {
-      method,
-      headers,
-      body,
-    },
-    options.timeoutMs ?? 12000,
-  );
-  const text = await res.text();
-  const parsed = safeJsonParse(text);
-  return {
-    status: res.status,
-    payload: withSchemaVersion(parsed ?? text),
-  };
+  const timeoutMs = options.timeoutMs ?? 12000;
+  const retryCount = Math.max(0, Number(options.retryCount ?? 0));
+  const retryDelayMs = Math.max(0, Number(options.retryDelayMs ?? 250));
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt <= retryCount; attempt += 1) {
+    try {
+      const res = await fetchWithTimeout(
+        url,
+        {
+          method,
+          headers,
+          body,
+        },
+        timeoutMs,
+      );
+      const text = await res.text();
+      const parsed = safeJsonParse(text);
+      return {
+        status: res.status,
+        payload: withSchemaVersion(parsed ?? text),
+      };
+    } catch (error) {
+      lastError = error;
+      if (attempt >= retryCount) break;
+      await new Promise<void>((resolve) => setTimeout(resolve, retryDelayMs * (attempt + 1)));
+    }
+  }
+
+  throw lastError ?? new Error("python-request-failed");
 }
 
 /* ── JSON ─────────────────────────────────────────────────────────── */

@@ -44,6 +44,12 @@ function providerActionSelectionKey(
   return `${provider}|${action}|${normalized.join("||")}`;
 }
 
+function normalizeThreadIds(threadIds: string[]): string[] {
+  return Array.from(
+    new Set(threadIds.map((item) => String(item || "").trim()).filter(Boolean)),
+  ).slice(0, 500);
+}
+
 const THREADS_BOOTSTRAP_CACHE_KEY = "cmc-threads-cache-v1";
 const SLOW_PROVIDER_SCAN_MS_DEFAULT = 1200;
 const SLOW_PROVIDER_SCAN_MS_MIN = 400;
@@ -443,14 +449,24 @@ export function useAppData() {
   });
 
   const analyzeDelete = useMutation({
-    mutationFn: (threadIds: string[]) => apiPost<unknown>("/api/analyze-delete", { ids: threadIds }),
+    mutationFn: (threadIds: string[]) => {
+      const ids = normalizeThreadIds(threadIds);
+      if (ids.length === 0) {
+        throw new Error("no-valid-thread-ids");
+      }
+      return apiPost<unknown>("/api/analyze-delete", { ids });
+    },
     onSuccess: (data) => setAnalysisRaw(data),
   });
 
   const cleanupDryRun = useMutation({
-    mutationFn: (threadIds: string[]) =>
-      apiPost<unknown>("/api/local-cleanup", {
-        ids: threadIds,
+    mutationFn: (threadIds: string[]) => {
+      const ids = normalizeThreadIds(threadIds);
+      if (ids.length === 0) {
+        throw new Error("no-valid-thread-ids");
+      }
+      return apiPost<unknown>("/api/local-cleanup", {
+        ids,
         dry_run: true,
         options: {
           delete_cache: true,
@@ -458,7 +474,8 @@ export function useAppData() {
           clean_state_refs: true,
         },
         confirm_token: "",
-      }),
+      });
+    },
     onSuccess: (data) => setCleanupRaw(data),
   });
 
@@ -572,6 +589,16 @@ export function useAppData() {
   const analysisData = extractEnvelopeData<AnalyzeDeleteData>(analysisRaw);
   const cleanupData = extractEnvelopeData<CleanupPreviewData>(cleanupRaw);
   const selectedImpactRows = (analysisData?.reports ?? []).filter((r) => selectedSet.has(r.id));
+  const analyzeDeleteErrorMessage = analyzeDelete.error instanceof Error
+    ? analyzeDelete.error.message
+    : analyzeDelete.error
+      ? String(analyzeDelete.error)
+      : "";
+  const cleanupDryRunErrorMessage = cleanupDryRun.error instanceof Error
+    ? cleanupDryRun.error.message
+    : cleanupDryRun.error
+      ? String(cleanupDryRun.error)
+      : "";
 
   /* ---- provider derived ---- */
   const dataSourcesRoot = extractEnvelopeData<NonNullable<DataSourcesEnvelope["data"]>>(dataSources.data) ?? {};
@@ -1181,6 +1208,8 @@ export function useAppData() {
     cleanupDryRun: (ids: string[]) => cleanupDryRun.mutate(ids),
     analyzeDeleteError: analyzeDelete.isError,
     cleanupDryRunError: cleanupDryRun.isError,
+    analyzeDeleteErrorMessage,
+    cleanupDryRunErrorMessage,
     providerSessionActionError: providerSessionAction.isError,
 
     /* derived – threads */
