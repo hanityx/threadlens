@@ -1,0 +1,153 @@
+import type { Messages } from "../i18n";
+import type { ProviderSessionRow, ProviderView, TranscriptPayload } from "../types";
+import { TranscriptLog } from "./TranscriptLog";
+
+export interface SessionDetailProps {
+  messages: Messages;
+  selectedSession: ProviderSessionRow | null;
+  sessionTranscriptData: TranscriptPayload | null;
+  sessionTranscriptLoading: boolean;
+  sessionTranscriptLimit: number;
+  setSessionTranscriptLimit: React.Dispatch<React.SetStateAction<number>>;
+  busy: boolean;
+  runSingleProviderAction: (
+    provider: Exclude<ProviderView, "all">,
+    filePath: string,
+    action: "archive_local" | "delete_local",
+    dryRun: boolean,
+  ) => void;
+}
+
+export function SessionDetail(props: SessionDetailProps) {
+  const {
+    messages,
+    selectedSession,
+    sessionTranscriptData,
+    sessionTranscriptLoading,
+    sessionTranscriptLimit,
+    setSessionTranscriptLimit,
+    busy,
+    runSingleProviderAction,
+  } = props;
+
+  return (
+    <section className="panel">
+      <header>
+        <h2>{messages.sessionDetail.title}</h2>
+        <span>{selectedSession ? selectedSession.provider : messages.common.none}</span>
+      </header>
+      <div className="impact-body">
+        {!selectedSession ? (
+          <p className="sub-hint">{messages.sessionDetail.clickHint}</p>
+        ) : (
+          <>
+            <div className="impact-kv">
+              <span>{messages.sessionDetail.fieldTitle}</span>
+              <strong className="title-main">
+                {selectedSession.display_title || selectedSession.probe.detected_title || "-"}
+              </strong>
+            </div>
+            <div className="impact-kv">
+              <span>{messages.sessionDetail.fieldTitleSource}</span>
+              <strong>{selectedSession.probe.title_source ?? "-"}</strong>
+            </div>
+            <div className="impact-kv">
+              <span>{messages.sessionDetail.fieldSessionId}</span>
+              <strong className="mono-sub">{selectedSession.session_id}</strong>
+            </div>
+            <div className="impact-kv">
+              <span>{messages.sessionDetail.fieldProvider}</span>
+              <strong>{selectedSession.provider}</strong>
+            </div>
+            <div className="impact-kv">
+              <span>{messages.sessionDetail.fieldSource}</span>
+              <strong>{selectedSession.source}</strong>
+            </div>
+            <div className="impact-kv">
+              <span>{messages.sessionDetail.fieldFormatProbe}</span>
+              <strong>
+                {selectedSession.probe.format} / {selectedSession.probe.ok ? messages.common.ok : messages.common.fail}
+              </strong>
+            </div>
+            <div className="impact-kv">
+              <span>{messages.sessionDetail.fieldPath}</span>
+              <strong className="mono-sub">{selectedSession.file_path}</strong>
+            </div>
+            <div className="chat-toolbar">
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() =>
+                  runSingleProviderAction(
+                    selectedSession.provider as Exclude<ProviderView, "all">,
+                    selectedSession.file_path,
+                    "archive_local",
+                    true,
+                  )
+                }
+                disabled={busy}
+              >
+                {messages.sessionDetail.archiveDryRun}
+              </button>
+              <button
+                type="button"
+                className="btn-base"
+                onClick={() =>
+                  runSingleProviderAction(
+                    selectedSession.provider as Exclude<ProviderView, "all">,
+                    selectedSession.file_path,
+                    "archive_local",
+                    false,
+                  )
+                }
+                disabled={busy}
+              >
+                {messages.sessionDetail.archive}
+              </button>
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() =>
+                  runSingleProviderAction(
+                    selectedSession.provider as Exclude<ProviderView, "all">,
+                    selectedSession.file_path,
+                    "delete_local",
+                    true,
+                  )
+                }
+                disabled={busy}
+              >
+                {messages.sessionDetail.deleteDryRun}
+              </button>
+              <button
+                type="button"
+                className="btn-accent"
+                onClick={() =>
+                  runSingleProviderAction(
+                    selectedSession.provider as Exclude<ProviderView, "all">,
+                    selectedSession.file_path,
+                    "delete_local",
+                    false,
+                  )
+                }
+                disabled={busy}
+              >
+                {messages.sessionDetail.delete}
+              </button>
+            </div>
+            <TranscriptLog
+              messages={messages}
+              transcript={sessionTranscriptData?.messages ?? []}
+              loading={sessionTranscriptLoading}
+              truncated={sessionTranscriptData?.truncated ?? false}
+              messageCount={sessionTranscriptData?.message_count ?? 0}
+              limit={sessionTranscriptLimit}
+              emptyLabel={messages.sessionDetail.emptyTranscript}
+              onLoadMore={() => setSessionTranscriptLimit((prev) => Math.min(prev + 250, 2000))}
+            />
+          </>
+        )}
+      </div>
+    </section>
+  );
+}

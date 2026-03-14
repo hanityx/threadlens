@@ -1,0 +1,14 @@
+{
+  "name": "@codex/demo-recorder",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "record": "node record-demo.mjs",
+    "gif": "node record-demo.mjs && echo 'GIF saved to ../docs/assets/demo.gif'"
+  },
+  "dependencies": {
+    "gifencoder": "^2.0.1",
+    "pngjs": "^7.0.0",
+    "puppeteer-core": "^24.0.0"
+  }
+}

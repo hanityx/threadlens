@@ -45,3 +45,30 @@ export type BulkThreadActionResult = {
     data?: unknown;
   }>;
 };
+
+export type ExecutionGraphNode = {
+  id: string;
+  label: string;
+  kind: "entry" | "config" | "instruction" | "runtime" | "workspace";
+  detail?: string;
+};
+
+export type ExecutionGraphEdge = {
+  from: string;
+  to: string;
+  reason: string;
+};
+
+export type ExecutionGraphData = {
+  generated_at: string;
+  nodes: ExecutionGraphNode[];
+  edges: ExecutionGraphEdge[];
+  findings: string[];
+  evidence: {
+    codex_config_path: string;
+    global_state_path: string;
+    notify_hook?: string;
+    developer_instructions_excerpt?: string;
+    trusted_projects: string[];
+  };
+};

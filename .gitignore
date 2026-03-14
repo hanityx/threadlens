@@ -15,15 +15,20 @@ __pycache__/
 *.pyc
 .DS_Store
 *.log
+.run/
 .preflight-*.log
 
-# runtime data files (generated locally)
-alert_events.jsonl
-alert_state.json
+# local-only data & automation (never committed)
+daemon/
+recovery_plans/
+roadmap_state.json
 roadmap_checkins.jsonl
+w4_checklist.json
+alert_state.json
+alert_events.jsonl
+alert_rules.json
 delete-risk-report.json
 unmapped_title_mapping.json
-recovery_plans/*.sh
 
 # OS/editor
 .idea/

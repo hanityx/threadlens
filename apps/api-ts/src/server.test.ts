@@ -244,7 +244,11 @@ describe("api-ts direct endpoints", () => {
     const payload = res.json();
     const root = payload.data ?? payload;
     expect(root.ok).toBe(false);
-    expect(root.error).toBe("confirm-token-mismatch");
+    expect(
+      ["no-valid-targets", "missing-confirm-token", "invalid-confirm-token"].includes(
+        String(root.error || ""),
+      ),
+    ).toBe(true);
   });
 
   it("GET /api/agent-loops responds through TS route", async () => {

@@ -1,6 +1,8 @@
 {
   "name": "@codex/web",
   "version": "0.1.0",
+  "description": "React dashboard for Codex Mission Control",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "scripts": {

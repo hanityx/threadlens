@@ -37,9 +37,9 @@ OBSERVABILITY_CACHE = {
 }
 SERVER_START_TS = time.time()
 LOOP_CONTROL_SPECS = {
-    "openclaw_agi": {
-        "label": "OpenClaw AGI",
-        "controller": OVERVIEW_DIR / "daemon" / "supervised" / "openclaw_agi_control.sh",
+    "agent_loop": {
+        "label": "Agent Loop",
+        "controller": OVERVIEW_DIR / "daemon" / "supervised" / "agent_loop_control.sh",
     },
     "dashboard_autopilot": {
         "label": "Dashboard Autopilot",
@@ -888,42 +888,42 @@ def get_runtime_health():
 
 
 def get_compare_apps_status():
-    codexia_app = pathlib.Path("/Applications/Codexia.app")
-    codexia_running = bool(_run_cmd_text(["pgrep", "-fl", "Codexia.app/Contents/MacOS/codexia"], timeout=4).strip())
+    codex_session_app = pathlib.Path("/Applications/CodexSession.app")
+    codex_session_running = bool(_run_cmd_text(["pgrep", "-fl", "CodexSession.app/Contents/MacOS/codex-session"], timeout=4).strip())
 
-    ccmanager_bin = shutil.which("ccmanager")
-    if not ccmanager_bin:
-        fallback = HOME / ".npm-global" / "bin" / "ccmanager"
+    project_alpha_bin = shutil.which("project-alpha")
+    if not project_alpha_bin:
+        fallback = HOME / ".npm-global" / "bin" / "project-alpha"
         if fallback.exists():
-            ccmanager_bin = str(fallback)
-    ccmanager_running = bool(_run_cmd_text(["pgrep", "-fl", "ccmanager"], timeout=4).strip())
+            project_alpha_bin = str(fallback)
+    project_alpha_running = bool(_run_cmd_text(["pgrep", "-fl", "project-alpha"], timeout=4).strip())
     tmux_ls = _run_cmd_text(["tmux", "ls"], timeout=4)
-    ccmanager_tmux = any(line.startswith("ccmanager-app:") for line in (tmux_ls or "").splitlines())
+    project_alpha_tmux = any(line.startswith("project-alpha-app:") for line in (tmux_ls or "").splitlines())
 
     overview_listener = _run_cmd_text(["lsof", "-nP", "-iTCP:8787", "-sTCP:LISTEN"], timeout=4)
     overview_running = bool(overview_listener.strip())
 
     apps = [
         {
-            "id": "codexia",
-            "name": "Codexia",
-            "installed": codexia_app.exists(),
-            "running": codexia_running,
-            "location": str(codexia_app),
-            "start_cmd": "open -a Codexia",
+            "id": "codex-session",
+            "name": "Codex Session",
+            "installed": codex_session_app.exists(),
+            "running": codex_session_running,
+            "location": str(codex_session_app),
+            "start_cmd": "open -a CodexSession",
             "watch_cmd": "",
-            "notes": "Codex 앱 대체 GUI 클라이언트",
+            "notes": "Alternative GUI client for Codex",
         },
         {
-            "id": "ccmanager",
-            "name": "CCManager",
-            "installed": bool(ccmanager_bin),
-            "running": ccmanager_running,
-            "location": ccmanager_bin or "(not found)",
-            "start_cmd": "export PATH=/user-root/developer/.npm-global/bin:$PATH; ccmanager",
-            "watch_cmd": "tmux attach -t ccmanager-app",
-            "notes": "tmux 기반 워크트리/세션 매니저",
-            "tmux_session_ready": ccmanager_tmux,
+            "id": "project-alpha",
+            "name": "Project Alpha",
+            "installed": bool(project_alpha_bin),
+            "running": project_alpha_running,
+            "location": project_alpha_bin or "(not found)",
+            "start_cmd": "project-alpha",
+            "watch_cmd": "tmux attach -t project-alpha-app",
+            "notes": "tmux-based worktree/session manager",
+            "tmux_session_ready": project_alpha_tmux,
         },
         {
             "id": "codex-overview",
@@ -931,9 +931,9 @@ def get_compare_apps_status():
             "installed": OVERVIEW_DIR.exists(),
             "running": overview_running,
             "location": str(OVERVIEW_DIR / "server.py"),
-            "start_cmd": "tmux new-session -d -s codex-overview-server \"cd /user-root/developer/workspace-root/codex-overview && python3 server.py\"",
+            "start_cmd": f"tmux new-session -d -s codex-overview-server \"cd {OVERVIEW_DIR} && python3 server.py\"",
             "watch_cmd": "tmux attach -t codex-overview-server",
-            "notes": "현재 로컬 관제 대시보드",
+            "notes": "Local observability dashboard (this project)",
         },
     ]
     summary = {
@@ -999,17 +999,17 @@ def default_roadmap_state():
         },
         {
             "week_id": "W4",
-            "title": "제품화/배포 품질",
+            "title": "Production / Release Quality",
             "status": "in_progress",
             "progress": 36,
-            "focus": "복구/운영 안정성 중심 최소 제품화",
+            "focus": "Recovery / operational stability for MVP",
             "done": [
-                "비교앱(Codexia/CCManager) 상태 보드",
-                "Recovery Drill 패널/백업세트 점검/복구 프리뷰 스크립트",
+                "Compare-apps status board",
+                "Recovery Drill panel / backup-set check / restore preview script",
             ],
             "next": [
-                "운영 가이드/런북",
-                "회복 시나리오 테스트",
+                "Ops guide / runbook",
+                "Recovery scenario tests",
             ],
         },
     ]
@@ -1794,7 +1794,7 @@ def _is_codex_related_command(cmd_lc):
     keywords = (
         "codex",
         "openai.chat-helper",
-        "openclaw",
+        "agent-loop",
         "oh-my-codex",
         "session_injector",
         "autodashboard",
@@ -1836,7 +1836,7 @@ def _classify_codex_process(command):
         return "omx-mcp"
     if "openai.chat-helper" in lc:
         return "openai-chat-helper"
-    if "autodashboard" in lc or "openclaw" in lc or "supervised_loop" in lc or "session_injector" in lc:
+    if "autodashboard" in lc or "agent-loop" in lc or "supervised_loop" in lc or "session_injector" in lc:
         return "automation-loop"
     if "codex-overview/server.py" in lc:
         return "overview-server"
@@ -1865,7 +1865,7 @@ def _process_signature(proc_class, command):
             return "codex-app-server:vscode"
         return "codex-app-server:desktop"
     if proc_class == "automation-loop":
-        for key in ("openclaw_agi_control.sh", "autodashboard_control.sh", "supervised_loop.sh", "session_injector.sh"):
+        for key in ("agent_loop_control.sh", "autodashboard_control.sh", "supervised_loop.sh", "session_injector.sh"):
             if key in lc:
                 return f"automation:{key}"
     token = cmd.split()[0] if cmd else proc_class
@@ -1950,7 +1950,7 @@ def _collect_tmux_snapshot():
                     "session": name,
                     "windows": _safe_int(m.group(2), 0),
                     "meta": m.group(3).strip(),
-                    "related": bool(re.search(r"(codex|openclaw|autopilot|overview|omx)", name, flags=re.IGNORECASE)),
+                    "related": bool(re.search(r"(codex|agent.loop|autopilot|overview|omx)", name, flags=re.IGNORECASE)),
                 }
             )
             continue
@@ -1976,7 +1976,7 @@ def _collect_tmux_snapshot():
                 "pid": _safe_int(parts[3], 0),
                 "command": parts[4].strip(),
                 "path": parts[5].strip(),
-                "related": bool(re.search(r"(codex|openclaw|autopilot|overview|omx)", session, flags=re.IGNORECASE)),
+                "related": bool(re.search(r"(codex|agent.loop|autopilot|overview|omx)", session, flags=re.IGNORECASE)),
             }
         )
     panes.sort(key=lambda x: (x.get("session", ""), x.get("pane", "")))
@@ -1996,7 +1996,7 @@ def _collect_launch_services():
             continue
         pid_txt, status_txt, label = parts
         ll = label.lower()
-        if not re.search(r"(codex|openai|openclaw|chat-helper|conductor|omx)", ll):
+        if not re.search(r"(codex|openai|agent.loop|chat-helper|conductor|omx)", ll):
             continue
         rows.append(
             {
@@ -3387,9 +3387,9 @@ HTML = r'''<!doctype html>
   <div class="panel tab-pane tab-operations">
     <div class="runtime-head">
       <h3>Compare Apps Lab</h3>
-      <span id="compareAppsStamp" class="mono">비교앱 상태 로딩 대기</span>
+      <span id="compareAppsStamp" class="mono">loading compare-apps status</span>
     </div>
-    <div id="compareAppsSummary" class="sub">Codexia / CCManager / Mission Control 실행 상태를 확인합니다.</div>
+    <div id="compareAppsSummary" class="sub">Codex Session / Project Alpha / Mission Control status overview.</div>
     <div class="table-scroll" style="max-height:260px;">
       <table>
         <thead><tr><th>App</th><th>Installed</th><th>Running</th><th>Location</th><th>Quick Action</th></tr></thead>

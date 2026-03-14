@@ -2,6 +2,16 @@
   "name": "codex-overview-monorepo",
   "private": true,
   "version": "0.1.0",
+  "description": "Local-first observability and thread-operations dashboard for Codex",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/codex-overview/codex-overview.git"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=10"
+  },
   "packageManager": "pnpm@10.4.1",
   "scripts": {
     "dev:api": "pnpm --filter @codex/api-ts dev",

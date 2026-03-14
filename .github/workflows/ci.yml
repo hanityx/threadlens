@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main, codex/**]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20, 22]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.1
+
+      - name: Setup Node ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint (type-check)
+        run: |
+          pnpm --filter @codex/shared-contracts build
+          pnpm --filter @codex/api-ts lint
+          pnpm --filter @codex/web lint
+
+      - name: Build API
+        run: pnpm --filter @codex/api-ts build
+
+      - name: Build Web
+        run: pnpm --filter @codex/web build
+
+      - name: Test API
+        run: pnpm --filter @codex/api-ts test

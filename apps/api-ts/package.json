@@ -1,6 +1,8 @@
 {
   "name": "@codex/api-ts",
   "version": "0.1.0",
+  "description": "Fastify API gateway for Codex Mission Control",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
