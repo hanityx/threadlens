@@ -62,6 +62,8 @@ import {
 } from "./lib/utils.js";
 
 import {
+  type ProviderId,
+  listProviderIds,
   parseProviderId,
   isAllowedProviderFilePath,
   getProviderMatrixTs,
@@ -102,6 +104,11 @@ type RuntimeCacheEntry = {
 type ThreadsCacheEntry = {
   expires_at: number;
   status: number;
+  payload: unknown;
+};
+
+type DataSourcesCacheEntry = {
+  expires_at: number;
   payload: unknown;
 };
 
@@ -196,6 +203,10 @@ const threadsInflight = new Map<
 >();
 let threadsBootCacheLoaded = false;
 
+const DATA_SOURCES_CACHE_TTL_MS = 60_000;
+let dataSourcesCache: DataSourcesCacheEntry | null = null;
+let dataSourcesInflight: Promise<unknown> | null = null;
+
 function isBootThreadsQuery(query: QueryMap): boolean {
   const offset = parseQueryNumber(query.offset, 0);
   const limit = parseQueryNumber(query.limit, 160);
@@ -257,7 +268,114 @@ async function getCachedThreads(
 
   const fallback = threadsCache.get(key);
   if (fallback) return { status: fallback.status, payload: fallback.payload };
-  throw new Error("threads-refresh-failed");
+  return buildCodexThreadsFallback(query);
+}
+
+async function getCachedDataSources(forceRefresh: boolean): Promise<unknown> {
+  const nowMs = Date.now();
+  if (
+    !forceRefresh &&
+    dataSourcesCache &&
+    dataSourcesCache.expires_at > nowMs
+  ) {
+    return dataSourcesCache.payload;
+  }
+  if (dataSourcesInflight) return dataSourcesInflight;
+
+  dataSourcesInflight = getDataSourceInventoryTs()
+    .then((payload) => {
+      dataSourcesCache = {
+        expires_at: Date.now() + DATA_SOURCES_CACHE_TTL_MS,
+        payload,
+      };
+      return payload;
+    })
+    .finally(() => {
+      dataSourcesInflight = null;
+    });
+  return dataSourcesInflight;
+}
+
+function fallbackThreadRiskScore(row: { probe: { ok: boolean; format: string } }): number {
+  if (!row.probe.ok) return 72;
+  if (row.probe.format === "unknown") return 44;
+  return 18;
+}
+
+function fallbackThreadRiskLevel(score: number): "high" | "medium" | "low" {
+  if (score >= 70) return "high";
+  if (score >= 40) return "medium";
+  return "low";
+}
+
+async function buildCodexThreadsFallback(
+  query: QueryMap,
+): Promise<{ status: number; payload: unknown }> {
+  const offset = Math.max(0, parseQueryNumber(query.offset, 0));
+  const limit = Math.max(1, Math.min(240, parseQueryNumber(query.limit, 160)));
+  const q = parseQueryString(query.q).trim().toLowerCase();
+  const sort = parseQueryString(query.sort).trim().toLowerCase();
+  const scanLimit = Math.max(80, Math.min(240, offset + limit + 40));
+  const scan = await getProviderSessionScan("codex", scanLimit, {
+    forceRefresh: false,
+  });
+
+  const now = Date.now();
+  let rows = scan.rows.map((row) => {
+    const riskScore = fallbackThreadRiskScore(row);
+    const ts = Date.parse(row.mtime);
+    const ageMs = Number.isFinite(ts) ? Math.max(0, now - ts) : null;
+    const activityStatus =
+      ageMs === null
+        ? "unknown"
+        : ageMs <= 24 * 60 * 60 * 1000
+          ? "active"
+          : "idle";
+    const title = String(
+      row.display_title || row.probe.detected_title || row.session_id,
+    ).trim();
+    return {
+      id: row.session_id,
+      thread_id: row.session_id,
+      title: title || row.session_id,
+      title_source: row.probe.title_source ?? "provider_scan",
+      risk_score: riskScore,
+      risk_level: fallbackThreadRiskLevel(riskScore),
+      is_pinned: false,
+      source: row.source || "codex_sessions",
+      timestamp: row.mtime,
+      activity_status: activityStatus,
+      risk_tags: row.probe.ok ? [] : ["parse_fail"],
+    };
+  });
+
+  if (q) {
+    rows = rows.filter((row) => {
+      const haystack = [row.title, row.thread_id, row.source]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }
+
+  rows.sort((a, b) => {
+    const aTs = Date.parse(a.timestamp || "");
+    const bTs = Date.parse(b.timestamp || "");
+    const aScore = Number.isFinite(aTs) ? aTs : 0;
+    const bScore = Number.isFinite(bTs) ? bTs : 0;
+    if (sort === "updated_asc") return aScore - bScore;
+    return bScore - aScore;
+  });
+
+  return {
+    status: 200,
+    payload: {
+      rows: rows.slice(offset, offset + limit),
+      total: rows.length,
+      schema_version: SCHEMA_VERSION,
+      fallback_mode: "codex-provider-scan",
+    },
+  };
 }
 
 async function getCachedThreadsRefresh(
@@ -631,6 +749,9 @@ export async function createServer(): Promise<FastifyInstance> {
     try {
       const proxied = await requestPythonJson("/api/analyze-delete", "POST", {
         body: parsed.data,
+        timeoutMs: 180_000,
+        retryCount: 1,
+        retryDelayMs: 400,
       });
       return reply.code(proxied.status).send(proxied.payload);
     } catch (error) {
@@ -662,7 +783,9 @@ export async function createServer(): Promise<FastifyInstance> {
     try {
       const proxied = await requestPythonJson("/api/local-cleanup", "POST", {
         body: parsed.data,
-        timeoutMs: 30000,
+        timeoutMs: 180_000,
+        retryCount: 1,
+        retryDelayMs: 400,
       });
       return reply.code(proxied.status).send(proxied.payload);
     } catch (error) {
@@ -674,8 +797,10 @@ export async function createServer(): Promise<FastifyInstance> {
 
   /* ── Provider session action ──────────────────────────────────── */
 
+  const providerIds = listProviderIds();
+  const providerIdTuple = providerIds as [ProviderId, ...ProviderId[]];
   const providerSessionActionSchema = z.object({
-    provider: z.enum(["codex", "claude", "gemini", "copilot"]),
+    provider: z.enum(providerIdTuple),
     action: z.enum(["archive_local", "delete_local"]),
     file_paths: z.array(z.string().min(1)).min(1).max(500),
     dry_run: z.boolean().optional().default(true),
@@ -797,9 +922,13 @@ export async function createServer(): Promise<FastifyInstance> {
     }
   });
 
-  app.get("/api/data-sources", async (_req, reply) => {
+  app.get<{ Querystring: QueryMap }>("/api/data-sources", async (req, reply) => {
     try {
-      const data = await getDataSourceInventoryTs();
+      const refreshRaw = Array.isArray(req.query.refresh)
+        ? req.query.refresh[0]
+        : req.query.refresh;
+      const forceRefresh = Number(refreshRaw) > 0;
+      const data = await getCachedDataSources(forceRefresh);
       return reply.code(200).send(withSchemaVersion(data));
     } catch (error) {
       return reply
@@ -810,9 +939,13 @@ export async function createServer(): Promise<FastifyInstance> {
 
   /* ── Providers ────────────────────────────────────────────────── */
 
-  app.get("/api/provider-matrix", async (_req, reply) => {
+  app.get<{ Querystring: QueryMap }>("/api/provider-matrix", async (req, reply) => {
     try {
-      const data = await getProviderMatrixTs();
+      const refreshRaw = Array.isArray(req.query.refresh)
+        ? req.query.refresh[0]
+        : req.query.refresh;
+      const forceRefresh = Number(refreshRaw) > 0;
+      const data = await getProviderMatrixTs({ forceRefresh });
       return reply.code(200).send(withSchemaVersion(data));
     } catch (error) {
       return reply
@@ -836,7 +969,13 @@ export async function createServer(): Promise<FastifyInstance> {
           return reply.code(400).send(envelope(null, "invalid provider"));
         }
         const limit = Math.max(1, Math.min(240, Number(limitRaw) || 80));
-        const data = await getProviderSessionsTs(provider, limit);
+        const refreshRaw = Array.isArray(req.query.refresh)
+          ? req.query.refresh[0]
+          : req.query.refresh;
+        const forceRefresh = Number(refreshRaw) > 0;
+        const data = await getProviderSessionsTs(provider, limit, {
+          forceRefresh,
+        });
         return reply.code(200).send(withSchemaVersion(data));
       } catch (error) {
         return reply
@@ -861,7 +1000,13 @@ export async function createServer(): Promise<FastifyInstance> {
           return reply.code(400).send(envelope(null, "invalid provider"));
         }
         const limit = Math.max(1, Math.min(120, Number(limitRaw) || 80));
-        const data = await getProviderParserHealthTs(provider, limit);
+        const refreshRaw = Array.isArray(req.query.refresh)
+          ? req.query.refresh[0]
+          : req.query.refresh;
+        const forceRefresh = Number(refreshRaw) > 0;
+        const data = await getProviderParserHealthTs(provider, limit, {
+          forceRefresh,
+        });
         return reply.code(200).send(withSchemaVersion(data));
       } catch (error) {
         return reply

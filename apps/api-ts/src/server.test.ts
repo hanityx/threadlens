@@ -167,6 +167,14 @@ describe("api-ts direct endpoints", () => {
     expect(codex.capabilities.safe_cleanup).toBe(true);
   });
 
+  it("GET /api/provider-matrix accepts refresh=1 for forced rescan", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/provider-matrix?refresh=1" });
+    expect(res.statusCode).toBe(200);
+    const payload = res.json();
+    const root = payload.data ?? payload;
+    expect(Array.isArray(root.providers)).toBe(true);
+  });
+
   it("GET /api/provider-sessions returns rows and summary", async () => {
     const res = await app.inject({ method: "GET", url: "/api/provider-sessions?limit=20" });
     expect(res.statusCode).toBe(200);
@@ -175,6 +183,17 @@ describe("api-ts direct endpoints", () => {
     expect(root.summary).toBeTruthy();
     expect(Array.isArray(root.rows)).toBe(true);
     expect(Array.isArray(root.providers)).toBe(true);
+  });
+
+  it("GET /api/provider-sessions accepts refresh=1 for forced rescan", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/provider-sessions?limit=20&refresh=1",
+    });
+    expect(res.statusCode).toBe(200);
+    const payload = res.json();
+    const root = payload.data ?? payload;
+    expect(Array.isArray(root.rows)).toBe(true);
   });
 
   it("GET /api/provider-sessions rejects invalid provider", async () => {
@@ -193,6 +212,17 @@ describe("api-ts direct endpoints", () => {
     expect(Array.isArray(root.reports)).toBe(true);
   });
 
+  it("GET /api/provider-parser-health accepts refresh=1 for forced rescan", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/provider-parser-health?limit=10&refresh=1",
+    });
+    expect(res.statusCode).toBe(200);
+    const payload = res.json();
+    const root = payload.data ?? payload;
+    expect(Array.isArray(root.reports)).toBe(true);
+  });
+
   it("GET /api/provider-parser-health supports provider filter", async () => {
     const res = await app.inject({ method: "GET", url: "/api/provider-parser-health?provider=codex&limit=10" });
     expect(res.statusCode).toBe(200);
@@ -200,6 +230,15 @@ describe("api-ts direct endpoints", () => {
     const root = payload.data ?? payload;
     expect(Array.isArray(root.reports)).toBe(true);
     expect(root.reports.length).toBeLessThanOrEqual(1);
+  });
+
+  it("GET /api/provider-sessions supports chatgpt provider filter", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/provider-sessions?provider=chatgpt&limit=10" });
+    expect(res.statusCode).toBe(200);
+    const payload = res.json();
+    const root = payload.data ?? payload;
+    expect(Array.isArray(root.providers)).toBe(true);
+    expect(root.providers.length).toBeLessThanOrEqual(1);
   });
 
   it("GET /api/provider-parser-health rejects invalid provider", async () => {
@@ -249,6 +288,40 @@ describe("api-ts direct endpoints", () => {
         String(root.error || ""),
       ),
     ).toBe(true);
+  });
+
+  it("POST /api/provider-session-action blocks cleanup on read-only providers", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/provider-session-action",
+      payload: {
+        provider: "chatgpt",
+        action: "delete_local",
+        file_paths: ["/tmp/not-allowed.data"],
+        dry_run: true,
+      },
+    });
+    expect(res.statusCode).toBe(400);
+    const payload = res.json();
+    const root = payload.data ?? payload;
+    expect(root.ok).toBe(false);
+    expect(root.error).toBe("cleanup-disabled-provider");
+  });
+
+  it("POST /api/provider-session-action rejects invalid provider id", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/provider-session-action",
+      payload: {
+        provider: "invalid-provider",
+        action: "archive_local",
+        file_paths: ["/tmp/anything.jsonl"],
+        dry_run: true,
+      },
+    });
+    expect(res.statusCode).toBe(400);
+    const payload = res.json();
+    expect(payload.ok).toBe(false);
   });
 
   it("GET /api/agent-loops responds through TS route", async () => {

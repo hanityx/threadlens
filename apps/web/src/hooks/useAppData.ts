@@ -1,13 +1,16 @@
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ApiEnvelope, BulkThreadActionResult, ExecutionGraphData } from "@codex/shared-contracts";
+import type { ApiEnvelope, BulkThreadActionResult } from "@codex/shared-contracts";
 import { apiGet, apiPost } from "../api";
 import { extractEnvelopeData, normalizeThreadRow, parseNum } from "../lib/helpers";
 import { detectInitialLocale } from "../i18n";
 import type {
   RuntimeEnvelope,
   ThreadsResponse,
+  ThreadRow,
   RecoveryResponse,
+  DataSourcesEnvelope,
+  DataSourceInventoryRow,
   ProviderMatrixEnvelope,
   ProviderSessionsEnvelope,
   ProviderParserHealthEnvelope,
@@ -19,17 +22,19 @@ import type {
   ExecutionGraphEnvelope,
   FilterMode,
   ProviderView,
+  ProviderDataDepth,
   LayoutView,
   Locale,
+  UiDensity,
 } from "../types";
-import { PAGE_SIZE, INITIAL_CHUNK, CHUNK_SIZE, PROVIDER_ORDER } from "../types";
+import { PAGE_SIZE, INITIAL_CHUNK, CHUNK_SIZE } from "../types";
 
 /* ------------------------------------------------------------------ */
 /*  useAppData – all state, queries, mutations, and derived values    */
 /* ------------------------------------------------------------------ */
 
 function providerActionSelectionKey(
-  provider: Exclude<ProviderView, "all">,
+  provider: string,
   action: "archive_local" | "delete_local",
   filePaths: string[],
 ): string {
@@ -39,6 +44,24 @@ function providerActionSelectionKey(
   return `${provider}|${action}|${normalized.join("||")}`;
 }
 
+function normalizeThreadIds(threadIds: string[]): string[] {
+  return Array.from(
+    new Set(threadIds.map((item) => String(item || "").trim()).filter(Boolean)),
+  ).slice(0, 500);
+}
+
+const THREADS_BOOTSTRAP_CACHE_KEY = "cmc-threads-cache-v1";
+const SLOW_PROVIDER_SCAN_MS_DEFAULT = 1200;
+const SLOW_PROVIDER_SCAN_MS_MIN = 400;
+const SLOW_PROVIDER_SCAN_MS_MAX = 6000;
+const SLOW_PROVIDER_SCAN_MS_STORAGE_KEY = "cmc-slow-provider-threshold-ms";
+type ProviderFetchMetrics = {
+  data_sources: number | null;
+  matrix: number | null;
+  sessions: number | null;
+  parser: number | null;
+};
+
 export function useAppData() {
   /* ---- UI state ---- */
   const [theme, setTheme] = useState<"dark" | "light">(() => {
@@ -47,15 +70,56 @@ export function useAppData() {
     return saved === "light" ? "light" : "dark";
   });
   const [locale, setLocale] = useState<Locale>(() => detectInitialLocale());
+  const [density, setDensity] = useState<UiDensity>(() => {
+    if (typeof window === "undefined") return "comfortable";
+    const saved = window.localStorage.getItem("cmc-density");
+    return saved === "compact" ? "compact" : "comfortable";
+  });
   const [layoutView, setLayoutView] = useState<LayoutView>("threads");
   const [query, setQuery] = useState("");
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
-  const [providerView, setProviderView] = useState<ProviderView>("all");
+  const [providerView, setProviderView] = useState<ProviderView>(() => {
+    if (typeof window === "undefined") return "all";
+    const saved = window.localStorage.getItem("cmc-provider-view");
+    if (!saved || saved === "all") return "all";
+    return saved;
+  });
+  const [providerDataDepth, setProviderDataDepth] = useState<ProviderDataDepth>(() => {
+    if (typeof window === "undefined") return "balanced";
+    const saved = window.localStorage.getItem("cmc-provider-depth");
+    if (saved === "fast" || saved === "balanced" || saved === "deep") return saved;
+    return "balanced";
+  });
+  const [slowProviderThresholdMs, setSlowProviderThresholdMs] = useState<number>(() => {
+    if (typeof window === "undefined") return SLOW_PROVIDER_SCAN_MS_DEFAULT;
+    try {
+      const raw = Number(window.localStorage.getItem(SLOW_PROVIDER_SCAN_MS_STORAGE_KEY));
+      if (Number.isFinite(raw)) {
+        return Math.min(SLOW_PROVIDER_SCAN_MS_MAX, Math.max(SLOW_PROVIDER_SCAN_MS_MIN, Math.round(raw)));
+      }
+    } catch {
+      // ignore parse failures and use default
+    }
+    return SLOW_PROVIDER_SCAN_MS_DEFAULT;
+  });
+  const [secondaryDataHydrated, setSecondaryDataHydrated] = useState(false);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [selectedProviderFiles, setSelectedProviderFiles] = useState<Record<string, boolean>>({});
   const [selectedThreadId, setSelectedThreadId] = useState<string>("");
   const [selectedSessionPath, setSelectedSessionPath] = useState<string>("");
   const [renderLimit, setRenderLimit] = useState(INITIAL_CHUNK);
+  const [threadsBootstrapRows, setThreadsBootstrapRows] = useState<ThreadRow[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = window.localStorage.getItem(THREADS_BOOTSTRAP_CACHE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as { rows?: Array<Record<string, unknown>> };
+      if (!Array.isArray(parsed.rows)) return [];
+      return parsed.rows.map((row) => normalizeThreadRow(row)).slice(0, PAGE_SIZE);
+    } catch {
+      return [];
+    }
+  });
 
   /* ---- action result state ---- */
   const [analysisRaw, setAnalysisRaw] = useState<unknown>(null);
@@ -64,6 +128,20 @@ export function useAppData() {
   const [providerActionTokens, setProviderActionTokens] = useState<
     Record<string, string>
   >({});
+  const [providersRefreshPending, setProvidersRefreshPending] = useState(false);
+  const [providersLastRefreshAt, setProvidersLastRefreshAt] = useState<string>("");
+  const [providerFetchMetrics, setProviderFetchMetrics] = useState<ProviderFetchMetrics>({
+    data_sources: null,
+    matrix: null,
+    sessions: null,
+    parser: null,
+  });
+  const providerFetchStartRef = useRef<ProviderFetchMetrics>({
+    data_sources: null,
+    matrix: null,
+    sessions: null,
+    parser: null,
+  });
 
   /* ---- detail / transcript state ---- */
   const [threadDetailRaw, setThreadDetailRaw] = useState<unknown>(null);
@@ -74,6 +152,10 @@ export function useAppData() {
   const [sessionTranscriptRaw, setSessionTranscriptRaw] = useState<unknown>(null);
   const [sessionTranscriptLoading, setSessionTranscriptLoading] = useState(false);
   const [sessionTranscriptLimit, setSessionTranscriptLimit] = useState(250);
+  const idleWarmupStartedRef = useRef(false);
+  const threadDetailCacheRef = useRef<Map<string, unknown>>(new Map());
+  const threadTranscriptCacheRef = useRef<Map<string, unknown>>(new Map());
+  const sessionTranscriptCacheRef = useRef<Map<string, unknown>>(new Map());
 
   const queryClient = useQueryClient();
   const deferredQuery = useDeferredValue(query);
@@ -88,13 +170,87 @@ export function useAppData() {
     window.localStorage.setItem("cmc-locale", locale);
   }, [locale]);
 
+  useEffect(() => {
+    document.documentElement.setAttribute("data-density", density);
+    window.localStorage.setItem("cmc-density", density);
+  }, [density]);
+
+  useEffect(() => {
+    window.localStorage.setItem("cmc-provider-view", providerView);
+  }, [providerView]);
+  useEffect(() => {
+    window.localStorage.setItem("cmc-provider-depth", providerDataDepth);
+  }, [providerDataDepth]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      SLOW_PROVIDER_SCAN_MS_STORAGE_KEY,
+      String(Math.min(SLOW_PROVIDER_SCAN_MS_MAX, Math.max(SLOW_PROVIDER_SCAN_MS_MIN, Math.round(slowProviderThresholdMs)))),
+    );
+  }, [slowProviderThresholdMs]);
+
+  const wantsProvidersData = layoutView === "overview" || layoutView === "providers";
+  const wantsRoutingData = layoutView === "overview" || layoutView === "routing";
+  const wantsRecoveryData = layoutView === "overview" || layoutView === "forensics";
+  const recoveryQueryEnabled = wantsRecoveryData || secondaryDataHydrated;
+  const providerMatrixQueryEnabled = wantsProvidersData || secondaryDataHydrated;
+  const providerSessionsQueryEnabled = wantsProvidersData || secondaryDataHydrated;
+  const providerParserQueryEnabled = wantsProvidersData || secondaryDataHydrated;
+  const dataSourcesQueryEnabled = wantsProvidersData || secondaryDataHydrated;
+  const recoveryRefetchInterval = wantsRecoveryData ? 15000 : false;
+  const providerMatrixRefetchInterval = wantsProvidersData ? 60000 : false;
+  const providerSessionsRefetchInterval = wantsProvidersData ? 60000 : false;
+  const providerParserRefetchInterval = wantsProvidersData ? 60000 : false;
+  const dataSourcesRefetchInterval = wantsProvidersData ? 120000 : false;
+
+  useEffect(() => {
+    if (secondaryDataHydrated) return;
+    if (typeof window === "undefined") {
+      setSecondaryDataHydrated(true);
+      return;
+    }
+    if (layoutView !== "threads") {
+      setSecondaryDataHydrated(true);
+      return;
+    }
+
+    let cancelled = false;
+    let timeoutId: number | null = null;
+    let idleId: number | null = null;
+
+    const runWarmup = () => {
+      if (cancelled) return;
+      setSecondaryDataHydrated(true);
+    };
+
+    const w = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+
+    if (typeof w.requestIdleCallback === "function") {
+      idleId = w.requestIdleCallback(runWarmup, { timeout: 1800 });
+    } else {
+      timeoutId = window.setTimeout(runWarmup, 900);
+    }
+
+    return () => {
+      cancelled = true;
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+      if (idleId !== null && typeof w.cancelIdleCallback === "function") {
+        w.cancelIdleCallback(idleId);
+      }
+    };
+  }, [layoutView, secondaryDataHydrated]);
+
   /* ================================================================ */
   /*  Queries                                                         */
   /* ================================================================ */
 
   const runtime = useQuery({
     queryKey: ["runtime"],
-    queryFn: () => apiGet<RuntimeEnvelope>("/api/agent-runtime"),
+    queryFn: ({ signal }) =>
+      apiGet<RuntimeEnvelope>("/api/agent-runtime", { signal }),
     refetchInterval: 10000,
     staleTime: 5000,
     refetchOnWindowFocus: false,
@@ -103,9 +259,10 @@ export function useAppData() {
 
   const threads = useQuery({
     queryKey: ["threads", deferredQuery],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       apiGet<ThreadsResponse>(
         `/api/threads?offset=0&limit=${PAGE_SIZE}&q=${encodeURIComponent(deferredQuery)}&sort=updated_desc`,
+        { signal },
       ),
     placeholderData: (previous) => previous,
     staleTime: 10000,
@@ -115,48 +272,143 @@ export function useAppData() {
 
   const recovery = useQuery({
     queryKey: ["recovery"],
-    queryFn: () => apiGet<RecoveryResponse>("/api/recovery-center"),
-    refetchInterval: 15000,
+    queryFn: ({ signal }) =>
+      apiGet<RecoveryResponse>("/api/recovery-center", { signal }),
+    enabled: recoveryQueryEnabled,
+    refetchInterval: recoveryRefetchInterval,
     staleTime: 10000,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  });
+
+  const dataSources = useQuery({
+    queryKey: ["data-sources"],
+    queryFn: ({ signal }) =>
+      apiGet<DataSourcesEnvelope>("/api/data-sources", { signal }),
+    enabled: dataSourcesQueryEnabled,
+    refetchInterval: dataSourcesRefetchInterval,
+    staleTime: 60000,
     refetchOnWindowFocus: false,
     retry: 1,
   });
 
   const providerMatrix = useQuery({
     queryKey: ["provider-matrix"],
-    queryFn: () => apiGet<ProviderMatrixEnvelope>("/api/provider-matrix"),
-    refetchInterval: 60000,
+    queryFn: ({ signal }) =>
+      apiGet<ProviderMatrixEnvelope>("/api/provider-matrix", { signal }),
+    enabled: providerMatrixQueryEnabled,
+    refetchInterval: providerMatrixRefetchInterval,
     staleTime: 30000,
     refetchOnWindowFocus: false,
     retry: 1,
   });
 
+  const providerMatrixForQuery =
+    extractEnvelopeData<NonNullable<ProviderMatrixEnvelope["data"]>>(providerMatrix.data) ?? {};
+  const knownProviderIds = new Set(
+    (providerMatrixForQuery.providers ?? [])
+      .map((item) => String(item.provider || "").trim())
+      .filter(Boolean),
+  );
+  const providerQueryView =
+    providerView !== "all" && knownProviderIds.has(providerView)
+      ? providerView
+      : "all";
+  const providerSessionsLimit =
+    providerQueryView === "all"
+      ? { fast: 30, balanced: 60, deep: 140 }[providerDataDepth]
+      : { fast: 120, balanced: 240, deep: 500 }[providerDataDepth];
+  const providerParserLimit =
+    providerQueryView === "all"
+      ? { fast: 25, balanced: 40, deep: 80 }[providerDataDepth]
+      : { fast: 80, balanced: 120, deep: 220 }[providerDataDepth];
+  const providerScopeQuery =
+    providerQueryView === "all"
+      ? ""
+      : `&provider=${encodeURIComponent(providerQueryView)}`;
+  const providerSessionsQueryKey = [
+    "provider-sessions",
+    providerQueryView,
+    providerDataDepth,
+    providerSessionsLimit,
+  ] as const;
+  const providerSessionsQueryPath =
+    `/api/provider-sessions?limit=${providerSessionsLimit}${providerScopeQuery}`;
+  const providerParserQueryKey = [
+    "provider-parser-health",
+    providerQueryView,
+    providerDataDepth,
+    providerParserLimit,
+  ] as const;
+  const providerParserQueryPath =
+    `/api/provider-parser-health?limit=${providerParserLimit}${providerScopeQuery}`;
+  const executionGraphQueryKey = ["execution-graph"] as const;
+
   const providerSessions = useQuery({
-    queryKey: ["provider-sessions", "all"],
-    queryFn: () => apiGet<ProviderSessionsEnvelope>("/api/provider-sessions?limit=80"),
-    refetchInterval: 60000,
+    queryKey: providerSessionsQueryKey,
+    queryFn: ({ signal }) =>
+      apiGet<ProviderSessionsEnvelope>(providerSessionsQueryPath, { signal }),
+    placeholderData: (previous) => previous,
+    enabled: providerSessionsQueryEnabled,
+    refetchInterval: providerSessionsRefetchInterval,
     staleTime: 30000,
     refetchOnWindowFocus: false,
     retry: 1,
   });
 
   const providerParserHealth = useQuery({
-    queryKey: ["provider-parser-health", "all"],
-    queryFn: () => apiGet<ProviderParserHealthEnvelope>("/api/provider-parser-health?limit=80"),
-    refetchInterval: 60000,
+    queryKey: providerParserQueryKey,
+    queryFn: ({ signal }) =>
+      apiGet<ProviderParserHealthEnvelope>(providerParserQueryPath, { signal }),
+    placeholderData: (previous) => previous,
+    enabled: providerParserQueryEnabled,
+    refetchInterval: providerParserRefetchInterval,
     staleTime: 30000,
     refetchOnWindowFocus: false,
     retry: 1,
   });
 
   const executionGraph = useQuery({
-    queryKey: ["execution-graph"],
-    queryFn: () => apiGet<ExecutionGraphEnvelope>("/api/execution-graph"),
+    queryKey: executionGraphQueryKey,
+    queryFn: ({ signal }) =>
+      apiGet<ExecutionGraphEnvelope>("/api/execution-graph", { signal }),
+    placeholderData: (previous) => previous,
+    enabled: wantsRoutingData,
     refetchInterval: 20000,
     staleTime: 10000,
     refetchOnWindowFocus: false,
     retry: 1,
   });
+
+  const settleProviderFetchMetric = useCallback(
+    (key: keyof ProviderFetchMetrics, isFetching: boolean) => {
+      if (isFetching) {
+        if (providerFetchStartRef.current[key] === null) {
+          providerFetchStartRef.current[key] = Date.now();
+        }
+        return;
+      }
+      const startedAt = providerFetchStartRef.current[key];
+      if (startedAt === null) return;
+      providerFetchStartRef.current[key] = null;
+      const elapsedMs = Math.max(0, Date.now() - startedAt);
+      setProviderFetchMetrics((prev) => ({ ...prev, [key]: elapsedMs }));
+    },
+    [],
+  );
+
+  useEffect(() => {
+    settleProviderFetchMetric("data_sources", dataSources.isFetching);
+  }, [dataSources.isFetching, settleProviderFetchMetric]);
+  useEffect(() => {
+    settleProviderFetchMetric("matrix", providerMatrix.isFetching);
+  }, [providerMatrix.isFetching, settleProviderFetchMetric]);
+  useEffect(() => {
+    settleProviderFetchMetric("sessions", providerSessions.isFetching);
+  }, [providerSessions.isFetching, settleProviderFetchMetric]);
+  useEffect(() => {
+    settleProviderFetchMetric("parser", providerParserHealth.isFetching);
+  }, [providerParserHealth.isFetching, settleProviderFetchMetric]);
 
   /* ================================================================ */
   /*  Mutations                                                       */
@@ -197,14 +449,24 @@ export function useAppData() {
   });
 
   const analyzeDelete = useMutation({
-    mutationFn: (threadIds: string[]) => apiPost<unknown>("/api/analyze-delete", { ids: threadIds }),
+    mutationFn: (threadIds: string[]) => {
+      const ids = normalizeThreadIds(threadIds);
+      if (ids.length === 0) {
+        throw new Error("no-valid-thread-ids");
+      }
+      return apiPost<unknown>("/api/analyze-delete", { ids });
+    },
     onSuccess: (data) => setAnalysisRaw(data),
   });
 
   const cleanupDryRun = useMutation({
-    mutationFn: (threadIds: string[]) =>
-      apiPost<unknown>("/api/local-cleanup", {
-        ids: threadIds,
+    mutationFn: (threadIds: string[]) => {
+      const ids = normalizeThreadIds(threadIds);
+      if (ids.length === 0) {
+        throw new Error("no-valid-thread-ids");
+      }
+      return apiPost<unknown>("/api/local-cleanup", {
+        ids,
         dry_run: true,
         options: {
           delete_cache: true,
@@ -212,13 +474,14 @@ export function useAppData() {
           clean_state_refs: true,
         },
         confirm_token: "",
-      }),
+      });
+    },
     onSuccess: (data) => setCleanupRaw(data),
   });
 
   const providerSessionAction = useMutation({
     mutationFn: (input: {
-      provider: Exclude<ProviderView, "all">;
+      provider: string;
       action: "archive_local" | "delete_local";
       file_paths: string[];
       dry_run: boolean;
@@ -256,10 +519,29 @@ export function useAppData() {
   /*  Derived / Memoized values                                       */
   /* ================================================================ */
 
-  const rows = useMemo(
+  const rowsFromApi = useMemo(
     () => ((threads.data?.rows ?? []) as Array<Record<string, unknown>>).map((row) => normalizeThreadRow(row)),
     [threads.data?.rows],
   );
+  const hasApiRows = Array.isArray(threads.data?.rows);
+  const rows = hasApiRows ? rowsFromApi : threadsBootstrapRows;
+
+  useEffect(() => {
+    if (!hasApiRows || rowsFromApi.length === 0) return;
+    setThreadsBootstrapRows(rowsFromApi);
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        THREADS_BOOTSTRAP_CACHE_KEY,
+        JSON.stringify({
+          saved_at: Date.now(),
+          rows: rowsFromApi.slice(0, PAGE_SIZE),
+        }),
+      );
+    } catch {
+      // ignore storage write failure
+    }
+  }, [hasApiRows, rowsFromApi]);
 
   const filteredRows = useMemo(() => {
     const q = deferredQuery.trim().toLowerCase();
@@ -307,8 +589,46 @@ export function useAppData() {
   const analysisData = extractEnvelopeData<AnalyzeDeleteData>(analysisRaw);
   const cleanupData = extractEnvelopeData<CleanupPreviewData>(cleanupRaw);
   const selectedImpactRows = (analysisData?.reports ?? []).filter((r) => selectedSet.has(r.id));
+  const analyzeDeleteErrorMessage = analyzeDelete.error instanceof Error
+    ? analyzeDelete.error.message
+    : analyzeDelete.error
+      ? String(analyzeDelete.error)
+      : "";
+  const cleanupDryRunErrorMessage = cleanupDryRun.error instanceof Error
+    ? cleanupDryRun.error.message
+    : cleanupDryRun.error
+      ? String(cleanupDryRun.error)
+      : "";
 
   /* ---- provider derived ---- */
+  const dataSourcesRoot = extractEnvelopeData<NonNullable<DataSourcesEnvelope["data"]>>(dataSources.data) ?? {};
+  const dataSourceRows = useMemo<DataSourceInventoryRow[]>(() => {
+    const sourceObj = dataSourcesRoot.sources;
+    if (!sourceObj || typeof sourceObj !== "object") return [];
+    const rows = Object.entries(sourceObj).map(([sourceKey, rawValue]) => {
+      const value =
+        rawValue && typeof rawValue === "object"
+          ? (rawValue as Record<string, unknown>)
+          : {};
+      return {
+        source_key: sourceKey,
+        path: String(value.path ?? ""),
+        present: Boolean(value.present),
+        file_count: parseNum(value.file_count),
+        dir_count: parseNum(value.dir_count),
+        total_bytes: parseNum(value.total_bytes ?? value.size_bytes),
+        latest_mtime: String(value.latest_mtime ?? value.mtime ?? ""),
+      };
+    });
+    rows.sort((a, b) => {
+      if (a.present !== b.present) return a.present ? -1 : 1;
+      if (a.file_count !== b.file_count) return b.file_count - a.file_count;
+      if (a.total_bytes !== b.total_bytes) return b.total_bytes - a.total_bytes;
+      return a.source_key.localeCompare(b.source_key);
+    });
+    return rows;
+  }, [dataSourcesRoot.sources]);
+
   const providerMatrixRoot = extractEnvelopeData<NonNullable<ProviderMatrixEnvelope["data"]>>(providerMatrix.data) ?? {};
   const providerSessionsRoot = extractEnvelopeData<NonNullable<ProviderSessionsEnvelope["data"]>>(providerSessions.data) ?? {};
   const providerParserRoot =
@@ -319,28 +639,68 @@ export function useAppData() {
   const allProviderSessionRows = providerSessionsRoot.rows ?? [];
   const allProviderSessionProviders = providerSessionsRoot.providers ?? [];
   const allParserReports = providerParserRoot.reports ?? [];
+  const providerRowsByProvider = useMemo(() => {
+    const map = new Map<string, typeof allProviderSessionRows>();
+    allProviderSessionRows.forEach((row) => {
+      const provider = String(row.provider || "").trim();
+      if (!provider) return;
+      const existing = map.get(provider);
+      if (existing) {
+        existing.push(row);
+      } else {
+        map.set(provider, [row]);
+      }
+    });
+    return map;
+  }, [allProviderSessionRows]);
+  const sessionCountByProvider = useMemo(
+    () => new Map(Array.from(providerRowsByProvider.entries()).map(([provider, rows]) => [provider, rows.length])),
+    [providerRowsByProvider],
+  );
   const providerById = useMemo(() => new Map(providers.map((p) => [p.provider, p])), [providers]);
   const scannedByProvider = useMemo(
     () => new Map(allProviderSessionProviders.map((p) => [p.provider, p.scanned])),
     [allProviderSessionProviders],
   );
+  const scanMsByProvider = useMemo(() => {
+    const map = new Map<string, number>();
+    allProviderSessionProviders.forEach((provider) => {
+      const ms = parseNum(provider.scan_ms);
+      if (ms > 0) map.set(provider.provider, ms);
+    });
+    allParserReports.forEach((report) => {
+      if (map.has(report.provider)) return;
+      const ms = parseNum(report.scan_ms);
+      if (ms > 0) map.set(report.provider, ms);
+    });
+    return map;
+  }, [allProviderSessionProviders, allParserReports]);
+  const slowProviderIds = useMemo(
+    () =>
+      Array.from(scanMsByProvider.entries())
+        .filter(([, ms]) => ms >= slowProviderThresholdMs)
+        .sort((a, b) => b[1] - a[1])
+        .map(([provider]) => provider),
+    [scanMsByProvider, slowProviderThresholdMs],
+  );
   const providerSessionRows = useMemo(
     () =>
       providerView === "all"
         ? allProviderSessionRows
-        : allProviderSessionRows.filter((row) => row.provider === providerView),
-    [providerView, allProviderSessionRows],
+        : providerRowsByProvider.get(providerView) ?? [],
+    [providerView, allProviderSessionRows, providerRowsByProvider],
   );
   const providerSessionSummary = useMemo(() => {
     const parseOk = providerSessionRows.filter((row) => row.probe.ok).length;
     const parseFail = providerSessionRows.length - parseOk;
+    const providerCountFromRows = sessionCountByProvider.size;
     return {
-      providers: providerView === "all" ? providers.length || PROVIDER_ORDER.length : 1,
+      providers: providerView === "all" ? providers.length || providerCountFromRows : 1,
       rows: providerSessionRows.length,
       parse_ok: parseOk,
       parse_fail: parseFail,
     };
-  }, [providerView, providerSessionRows, providers.length]);
+  }, [providerView, providerSessionRows, providers.length, sessionCountByProvider.size]);
 
   const parserReports = useMemo(
     () => (providerView === "all" ? allParserReports : allParserReports.filter((report) => report.provider === providerView)),
@@ -359,28 +719,64 @@ export function useAppData() {
     };
   }, [parserReports]);
 
-  const providerTabs = useMemo(
-    () => [
+  const providerTabs = useMemo(() => {
+    const idsFromMatrix = providers
+      .map((item) => String(item.provider || "").trim())
+      .filter(Boolean);
+    const idsFromRows = allProviderSessionRows
+      .map((row) => String(row.provider || "").trim())
+      .filter(Boolean);
+    const mergedIds = Array.from(new Set([...idsFromMatrix, ...idsFromRows]));
+    const providerItems = mergedIds.map((id) => {
+      const meta = providerById.get(id);
+      const scanned =
+        scannedByProvider.get(id) ??
+        sessionCountByProvider.get(id) ??
+        0;
+      const scanMs = scanMsByProvider.get(id) ?? null;
+      return {
+        id: id as ProviderView,
+        name: meta?.name ?? id,
+        status: meta?.status ?? (scanned > 0 ? "active" : "missing"),
+        scanned,
+        scan_ms: scanMs,
+        is_slow: scanMs !== null && scanMs >= slowProviderThresholdMs,
+      };
+    });
+    providerItems.sort((a, b) => {
+      if (a.is_slow !== b.is_slow) return a.is_slow ? -1 : 1;
+      const aScanMs = a.scan_ms ?? -1;
+      const bScanMs = b.scan_ms ?? -1;
+      if (aScanMs !== bScanMs) return bScanMs - aScanMs;
+      if (a.scanned !== b.scanned) return b.scanned - a.scanned;
+      return a.name.localeCompare(b.name);
+    });
+    return [
       {
         id: "all" as ProviderView,
         name: "All AI",
         status: "active" as const,
         scanned: allProviderSessionRows.length,
+        scan_ms: null,
+        is_slow: false,
       },
-      ...PROVIDER_ORDER.map((id) => {
-        const meta = providerById.get(id);
-        return {
-          id,
-          name: meta?.name ?? id,
-          status: meta?.status ?? ("missing" as const),
-          scanned:
-            scannedByProvider.get(id) ??
-            allProviderSessionRows.filter((row) => row.provider === id).length,
-        };
-      }),
-    ],
-    [providerById, scannedByProvider, allProviderSessionRows],
-  );
+      ...providerItems,
+    ];
+  }, [
+    providers,
+    allProviderSessionRows,
+    providerById,
+    scannedByProvider,
+    sessionCountByProvider,
+    scanMsByProvider,
+    slowProviderThresholdMs,
+  ]);
+
+  useEffect(() => {
+    if (providerView === "all") return;
+    const exists = providerTabs.some((tab) => tab.id === providerView);
+    if (!exists) setProviderView("all");
+  }, [providerView, providerTabs]);
   const selectedProviderLabel = providerView === "all" ? "All AI" : providerById.get(providerView)?.name ?? providerView;
   const selectedProviderFilePaths = useMemo(
     () =>
@@ -391,6 +787,13 @@ export function useAppData() {
   );
   const allProviderRowsSelected =
     providerSessionRows.length > 0 && providerSessionRows.every((row) => Boolean(selectedProviderFiles[row.file_path]));
+  const providerRowsSampled = useMemo(() => {
+    if (providerView === "all") {
+      return allProviderSessionProviders.some((row) => Boolean(row.truncated));
+    }
+    const hit = allProviderSessionProviders.find((row) => row.provider === providerView);
+    return Boolean(hit?.truncated);
+  }, [providerView, allProviderSessionProviders]);
   const providerActionData = extractEnvelopeData<ProviderSessionActionResult>(providerActionRaw);
   const selectedProviderMeta = providerView === "all" ? null : providerById.get(providerView);
   const canRunProviderAction =
@@ -409,6 +812,7 @@ export function useAppData() {
   /* ---- loading flags ---- */
   const runtimeLoading = runtime.isLoading && !runtime.data;
   const recoveryLoading = recovery.isLoading && !recovery.data;
+  const dataSourcesLoading = dataSources.isLoading && dataSourceRows.length === 0;
   const providerMatrixLoading = providerMatrix.isLoading && providers.length === 0;
   const providerSessionsLoading = providerSessions.isLoading && allProviderSessionRows.length === 0;
   const parserLoading = providerParserHealth.isLoading && allParserReports.length === 0;
@@ -426,6 +830,10 @@ export function useAppData() {
     () => providerSessionRows.find((row) => row.file_path === selectedSessionPath) ?? null,
     [providerSessionRows, selectedSessionPath],
   );
+  const selectedSessionMeta = selectedSession ? providerById.get(selectedSession.provider) : null;
+  const canRunSelectedSessionAction = Boolean(
+    selectedSessionMeta?.capabilities?.safe_cleanup,
+  );
   const threadDetailData = extractEnvelopeData<ThreadForensicsEnvelope>(threadDetailRaw);
   const selectedThreadDetail = threadDetailData?.reports?.[0] ?? null;
   const threadTranscriptData = extractEnvelopeData<TranscriptPayload>(threadTranscriptRaw);
@@ -442,13 +850,33 @@ export function useAppData() {
       setThreadTranscriptLimit(250);
       return;
     }
+    const cached = threadDetailCacheRef.current.get(selectedThreadId);
+    if (cached) {
+      setThreadDetailRaw(cached);
+      setThreadDetailLoading(false);
+      return;
+    }
     let cancelled = false;
+    const controller = new AbortController();
     setThreadDetailLoading(true);
-    apiPost<unknown>("/api/thread-forensics", { ids: [selectedThreadId] })
+    apiPost<unknown>(
+      "/api/thread-forensics",
+      { ids: [selectedThreadId] },
+      { signal: controller.signal },
+    )
       .then((data) => {
-        if (!cancelled) setThreadDetailRaw(data);
+        if (!cancelled) {
+          threadDetailCacheRef.current.set(selectedThreadId, data);
+          setThreadDetailRaw(data);
+        }
       })
-      .catch(() => {
+      .catch((error) => {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
         if (!cancelled) setThreadDetailRaw(null);
       })
       .finally(() => {
@@ -456,6 +884,7 @@ export function useAppData() {
       });
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [selectedThreadId]);
 
@@ -464,13 +893,33 @@ export function useAppData() {
       setThreadTranscriptRaw(null);
       return;
     }
+    const cacheKey = `${selectedThreadId}|${threadTranscriptLimit}`;
+    const cached = threadTranscriptCacheRef.current.get(cacheKey);
+    if (cached) {
+      setThreadTranscriptRaw(cached);
+      setThreadTranscriptLoading(false);
+      return;
+    }
     let cancelled = false;
+    const controller = new AbortController();
     setThreadTranscriptLoading(true);
-    apiGet<unknown>(`/api/thread-transcript?thread_id=${encodeURIComponent(selectedThreadId)}&limit=${threadTranscriptLimit}`)
+    apiGet<unknown>(
+      `/api/thread-transcript?thread_id=${encodeURIComponent(selectedThreadId)}&limit=${threadTranscriptLimit}`,
+      { signal: controller.signal },
+    )
       .then((data) => {
-        if (!cancelled) setThreadTranscriptRaw(data);
+        if (!cancelled) {
+          threadTranscriptCacheRef.current.set(cacheKey, data);
+          setThreadTranscriptRaw(data);
+        }
       })
-      .catch(() => {
+      .catch((error) => {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
         if (!cancelled) setThreadTranscriptRaw(null);
       })
       .finally(() => {
@@ -478,6 +927,7 @@ export function useAppData() {
       });
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [selectedThreadId, threadTranscriptLimit]);
 
@@ -487,15 +937,33 @@ export function useAppData() {
       setSessionTranscriptLimit(250);
       return;
     }
+    const cacheKey = `${selectedSession.provider}|${selectedSession.file_path}|${sessionTranscriptLimit}`;
+    const cached = sessionTranscriptCacheRef.current.get(cacheKey);
+    if (cached) {
+      setSessionTranscriptRaw(cached);
+      setSessionTranscriptLoading(false);
+      return;
+    }
     let cancelled = false;
+    const controller = new AbortController();
     setSessionTranscriptLoading(true);
     apiGet<unknown>(
       `/api/session-transcript?provider=${encodeURIComponent(selectedSession.provider)}&file_path=${encodeURIComponent(selectedSession.file_path)}&limit=${sessionTranscriptLimit}`,
+      { signal: controller.signal },
     )
       .then((data) => {
-        if (!cancelled) setSessionTranscriptRaw(data);
+        if (!cancelled) {
+          sessionTranscriptCacheRef.current.set(cacheKey, data);
+          setSessionTranscriptRaw(data);
+        }
       })
-      .catch(() => {
+      .catch((error) => {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
         if (!cancelled) setSessionTranscriptRaw(null);
       })
       .finally(() => {
@@ -503,6 +971,7 @@ export function useAppData() {
       });
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [selectedSession, sessionTranscriptLimit]);
 
@@ -536,18 +1005,24 @@ export function useAppData() {
     setSelected({});
   };
 
-  const toggleSelectAllProviderRows = (checked: boolean) => {
+  const toggleSelectAllProviderRows = (
+    checked: boolean,
+    scopeFilePaths?: string[],
+  ) => {
+    const scope = (scopeFilePaths ?? providerSessionRows.map((row) => row.file_path))
+      .map((item) => String(item || "").trim())
+      .filter(Boolean);
     if (checked) {
       const next: Record<string, boolean> = { ...selectedProviderFiles };
-      providerSessionRows.forEach((row) => {
-        next[row.file_path] = true;
+      scope.forEach((filePath) => {
+        next[filePath] = true;
       });
       setSelectedProviderFiles(next);
       return;
     }
     const next: Record<string, boolean> = { ...selectedProviderFiles };
-    providerSessionRows.forEach((row) => {
-      delete next[row.file_path];
+    scope.forEach((filePath) => {
+      delete next[filePath];
     });
     setSelectedProviderFiles(next);
   };
@@ -571,7 +1046,7 @@ export function useAppData() {
   };
 
   const runSingleProviderAction = (
-    provider: Exclude<ProviderView, "all">,
+    provider: string,
     filePath: string,
     action: "archive_local" | "delete_local",
     dryRun: boolean,
@@ -588,6 +1063,118 @@ export function useAppData() {
     });
   };
 
+  const prefetchProvidersData = useCallback(() => {
+    void queryClient.prefetchQuery({
+      queryKey: ["data-sources"],
+      queryFn: () => apiGet<DataSourcesEnvelope>("/api/data-sources"),
+      staleTime: 60000,
+    });
+    void queryClient.prefetchQuery({
+      queryKey: providerSessionsQueryKey,
+      queryFn: () => apiGet<ProviderSessionsEnvelope>(providerSessionsQueryPath),
+      staleTime: 30000,
+    });
+    void queryClient.prefetchQuery({
+      queryKey: providerParserQueryKey,
+      queryFn: () => apiGet<ProviderParserHealthEnvelope>(providerParserQueryPath),
+      staleTime: 30000,
+    });
+  }, [
+    queryClient,
+    providerSessionsQueryKey,
+    providerSessionsQueryPath,
+    providerParserQueryKey,
+    providerParserQueryPath,
+  ]);
+
+  const prefetchRoutingData = useCallback(() => {
+    void queryClient.prefetchQuery({
+      queryKey: executionGraphQueryKey,
+      queryFn: () => apiGet<ExecutionGraphEnvelope>("/api/execution-graph"),
+      staleTime: 10000,
+    });
+  }, [queryClient, executionGraphQueryKey]);
+
+  const refreshProvidersData = useCallback(async () => {
+    setProvidersRefreshPending(true);
+    try {
+      await queryClient.fetchQuery({
+        queryKey: ["data-sources"],
+        queryFn: () => apiGet<DataSourcesEnvelope>("/api/data-sources?refresh=1"),
+        staleTime: 0,
+      });
+      await queryClient.fetchQuery({
+        queryKey: ["provider-matrix"],
+        queryFn: () =>
+          apiGet<ProviderMatrixEnvelope>("/api/provider-matrix?refresh=1"),
+        staleTime: 0,
+      });
+      await queryClient.fetchQuery({
+        queryKey: providerSessionsQueryKey,
+        queryFn: () =>
+          apiGet<ProviderSessionsEnvelope>(`${providerSessionsQueryPath}&refresh=1`),
+        staleTime: 0,
+      });
+      await queryClient.fetchQuery({
+        queryKey: providerParserQueryKey,
+        queryFn: () =>
+          apiGet<ProviderParserHealthEnvelope>(`${providerParserQueryPath}&refresh=1`),
+        staleTime: 0,
+      });
+      setProvidersLastRefreshAt(new Date().toISOString());
+    } finally {
+      setProvidersRefreshPending(false);
+    }
+  }, [
+    queryClient,
+    providerSessionsQueryKey,
+    providerSessionsQueryPath,
+    providerParserQueryKey,
+    providerParserQueryPath,
+  ]);
+
+  useEffect(() => {
+    if (wantsProvidersData || wantsRoutingData) return;
+    if (idleWarmupStartedRef.current) return;
+    if (typeof window === "undefined") return;
+
+    idleWarmupStartedRef.current = true;
+    let cancelled = false;
+    let timeoutId: number | null = null;
+    let idleId: number | null = null;
+
+    const runWarmup = () => {
+      if (cancelled) return;
+      prefetchProvidersData();
+      prefetchRoutingData();
+    };
+
+    const w = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+
+    if (typeof w.requestIdleCallback === "function") {
+      idleId = w.requestIdleCallback(runWarmup, { timeout: 2000 });
+    } else {
+      timeoutId = window.setTimeout(runWarmup, 900);
+    }
+
+    return () => {
+      cancelled = true;
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+      if (idleId !== null && typeof w.cancelIdleCallback === "function") {
+        w.cancelIdleCallback(idleId);
+      }
+    };
+  }, [wantsProvidersData, wantsRoutingData, prefetchProvidersData, prefetchRoutingData]);
+
+  const providersRefreshing =
+    providersRefreshPending ||
+    providerMatrix.isFetching ||
+    providerSessions.isFetching ||
+    providerParserHealth.isFetching;
+
   /* ================================================================ */
   /*  Public API                                                      */
   /* ================================================================ */
@@ -596,17 +1183,20 @@ export function useAppData() {
     /* UI state */
     theme, setTheme,
     locale, setLocale,
+    density, setDensity,
     layoutView, setLayoutView,
     query, setQuery,
     filterMode, setFilterMode,
     providerView, setProviderView,
+    providerDataDepth, setProviderDataDepth,
+    slowProviderThresholdMs, setSlowProviderThresholdMs,
     selected, setSelected,
     selectedProviderFiles, setSelectedProviderFiles,
     selectedThreadId, setSelectedThreadId,
     selectedSessionPath, setSelectedSessionPath,
 
     /* query results (raw react-query objects for error states) */
-    runtime, threads, recovery,
+    runtime, threads, recovery, dataSources,
     providerMatrix, providerSessions, providerParserHealth,
     executionGraph,
 
@@ -618,6 +1208,8 @@ export function useAppData() {
     cleanupDryRun: (ids: string[]) => cleanupDryRun.mutate(ids),
     analyzeDeleteError: analyzeDelete.isError,
     cleanupDryRunError: cleanupDryRun.isError,
+    analyzeDeleteErrorMessage,
+    cleanupDryRunErrorMessage,
     providerSessionActionError: providerSessionAction.isError,
 
     /* derived – threads */
@@ -633,11 +1225,16 @@ export function useAppData() {
     /* derived – providers */
     providers, providerSummary,
     providerTabs, providerSessionRows,
+    slowProviderIds,
     providerSessionSummary,
+    providerSessionsLimit,
+    providerRowsSampled,
+    dataSourceRows,
     allProviderRowsSelected,
     selectedProviderLabel,
     selectedProviderFilePaths,
     canRunProviderAction,
+    canRunSelectedSessionAction,
     providerActionData,
     parserReports, parserSummary,
     readOnlyProviders, cleanupReadyProviders,
@@ -654,9 +1251,12 @@ export function useAppData() {
     executionGraphData,
 
     /* loading flags */
-    runtimeLoading, recoveryLoading, threadsLoading,
+    runtimeLoading, recoveryLoading, threadsLoading, dataSourcesLoading,
     providerMatrixLoading, providerSessionsLoading,
     parserLoading, executionGraphLoading,
+    providersRefreshing,
+    providersLastRefreshAt,
+    providerFetchMetrics,
 
     /* computed UI flags */
     busy,
@@ -668,5 +1268,8 @@ export function useAppData() {
     toggleSelectAllProviderRows,
     runProviderAction,
     runSingleProviderAction,
+    prefetchProvidersData,
+    prefetchRoutingData,
+    refreshProvidersData,
   };
 }

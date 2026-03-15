@@ -12,6 +12,8 @@ export interface ForensicsPanelProps {
   cleanupRaw: unknown;
   analyzeDeleteError: boolean;
   cleanupDryRunError: boolean;
+  analyzeDeleteErrorMessage: string;
+  cleanupDryRunErrorMessage: string;
 }
 
 export function ForensicsPanel(props: ForensicsPanelProps) {
@@ -25,6 +27,8 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
     cleanupRaw,
     analyzeDeleteError,
     cleanupDryRunError,
+    analyzeDeleteErrorMessage,
+    cleanupDryRunErrorMessage,
   } = props;
 
   return (
@@ -81,7 +85,11 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
           </details>
         ) : null}
         {analyzeDeleteError || cleanupDryRunError ? (
-          <div className="error-box">{messages.errors.analysisDryRun}</div>
+          <div className="error-box">
+            <div>{messages.errors.analysisDryRun}</div>
+            {analyzeDeleteErrorMessage ? <div className="mono-sub">{analyzeDeleteErrorMessage}</div> : null}
+            {cleanupDryRunErrorMessage ? <div className="mono-sub">{cleanupDryRunErrorMessage}</div> : null}
+          </div>
         ) : null}
       </div>
     </section>

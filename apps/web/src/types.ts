@@ -37,6 +37,22 @@ export type RecoveryResponse = {
   generated_at?: string;
 };
 
+/* ── Data Sources ─────────────────────────────────────── */
+export type DataSourcesEnvelope = ApiEnvelope<{
+  generated_at?: string;
+  sources?: Record<string, Record<string, unknown>>;
+}>;
+
+export type DataSourceInventoryRow = {
+  source_key: string;
+  path: string;
+  present: boolean;
+  file_count: number;
+  dir_count: number;
+  total_bytes: number;
+  latest_mtime: string;
+};
+
 /* ── Provider Matrix ──────────────────────────────────── */
 export type ProviderMatrixProvider = {
   provider: string;
@@ -52,6 +68,7 @@ export type ProviderMatrixProvider = {
   evidence?: {
     session_log_count?: number;
     notes?: string;
+    roots?: string[];
   };
 };
 
@@ -98,6 +115,7 @@ export type ProviderSessionsEnvelope = ApiEnvelope<{
     status: "active" | "detected" | "missing";
     scanned: number;
     truncated: boolean;
+    scan_ms?: number;
   }>;
   rows?: ProviderSessionRow[];
 }>;
@@ -120,6 +138,7 @@ export type ProviderParserHealthEnvelope = ApiEnvelope<{
     parse_fail: number;
     parse_score: number | null;
     truncated: boolean;
+    scan_ms?: number;
     sample_errors?: Array<{
       session_id: string;
       format: string;
@@ -204,9 +223,11 @@ export type TranscriptPayload = {
 
 /* ── UI State ─────────────────────────────────────────── */
 export type FilterMode = "all" | "high-risk" | "pinned";
-export type ProviderView = "all" | "codex" | "claude" | "gemini" | "copilot";
+export type ProviderView = "all" | (string & {});
+export type ProviderDataDepth = "fast" | "balanced" | "deep";
 export type LayoutView = "overview" | "threads" | "providers" | "forensics" | "routing";
 export type Locale = "ko" | "en";
+export type UiDensity = "comfortable" | "compact";
 
 export type ExecutionGraphEnvelope = ApiEnvelope<ExecutionGraphData>;
 
@@ -214,5 +235,4 @@ export type ExecutionGraphEnvelope = ApiEnvelope<ExecutionGraphData>;
 export const PAGE_SIZE = 160;
 export const INITIAL_CHUNK = 80;
 export const CHUNK_SIZE = 80;
-export const PROVIDER_ORDER: Exclude<ProviderView, "all">[] = ["codex", "claude", "gemini", "copilot"];
 export const SKELETON_ROWS = 8;

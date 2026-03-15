@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildProviderActionToken } from "./providers";
+import {
+  buildProviderActionToken,
+  listProviderIds,
+  parseProviderId,
+  providerRootSpecs,
+} from "./providers";
 
 describe("buildProviderActionToken", () => {
   it("is stable regardless of file path order", () => {
@@ -41,5 +46,44 @@ describe("buildProviderActionToken", () => {
     );
     expect(codexArchive).not.toBe(codexDelete);
     expect(codexArchive).not.toBe(claudeArchive);
+  });
+});
+
+describe("provider registry", () => {
+  it("includes chatgpt provider in dynamic list", () => {
+    expect(listProviderIds()).toContain("chatgpt");
+  });
+
+  it("parses provider id case-insensitively", () => {
+    expect(parseProviderId("CHATGPT")).toBe("chatgpt");
+    expect(parseProviderId("CoDeX")).toBe("codex");
+  });
+
+  it("includes Gemini antigravity conversation root for pb sessions", () => {
+    const roots = providerRootSpecs("gemini");
+    const hasPbRoot = roots.some(
+      (spec) =>
+        spec.source === "antigravity_conversations" &&
+        spec.exts.includes(".pb"),
+    );
+    expect(hasPbRoot).toBe(true);
+  });
+
+  it("includes Copilot workspace chat roots", () => {
+    const roots = providerRootSpecs("copilot");
+    expect(
+      roots.some(
+        (spec) =>
+          spec.source === "vscode_workspace_chats" &&
+          spec.exts.includes(".json"),
+      ),
+    ).toBe(true);
+    expect(
+      roots.some(
+        (spec) =>
+          spec.source === "cursor_workspace_chats" &&
+          spec.exts.includes(".json"),
+      ),
+    ).toBe(true);
   });
 });

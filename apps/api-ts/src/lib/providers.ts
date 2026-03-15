@@ -22,10 +22,15 @@ import {
   BACKUP_ROOT,
   CLAUDE_HOME,
   CLAUDE_PROJECTS_DIR,
+  CLAUDE_TRANSCRIPTS_DIR,
   GEMINI_HOME,
+  GEMINI_HISTORY_DIR,
   GEMINI_TMP_DIR,
+  GEMINI_ANTIGRAVITY_CONVERSATIONS_DIR,
   COPILOT_VSCODE_GLOBAL,
+  COPILOT_VSCODE_WORKSPACE_STORAGE,
   COPILOT_CURSOR_GLOBAL,
+  COPILOT_CURSOR_WORKSPACE_STORAGE,
   HOME_DIR,
   CHAT_DIR,
 } from "./constants.js";
@@ -34,6 +39,7 @@ import {
   readFileHead,
   readFileTail,
   walkFilesByExt,
+  countFilesRecursiveByExt,
   countJsonlFilesRecursive,
   quickFileCount,
   safeJsonParse,
@@ -46,7 +52,14 @@ import {
  *  Types                                                              *
  * ─────────────────────────────────────────────────────────────────── */
 
-export type ProviderId = "codex" | "claude" | "gemini" | "copilot";
+export const PROVIDER_IDS = [
+  "codex",
+  "chatgpt",
+  "claude",
+  "gemini",
+  "copilot",
+] as const;
+export type ProviderId = (typeof PROVIDER_IDS)[number];
 export type ProviderStatus = "active" | "detected" | "missing";
 export type ProviderSessionAction = "archive_local" | "delete_local";
 
@@ -76,6 +89,7 @@ export type ProviderSessionScan = {
   rows: ProviderSessionRow[];
   scanned: number;
   truncated: boolean;
+  scan_ms: number;
 };
 
 export type TranscriptMessage = {
@@ -112,6 +126,45 @@ type ProviderScanCacheEntry = {
   scan: ProviderSessionScan;
 };
 
+type ProviderMatrixData = {
+  generated_at: string;
+  mode: string;
+  summary: {
+    total: number;
+    active: number;
+    detected: number;
+    read_analyze_ready: number;
+    safe_cleanup_ready: number;
+    hard_delete_ready: number;
+  };
+  providers: Array<{
+    provider: ProviderId;
+    name: string;
+    status: ProviderStatus;
+    capability_level: "full" | "read-only" | "unavailable";
+    capabilities: {
+      read_sessions: boolean;
+      analyze_context: boolean;
+      safe_cleanup: boolean;
+      hard_delete: boolean;
+    };
+    evidence: {
+      roots: string[];
+      session_log_count: number;
+      notes: string;
+    };
+  }>;
+  policy: {
+    cleanup_gate: string;
+    default_non_codex: string;
+  };
+};
+
+type ProviderMatrixCacheEntry = {
+  expires_at: number;
+  data: ProviderMatrixData;
+};
+
 type ProviderActionTokenEntry = {
   provider: ProviderId;
   action: ProviderSessionAction;
@@ -119,16 +172,26 @@ type ProviderActionTokenEntry = {
   expires_at: number;
 };
 
+type ChatGptRootsCacheEntry = {
+  expires_at: number;
+  roots: ProviderRootSpec[];
+};
+
 /* ─────────────────────────────────────────────────────────────────── *
  *  Module-level caches                                                *
  * ─────────────────────────────────────────────────────────────────── */
 
 const PROVIDER_SCAN_CACHE_TTL_MS = 60_000;
+const PROVIDER_MATRIX_CACHE_TTL_MS = 30_000;
 const PROVIDER_ACTION_TOKEN_TTL_MS = 10 * 60_000;
+const CHATGPT_ROOT_DISCOVERY_TTL_MS = 45_000;
 const providerScanCache = new Map<string, ProviderScanCacheEntry>();
 const providerScanInflight = new Map<string, Promise<ProviderSessionScan>>();
 const providerActionTokenCache = new Map<string, ProviderActionTokenEntry>();
+let providerMatrixCache: ProviderMatrixCacheEntry | null = null;
+let providerMatrixInflight: Promise<ProviderMatrixData> | null = null;
 let codexTitleMapCache: CodexTitleMapCacheEntry | null = null;
+let chatGptRootsCache: ChatGptRootsCacheEntry | null = null;
 
 /* ─────────────────────────────────────────────────────────────────── *
  *  Internal helpers (not exported)                                    *
@@ -139,10 +202,64 @@ function providerScanCacheKey(provider: ProviderId, limit: number): string {
 }
 
 function providerName(provider: ProviderId): string {
-  if (provider === "codex") return "Codex";
-  if (provider === "claude") return "Claude CLI";
-  if (provider === "gemini") return "Gemini CLI";
-  return "Copilot Chat";
+  const labels: Record<ProviderId, string> = {
+    codex: "Codex",
+    chatgpt: "ChatGPT Desktop",
+    claude: "Claude CLI",
+    gemini: "Gemini CLI",
+    copilot: "Copilot Chat",
+  };
+  return labels[provider] ?? provider;
+}
+
+export function listProviderIds(): ProviderId[] {
+  return [...PROVIDER_IDS];
+}
+
+function supportsProviderCleanup(provider: ProviderId): boolean {
+  if (provider === "chatgpt") return false;
+  return true;
+}
+
+async function discoverChatGptConversationRoots(): Promise<ProviderRootSpec[]> {
+  const now = Date.now();
+  if (chatGptRootsCache && chatGptRootsCache.expires_at > now) {
+    return chatGptRootsCache.roots;
+  }
+  if (!(await pathExists(CHAT_DIR))) return [];
+  const out = new Map<string, ProviderRootSpec>();
+  const push = (source: string, root: string) => {
+    if (!out.has(root)) out.set(root, { source, root, exts: [".data"] });
+  };
+
+  const topLevel = await readdir(CHAT_DIR, { withFileTypes: true }).catch(
+    () => [],
+  );
+
+  for (const entry of topLevel) {
+    if (!entry.isDirectory()) continue;
+    if (entry.name.startsWith("conversations-v3-")) {
+      push("conversations", path.join(CHAT_DIR, entry.name));
+      continue;
+    }
+    if (!entry.name.startsWith("project-g-p-")) continue;
+    const projectDir = path.join(CHAT_DIR, entry.name);
+    const nested = await readdir(projectDir, { withFileTypes: true }).catch(
+      () => [],
+    );
+    for (const child of nested) {
+      if (!child.isDirectory()) continue;
+      if (!child.name.startsWith("conversations-v3-")) continue;
+      push("project-conversations", path.join(projectDir, child.name));
+    }
+  }
+
+  const roots = Array.from(out.values());
+  chatGptRootsCache = {
+    expires_at: now + CHATGPT_ROOT_DISCOVERY_TTL_MS,
+    roots,
+  };
+  return roots;
 }
 
 function inferFormat(filePath: string): "jsonl" | "json" | "unknown" {
@@ -157,6 +274,39 @@ function inferSessionId(filePath: string): string {
   const ext = path.extname(base);
   if (!ext) return base;
   return base.slice(0, -ext.length);
+}
+
+function shortSessionId(sessionId: string): string {
+  const id = String(sessionId || "").trim();
+  if (!id) return "unknown";
+  if (id.length <= 20) return id;
+  return `${id.slice(0, 8)}…${id.slice(-4)}`;
+}
+
+function isWorkspaceChatSessionPath(filePath: string): boolean {
+  const normalized = path.resolve(filePath);
+  const marker = `${path.sep}chatSessions${path.sep}`;
+  return normalized.includes(marker) && normalized.endsWith(".json");
+}
+
+function isCopilotGlobalSessionLikeFile(filePath: string): boolean {
+  const base = path.basename(filePath).toLowerCase();
+  return base.includes("session");
+}
+
+function fallbackDisplayTitle(
+  provider: ProviderId,
+  sessionId: string,
+  source: string,
+): string {
+  const shortId = shortSessionId(sessionId);
+  if (provider === "chatgpt") {
+    if (source === "project-conversations") {
+      return `ChatGPT Project · ${shortId}`;
+    }
+    return `ChatGPT Conversation · ${shortId}`;
+  }
+  return shortId;
 }
 
 function extractUuidFromText(text: string): string {
@@ -351,6 +501,16 @@ async function probeSessionFile(
 ): Promise<ProviderSessionProbe> {
   const format = inferFormat(filePath);
   if (format === "unknown") {
+    if (path.extname(filePath).toLowerCase() === ".data") {
+      const idHint = normalizeDetectedTitle(inferSessionId(filePath));
+      return {
+        ok: true,
+        format,
+        error: null,
+        detected_title: idHint,
+        title_source: idHint ? "binary-cache-id" : null,
+      };
+    }
     return {
       ok: false,
       format,
@@ -600,13 +760,12 @@ export function capabilityLevel(
 }
 
 export function parseProviderId(raw: unknown): ProviderId | undefined {
-  if (
-    raw === "codex" ||
-    raw === "claude" ||
-    raw === "gemini" ||
-    raw === "copilot"
-  )
-    return raw;
+  const value = String(raw ?? "")
+    .trim()
+    .toLowerCase();
+  if ((PROVIDER_IDS as readonly string[]).includes(value)) {
+    return value as ProviderId;
+  }
   return undefined;
 }
 
@@ -636,34 +795,74 @@ export function providerRootSpecs(provider: ProviderId): ProviderRootSpec[] {
       },
     ];
   }
+  if (provider === "chatgpt") {
+    return [{ source: "chat_cache", root: CHAT_DIR, exts: [".data"] }];
+  }
   if (provider === "claude") {
     return [
       { source: "projects", root: CLAUDE_PROJECTS_DIR, exts: [".jsonl"] },
+      {
+        source: "transcripts",
+        root: CLAUDE_TRANSCRIPTS_DIR,
+        exts: [".jsonl", ".json"],
+      },
     ];
   }
   if (provider === "gemini") {
     return [
       { source: "tmp", root: GEMINI_TMP_DIR, exts: [".jsonl", ".json"] },
+      { source: "history", root: GEMINI_HISTORY_DIR, exts: [".jsonl", ".json"] },
+      {
+        source: "antigravity_conversations",
+        root: GEMINI_ANTIGRAVITY_CONVERSATIONS_DIR,
+        exts: [".pb"],
+      },
     ];
   }
   return [
     {
-      source: "vscode",
+      source: "vscode_global",
       root: COPILOT_VSCODE_GLOBAL,
       exts: [".jsonl", ".json"],
     },
     {
-      source: "cursor",
+      source: "cursor_global",
       root: COPILOT_CURSOR_GLOBAL,
       exts: [".jsonl", ".json"],
     },
+    {
+      source: "vscode_workspace_chats",
+      root: COPILOT_VSCODE_WORKSPACE_STORAGE,
+      exts: [".json"],
+    },
+    {
+      source: "cursor_workspace_chats",
+      root: COPILOT_CURSOR_WORKSPACE_STORAGE,
+      exts: [".json"],
+    },
   ];
+}
+
+async function providerScanRootSpecs(
+  provider: ProviderId,
+): Promise<ProviderRootSpec[]> {
+  if (provider !== "chatgpt") return providerRootSpecs(provider);
+  const discovered = await discoverChatGptConversationRoots();
+  if (discovered.length > 0) return discovered;
+  return providerRootSpecs(provider);
 }
 
 export function isAllowedProviderFilePath(
   provider: ProviderId,
   filePath: string,
 ): boolean {
+  if (provider === "chatgpt") {
+    const ext = path.extname(filePath).toLowerCase();
+    if (ext !== ".data") return false;
+    if (!isPathInsideRoot(filePath, CHAT_DIR)) return false;
+    const normalized = path.resolve(filePath);
+    return /(^|[\\/])conversations-v3-[^\\/]+[\\/]/.test(normalized);
+  }
   const specs = providerRootSpecs(provider);
   const ext = path.extname(filePath).toLowerCase();
   return specs.some(
@@ -675,28 +874,72 @@ export function isAllowedProviderFilePath(
  *  Exported business logic                                            *
  * ─────────────────────────────────────────────────────────────────── */
 
-export async function getProviderMatrixTs() {
+async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
   const codexRootExists = await pathExists(CODEX_HOME);
+  const chatGptRootExists = await pathExists(CHAT_DIR);
   const claudeRootExists = await pathExists(CLAUDE_HOME);
   const geminiRootExists = await pathExists(GEMINI_HOME);
   const copilotVsCodeExists = await pathExists(COPILOT_VSCODE_GLOBAL);
   const copilotCursorExists = await pathExists(COPILOT_CURSOR_GLOBAL);
+  const copilotVsCodeWorkspaceExists = await pathExists(
+    COPILOT_VSCODE_WORKSPACE_STORAGE,
+  );
+  const copilotCursorWorkspaceExists = await pathExists(
+    COPILOT_CURSOR_WORKSPACE_STORAGE,
+  );
+  const chatGptConversationRoots = await discoverChatGptConversationRoots();
 
   const codexSessionLogs =
     (await countJsonlFilesRecursive(path.join(CODEX_HOME, "sessions"))) +
     (await countJsonlFilesRecursive(
       path.join(CODEX_HOME, "archived_sessions"),
     ));
-  const claudeSessionLogs = await countJsonlFilesRecursive(CLAUDE_PROJECTS_DIR);
-  const geminiSessionLogs = await countJsonlFilesRecursive(GEMINI_TMP_DIR);
-  const copilotSignalFiles =
-    (await quickFileCount(COPILOT_VSCODE_GLOBAL)) +
-    (await quickFileCount(COPILOT_CURSOR_GLOBAL));
+  const claudeSessionLogs =
+    (await countFilesRecursiveByExt(CLAUDE_PROJECTS_DIR, [".jsonl", ".json"])) +
+    (await countFilesRecursiveByExt(CLAUDE_TRANSCRIPTS_DIR, [".jsonl", ".json"]));
+  const geminiSessionLogs =
+    (await countFilesRecursiveByExt(GEMINI_TMP_DIR, [".jsonl", ".json"])) +
+    (await countFilesRecursiveByExt(GEMINI_HISTORY_DIR, [".jsonl", ".json"])) +
+    (await countFilesRecursiveByExt(GEMINI_ANTIGRAVITY_CONVERSATIONS_DIR, [".pb"]));
+  const chatGptSessionLogs = (
+    await Promise.all(
+      chatGptConversationRoots.map((spec) => quickFileCount(spec.root)),
+    )
+  ).reduce((sum, count) => sum + count, 0);
+  const copilotGlobalSessionFiles = (
+    await Promise.all(
+      [COPILOT_VSCODE_GLOBAL, COPILOT_CURSOR_GLOBAL].map(async (root) => {
+        const files = await walkFilesByExt(root, [".jsonl", ".json"], 1500);
+        return files.filter((filePath) =>
+          isCopilotGlobalSessionLikeFile(filePath),
+        ).length;
+      }),
+    )
+  ).reduce((sum, value) => sum + value, 0);
+  const copilotWorkspaceChatFiles = (
+    await Promise.all(
+      [
+        COPILOT_VSCODE_WORKSPACE_STORAGE,
+        COPILOT_CURSOR_WORKSPACE_STORAGE,
+      ].map(async (root) => {
+        const files = await walkFilesByExt(root, [".json"], 8000);
+        return files.filter((filePath) =>
+          isWorkspaceChatSessionPath(filePath),
+        ).length;
+      }),
+    )
+  ).reduce((sum, value) => sum + value, 0);
+  const copilotSignalFiles = copilotGlobalSessionFiles + copilotWorkspaceChatFiles;
 
+  const codexStatus = providerStatus(codexRootExists, codexSessionLogs);
+  const chatGptStatus = providerStatus(chatGptRootExists, chatGptSessionLogs);
   const claudeStatus = providerStatus(claudeRootExists, claudeSessionLogs);
   const geminiStatus = providerStatus(geminiRootExists, geminiSessionLogs);
   const copilotStatus = providerStatus(
-    copilotVsCodeExists || copilotCursorExists,
+    copilotVsCodeExists ||
+      copilotCursorExists ||
+      copilotVsCodeWorkspaceExists ||
+      copilotCursorWorkspaceExists,
     copilotSignalFiles,
   );
 
@@ -704,16 +947,13 @@ export async function getProviderMatrixTs() {
     {
       provider: "codex" as ProviderId,
       name: "Codex",
-      status: providerStatus(codexRootExists, codexSessionLogs),
-      capability_level: capabilityLevel(
-        providerStatus(codexRootExists, codexSessionLogs),
-        true,
-      ),
+      status: codexStatus,
+      capability_level: capabilityLevel(codexStatus, supportsProviderCleanup("codex")),
       capabilities: {
         read_sessions: true,
         analyze_context: true,
-        safe_cleanup: true,
-        hard_delete: true,
+        safe_cleanup: supportsProviderCleanup("codex"),
+        hard_delete: supportsProviderCleanup("codex"),
       },
       evidence: {
         roots: [CODEX_HOME, CHAT_DIR],
@@ -722,24 +962,45 @@ export async function getProviderMatrixTs() {
       },
     },
     {
+      provider: "chatgpt" as ProviderId,
+      name: providerName("chatgpt"),
+      status: chatGptStatus,
+      capability_level: capabilityLevel(
+        chatGptStatus,
+        supportsProviderCleanup("chatgpt"),
+      ),
+      capabilities: {
+        read_sessions: chatGptRootExists,
+        analyze_context: chatGptSessionLogs > 0,
+        safe_cleanup: supportsProviderCleanup("chatgpt"),
+        hard_delete: supportsProviderCleanup("chatgpt"),
+      },
+      evidence: {
+        roots: [CHAT_DIR],
+        session_log_count: chatGptSessionLogs,
+        notes:
+          "read-only mode: binary chat cache is observable, destructive actions are disabled",
+      },
+    },
+    {
       provider: "claude" as ProviderId,
       name: "Claude CLI",
       status: claudeStatus,
       capability_level: capabilityLevel(
         claudeStatus,
-        claudeStatus !== "missing",
+        supportsProviderCleanup("claude") && claudeStatus !== "missing",
       ),
       capabilities: {
         read_sessions: claudeRootExists,
         analyze_context: claudeSessionLogs > 0,
-        safe_cleanup: claudeStatus !== "missing",
-        hard_delete: claudeStatus !== "missing",
+        safe_cleanup: supportsProviderCleanup("claude") && claudeStatus !== "missing",
+        hard_delete: supportsProviderCleanup("claude") && claudeStatus !== "missing",
       },
       evidence: {
-        roots: [CLAUDE_HOME, CLAUDE_PROJECTS_DIR],
+        roots: [CLAUDE_HOME, CLAUDE_PROJECTS_DIR, CLAUDE_TRANSCRIPTS_DIR],
         session_log_count: claudeSessionLogs,
         notes:
-          "dev mode: local archive/delete enabled when storage is detected",
+          "dev mode: scans projects + transcripts storage for local archive/delete",
       },
     },
     {
@@ -748,19 +1009,24 @@ export async function getProviderMatrixTs() {
       status: geminiStatus,
       capability_level: capabilityLevel(
         geminiStatus,
-        geminiStatus !== "missing",
+        supportsProviderCleanup("gemini") && geminiStatus !== "missing",
       ),
       capabilities: {
         read_sessions: geminiRootExists,
         analyze_context: geminiSessionLogs > 0,
-        safe_cleanup: geminiStatus !== "missing",
-        hard_delete: geminiStatus !== "missing",
+        safe_cleanup: supportsProviderCleanup("gemini") && geminiStatus !== "missing",
+        hard_delete: supportsProviderCleanup("gemini") && geminiStatus !== "missing",
       },
       evidence: {
-        roots: [GEMINI_HOME, GEMINI_TMP_DIR],
+        roots: [
+          GEMINI_HOME,
+          GEMINI_TMP_DIR,
+          GEMINI_HISTORY_DIR,
+          GEMINI_ANTIGRAVITY_CONVERSATIONS_DIR,
+        ],
         session_log_count: geminiSessionLogs,
         notes:
-          "dev mode: local archive/delete enabled when storage is detected",
+          "dev mode: scans tmp/history plus antigravity conversation store",
       },
     },
     {
@@ -769,19 +1035,30 @@ export async function getProviderMatrixTs() {
       status: copilotStatus,
       capability_level: capabilityLevel(
         copilotStatus,
-        copilotStatus !== "missing",
+        supportsProviderCleanup("copilot") && copilotStatus !== "missing",
       ),
       capabilities: {
-        read_sessions: copilotVsCodeExists || copilotCursorExists,
+        read_sessions:
+          copilotVsCodeExists ||
+          copilotCursorExists ||
+          copilotVsCodeWorkspaceExists ||
+          copilotCursorWorkspaceExists,
         analyze_context: copilotSignalFiles > 0,
-        safe_cleanup: copilotStatus !== "missing",
-        hard_delete: copilotStatus !== "missing",
+        safe_cleanup:
+          supportsProviderCleanup("copilot") && copilotStatus !== "missing",
+        hard_delete:
+          supportsProviderCleanup("copilot") && copilotStatus !== "missing",
       },
       evidence: {
-        roots: [COPILOT_VSCODE_GLOBAL, COPILOT_CURSOR_GLOBAL],
+        roots: [
+          COPILOT_VSCODE_GLOBAL,
+          COPILOT_CURSOR_GLOBAL,
+          COPILOT_VSCODE_WORKSPACE_STORAGE,
+          COPILOT_CURSOR_WORKSPACE_STORAGE,
+        ],
         session_log_count: copilotSignalFiles,
         notes:
-          "dev mode: local archive/delete enabled when storage is detected",
+          "dev mode: scans global session artifacts + workspace chat sessions",
       },
     },
   ];
@@ -805,11 +1082,38 @@ export async function getProviderMatrixTs() {
     summary,
     providers,
     policy: {
-      cleanup_gate:
-        "dev mode: all detected providers can expose cleanup/delete actions",
-      default_non_codex: "all providers enabled for local testing",
+      cleanup_gate: "provider capability matrix controls destructive actions",
+      default_non_codex: "all detected providers are visible for local analysis",
     },
   };
+}
+
+export async function getProviderMatrixTs(options?: { forceRefresh?: boolean }) {
+  const forceRefresh = Boolean(options?.forceRefresh);
+  const now = Date.now();
+  if (!forceRefresh && providerMatrixCache && providerMatrixCache.expires_at > now) {
+    return providerMatrixCache.data;
+  }
+  if (forceRefresh) {
+    providerMatrixCache = null;
+  }
+  if (providerMatrixInflight) {
+    return providerMatrixInflight;
+  }
+
+  providerMatrixInflight = buildProviderMatrixData()
+    .then((data) => {
+      providerMatrixCache = {
+        expires_at: Date.now() + PROVIDER_MATRIX_CACHE_TTL_MS,
+        data,
+      };
+      return data;
+    })
+    .finally(() => {
+      providerMatrixInflight = null;
+    });
+
+  return providerMatrixInflight;
 }
 
 /* ── Session actions ──────────────────────────────────────────────── */
@@ -910,6 +1214,21 @@ export async function runProviderSessionAction(
   const uniquePaths = Array.from(
     new Set(filePaths.map((item) => String(item || "").trim()).filter(Boolean)),
   );
+  if (!supportsProviderCleanup(provider)) {
+    return {
+      ok: false,
+      provider,
+      action,
+      dry_run: dryRun,
+      target_count: uniquePaths.length,
+      valid_count: 0,
+      applied_count: 0,
+      confirm_token_expected: "",
+      confirm_token_accepted: false,
+      skipped: [],
+      error: "cleanup-disabled-provider",
+    };
+  }
   const skipped: Array<{ file_path: string; reason: string }> = [];
   const valid: string[] = [];
 
@@ -1077,6 +1396,7 @@ export async function runProviderSessionAction(
       providerScanCache.delete(key);
     }
   }
+  providerMatrixCache = null;
 
   return {
     ok: failed.length === 0,
@@ -1101,11 +1421,13 @@ async function scanProviderSessions(
   provider: ProviderId,
   limit = 80,
 ): Promise<ProviderSessionScan> {
+  const startedAt = Date.now();
   const safeLimit = Math.max(1, Math.min(240, Number(limit) || 80));
-  const roots = providerRootSpecs(provider);
-  const rootExists = (
-    await Promise.all(roots.map((r) => pathExists(r.root)))
-  ).some(Boolean);
+  const roots = await providerScanRootSpecs(provider);
+  const rootExists =
+    provider === "chatgpt"
+      ? await pathExists(CHAT_DIR)
+      : (await Promise.all(roots.map((r) => pathExists(r.root)))).some(Boolean);
 
   const candidates: Array<{
     source: string;
@@ -1117,12 +1439,31 @@ async function scanProviderSessions(
   const gatherLimit = Math.max(safeLimit * 2, 80);
 
   const rootFiles = await Promise.all(
-    roots.map((spec) => walkFilesByExt(spec.root, spec.exts, gatherLimit)),
+    roots.map((spec) => {
+      const providerLimit =
+        provider === "copilot" &&
+        (spec.source === "vscode_workspace_chats" ||
+          spec.source === "cursor_workspace_chats")
+          ? Math.max(gatherLimit * 8, 1200)
+          : gatherLimit;
+      return walkFilesByExt(spec.root, spec.exts, providerLimit);
+    }),
   );
   for (let i = 0; i < roots.length; i += 1) {
     const spec = roots[i];
     const files = rootFiles[i] ?? [];
-    for (const file of files) {
+    const filteredFiles =
+      provider === "copilot" &&
+      (spec.source === "vscode_workspace_chats" ||
+        spec.source === "cursor_workspace_chats")
+        ? files.filter((filePath) => isWorkspaceChatSessionPath(filePath))
+        : provider === "copilot" &&
+            (spec.source === "vscode_global" || spec.source === "cursor_global")
+          ? files.filter((filePath) =>
+              isCopilotGlobalSessionLikeFile(filePath),
+            )
+          : files;
+    for (const file of filteredFiles) {
       try {
         const st = await stat(file);
         candidates.push({
@@ -1160,7 +1501,7 @@ async function scanProviderSessions(
             ? codexTitleMap.get(codexThreadId)
             : "") ||
           probe.detected_title ||
-          sessionId,
+          fallbackDisplayTitle(provider, sessionId, candidate.source),
         file_path: candidate.file_path,
         size_bytes: candidate.size_bytes,
         mtime: candidate.mtime,
@@ -1176,18 +1517,25 @@ async function scanProviderSessions(
     rows,
     scanned: rows.length,
     truncated: candidates.length > safeLimit,
+    scan_ms: Math.max(0, Date.now() - startedAt),
   };
 }
 
 export async function getProviderSessionScan(
   provider: ProviderId,
   limit = 80,
+  options?: { forceRefresh?: boolean },
 ): Promise<ProviderSessionScan> {
   const safeLimit = Math.max(1, Math.min(240, Number(limit) || 80));
   const key = providerScanCacheKey(provider, safeLimit);
+  const forceRefresh = Boolean(options?.forceRefresh);
   const now = Date.now();
-  const cached = providerScanCache.get(key);
-  if (cached && cached.expires_at > now) return cached.scan;
+  if (!forceRefresh) {
+    const cached = providerScanCache.get(key);
+    if (cached && cached.expires_at > now) return cached.scan;
+  } else {
+    providerScanCache.delete(key);
+  }
 
   const inflight = providerScanInflight.get(key);
   if (inflight) return inflight;
@@ -1211,12 +1559,11 @@ export async function getProviderSessionScan(
 export async function getProviderSessionsTs(
   provider?: ProviderId,
   limit = 80,
+  options?: { forceRefresh?: boolean },
 ) {
-  const targets: ProviderId[] = provider
-    ? [provider]
-    : ["codex", "claude", "gemini", "copilot"];
+  const targets: ProviderId[] = provider ? [provider] : listProviderIds();
   const scans = await Promise.all(
-    targets.map((p) => getProviderSessionScan(p, limit)),
+    targets.map((p) => getProviderSessionScan(p, limit, options)),
   );
 
   const rows = scans.flatMap((scan) => scan.rows);
@@ -1234,6 +1581,7 @@ export async function getProviderSessionsTs(
       status: scan.status,
       scanned: scan.scanned,
       truncated: scan.truncated,
+      scan_ms: scan.scan_ms,
     })),
     rows,
   };
@@ -1242,12 +1590,13 @@ export async function getProviderSessionsTs(
 export async function getProviderParserHealthTs(
   provider?: ProviderId,
   limitPerProvider = 80,
+  options?: { forceRefresh?: boolean },
 ) {
-  const targets: ProviderId[] = provider
-    ? [provider]
-    : ["codex", "claude", "gemini", "copilot"];
+  const targets: ProviderId[] = provider ? [provider] : listProviderIds();
   const scans = await Promise.all(
-    targets.map((item) => getProviderSessionScan(item, limitPerProvider)),
+    targets.map((item) =>
+      getProviderSessionScan(item, limitPerProvider, options),
+    ),
   );
   const reports: Array<Record<string, unknown>> = scans.map((scan) => {
     const parseOk = scan.rows.filter((row) => row.probe.ok).length;
@@ -1264,6 +1613,7 @@ export async function getProviderParserHealthTs(
       parse_fail: parseFail,
       parse_score: score,
       truncated: scan.truncated,
+      scan_ms: scan.scan_ms,
       sample_errors: scan.rows
         .filter((row) => !row.probe.ok)
         .slice(0, 8)

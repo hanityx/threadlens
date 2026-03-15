@@ -57,48 +57,50 @@ export function ThreadsTable(props: ThreadsTableProps) {
           {filteredRows.length} {messages.threadsTable.filtered} / {totalCount} {messages.threadsTable.total}
         </span>
       </header>
-      <div className="sub-toolbar">
-        <label className="check-inline">
-          <input
-            type="checkbox"
-            checked={allFilteredSelected}
-            onChange={(e) => toggleSelectAllFiltered(e.target.checked)}
-          />
-          {messages.threadsTable.selectAllFiltered}
-        </label>
-        <span className="sub-hint">
-          {messages.threadsTable.selected} {selectedIds.length} · {messages.threadsTable.rendered} {visibleRows.length}/
-          {filteredRows.length}
-        </span>
-      </div>
-      <div className="sub-toolbar">
-        <button className="btn-base" disabled={selectedIds.length === 0 || busy} onClick={() => bulkPin(selectedIds)}>
-          {messages.threadsTable.bulkPin}
-        </button>
-        <button className="btn-base" disabled={selectedIds.length === 0 || busy} onClick={() => bulkUnpin(selectedIds)}>
-          {messages.threadsTable.bulkUnpin}
-        </button>
-        <button
-          className="btn-accent"
-          disabled={selectedIds.length === 0 || busy}
-          onClick={() => bulkArchive(selectedIds)}
-        >
-          {messages.threadsTable.bulkArchive}
-        </button>
-        <button
-          className="btn-outline"
-          disabled={selectedIds.length === 0 || busy}
-          onClick={() => analyzeDelete(selectedIds)}
-        >
-          {messages.threadsTable.bulkImpact}
-        </button>
-        <button
-          className="btn-outline"
-          disabled={selectedIds.length === 0 || busy}
-          onClick={() => cleanupDryRun(selectedIds)}
-        >
-          {messages.threadsTable.bulkCleanupDryRun}
-        </button>
+      <div className="sticky-action-stack">
+        <div className="sub-toolbar sticky-action-bar">
+          <label className="check-inline">
+            <input
+              type="checkbox"
+              checked={allFilteredSelected}
+              onChange={(e) => toggleSelectAllFiltered(e.target.checked)}
+            />
+            {messages.threadsTable.selectAllFiltered}
+          </label>
+          <span className="sub-hint">
+            {messages.threadsTable.selected} {selectedIds.length} · {messages.threadsTable.rendered} {visibleRows.length}/
+            {filteredRows.length}
+          </span>
+        </div>
+        <div className="sub-toolbar sticky-action-bar action-toolbar">
+          <button className="btn-base" disabled={selectedIds.length === 0 || busy} onClick={() => bulkPin(selectedIds)}>
+            {messages.threadsTable.bulkPin}
+          </button>
+          <button className="btn-base" disabled={selectedIds.length === 0 || busy} onClick={() => bulkUnpin(selectedIds)}>
+            {messages.threadsTable.bulkUnpin}
+          </button>
+          <button
+            className="btn-accent"
+            disabled={selectedIds.length === 0 || busy}
+            onClick={() => bulkArchive(selectedIds)}
+          >
+            {messages.threadsTable.bulkArchive}
+          </button>
+          <button
+            className="btn-outline"
+            disabled={selectedIds.length === 0 || busy}
+            onClick={() => analyzeDelete(selectedIds)}
+          >
+            {messages.threadsTable.bulkImpact}
+          </button>
+          <button
+            className="btn-outline"
+            disabled={selectedIds.length === 0 || busy}
+            onClick={() => cleanupDryRun(selectedIds)}
+          >
+            {messages.threadsTable.bulkCleanupDryRun}
+          </button>
+        </div>
       </div>
       <div className="table-wrap">
         <table>

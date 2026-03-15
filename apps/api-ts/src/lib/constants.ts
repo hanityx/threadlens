@@ -58,8 +58,15 @@ export const CHAT_DIR = path.join(
 );
 export const CLAUDE_HOME = path.join(HOME_DIR, ".claude");
 export const CLAUDE_PROJECTS_DIR = path.join(CLAUDE_HOME, "projects");
+export const CLAUDE_TRANSCRIPTS_DIR = path.join(CLAUDE_HOME, "transcripts");
 export const GEMINI_HOME = path.join(HOME_DIR, ".gemini");
+export const GEMINI_HISTORY_DIR = path.join(GEMINI_HOME, "history");
 export const GEMINI_TMP_DIR = path.join(GEMINI_HOME, "tmp");
+export const GEMINI_ANTIGRAVITY_CONVERSATIONS_DIR = path.join(
+  GEMINI_HOME,
+  "antigravity",
+  "conversations",
+);
 export const COPILOT_VSCODE_GLOBAL = path.join(
   HOME_DIR,
   "Library",
@@ -69,6 +76,14 @@ export const COPILOT_VSCODE_GLOBAL = path.join(
   "globalStorage",
   "github.copilot-chat",
 );
+export const COPILOT_VSCODE_WORKSPACE_STORAGE = path.join(
+  HOME_DIR,
+  "Library",
+  "Application Support",
+  "Code",
+  "User",
+  "workspaceStorage",
+);
 export const COPILOT_CURSOR_GLOBAL = path.join(
   HOME_DIR,
   "Library",
@@ -77,6 +92,14 @@ export const COPILOT_CURSOR_GLOBAL = path.join(
   "User",
   "globalStorage",
   "github.copilot-chat",
+);
+export const COPILOT_CURSOR_WORKSPACE_STORAGE = path.join(
+  HOME_DIR,
+  "Library",
+  "Application Support",
+  "Cursor",
+  "User",
+  "workspaceStorage",
 );
 
 /* ── API path sets ────────────────────────────────────────────────── */
