@@ -501,7 +501,8 @@ async function probeSessionFile(
 ): Promise<ProviderSessionProbe> {
   const format = inferFormat(filePath);
   if (format === "unknown") {
-    if (path.extname(filePath).toLowerCase() === ".data") {
+    const ext = path.extname(filePath).toLowerCase();
+    if (ext === ".data" || ext === ".pb") {
       const idHint = normalizeDetectedTitle(inferSessionId(filePath));
       return {
         ok: true,
@@ -529,10 +530,12 @@ async function probeSessionFile(
   }
   const detected = detectSessionTitleFromHead(head, format);
   if (!head.trim()) {
+    // Empty legacy/session placeholder files are common in Copilot/CLI caches.
+    // Treat them as ignorable (not parse-fail) to avoid false alarms in health views.
     return {
-      ok: false,
+      ok: true,
       format,
-      error: "empty file",
+      error: null,
       detected_title: detected.title,
       title_source: detected.source,
     };
