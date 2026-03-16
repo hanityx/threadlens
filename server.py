@@ -30,6 +30,8 @@ BACKUP_ROOT = CODEX_DIR / "local_cleanup_backups"
 OVERVIEW_CACHE = {
     "ts": 0.0,
     "data": None,
+    "lite_ts": 0.0,
+    "lite_data": None,
 }
 OBSERVABILITY_CACHE = {
     "ts": 0.0,
@@ -234,8 +236,9 @@ def build_session_index():
     return out
 
 
-def build_session_metrics(session_index):
+def build_session_metrics(session_index, deep_parse=True):
     metrics = {}
+    max_parse_lines = int(os.environ.get("SESSION_METRIC_MAX_LINES", "400"))
     for tid, meta in session_index.items():
         path = meta.get("file_path", "")
         if not path:
@@ -243,40 +246,51 @@ def build_session_metrics(session_index):
         p = pathlib.Path(path)
         if not p.exists():
             continue
+        try:
+            size_bytes = p.stat().st_size
+        except Exception:
+            size_bytes = 0
         line_count = 0
         tool_calls = 0
         user_msgs = 0
         assistant_msgs = 0
-        try:
-            with p.open("r", encoding="utf-8") as f:
-                for line in f:
-                    line_count += 1
-                    s = line.strip()
-                    if not s:
-                        continue
-                    try:
-                        obj = json.loads(s)
-                    except Exception:
-                        continue
-                    if obj.get("type") == "response_item":
-                        payload = obj.get("payload", {})
-                        ptype = payload.get("type")
-                        if ptype == "function_call":
-                            tool_calls += 1
-                        if ptype == "message":
-                            role = payload.get("role")
-                            if role == "user":
-                                user_msgs += 1
-                            elif role == "assistant":
-                                assistant_msgs += 1
-        except Exception:
-            continue
+        if deep_parse:
+            try:
+                with p.open("r", encoding="utf-8") as f:
+                    for line in f:
+                        line_count += 1
+                        if max_parse_lines > 0 and line_count > max_parse_lines:
+                            break
+                        s = line.strip()
+                        if not s:
+                            continue
+                        try:
+                            obj = json.loads(s)
+                        except Exception:
+                            continue
+                        if obj.get("type") == "response_item":
+                            payload = obj.get("payload", {})
+                            ptype = payload.get("type")
+                            if ptype == "function_call":
+                                tool_calls += 1
+                            if ptype == "message":
+                                role = payload.get("role")
+                                if role == "user":
+                                    user_msgs += 1
+                                elif role == "assistant":
+                                    assistant_msgs += 1
+            except Exception:
+                continue
+        else:
+            # Lightweight mode: keep rough pressure heuristics without JSONL parsing.
+            line_count = int(max(1, min(5000, size_bytes // 180))) if size_bytes > 0 else 0
+            tool_calls = int(max(0, min(1200, size_bytes // 12000))) if size_bytes > 0 else 0
         metrics[tid] = {
             "line_count": line_count,
             "tool_calls": tool_calls,
             "user_msgs": user_msgs,
             "assistant_msgs": assistant_msgs,
-            "bytes": p.stat().st_size,
+            "bytes": size_bytes,
         }
     return metrics
 
@@ -300,10 +314,12 @@ def get_state():
     }
 
 
-def collect_overview(include_threads=True):
+def collect_overview(include_threads=True, deep_parse_metrics=None):
+    if deep_parse_metrics is None:
+        deep_parse_metrics = bool(include_threads)
     st = get_state()
     session_index = build_session_index()
-    session_metrics = build_session_metrics(session_index)
+    session_metrics = build_session_metrics(session_index, deep_parse=deep_parse_metrics)
     history_index = build_history_index()
     manual_map = load_unmapped_mapping()
 
@@ -711,21 +727,45 @@ def collect_overview(include_threads=True):
 
 def get_overview_cached(include_threads=True, ttl_sec=8.0, force_refresh=False):
     now = time.time()
+    if include_threads:
+        if (
+            not force_refresh
+            and OVERVIEW_CACHE["data"] is not None
+            and (now - OVERVIEW_CACHE["ts"] < ttl_sec)
+        ):
+            return OVERVIEW_CACHE["data"]
+        data = collect_overview(include_threads=True, deep_parse_metrics=True)
+        OVERVIEW_CACHE["data"] = data
+        OVERVIEW_CACHE["ts"] = now
+        return data
+
+    if (
+        not force_refresh
+        and OVERVIEW_CACHE["lite_data"] is not None
+        and (now - OVERVIEW_CACHE["lite_ts"] < ttl_sec)
+    ):
+        return OVERVIEW_CACHE["lite_data"]
+
     if (
         not force_refresh
         and OVERVIEW_CACHE["data"] is not None
         and (now - OVERVIEW_CACHE["ts"] < ttl_sec)
     ):
-        data = OVERVIEW_CACHE["data"]
-    else:
-        data = collect_overview(include_threads=True)
-        OVERVIEW_CACHE["data"] = data
-        OVERVIEW_CACHE["ts"] = now
-    if include_threads:
-        return data
-    out = dict(data)
-    out.pop("threads", None)
-    return out
+        out = dict(OVERVIEW_CACHE["data"])
+        out.pop("threads", None)
+        return out
+
+    data = collect_overview(include_threads=False, deep_parse_metrics=False)
+    OVERVIEW_CACHE["lite_data"] = data
+    OVERVIEW_CACHE["lite_ts"] = now
+    return data
+
+
+def invalidate_overview_cache():
+    OVERVIEW_CACHE["ts"] = 0.0
+    OVERVIEW_CACHE["data"] = None
+    OVERVIEW_CACHE["lite_ts"] = 0.0
+    OVERVIEW_CACHE["lite_data"] = None
 
 
 def iso_utc(ts):
@@ -2494,22 +2534,72 @@ def filter_threads(
 
 
 def analyze_delete_impact(thread_ids):
-    overview = get_overview_cached(include_threads=True)
+    ids = [str(x).strip() for x in (thread_ids or []) if str(x).strip()]
     state = get_state()
-    threads_by_id = {t["id"]: t for t in overview["threads"]}
-    order = state.get("order", []) if isinstance(state, dict) else []
     titles = state.get("titles", {}) if isinstance(state, dict) else {}
-    pinned = set(state.get("pinned", [])) if isinstance(state, dict) else set()
+    order_set = set(state.get("order", []) if isinstance(state, dict) else [])
+    pinned_set = set(state.get("pinned", []) if isinstance(state, dict) else [])
 
-    # Bucket current counts
+    local_refs = {tid: {"has_local_data": False, "project_buckets": set()} for tid in ids}
     bucket_counts = {}
-    for b in overview["project_buckets"]:
-        bucket_counts[b["project_bucket"]] = b["thread_count"]
+
+    # Check local cache/project references only for requested IDs.
+    for d in list_dirs(CHAT_DIR):
+        if d.name.startswith("conversations-v3-"):
+            for tid in ids:
+                if (d / f"{tid}.data").exists():
+                    local_refs[tid]["has_local_data"] = True
+            continue
+
+        if not d.name.startswith("project-g-p-"):
+            continue
+        conv_dirs = [cd for cd in d.glob("conversations-v3-*") if cd.is_dir()]
+        hit = False
+        for tid in ids:
+            for cd in conv_dirs:
+                if (cd / f"{tid}.data").exists():
+                    local_refs[tid]["has_local_data"] = True
+                    local_refs[tid]["project_buckets"].add(d.name)
+                    hit = True
+        if hit:
+            cnt = 0
+            for cd in conv_dirs:
+                try:
+                    cnt += sum(1 for p in cd.glob("*.data") if p.is_file())
+                except Exception:
+                    continue
+            bucket_counts[d.name] = cnt
+
+    def session_meta_for_tid(tid):
+        for root in [CODEX_DIR / "sessions", CODEX_DIR / "archived_sessions"]:
+            if not root.exists():
+                continue
+            try:
+                matches = root.glob(f"**/*{tid}*.jsonl")
+            except Exception:
+                continue
+            for p in matches:
+                cwd = ""
+                try:
+                    with p.open("r", encoding="utf-8") as f:
+                        first = f.readline().strip()
+                    if first:
+                        obj = json.loads(first)
+                        if obj.get("type") == "session_meta":
+                            payload = obj.get("payload", {})
+                            cwd = str(payload.get("cwd") or "").strip()
+                except Exception:
+                    cwd = ""
+                return {"has_session_log": True, "cwd": cwd}
+        return {"has_session_log": False, "cwd": ""}
 
     reports = []
-    for tid in thread_ids:
-        t = threads_by_id.get(tid)
-        if not t:
+    for tid in ids:
+        sess = session_meta_for_tid(tid)
+        local = local_refs.get(tid, {"has_local_data": False, "project_buckets": set()})
+        has_state = tid in titles or tid in order_set or tid in pinned_set
+        exists = bool(has_state or local.get("has_local_data") or sess.get("has_session_log"))
+        if not exists:
             reports.append(
                 {
                     "id": tid,
@@ -2531,34 +2621,37 @@ def analyze_delete_impact(thread_ids):
             parents.append("global-state:thread-titles")
             impacts.append("사이드바 제목 메타에서 제거됨")
             score += 1
-        if tid in pinned:
+        if tid in pinned_set:
             parents.append("global-state:pinned-thread-ids")
             impacts.append("Pinned 목록에서 제거됨")
             score += 2
-        if tid in order:
+        if tid in order_set:
             parents.append("global-state:thread-order")
             impacts.append("사이드바 정렬(order)에서 제거됨")
             score += 1
-        if t.get("has_local_data"):
+        if local.get("has_local_data"):
             parents.append("com.openai.chat:conversations-v3-*")
             impacts.append("로컬 대화 캐시 파일(.data) 제거 대상")
             score += 1
-        if t.get("has_session_log"):
+        if sess.get("has_session_log"):
             parents.append(".codex:sessions/archived_sessions")
             impacts.append("세션 로그와 분리 저장이라 별도 정리 안 하면 로그는 남음")
             score += 1
-        if t.get("project_buckets"):
-            for b in t["project_buckets"]:
-                parents.append(f"project-bucket:{b}")
-                cnt = bucket_counts.get(b, 0)
-                if cnt <= 1:
-                    impacts.append(f"{b} 버킷이 비게 될 수 있음")
-                    score += 2
-                else:
-                    impacts.append(f"{b} 버킷의 스레드 수 감소")
-                    score += 1
-        if t.get("cwd"):
-            parents.append(f"workspace:{t['cwd']}")
+
+        project_buckets = sorted(local.get("project_buckets", set()))
+        for b in project_buckets:
+            parents.append(f"project-bucket:{b}")
+            cnt = int(bucket_counts.get(b, 0) or 0)
+            if cnt <= 1:
+                impacts.append(f"{b} 버킷이 비게 될 수 있음")
+                score += 2
+            else:
+                impacts.append(f"{b} 버킷의 스레드 수 감소")
+                score += 1
+
+        cwd = str(sess.get("cwd") or "").strip()
+        if cwd:
+            parents.append(f"workspace:{cwd}")
 
         if score >= 6:
             level = "high"
@@ -2571,7 +2664,7 @@ def analyze_delete_impact(thread_ids):
             {
                 "id": tid,
                 "exists": True,
-                "title": t.get("title", ""),
+                "title": titles.get(tid, f"thread {tid[:8]}"),
                 "risk_level": level,
                 "risk_score": score,
                 "summary": " / ".join(impacts) if impacts else "영향 거의 없음",
@@ -2580,10 +2673,7 @@ def analyze_delete_impact(thread_ids):
             }
         )
 
-    return {
-        "count": len(thread_ids),
-        "reports": reports,
-    }
+    return {"count": len(ids), "reports": reports}
 
 
 def find_thread_artifacts(thread_ids):
@@ -2690,8 +2780,7 @@ def rename_thread_title(thread_id, new_title):
         blob["order"] = []
     state["thread-titles"] = blob
     path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
-    OVERVIEW_CACHE["ts"] = 0.0
-    OVERVIEW_CACHE["data"] = None
+    invalidate_overview_cache()
     return {"ok": True, "thread_id": tid, "title": title, "path": str(path)}
 
 
@@ -2724,8 +2813,7 @@ def set_thread_pinned(thread_ids, pinned=True):
 
     state["pinned-thread-ids"] = out
     path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
-    OVERVIEW_CACHE["ts"] = 0.0
-    OVERVIEW_CACHE["data"] = None
+    invalidate_overview_cache()
     return {
         "ok": True,
         "pinned": bool(pinned),
@@ -2744,8 +2832,7 @@ def archive_threads_local(thread_ids):
     if not ids:
         return {"ok": False, "error": "no thread ids provided"}
     state_result = clean_global_state_refs(ids, dry_run=False)
-    OVERVIEW_CACHE["ts"] = 0.0
-    OVERVIEW_CACHE["data"] = None
+    invalidate_overview_cache()
     return {
         "ok": True,
         "mode": "local-hide",
@@ -2878,8 +2965,7 @@ def execute_local_cleanup(thread_ids, options, dry_run=True, confirm_token=""):
             "targets": target_artifacts,
             "confirm_token_expected": confirm_expected,
         }
-        OVERVIEW_CACHE["ts"] = 0.0
-        OVERVIEW_CACHE["data"] = None
+        invalidate_overview_cache()
         return result
 
 

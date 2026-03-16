@@ -202,6 +202,11 @@ const threadsInflight = new Map<
   Promise<{ status: number; payload: unknown } | null>
 >();
 let threadsBootCacheLoaded = false;
+const PYTHON_OVERVIEW_WARM_TTL_MS = 5 * 60 * 1000;
+const PYTHON_OVERVIEW_WARMUP_ENABLED =
+  !process.env.VITEST && process.env.API_DISABLE_PY_WARMUP !== "1";
+let pythonOverviewWarmupAt = 0;
+let pythonOverviewWarmupInflight: Promise<void> | null = null;
 
 const DATA_SOURCES_CACHE_TTL_MS = 60_000;
 let dataSourcesCache: DataSourcesCacheEntry | null = null;
@@ -427,6 +432,37 @@ async function getCachedThreadsRefresh(
 
   threadsInflight.set(key, task);
   return task;
+}
+
+async function warmPythonOverviewCache(): Promise<void> {
+  if (!PYTHON_OVERVIEW_WARMUP_ENABLED) return;
+  const now = Date.now();
+  if (pythonOverviewWarmupAt > 0 && now - pythonOverviewWarmupAt < PYTHON_OVERVIEW_WARM_TTL_MS) {
+    return;
+  }
+  if (pythonOverviewWarmupInflight) {
+    await pythonOverviewWarmupInflight;
+    return;
+  }
+  pythonOverviewWarmupInflight = (async () => {
+    try {
+      await requestPythonJson("/api/threads", "GET", {
+        query: {
+          offset: "0",
+          limit: "1",
+          q: "",
+          sort: "updated_desc",
+        },
+        timeoutMs: 180_000,
+      });
+      pythonOverviewWarmupAt = Date.now();
+    } catch {
+      // ignore warm-up failure; real request path will surface actionable errors
+    } finally {
+      pythonOverviewWarmupInflight = null;
+    }
+  })();
+  await pythonOverviewWarmupInflight;
 }
 
 /* ─────────────────────────────────────────────────────────────────── *
@@ -747,6 +783,7 @@ export async function createServer(): Promise<FastifyInstance> {
       return reply.code(400).send(envelope(null, parsed.error.message));
     }
     try {
+      void warmPythonOverviewCache();
       const proxied = await requestPythonJson("/api/analyze-delete", "POST", {
         body: parsed.data,
         timeoutMs: 180_000,
@@ -781,6 +818,7 @@ export async function createServer(): Promise<FastifyInstance> {
       return reply.code(400).send(envelope(null, parsed.error.message));
     }
     try {
+      void warmPythonOverviewCache();
       const proxied = await requestPythonJson("/api/local-cleanup", "POST", {
         body: parsed.data,
         timeoutMs: 180_000,
@@ -1364,6 +1402,10 @@ export async function createServer(): Promise<FastifyInstance> {
     const msg = error instanceof Error ? error.message : String(error);
     reply.code(500).send(envelope(null, msg));
   });
+
+  // Prime the legacy Python overview cache in the background so the first
+  // analyze/dry-run action does not pay the full cold-indexing cost.
+  void warmPythonOverviewCache();
 
   return app;
 }

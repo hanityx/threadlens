@@ -48,3 +48,21 @@ jobs:
 
       - name: Test API
         run: pnpm --filter @codex/api-ts test
+
+      - name: Contract parity (strict)
+        if: matrix.node-version == 20
+        run: |
+          set -euo pipefail
+          python3 server.py >/tmp/ci-python.log 2>&1 &
+          PY_PID=$!
+          pnpm --filter @codex/api-ts dev >/tmp/ci-api-ts.log 2>&1 &
+          TS_PID=$!
+          trap 'kill $TS_PID $PY_PID >/dev/null 2>&1 || true' EXIT
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:8787/api/runtime-health >/dev/null 2>&1 \
+              && curl -fsS http://127.0.0.1:8788/api/healthz >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+          REQUIRE_PARITY=1 pnpm --filter @codex/tests-api-contract test

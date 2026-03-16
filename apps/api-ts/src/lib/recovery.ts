@@ -495,8 +495,10 @@ export async function getDataSourceInventoryTs() {
   const historyPath = path.join(CODEX_HOME, "history.jsonl");
   const globalStatePath = path.join(CODEX_HOME, ".codex-global-state.json");
 
-  const codexRoot = await scanPathStatsTs(CODEX_HOME, true, "*");
-  const chatRoot = await scanPathStatsTs(CHAT_DIR, true, "*");
+  // Root-level inventories are intentionally shallow to keep first load fast.
+  // Detailed counts still come from dedicated session paths below.
+  const codexRoot = await scanPathStatsTs(CODEX_HOME, false, "*");
+  const chatRoot = await scanPathStatsTs(CHAT_DIR, false, "*");
   const claudeRoot = await scanPathStatsTs(CLAUDE_HOME, false, "*");
   const claudeProjects = await scanPathStatsTs(
     CLAUDE_PROJECTS_DIR,
