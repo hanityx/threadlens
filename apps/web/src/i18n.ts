@@ -49,6 +49,12 @@ const MESSAGES = {
       pinned: "Pinned",
       detailHint: "Run actions from the detail panel or use Bulk Actions below",
     },
+    alerts: {
+      pythonBackendDownTitle: "Python backend is unreachable",
+      pythonBackendDownBody:
+        "Some actions (thread cleanup, archive, alert hooks, legacy APIs) are in degraded mode.",
+      pythonBackendDownHint: "Check backend URL:",
+    },
     errors: {
       runtime: "Runtime connection failed",
       recovery: "Recovery data load failed",
@@ -368,6 +374,12 @@ const MESSAGES = {
       highRisk: "고위험 (70+)",
       pinned: "고정됨",
       detailHint: "세부 패널에서 실행하거나 아래 일괄 액션을 사용해",
+    },
+    alerts: {
+      pythonBackendDownTitle: "Python 백엔드 연결 불가",
+      pythonBackendDownBody:
+        "스레드 정리/아카이브/알림 훅/레거시 API 일부가 축소 모드로 동작해.",
+      pythonBackendDownHint: "확인할 백엔드 URL:",
     },
     errors: {
       runtime: "런타임 연결 실패",

@@ -505,8 +505,13 @@ async function proxyToPython(
   } catch (error) {
     return reply
       .code(502)
-      .send(envelope(null, `python-backend-unreachable: ${String(error)}`));
+      .send(pythonBackendUnavailable(error));
   }
+}
+
+function pythonBackendUnavailable(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return envelope(null, `python-backend-unreachable: ${message}`);
 }
 
 async function runBulkAction(action: BulkThreadAction, threadId: string) {
@@ -701,7 +706,7 @@ export async function createServer(): Promise<FastifyInstance> {
     } catch (error) {
       return reply
         .code(502)
-        .send(envelope(null, `python-backend-unreachable: ${String(error)}`));
+        .send(pythonBackendUnavailable(error));
     }
   });
 
@@ -727,7 +732,7 @@ export async function createServer(): Promise<FastifyInstance> {
     } catch (error) {
       return reply
         .code(502)
-        .send(envelope(null, `python-backend-unreachable: ${String(error)}`));
+        .send(pythonBackendUnavailable(error));
     }
   });
 
@@ -748,7 +753,7 @@ export async function createServer(): Promise<FastifyInstance> {
       } catch (error) {
         return reply
           .code(502)
-          .send(envelope(null, `python-backend-unreachable: ${String(error)}`));
+          .send(pythonBackendUnavailable(error));
       }
     },
   );
@@ -770,7 +775,7 @@ export async function createServer(): Promise<FastifyInstance> {
       } catch (error) {
         return reply
           .code(502)
-          .send(envelope(null, `python-backend-unreachable: ${String(error)}`));
+          .send(pythonBackendUnavailable(error));
       }
     },
   );
@@ -794,7 +799,7 @@ export async function createServer(): Promise<FastifyInstance> {
     } catch (error) {
       return reply
         .code(502)
-        .send(envelope(null, `python-backend-unreachable: ${String(error)}`));
+        .send(pythonBackendUnavailable(error));
     }
   });
 
@@ -829,7 +834,7 @@ export async function createServer(): Promise<FastifyInstance> {
     } catch (error) {
       return reply
         .code(502)
-        .send(envelope(null, `python-backend-unreachable: ${String(error)}`));
+        .send(pythonBackendUnavailable(error));
     }
   });
 
@@ -1067,7 +1072,7 @@ export async function createServer(): Promise<FastifyInstance> {
     } catch (error) {
       return reply
         .code(502)
-        .send(envelope(null, `python-backend-unreachable: ${String(error)}`));
+        .send(pythonBackendUnavailable(error));
     }
   });
 
@@ -1081,7 +1086,7 @@ export async function createServer(): Promise<FastifyInstance> {
     } catch (error) {
       return reply
         .code(502)
-        .send(envelope(null, `python-backend-unreachable: ${String(error)}`));
+        .send(pythonBackendUnavailable(error));
     }
   });
 
@@ -1107,7 +1112,7 @@ export async function createServer(): Promise<FastifyInstance> {
     } catch (error) {
       return reply
         .code(502)
-        .send(envelope(null, `python-backend-unreachable: ${String(error)}`));
+        .send(pythonBackendUnavailable(error));
     }
   });
 
@@ -1132,7 +1137,7 @@ export async function createServer(): Promise<FastifyInstance> {
     } catch (error) {
       return reply
         .code(502)
-        .send(envelope(null, `python-backend-unreachable: ${String(error)}`));
+        .send(pythonBackendUnavailable(error));
     }
   });
 
@@ -1160,7 +1165,7 @@ export async function createServer(): Promise<FastifyInstance> {
       } catch (error) {
         return reply
           .code(502)
-          .send(envelope(null, `python-backend-unreachable: ${String(error)}`));
+          .send(pythonBackendUnavailable(error));
       }
     },
   );
@@ -1177,7 +1182,7 @@ export async function createServer(): Promise<FastifyInstance> {
     } catch (error) {
       return reply
         .code(502)
-        .send(envelope(null, `python-backend-unreachable: ${String(error)}`));
+        .send(pythonBackendUnavailable(error));
     }
   });
 
@@ -1197,7 +1202,7 @@ export async function createServer(): Promise<FastifyInstance> {
       } catch (error) {
         return reply
           .code(502)
-          .send(envelope(null, `python-backend-unreachable: ${String(error)}`));
+          .send(pythonBackendUnavailable(error));
       }
     },
   );
@@ -1236,7 +1241,7 @@ export async function createServer(): Promise<FastifyInstance> {
     } catch (error) {
       return reply
         .code(502)
-        .send(envelope(null, `python-backend-unreachable: ${String(error)}`));
+        .send(pythonBackendUnavailable(error));
     }
   });
 
@@ -1260,7 +1265,7 @@ export async function createServer(): Promise<FastifyInstance> {
     } catch (error) {
       return reply
         .code(502)
-        .send(envelope(null, `python-backend-unreachable: ${String(error)}`));
+        .send(pythonBackendUnavailable(error));
     }
   });
 
@@ -1370,7 +1375,7 @@ export async function createServer(): Promise<FastifyInstance> {
     } catch (error) {
       return reply
         .code(502)
-        .send(envelope(null, `python-backend-unreachable: ${String(error)}`));
+        .send(pythonBackendUnavailable(error));
     }
   });
 

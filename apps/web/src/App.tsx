@@ -158,6 +158,9 @@ export function App() {
   } = useAppData();
 
   const messages = getMessages(locale);
+  const runtimeBackend = runtime.data?.data?.python_backend;
+  const showPythonBackendDegraded =
+    runtime.isError || (!runtimeLoading && runtimeBackend?.reachable === false);
 
   const handleProvidersIntent = () => {
     prefetchProvidersData();
@@ -346,6 +349,16 @@ export function App() {
           </span>
         </div>
       </section>
+
+      {showPythonBackendDegraded ? (
+        <section className="degraded-banner" role="status" aria-live="polite">
+          <strong>{messages.alerts.pythonBackendDownTitle}</strong>
+          <p>{messages.alerts.pythonBackendDownBody}</p>
+          <span>
+            {messages.alerts.pythonBackendDownHint} {runtimeBackend?.url ?? "http://127.0.0.1:8787"}
+          </span>
+        </section>
+      ) : null}
 
       <section className="kpi-grid">
         <KpiCard

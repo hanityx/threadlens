@@ -381,6 +381,33 @@ body::before {
   border-color: var(--accent);
 }
 
+.degraded-banner {
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line));
+  background: color-mix(in srgb, var(--warn-dim) 65%, var(--panel));
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  display: grid;
+  gap: 6px;
+  box-shadow: var(--shadow-sm);
+}
+
+.degraded-banner strong {
+  font-size: 0.9rem;
+  color: var(--warn);
+  letter-spacing: 0.01em;
+}
+
+.degraded-banner p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+}
+
+.degraded-banner span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 /* ── KPI Grid ─────────────────────────────────────────── */
 .kpi-grid {
   display: grid;
