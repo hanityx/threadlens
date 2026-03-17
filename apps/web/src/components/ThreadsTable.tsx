@@ -19,6 +19,7 @@ export interface ThreadsTableProps {
   selectedIds: string[];
 
   busy: boolean;
+  threadActionsDisabled: boolean;
   bulkPin: (ids: string[]) => void;
   bulkUnpin: (ids: string[]) => void;
   bulkArchive: (ids: string[]) => void;
@@ -42,12 +43,16 @@ export function ThreadsTable(props: ThreadsTableProps) {
     toggleSelectAllFiltered,
     selectedIds,
     busy,
+    threadActionsDisabled,
     bulkPin,
     bulkUnpin,
     bulkArchive,
     analyzeDelete,
     cleanupDryRun,
   } = props;
+  const disabledReason = threadActionsDisabled
+    ? messages.threadsTable.backendDownHint
+    : undefined;
 
   return (
     <section className="panel">
@@ -73,34 +78,48 @@ export function ThreadsTable(props: ThreadsTableProps) {
           </span>
         </div>
         <div className="sub-toolbar sticky-action-bar action-toolbar">
-          <button className="btn-base" disabled={selectedIds.length === 0 || busy} onClick={() => bulkPin(selectedIds)}>
+          <button
+            className="btn-base"
+            disabled={selectedIds.length === 0 || busy || threadActionsDisabled}
+            title={disabledReason}
+            onClick={() => bulkPin(selectedIds)}
+          >
             {messages.threadsTable.bulkPin}
           </button>
-          <button className="btn-base" disabled={selectedIds.length === 0 || busy} onClick={() => bulkUnpin(selectedIds)}>
+          <button
+            className="btn-base"
+            disabled={selectedIds.length === 0 || busy || threadActionsDisabled}
+            title={disabledReason}
+            onClick={() => bulkUnpin(selectedIds)}
+          >
             {messages.threadsTable.bulkUnpin}
           </button>
           <button
             className="btn-accent"
-            disabled={selectedIds.length === 0 || busy}
+            disabled={selectedIds.length === 0 || busy || threadActionsDisabled}
+            title={disabledReason}
             onClick={() => bulkArchive(selectedIds)}
           >
             {messages.threadsTable.bulkArchive}
           </button>
           <button
             className="btn-outline"
-            disabled={selectedIds.length === 0 || busy}
+            disabled={selectedIds.length === 0 || busy || threadActionsDisabled}
+            title={disabledReason}
             onClick={() => analyzeDelete(selectedIds)}
           >
             {messages.threadsTable.bulkImpact}
           </button>
           <button
             className="btn-outline"
-            disabled={selectedIds.length === 0 || busy}
+            disabled={selectedIds.length === 0 || busy || threadActionsDisabled}
+            title={disabledReason}
             onClick={() => cleanupDryRun(selectedIds)}
           >
             {messages.threadsTable.bulkCleanupDryRun}
           </button>
         </div>
+        {threadActionsDisabled ? <p className="sub-hint">{messages.threadsTable.backendDownHint}</p> : null}
       </div>
       <div className="table-wrap">
         <table>

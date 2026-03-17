@@ -4,6 +4,7 @@ import { prettyJson } from "../lib/helpers";
 
 export interface ForensicsPanelProps {
   messages: Messages;
+  threadActionsDisabled: boolean;
   selectedIds: string[];
   rows: ThreadRow[];
   cleanupData: CleanupPreviewData | null;
@@ -19,6 +20,7 @@ export interface ForensicsPanelProps {
 export function ForensicsPanel(props: ForensicsPanelProps) {
   const {
     messages,
+    threadActionsDisabled,
     selectedIds,
     rows,
     cleanupData,
@@ -53,6 +55,7 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
           <strong>{cleanupData?.confirm_token_expected ?? "-"}</strong>
         </div>
         <p className="sub-hint">{cleanupData?.confirm_help ?? messages.forensics.cleanupTokenHint}</p>
+        {threadActionsDisabled ? <p className="sub-hint">{messages.forensics.backendDownHint}</p> : null}
 
         <div className="impact-list">
           <h3>{messages.forensics.selectedImpactSummary}</h3>
@@ -84,7 +87,7 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
             <pre>{prettyJson(cleanupRaw)}</pre>
           </details>
         ) : null}
-        {analyzeDeleteError || cleanupDryRunError ? (
+        {!threadActionsDisabled && (analyzeDeleteError || cleanupDryRunError) ? (
           <div className="error-box">
             <div>{messages.errors.analysisDryRun}</div>
             {analyzeDeleteErrorMessage ? <div className="mono-sub">{analyzeDeleteErrorMessage}</div> : null}

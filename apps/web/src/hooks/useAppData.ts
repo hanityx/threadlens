@@ -61,6 +61,53 @@ type ProviderFetchMetrics = {
   sessions: number | null;
   parser: number | null;
 };
+const FORENSICS_RETRY_DELAY_MS = 450;
+const PYTHON_BACKEND_DOWN_CACHED = "python-backend-down-cached";
+
+function isTransientBackendError(raw: string): boolean {
+  const normalized = String(raw || "").toLowerCase();
+  return normalized.includes("python-backend-unreachable");
+}
+
+async function postWithTransientRetry<T>(
+  path: string,
+  body: unknown,
+): Promise<T> {
+  try {
+    return await apiPost<T>(path, body);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!isTransientBackendError(message)) throw error;
+    await new Promise<void>((resolve) => setTimeout(resolve, FORENSICS_RETRY_DELAY_MS));
+    return apiPost<T>(path, body);
+  }
+}
+
+function formatMutationErrorMessage(raw: string, locale: Locale): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+
+  const normalized = trimmed
+    .replace(/^\/api\/[^\s]+\s+status\s+\d+:\s*/i, "")
+    .trim();
+
+  if (
+    normalized.includes("python-backend-unreachable") ||
+    normalized.includes(PYTHON_BACKEND_DOWN_CACHED)
+  ) {
+    return locale === "ko"
+      ? "Python 백엔드 연결 실패로 요청이 중단됐어. `python3 server.py` 실행 상태를 확인해."
+      : "Request failed because the Python backend is unreachable. Check `python3 server.py` status.";
+  }
+
+  if (normalized.includes("confirm_token")) {
+    return locale === "ko"
+      ? "확인 토큰이 유효하지 않아. 드라이런을 다시 실행해서 최신 토큰으로 시도해."
+      : "Confirmation token is invalid. Run dry-run again and retry with the latest token.";
+  }
+
+  return normalized || trimmed;
+}
 
 export function useAppData() {
   /* ---- UI state ---- */
@@ -414,58 +461,94 @@ export function useAppData() {
   /*  Mutations                                                       */
   /* ================================================================ */
 
+  const syncRuntimeAfterBackendFailure = useCallback((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!isTransientBackendError(message)) return;
+    queryClient.invalidateQueries({ queryKey: ["runtime"] });
+  }, [queryClient]);
+
   const bulkPin = useMutation({
-    mutationFn: (threadIds: string[]) =>
-      apiPost<ApiEnvelope<BulkThreadActionResult>>("/api/bulk-thread-action", { action: "pin", thread_ids: threadIds }),
+    mutationFn: (threadIds: string[]) => {
+      const cachedReachable = runtime.data?.data?.python_backend?.reachable;
+      if (cachedReachable === false) {
+        throw new Error(`${PYTHON_BACKEND_DOWN_CACHED}: runtime-down`);
+      }
+      return apiPost<ApiEnvelope<BulkThreadActionResult>>("/api/bulk-thread-action", {
+        action: "pin",
+        thread_ids: threadIds,
+      });
+    },
     onSuccess: () => {
       setSelected({});
       queryClient.invalidateQueries({ queryKey: ["threads"] });
     },
+    onError: syncRuntimeAfterBackendFailure,
   });
 
   const bulkUnpin = useMutation({
-    mutationFn: (threadIds: string[]) =>
-      apiPost<ApiEnvelope<BulkThreadActionResult>>("/api/bulk-thread-action", {
+    mutationFn: (threadIds: string[]) => {
+      const cachedReachable = runtime.data?.data?.python_backend?.reachable;
+      if (cachedReachable === false) {
+        throw new Error(`${PYTHON_BACKEND_DOWN_CACHED}: runtime-down`);
+      }
+      return apiPost<ApiEnvelope<BulkThreadActionResult>>("/api/bulk-thread-action", {
         action: "unpin",
         thread_ids: threadIds,
-      }),
+      });
+    },
     onSuccess: () => {
       setSelected({});
       queryClient.invalidateQueries({ queryKey: ["threads"] });
     },
+    onError: syncRuntimeAfterBackendFailure,
   });
 
   const bulkArchive = useMutation({
-    mutationFn: (threadIds: string[]) =>
-      apiPost<ApiEnvelope<BulkThreadActionResult>>("/api/bulk-thread-action", {
+    mutationFn: (threadIds: string[]) => {
+      const cachedReachable = runtime.data?.data?.python_backend?.reachable;
+      if (cachedReachable === false) {
+        throw new Error(`${PYTHON_BACKEND_DOWN_CACHED}: runtime-down`);
+      }
+      return apiPost<ApiEnvelope<BulkThreadActionResult>>("/api/bulk-thread-action", {
         action: "archive_local",
         thread_ids: threadIds,
-      }),
+      });
+    },
     onSuccess: () => {
       setSelected({});
       queryClient.invalidateQueries({ queryKey: ["threads"] });
       queryClient.invalidateQueries({ queryKey: ["recovery"] });
     },
+    onError: syncRuntimeAfterBackendFailure,
   });
 
   const analyzeDelete = useMutation({
     mutationFn: (threadIds: string[]) => {
+      const cachedReachable = runtime.data?.data?.python_backend?.reachable;
+      if (cachedReachable === false) {
+        throw new Error(`${PYTHON_BACKEND_DOWN_CACHED}: runtime-down`);
+      }
       const ids = normalizeThreadIds(threadIds);
       if (ids.length === 0) {
         throw new Error("no-valid-thread-ids");
       }
-      return apiPost<unknown>("/api/analyze-delete", { ids });
+      return postWithTransientRetry<unknown>("/api/analyze-delete", { ids });
     },
     onSuccess: (data) => setAnalysisRaw(data),
+    onError: syncRuntimeAfterBackendFailure,
   });
 
   const cleanupDryRun = useMutation({
     mutationFn: (threadIds: string[]) => {
+      const cachedReachable = runtime.data?.data?.python_backend?.reachable;
+      if (cachedReachable === false) {
+        throw new Error(`${PYTHON_BACKEND_DOWN_CACHED}: runtime-down`);
+      }
       const ids = normalizeThreadIds(threadIds);
       if (ids.length === 0) {
         throw new Error("no-valid-thread-ids");
       }
-      return apiPost<unknown>("/api/local-cleanup", {
+      return postWithTransientRetry<unknown>("/api/local-cleanup", {
         ids,
         dry_run: true,
         options: {
@@ -477,6 +560,7 @@ export function useAppData() {
       });
     },
     onSuccess: (data) => setCleanupRaw(data),
+    onError: syncRuntimeAfterBackendFailure,
   });
 
   const providerSessionAction = useMutation({
@@ -514,6 +598,32 @@ export function useAppData() {
       queryClient.invalidateQueries({ queryKey: ["provider-matrix"] });
     },
   });
+
+  const pythonBackendReachable = runtime.data?.data?.python_backend?.reachable;
+  useEffect(() => {
+    if (pythonBackendReachable !== true) return;
+    if (
+      !bulkPin.isError &&
+      !bulkUnpin.isError &&
+      !bulkArchive.isError &&
+      !analyzeDelete.isError &&
+      !cleanupDryRun.isError
+    ) {
+      return;
+    }
+    bulkPin.reset();
+    bulkUnpin.reset();
+    bulkArchive.reset();
+    analyzeDelete.reset();
+    cleanupDryRun.reset();
+  }, [
+    pythonBackendReachable,
+    bulkPin,
+    bulkUnpin,
+    bulkArchive,
+    analyzeDelete,
+    cleanupDryRun,
+  ]);
 
   /* ================================================================ */
   /*  Derived / Memoized values                                       */
@@ -590,14 +700,34 @@ export function useAppData() {
   const cleanupData = extractEnvelopeData<CleanupPreviewData>(cleanupRaw);
   const selectedImpactRows = (analysisData?.reports ?? []).filter((r) => selectedSet.has(r.id));
   const analyzeDeleteErrorMessage = analyzeDelete.error instanceof Error
-    ? analyzeDelete.error.message
+    ? formatMutationErrorMessage(analyzeDelete.error.message, locale)
     : analyzeDelete.error
-      ? String(analyzeDelete.error)
+      ? formatMutationErrorMessage(String(analyzeDelete.error), locale)
       : "";
   const cleanupDryRunErrorMessage = cleanupDryRun.error instanceof Error
-    ? cleanupDryRun.error.message
+    ? formatMutationErrorMessage(cleanupDryRun.error.message, locale)
     : cleanupDryRun.error
-      ? String(cleanupDryRun.error)
+      ? formatMutationErrorMessage(String(cleanupDryRun.error), locale)
+      : "";
+  const bulkActionErrorMessage =
+    bulkArchive.error instanceof Error
+      ? formatMutationErrorMessage(bulkArchive.error.message, locale)
+      : bulkArchive.error
+        ? formatMutationErrorMessage(String(bulkArchive.error), locale)
+        : bulkPin.error instanceof Error
+          ? formatMutationErrorMessage(bulkPin.error.message, locale)
+          : bulkPin.error
+            ? formatMutationErrorMessage(String(bulkPin.error), locale)
+            : bulkUnpin.error instanceof Error
+              ? formatMutationErrorMessage(bulkUnpin.error.message, locale)
+              : bulkUnpin.error
+                ? formatMutationErrorMessage(String(bulkUnpin.error), locale)
+                : "";
+  const bulkActionError = bulkArchive.isError || bulkPin.isError || bulkUnpin.isError;
+  const providerSessionActionErrorMessage = providerSessionAction.error instanceof Error
+    ? formatMutationErrorMessage(providerSessionAction.error.message, locale)
+    : providerSessionAction.error
+      ? formatMutationErrorMessage(String(providerSessionAction.error), locale)
       : "";
 
   /* ---- provider derived ---- */
@@ -1029,6 +1159,9 @@ export function useAppData() {
 
   const runProviderAction = (action: "archive_local" | "delete_local", dryRun: boolean) => {
     if (providerView === "all" || selectedProviderFilePaths.length === 0) return;
+    if (providerSessionAction.isError) {
+      providerSessionAction.reset();
+    }
     const key = providerActionSelectionKey(
       providerView,
       action,
@@ -1051,6 +1184,9 @@ export function useAppData() {
     action: "archive_local" | "delete_local",
     dryRun: boolean,
   ) => {
+    if (providerSessionAction.isError) {
+      providerSessionAction.reset();
+    }
     const key = providerActionSelectionKey(provider, action, [filePath]);
     const scopedToken = providerActionTokens[key] ?? "";
     const shouldPreview = !dryRun && !scopedToken;
@@ -1210,7 +1346,10 @@ export function useAppData() {
     cleanupDryRunError: cleanupDryRun.isError,
     analyzeDeleteErrorMessage,
     cleanupDryRunErrorMessage,
+    bulkActionError,
+    bulkActionErrorMessage,
     providerSessionActionError: providerSessionAction.isError,
+    providerSessionActionErrorMessage,
 
     /* derived – threads */
     rows, filteredRows, visibleRows,

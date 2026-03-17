@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useAppData } from "./hooks/useAppData";
 import { KpiCard } from "./components/KpiCard";
 import { ThreadsTable } from "./components/ThreadsTable";
@@ -77,7 +77,10 @@ export function App() {
     cleanupDryRunError,
     analyzeDeleteErrorMessage,
     cleanupDryRunErrorMessage,
+    bulkActionError,
+    bulkActionErrorMessage,
     providerSessionActionError,
+    providerSessionActionErrorMessage,
 
     rows,
     filteredRows,
@@ -161,6 +164,29 @@ export function App() {
   const runtimeBackend = runtime.data?.data?.python_backend;
   const showPythonBackendDegraded =
     runtime.isError || (!runtimeLoading && runtimeBackend?.reachable === false);
+  const [acknowledgedForensicsErrorKeys, setAcknowledgedForensicsErrorKeys] = useState<{
+    analyze: string;
+    cleanup: string;
+  }>({
+    analyze: "",
+    cleanup: "",
+  });
+  const analyzeErrorKey = analyzeDeleteError
+    ? `analyze:${analyzeDeleteErrorMessage || "unknown"}`
+    : "";
+  const cleanupErrorKey = cleanupDryRunError
+    ? `cleanup:${cleanupDryRunErrorMessage || "unknown"}`
+    : "";
+  const showGlobalAnalyzeDeleteError =
+    !showForensics &&
+    !showPythonBackendDegraded &&
+    Boolean(analyzeErrorKey) &&
+    acknowledgedForensicsErrorKeys.analyze !== analyzeErrorKey;
+  const showGlobalCleanupDryRunError =
+    !showForensics &&
+    !showPythonBackendDegraded &&
+    Boolean(cleanupErrorKey) &&
+    acknowledgedForensicsErrorKeys.cleanup !== cleanupErrorKey;
 
   const handleProvidersIntent = () => {
     prefetchProvidersData();
@@ -175,6 +201,43 @@ export function App() {
   const handleForensicsIntent = () => {
     preloadForensicsPanel();
   };
+
+  useEffect(() => {
+    if (!showForensics) return;
+    setAcknowledgedForensicsErrorKeys((prev) => {
+      const nextAnalyze = analyzeErrorKey || prev.analyze;
+      const nextCleanup = cleanupErrorKey || prev.cleanup;
+      if (nextAnalyze === prev.analyze && nextCleanup === prev.cleanup) {
+        return prev;
+      }
+      return {
+        analyze: nextAnalyze,
+        cleanup: nextCleanup,
+      };
+    });
+  }, [showForensics, analyzeErrorKey, cleanupErrorKey]);
+
+  useEffect(() => {
+    if (analyzeErrorKey) return;
+    setAcknowledgedForensicsErrorKeys((prev) => {
+      if (!prev.analyze) return prev;
+      return {
+        ...prev,
+        analyze: "",
+      };
+    });
+  }, [analyzeErrorKey]);
+
+  useEffect(() => {
+    if (cleanupErrorKey) return;
+    setAcknowledgedForensicsErrorKeys((prev) => {
+      if (!prev.cleanup) return prev;
+      return {
+        ...prev,
+        cleanup: "",
+      };
+    });
+  }, [cleanupErrorKey]);
 
   useEffect(() => {
     if (layoutView !== "threads") return;
@@ -502,6 +565,7 @@ export function App() {
               toggleSelectAllFiltered={toggleSelectAllFiltered}
               selectedIds={selectedIds}
               busy={busy}
+              threadActionsDisabled={showPythonBackendDegraded}
               bulkPin={bulkPin}
               bulkUnpin={bulkUnpin}
               bulkArchive={bulkArchive}
@@ -526,6 +590,7 @@ export function App() {
             >
               <ForensicsPanel
                 messages={messages}
+                threadActionsDisabled={showPythonBackendDegraded}
                 selectedIds={selectedIds}
                 rows={rows}
                 cleanupData={cleanupData}
@@ -555,6 +620,7 @@ export function App() {
             threadTranscriptLimit={threadTranscriptLimit}
             setThreadTranscriptLimit={setThreadTranscriptLimit}
             busy={busy}
+            threadActionsDisabled={showPythonBackendDegraded}
             bulkPin={bulkPin}
             bulkUnpin={bulkUnpin}
             bulkArchive={bulkArchive}
@@ -581,7 +647,30 @@ export function App() {
       {providerMatrix.isError ? <div className="error-box">{messages.errors.providerMatrix}</div> : null}
       {providerSessions.isError ? <div className="error-box">{messages.errors.providerSessions}</div> : null}
       {providerParserHealth.isError ? <div className="error-box">{messages.errors.parserHealth}</div> : null}
-      {providerSessionActionError ? <div className="error-box">{messages.errors.providerAction}</div> : null}
+      {showGlobalAnalyzeDeleteError ? (
+        <div className="error-box">
+          <div>{messages.errors.impactAnalysis}</div>
+          {analyzeDeleteErrorMessage ? <div className="mono-sub">{analyzeDeleteErrorMessage}</div> : null}
+        </div>
+      ) : null}
+      {showGlobalCleanupDryRunError ? (
+        <div className="error-box">
+          <div>{messages.errors.cleanupDryRun}</div>
+          {cleanupDryRunErrorMessage ? <div className="mono-sub">{cleanupDryRunErrorMessage}</div> : null}
+        </div>
+      ) : null}
+      {providerSessionActionError ? (
+        <div className="error-box">
+          <div>{messages.errors.providerAction}</div>
+          {providerSessionActionErrorMessage ? <div className="mono-sub">{providerSessionActionErrorMessage}</div> : null}
+        </div>
+      ) : null}
+      {bulkActionError && !showPythonBackendDegraded ? (
+        <div className="error-box">
+          <div>{messages.errors.threadAction}</div>
+          {bulkActionErrorMessage ? <div className="mono-sub">{bulkActionErrorMessage}</div> : null}
+        </div>
+      ) : null}
       {busy ? <div className="busy-indicator">{messages.busy}</div> : null}
     </main>
   );

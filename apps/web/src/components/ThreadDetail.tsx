@@ -14,6 +14,7 @@ export interface ThreadDetailProps {
   threadTranscriptLimit: number;
   setThreadTranscriptLimit: React.Dispatch<React.SetStateAction<number>>;
   busy: boolean;
+  threadActionsDisabled: boolean;
   bulkPin: (ids: string[]) => void;
   bulkUnpin: (ids: string[]) => void;
   bulkArchive: (ids: string[]) => void;
@@ -33,12 +34,16 @@ export function ThreadDetail(props: ThreadDetailProps) {
     threadTranscriptLimit,
     setThreadTranscriptLimit,
     busy,
+    threadActionsDisabled,
     bulkPin,
     bulkUnpin,
     bulkArchive,
     analyzeDelete,
     cleanupDryRun,
   } = props;
+  const disabledReason = threadActionsDisabled
+    ? messages.threadDetail.backendDownHint
+    : undefined;
 
   return (
     <section className="panel">
@@ -89,7 +94,8 @@ export function ThreadDetail(props: ThreadDetailProps) {
                     type="button"
                     className="btn-base"
                     onClick={() => selectedThreadId && bulkPin([selectedThreadId])}
-                    disabled={!selectedThreadId || busy}
+                    disabled={!selectedThreadId || busy || threadActionsDisabled}
+                    title={disabledReason}
                   >
                     {messages.threadDetail.pin}
                   </button>
@@ -97,7 +103,8 @@ export function ThreadDetail(props: ThreadDetailProps) {
                     type="button"
                     className="btn-base"
                     onClick={() => selectedThreadId && bulkUnpin([selectedThreadId])}
-                    disabled={!selectedThreadId || busy}
+                    disabled={!selectedThreadId || busy || threadActionsDisabled}
+                    title={disabledReason}
                   >
                     {messages.threadDetail.unpin}
                   </button>
@@ -105,7 +112,8 @@ export function ThreadDetail(props: ThreadDetailProps) {
                     type="button"
                     className="btn-accent"
                     onClick={() => selectedThreadId && bulkArchive([selectedThreadId])}
-                    disabled={!selectedThreadId || busy}
+                    disabled={!selectedThreadId || busy || threadActionsDisabled}
+                    title={disabledReason}
                   >
                     {messages.threadDetail.localArchive}
                   </button>
@@ -113,7 +121,8 @@ export function ThreadDetail(props: ThreadDetailProps) {
                     type="button"
                     className="btn-outline"
                     onClick={() => selectedThreadId && analyzeDelete([selectedThreadId])}
-                    disabled={!selectedThreadId || busy}
+                    disabled={!selectedThreadId || busy || threadActionsDisabled}
+                    title={disabledReason}
                   >
                     {messages.threadDetail.impactAnalysis}
                   </button>
@@ -121,11 +130,13 @@ export function ThreadDetail(props: ThreadDetailProps) {
                     type="button"
                     className="btn-outline"
                     onClick={() => selectedThreadId && cleanupDryRun([selectedThreadId])}
-                    disabled={!selectedThreadId || busy}
+                    disabled={!selectedThreadId || busy || threadActionsDisabled}
+                    title={disabledReason}
                   >
                     {messages.threadDetail.cleanupDryRun}
                   </button>
                 </div>
+                {threadActionsDisabled ? <p className="sub-hint">{messages.threadDetail.backendDownHint}</p> : null}
               </div>
             </details>
             <details className="detail-section" open>
