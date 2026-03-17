@@ -236,16 +236,16 @@ export function useAppData() {
     );
   }, [slowProviderThresholdMs]);
 
-  const wantsProvidersData = layoutView === "overview" || layoutView === "providers";
-  const wantsRoutingData = layoutView === "overview" || layoutView === "routing";
+  const wantsProvidersSummary = layoutView === "overview";
+  const wantsProvidersPanel = layoutView === "providers";
+  const wantsProvidersData = wantsProvidersPanel;
+  const wantsRoutingData = layoutView === "routing";
   const wantsRecoveryData = layoutView === "overview" || layoutView === "forensics";
   const recoveryQueryEnabled = wantsRecoveryData || secondaryDataHydrated;
-  const providerMatrixQueryEnabled = wantsProvidersData || secondaryDataHydrated;
-  const providerSessionsQueryEnabled = wantsProvidersData || secondaryDataHydrated;
-  const providerParserQueryEnabled = wantsProvidersData || secondaryDataHydrated;
-  const dataSourcesQueryEnabled = wantsProvidersData || secondaryDataHydrated;
+  const providerMatrixQueryEnabled = wantsProvidersSummary || wantsProvidersPanel;
+  const dataSourcesQueryEnabled = wantsProvidersData;
   const recoveryRefetchInterval = wantsRecoveryData ? 15000 : false;
-  const providerMatrixRefetchInterval = wantsProvidersData ? 60000 : false;
+  const providerMatrixRefetchInterval = providerMatrixQueryEnabled ? 60000 : false;
   const providerSessionsRefetchInterval = wantsProvidersData ? 60000 : false;
   const providerParserRefetchInterval = wantsProvidersData ? 60000 : false;
   const dataSourcesRefetchInterval = wantsProvidersData ? 120000 : false;
@@ -304,11 +304,16 @@ export function useAppData() {
     retry: 1,
   });
 
+  const threadsQueryLimit =
+    layoutView === "threads" || layoutView === "forensics"
+      ? PAGE_SIZE
+      : 60;
+
   const threads = useQuery({
-    queryKey: ["threads", deferredQuery],
+    queryKey: ["threads", deferredQuery, threadsQueryLimit],
     queryFn: ({ signal }) =>
       apiGet<ThreadsResponse>(
-        `/api/threads?offset=0&limit=${PAGE_SIZE}&q=${encodeURIComponent(deferredQuery)}&sort=updated_desc`,
+        `/api/threads?offset=0&limit=${threadsQueryLimit}&q=${encodeURIComponent(deferredQuery)}&sort=updated_desc`,
         { signal },
       ),
     placeholderData: (previous) => previous,
@@ -361,6 +366,13 @@ export function useAppData() {
     providerView !== "all" && knownProviderIds.has(providerView)
       ? providerView
       : "all";
+  const providerScopeHydrating =
+    providerView !== "all" &&
+    knownProviderIds.size === 0 &&
+    providerMatrixQueryEnabled &&
+    (providerMatrix.isLoading || providerMatrix.isFetching);
+  const providerSessionsQueryEnabled = wantsProvidersData && !providerScopeHydrating;
+  const providerParserQueryEnabled = wantsProvidersData && !providerScopeHydrating;
   const providerSessionsLimit =
     providerQueryView === "all"
       ? { fast: 30, balanced: 60, deep: 140 }[providerDataDepth]
@@ -1117,11 +1129,11 @@ export function useAppData() {
     cleanupDryRun.isPending ||
     providerSessionAction.isPending;
 
-  const showProviders = layoutView === "overview" || layoutView === "providers";
-  const showThreadsTable = layoutView === "overview" || layoutView === "threads";
-  const showForensics = layoutView === "overview" || layoutView === "forensics";
-  const showRouting = layoutView === "overview" || layoutView === "routing";
-  const showDetails = layoutView === "overview" || layoutView === "threads" || layoutView === "forensics";
+  const showProviders = layoutView === "providers";
+  const showThreadsTable = layoutView === "threads";
+  const showForensics = layoutView === "forensics";
+  const showRouting = layoutView === "routing";
+  const showDetails = layoutView === "threads" || layoutView === "forensics";
 
   const toggleSelectAllFiltered = (checked: boolean) => {
     if (checked) {
@@ -1200,28 +1212,74 @@ export function useAppData() {
   };
 
   const prefetchProvidersData = useCallback(() => {
-    void queryClient.prefetchQuery({
-      queryKey: ["data-sources"],
-      queryFn: () => apiGet<DataSourcesEnvelope>("/api/data-sources"),
-      staleTime: 60000,
-    });
-    void queryClient.prefetchQuery({
-      queryKey: providerSessionsQueryKey,
-      queryFn: () => apiGet<ProviderSessionsEnvelope>(providerSessionsQueryPath),
-      staleTime: 30000,
-    });
-    void queryClient.prefetchQuery({
-      queryKey: providerParserQueryKey,
-      queryFn: () => apiGet<ProviderParserHealthEnvelope>(providerParserQueryPath),
-      staleTime: 30000,
-    });
-  }, [
-    queryClient,
-    providerSessionsQueryKey,
-    providerSessionsQueryPath,
-    providerParserQueryKey,
-    providerParserQueryPath,
-  ]);
+    void (async () => {
+      const matrixEnvelope = await queryClient.fetchQuery({
+        queryKey: ["provider-matrix"],
+        queryFn: () => apiGet<ProviderMatrixEnvelope>("/api/provider-matrix"),
+        staleTime: 30000,
+      });
+
+      const matrixData =
+        extractEnvelopeData<NonNullable<ProviderMatrixEnvelope["data"]>>(matrixEnvelope) ?? {};
+      const matrixProviderIds = new Set(
+        (matrixData.providers ?? [])
+          .map((item) => String(item.provider || "").trim())
+          .filter(Boolean),
+      );
+      const prefetchProviderView =
+        providerView === "all"
+          ? "all"
+          : matrixProviderIds.size === 0 || matrixProviderIds.has(providerView)
+            ? providerView
+            : "all";
+      const prefetchSessionsLimit =
+        prefetchProviderView === "all"
+          ? { fast: 30, balanced: 60, deep: 140 }[providerDataDepth]
+          : { fast: 120, balanced: 240, deep: 500 }[providerDataDepth];
+      const prefetchParserLimit =
+        prefetchProviderView === "all"
+          ? { fast: 25, balanced: 40, deep: 80 }[providerDataDepth]
+          : { fast: 80, balanced: 120, deep: 220 }[providerDataDepth];
+      const prefetchScopeQuery =
+        prefetchProviderView === "all"
+          ? ""
+          : `&provider=${encodeURIComponent(prefetchProviderView)}`;
+
+      await Promise.all([
+        queryClient.prefetchQuery({
+          queryKey: ["data-sources"],
+          queryFn: () => apiGet<DataSourcesEnvelope>("/api/data-sources"),
+          staleTime: 60000,
+        }),
+        queryClient.prefetchQuery({
+          queryKey: [
+            "provider-sessions",
+            prefetchProviderView,
+            providerDataDepth,
+            prefetchSessionsLimit,
+          ],
+          queryFn: () =>
+            apiGet<ProviderSessionsEnvelope>(
+              `/api/provider-sessions?limit=${prefetchSessionsLimit}${prefetchScopeQuery}`,
+            ),
+          staleTime: 30000,
+        }),
+        queryClient.prefetchQuery({
+          queryKey: [
+            "provider-parser-health",
+            prefetchProviderView,
+            providerDataDepth,
+            prefetchParserLimit,
+          ],
+          queryFn: () =>
+            apiGet<ProviderParserHealthEnvelope>(
+              `/api/provider-parser-health?limit=${prefetchParserLimit}${prefetchScopeQuery}`,
+            ),
+          staleTime: 30000,
+        }),
+      ]);
+    })().catch(() => undefined);
+  }, [queryClient, providerView, providerDataDepth]);
 
   const prefetchRoutingData = useCallback(() => {
     void queryClient.prefetchQuery({
@@ -1281,7 +1339,6 @@ export function useAppData() {
 
     const runWarmup = () => {
       if (cancelled) return;
-      prefetchProvidersData();
       prefetchRoutingData();
     };
 
@@ -1303,7 +1360,7 @@ export function useAppData() {
         w.cancelIdleCallback(idleId);
       }
     };
-  }, [wantsProvidersData, wantsRoutingData, prefetchProvidersData, prefetchRoutingData]);
+  }, [wantsProvidersData, wantsRoutingData, prefetchRoutingData]);
 
   const providersRefreshing =
     providersRefreshPending ||
