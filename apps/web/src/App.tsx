@@ -601,6 +601,9 @@ export function App() {
                 threadActionsDisabled={showPythonBackendDegraded}
                 selectedIds={selectedIds}
                 rows={rows}
+                busy={busy}
+                analyzeDelete={analyzeDelete}
+                cleanupDryRun={cleanupDryRun}
                 cleanupData={cleanupData}
                 selectedImpactRows={selectedImpactRows}
                 analysisRaw={analysisRaw}

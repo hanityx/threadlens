@@ -67,7 +67,18 @@ const PYTHON_BACKEND_DOWN_CACHED = "python-backend-down-cached";
 
 function isTransientBackendError(raw: string): boolean {
   const normalized = String(raw || "").toLowerCase();
-  return normalized.includes("python-backend-unreachable");
+  return (
+    normalized.includes("python-backend-unreachable") ||
+    normalized.includes(PYTHON_BACKEND_DOWN_CACHED) ||
+    normalized.includes("status 502") ||
+    normalized.includes("status 503") ||
+    normalized.includes("fetch failed") ||
+    normalized.includes("failed to fetch") ||
+    normalized.includes("networkerror") ||
+    normalized.includes("socket hang up") ||
+    normalized.includes("econnrefused") ||
+    normalized.includes("etimedout")
+  );
 }
 
 function nowMs(): number {
@@ -81,14 +92,21 @@ async function postWithTransientRetry<T>(
   path: string,
   body: unknown,
 ): Promise<T> {
-  try {
-    return await apiPost<T>(path, body);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (!isTransientBackendError(message)) throw error;
-    await new Promise<void>((resolve) => setTimeout(resolve, FORENSICS_RETRY_DELAY_MS));
-    return apiPost<T>(path, body);
+  const retryDelaysMs = [FORENSICS_RETRY_DELAY_MS, FORENSICS_RETRY_DELAY_MS * 2];
+  for (let attempt = 0; attempt <= retryDelaysMs.length; attempt += 1) {
+    try {
+      return await apiPost<T>(path, body);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!isTransientBackendError(message) || attempt >= retryDelaysMs.length) {
+        throw error;
+      }
+      await new Promise<void>((resolve) =>
+        setTimeout(resolve, retryDelaysMs[attempt] ?? FORENSICS_RETRY_DELAY_MS),
+      );
+    }
   }
+  throw new Error("transient-retry-exhausted");
 }
 
 function formatMutationErrorMessage(raw: string, locale: Locale): string {
@@ -101,11 +119,26 @@ function formatMutationErrorMessage(raw: string, locale: Locale): string {
 
   if (
     normalized.includes("python-backend-unreachable") ||
+    normalized.includes("status 502") ||
+    normalized.includes("status 503") ||
+    normalized.includes("fetch failed") ||
+    normalized.includes("failed to fetch") ||
+    normalized.includes("networkerror") ||
     normalized.includes(PYTHON_BACKEND_DOWN_CACHED)
   ) {
     return locale === "ko"
-      ? "Python 백엔드 연결 실패로 요청이 중단됐어. `python3 server.py` 실행 상태를 확인해."
-      : "Request failed because the Python backend is unreachable. Check `python3 server.py` status.";
+      ? "백엔드 연결이 불안정해서 요청이 실패했어. `python3 server.py`와 `pnpm --filter @codex/api-ts dev` 상태를 확인하고 다시 시도해."
+      : "Request failed because backend connectivity is unstable. Check `python3 server.py` and `pnpm --filter @codex/api-ts dev`, then retry.";
+  }
+
+  if (
+    normalized.includes("no-valid-thread-ids") ||
+    normalized.includes("no thread ids provided") ||
+    normalized.includes("at least 1")
+  ) {
+    return locale === "ko"
+      ? "선택된 스레드 ID가 없어 요청을 실행할 수 없어. 스레드를 먼저 선택한 뒤 다시 시도해."
+      : "No valid thread IDs were selected. Select one or more threads and retry.";
   }
 
   if (normalized.includes("confirm_token")) {

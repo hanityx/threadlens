@@ -7,6 +7,9 @@ export interface ForensicsPanelProps {
   threadActionsDisabled: boolean;
   selectedIds: string[];
   rows: ThreadRow[];
+  busy: boolean;
+  analyzeDelete: (ids: string[]) => void;
+  cleanupDryRun: (ids: string[]) => void;
   cleanupData: CleanupPreviewData | null;
   selectedImpactRows: AnalyzeDeleteReport[];
   analysisRaw: unknown;
@@ -23,6 +26,9 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
     threadActionsDisabled,
     selectedIds,
     rows,
+    busy,
+    analyzeDelete,
+    cleanupDryRun,
     cleanupData,
     selectedImpactRows,
     analysisRaw,
@@ -32,6 +38,7 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
     analyzeDeleteErrorMessage,
     cleanupDryRunErrorMessage,
   } = props;
+  const canRetryForensics = !threadActionsDisabled && !busy && selectedIds.length > 0;
 
   return (
     <section className="panel impact-panel">
@@ -92,6 +99,27 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
             <div>{messages.errors.analysisDryRun}</div>
             {analyzeDeleteErrorMessage ? <div className="mono-sub">{analyzeDeleteErrorMessage}</div> : null}
             {cleanupDryRunErrorMessage ? <div className="mono-sub">{cleanupDryRunErrorMessage}</div> : null}
+            <div className="sub-toolbar action-toolbar">
+              <button
+                type="button"
+                className="btn-outline"
+                disabled={!canRetryForensics}
+                onClick={() => analyzeDelete(selectedIds)}
+              >
+                {messages.forensics.retryImpact}
+              </button>
+              <button
+                type="button"
+                className="btn-outline"
+                disabled={!canRetryForensics}
+                onClick={() => cleanupDryRun(selectedIds)}
+              >
+                {messages.forensics.retryDryRun}
+              </button>
+            </div>
+            {!threadActionsDisabled && selectedIds.length === 0 ? (
+              <div className="sub-hint">{messages.forensics.retryNeedsSelection}</div>
+            ) : null}
           </div>
         ) : null}
       </div>
