@@ -140,6 +140,8 @@ export function App() {
     providerSessionsLoading,
     parserLoading,
     executionGraphLoading,
+    threadsFastBooting,
+    threadsFetchMs,
     providersRefreshing,
     providersLastRefreshAt,
     providerFetchMetrics,
@@ -543,6 +545,12 @@ export function App() {
             <option value="high-risk">{messages.toolbar.highRisk}</option>
             <option value="pinned">{messages.toolbar.pinned}</option>
           </select>
+          <span className="sub-hint">
+            {messages.toolbar.threadsFetchMs} {threadsFetchMs !== null ? `${threadsFetchMs}ms` : "-"}
+          </span>
+          {threadsFastBooting ? (
+            <span className="sub-hint">{messages.toolbar.threadsBootMode}</span>
+          ) : null}
           <span className="sub-hint">{messages.toolbar.detailHint}</span>
         </section>
       ) : null}

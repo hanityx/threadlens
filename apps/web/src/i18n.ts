@@ -47,6 +47,8 @@ const MESSAGES = {
       all: "All",
       highRisk: "High Risk (70+)",
       pinned: "Pinned",
+      threadsFetchMs: "Threads fetch",
+      threadsBootMode: "Fast boot mode (light payload)",
       detailHint: "Run actions from the detail panel or use Bulk Actions below",
     },
     alerts: {
@@ -379,6 +381,8 @@ const MESSAGES = {
       all: "전체",
       highRisk: "고위험 (70+)",
       pinned: "고정됨",
+      threadsFetchMs: "스레드 조회",
+      threadsBootMode: "빠른 부팅 모드 (경량 조회)",
       detailHint: "세부 패널에서 실행하거나 아래 일괄 액션을 사용해",
     },
     alerts: {

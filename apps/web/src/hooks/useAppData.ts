@@ -51,6 +51,7 @@ function normalizeThreadIds(threadIds: string[]): string[] {
 }
 
 const THREADS_BOOTSTRAP_CACHE_KEY = "cmc-threads-cache-v1";
+const THREADS_FAST_BOOT_LIMIT = 80;
 const SLOW_PROVIDER_SCAN_MS_DEFAULT = 1200;
 const SLOW_PROVIDER_SCAN_MS_MIN = 400;
 const SLOW_PROVIDER_SCAN_MS_MAX = 6000;
@@ -67,6 +68,13 @@ const PYTHON_BACKEND_DOWN_CACHED = "python-backend-down-cached";
 function isTransientBackendError(raw: string): boolean {
   const normalized = String(raw || "").toLowerCase();
   return normalized.includes("python-backend-unreachable");
+}
+
+function nowMs(): number {
+  if (typeof performance !== "undefined" && typeof performance.now === "function") {
+    return performance.now();
+  }
+  return Date.now();
 }
 
 async function postWithTransientRetry<T>(
@@ -154,6 +162,7 @@ export function useAppData() {
   const [selectedProviderFiles, setSelectedProviderFiles] = useState<Record<string, boolean>>({});
   const [selectedThreadId, setSelectedThreadId] = useState<string>("");
   const [selectedSessionPath, setSelectedSessionPath] = useState<string>("");
+  const [threadsFastBoot, setThreadsFastBoot] = useState(true);
   const [renderLimit, setRenderLimit] = useState(INITIAL_CHUNK);
   const [threadsBootstrapRows, setThreadsBootstrapRows] = useState<ThreadRow[]>(() => {
     if (typeof window === "undefined") return [];
@@ -199,6 +208,7 @@ export function useAppData() {
   const [sessionTranscriptRaw, setSessionTranscriptRaw] = useState<unknown>(null);
   const [sessionTranscriptLoading, setSessionTranscriptLoading] = useState(false);
   const [sessionTranscriptLimit, setSessionTranscriptLimit] = useState(250);
+  const [threadsFetchMs, setThreadsFetchMs] = useState<number | null>(null);
   const idleWarmupStartedRef = useRef(false);
   const threadDetailCacheRef = useRef<Map<string, unknown>>(new Map());
   const threadTranscriptCacheRef = useRef<Map<string, unknown>>(new Map());
@@ -304,23 +314,39 @@ export function useAppData() {
     retry: 1,
   });
 
+  const isThreadsFocused = layoutView === "threads" || layoutView === "forensics";
   const threadsQueryLimit =
-    layoutView === "threads" || layoutView === "forensics"
-      ? PAGE_SIZE
+    isThreadsFocused
+      ? (threadsFastBoot ? THREADS_FAST_BOOT_LIMIT : PAGE_SIZE)
       : 60;
 
   const threads = useQuery({
     queryKey: ["threads", deferredQuery, threadsQueryLimit],
-    queryFn: ({ signal }) =>
-      apiGet<ThreadsResponse>(
+    queryFn: async ({ signal }) => {
+      const startedAt = nowMs();
+      try {
+        return await apiGet<ThreadsResponse>(
         `/api/threads?offset=0&limit=${threadsQueryLimit}&q=${encodeURIComponent(deferredQuery)}&sort=updated_desc`,
         { signal },
-      ),
+        );
+      } finally {
+        if (!signal.aborted) {
+          setThreadsFetchMs(Math.max(0, Math.round(nowMs() - startedAt)));
+        }
+      }
+    },
     placeholderData: (previous) => previous,
     staleTime: 10000,
     refetchOnWindowFocus: false,
     retry: 1,
   });
+
+  useEffect(() => {
+    if (!threadsFastBoot) return;
+    if (!isThreadsFocused) return;
+    if (!threads.isSuccess) return;
+    setThreadsFastBoot(false);
+  }, [threadsFastBoot, isThreadsFocused, threads.isSuccess]);
 
   const recovery = useQuery({
     queryKey: ["recovery"],
@@ -962,6 +988,10 @@ export function useAppData() {
 
   const executionGraphData = extractEnvelopeData<NonNullable<ExecutionGraphEnvelope["data"]>>(executionGraph.data);
   const executionGraphLoading = executionGraph.isLoading && !executionGraphData;
+  const threadsFastBooting =
+    threadsFastBoot &&
+    isThreadsFocused &&
+    (threads.isLoading || threads.isFetching);
 
   /* ---- detail selection ---- */
   const selectedThread = useMemo(
@@ -1450,6 +1480,8 @@ export function useAppData() {
     runtimeLoading, recoveryLoading, threadsLoading, dataSourcesLoading,
     providerMatrixLoading, providerSessionsLoading,
     parserLoading, executionGraphLoading,
+    threadsFastBooting,
+    threadsFetchMs,
     providersRefreshing,
     providersLastRefreshAt,
     providerFetchMetrics,
