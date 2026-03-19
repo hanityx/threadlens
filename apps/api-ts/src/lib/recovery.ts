@@ -744,172 +744,218 @@ async function buildSmokeStatusFromRawReports(roots: SmokeStatusRoots) {
   };
 }
 
+type SmokeStatusData = {
+  generated_at: string;
+  summary_dir: string;
+  latest: ReturnType<typeof buildSmokeStatusSkeleton>;
+  history: Array<{ timestamp_utc: string; path: string }>;
+};
+
+const SMOKE_STATUS_CACHE_TTL_MS = 10_000;
+const smokeStatusCache = new Map<
+  number,
+  { expires_at: number; data: SmokeStatusData }
+>();
+const smokeStatusInflight = new Map<number, Promise<SmokeStatusData>>();
+
 export async function getLatestSmokeStatusTs(options?: {
   historyLimit?: number;
   roots?: SmokeStatusRootOverrides;
+  forceRefresh?: boolean;
 }) {
   const historyLimit = Math.max(
     1,
     Math.min(20, parseNumber(options?.historyLimit, 6)),
   );
   const roots = resolveSmokeStatusRoots(options?.roots);
-  const summaryDirRelative = roots.summary_dir_rel;
-  const generatedAt = nowIsoUtc();
+  const useDefaultRoots = !options?.roots;
+  const forceRefresh = Boolean(options?.forceRefresh);
+  const now = Date.now();
 
-  if (!(await pathExists(roots.summary_dir_abs))) {
-    const fallback = await buildSmokeStatusFromRawReports(roots);
-    if (fallback) {
+  if (useDefaultRoots && !forceRefresh) {
+    const cached = smokeStatusCache.get(historyLimit);
+    if (cached && cached.expires_at > now) return cached.data;
+    const inflight = smokeStatusInflight.get(historyLimit);
+    if (inflight) return inflight;
+  }
+
+  const compute = async (): Promise<SmokeStatusData> => {
+    const summaryDirRelative = roots.summary_dir_rel;
+    const generatedAt = nowIsoUtc();
+
+    if (!(await pathExists(roots.summary_dir_abs))) {
+      const fallback = await buildSmokeStatusFromRawReports(roots);
+      if (fallback) {
+        return {
+          generated_at: generatedAt,
+          summary_dir: summaryDirRelative,
+          latest: fallback.latest,
+          history: fallback.history,
+        };
+      }
       return {
         generated_at: generatedAt,
         summary_dir: summaryDirRelative,
-        latest: fallback.latest,
-        history: fallback.history,
+        latest: buildSmokeStatusSkeleton("missing", "MISSING"),
+        history: [],
       };
     }
-    return {
-      generated_at: generatedAt,
-      summary_dir: summaryDirRelative,
-      latest: buildSmokeStatusSkeleton("missing", "MISSING"),
-      history: [],
-    };
-  }
 
-  const entries = await readdir(roots.summary_dir_abs, { withFileTypes: true }).catch(
-    () => [],
-  );
-  const summaryFiles = entries
-    .filter((entry) => entry.isFile() && SMOKE_SUMMARY_FILE_RE.test(entry.name))
-    .map((entry) => entry.name)
-    .sort();
-  const history = summaryFiles
-    .slice(-historyLimit)
-    .reverse()
-    .map((fileName) => ({
-      timestamp_utc: parseSmokeTimestampFromName(fileName),
-      path: path.posix.join(summaryDirRelative, fileName),
-    }));
+    const entries = await readdir(roots.summary_dir_abs, { withFileTypes: true }).catch(
+      () => [],
+    );
+    const summaryFiles = entries
+      .filter((entry) => entry.isFile() && SMOKE_SUMMARY_FILE_RE.test(entry.name))
+      .map((entry) => entry.name)
+      .sort();
+    const history = summaryFiles
+      .slice(-historyLimit)
+      .reverse()
+      .map((fileName) => ({
+        timestamp_utc: parseSmokeTimestampFromName(fileName),
+        path: path.posix.join(summaryDirRelative, fileName),
+      }));
 
-  if (!summaryFiles.length) {
-    const fallback = await buildSmokeStatusFromRawReports(roots);
-    if (fallback) {
+    if (!summaryFiles.length) {
+      const fallback = await buildSmokeStatusFromRawReports(roots);
+      if (fallback) {
+        return {
+          generated_at: generatedAt,
+          summary_dir: summaryDirRelative,
+          latest: fallback.latest,
+          history: fallback.history,
+        };
+      }
       return {
         generated_at: generatedAt,
         summary_dir: summaryDirRelative,
-        latest: fallback.latest,
-        history: fallback.history,
+        latest: buildSmokeStatusSkeleton("missing", "MISSING"),
+        history,
       };
     }
-    return {
-      generated_at: generatedAt,
-      summary_dir: summaryDirRelative,
-      latest: buildSmokeStatusSkeleton("missing", "MISSING"),
-      history,
-    };
-  }
 
-  const latestFileName = summaryFiles[summaryFiles.length - 1];
-  const latestPath = path.join(roots.summary_dir_abs, latestFileName);
-  const latestTimestamp = parseSmokeTimestampFromName(latestFileName);
-  const latestPathRelative = path.posix.join(summaryDirRelative, latestFileName);
+    const latestFileName = summaryFiles[summaryFiles.length - 1];
+    const latestPath = path.join(roots.summary_dir_abs, latestFileName);
+    const latestTimestamp = parseSmokeTimestampFromName(latestFileName);
+    const latestPathRelative = path.posix.join(summaryDirRelative, latestFileName);
 
-  try {
-    const raw = await readFile(latestPath, "utf-8");
-    const parsed = safeJsonParse(raw);
-    if (!isRecord(parsed)) {
+    try {
+      const raw = await readFile(latestPath, "utf-8");
+      const parsed = safeJsonParse(raw);
+      if (!isRecord(parsed)) {
+        return {
+          generated_at: generatedAt,
+          summary_dir: summaryDirRelative,
+          latest: buildSmokeStatusSkeleton("invalid", "INVALID", {
+            timestamp_utc: latestTimestamp,
+            path: latestPathRelative,
+            parse_error: "invalid-json-structure",
+          }),
+          history,
+        };
+      }
+
+      const sourceObj = isRecord(parsed.sources) ? parsed.sources : {};
+      const perfObj = isRecord(parsed.perf) ? parsed.perf : {};
+      const forensicsObj = isRecord(parsed.forensics) ? parsed.forensics : {};
+
+      const resultRaw = String(parsed.result ?? "").trim().toUpperCase();
+      const result: SmokeResult =
+        resultRaw === "PASS"
+          ? "PASS"
+          : resultRaw === "FAIL"
+            ? "FAIL"
+            : "INVALID";
+      const ok = Boolean(parsed.ok);
+
+      const status: SmokeStatusFlag =
+        result === "PASS" && ok
+          ? "pass"
+          : result === "FAIL" || (result === "PASS" && !ok)
+            ? "fail"
+            : "invalid";
+
+      const timestampUtcCandidate = String(
+        parsed.timestamp_utc ?? latestTimestamp,
+      )
+        .trim()
+        .toUpperCase();
+      const timestampUtc = /^(\d{8}T\d{6}Z)$/.test(timestampUtcCandidate)
+        ? timestampUtcCandidate
+        : latestTimestamp;
+      const timestampMs = parseSmokeTimestampUtcMs(timestampUtc);
+      const ageSec =
+        timestampMs === null
+          ? null
+          : Math.max(0, Math.round((Date.now() - timestampMs) / 1000));
+
+      return {
+        generated_at: generatedAt,
+        summary_dir: summaryDirRelative,
+        latest: {
+          status,
+          result,
+          ok: status === "pass",
+          timestamp_utc: timestampUtc,
+          age_sec: ageSec,
+          path: latestPathRelative,
+          sources: {
+            perf_report: normalizeSmokePath(sourceObj.perf_report),
+            forensics_report: normalizeSmokePath(sourceObj.forensics_report),
+          },
+          perf: {
+            ok: Boolean(perfObj.ok),
+            agent_runtime_sec: parseNullableNumber(perfObj.agent_runtime_sec),
+            provider_sessions_30_sec: parseNullableNumber(
+              perfObj.provider_sessions_30_sec,
+            ),
+            threads_60_sec: parseNullableNumber(perfObj.threads_60_sec),
+            threads_160_sec: parseNullableNumber(perfObj.threads_160_sec),
+          },
+          forensics: {
+            result: String(forensicsObj.result ?? "").trim().toUpperCase(),
+            analyze_status: parseNullableNumber(forensicsObj.analyze_status),
+            cleanup_status: parseNullableNumber(forensicsObj.cleanup_status),
+            cleanup_token_valid:
+              typeof forensicsObj.cleanup_token_valid === "boolean"
+                ? forensicsObj.cleanup_token_valid
+                : null,
+          },
+          parse_error: "",
+        },
+        history,
+      };
+    } catch (error) {
       return {
         generated_at: generatedAt,
         summary_dir: summaryDirRelative,
         latest: buildSmokeStatusSkeleton("invalid", "INVALID", {
           timestamp_utc: latestTimestamp,
           path: latestPathRelative,
-          parse_error: "invalid-json-structure",
+          parse_error: String(error),
         }),
         history,
       };
     }
+  };
 
-    const sourceObj = isRecord(parsed.sources) ? parsed.sources : {};
-    const perfObj = isRecord(parsed.perf) ? parsed.perf : {};
-    const forensicsObj = isRecord(parsed.forensics) ? parsed.forensics : {};
-
-    const resultRaw = String(parsed.result ?? "").trim().toUpperCase();
-    const result: SmokeResult =
-      resultRaw === "PASS"
-        ? "PASS"
-        : resultRaw === "FAIL"
-          ? "FAIL"
-          : "INVALID";
-    const ok = Boolean(parsed.ok);
-
-    const status: SmokeStatusFlag =
-      result === "PASS" && ok
-        ? "pass"
-        : result === "FAIL" || (result === "PASS" && !ok)
-          ? "fail"
-          : "invalid";
-
-    const timestampUtcCandidate = String(
-      parsed.timestamp_utc ?? latestTimestamp,
-    )
-      .trim()
-      .toUpperCase();
-    const timestampUtc = /^(\d{8}T\d{6}Z)$/.test(timestampUtcCandidate)
-      ? timestampUtcCandidate
-      : latestTimestamp;
-    const timestampMs = parseSmokeTimestampUtcMs(timestampUtc);
-    const ageSec =
-      timestampMs === null
-        ? null
-        : Math.max(0, Math.round((Date.now() - timestampMs) / 1000));
-
-    return {
-      generated_at: generatedAt,
-      summary_dir: summaryDirRelative,
-      latest: {
-        status,
-        result,
-        ok: status === "pass",
-        timestamp_utc: timestampUtc,
-        age_sec: ageSec,
-        path: latestPathRelative,
-        sources: {
-          perf_report: normalizeSmokePath(sourceObj.perf_report),
-          forensics_report: normalizeSmokePath(sourceObj.forensics_report),
-        },
-        perf: {
-          ok: Boolean(perfObj.ok),
-          agent_runtime_sec: parseNullableNumber(perfObj.agent_runtime_sec),
-          provider_sessions_30_sec: parseNullableNumber(
-            perfObj.provider_sessions_30_sec,
-          ),
-          threads_60_sec: parseNullableNumber(perfObj.threads_60_sec),
-          threads_160_sec: parseNullableNumber(perfObj.threads_160_sec),
-        },
-        forensics: {
-          result: String(forensicsObj.result ?? "").trim().toUpperCase(),
-          analyze_status: parseNullableNumber(forensicsObj.analyze_status),
-          cleanup_status: parseNullableNumber(forensicsObj.cleanup_status),
-          cleanup_token_valid:
-            typeof forensicsObj.cleanup_token_valid === "boolean"
-              ? forensicsObj.cleanup_token_valid
-              : null,
-        },
-        parse_error: "",
-      },
-      history,
-    };
-  } catch (error) {
-    return {
-      generated_at: generatedAt,
-      summary_dir: summaryDirRelative,
-      latest: buildSmokeStatusSkeleton("invalid", "INVALID", {
-        timestamp_utc: latestTimestamp,
-        path: latestPathRelative,
-        parse_error: String(error),
-      }),
-      history,
-    };
+  if (!useDefaultRoots) {
+    return compute();
   }
+
+  const inflight = compute()
+    .then((data) => {
+      smokeStatusCache.set(historyLimit, {
+        expires_at: Date.now() + SMOKE_STATUS_CACHE_TTL_MS,
+        data,
+      });
+      return data;
+    })
+    .finally(() => {
+      smokeStatusInflight.delete(historyLimit);
+    });
+  smokeStatusInflight.set(historyLimit, inflight);
+  return inflight;
 }
 
 /* ─────────────────────────────────────────────────────────────────── *

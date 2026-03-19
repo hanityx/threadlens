@@ -971,8 +971,12 @@ export async function createServer(): Promise<FastifyInstance> {
       const limitRaw = Array.isArray(req.query.limit)
         ? req.query.limit[0]
         : req.query.limit;
+      const refreshRaw = Array.isArray(req.query.refresh)
+        ? req.query.refresh[0]
+        : req.query.refresh;
+      const forceRefresh = Number(refreshRaw) > 0;
       const historyLimit = Math.max(1, Math.min(20, Number(limitRaw) || 6));
-      const data = await getLatestSmokeStatusTs({ historyLimit });
+      const data = await getLatestSmokeStatusTs({ historyLimit, forceRefresh });
       return reply.code(200).send(withSchemaVersion(data));
     } catch (error) {
       return reply

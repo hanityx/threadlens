@@ -158,6 +158,15 @@ describe("api-ts direct endpoints", () => {
     expect(Array.isArray(root.history)).toBe(true);
   });
 
+  it("GET /api/smoke-status accepts refresh=1 for forced rescan", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/smoke-status?limit=4&refresh=1" });
+    expect(res.statusCode).toBe(200);
+    const payload = res.json();
+    const root = payload.data ?? payload;
+    expect(root.latest).toBeTruthy();
+    expect(Array.isArray(root.history)).toBe(true);
+  });
+
   it("GET /api/data-sources returns sources object", async () => {
     const res = await app.inject({ method: "GET", url: "/api/data-sources" });
     expect(res.statusCode).toBe(200);
