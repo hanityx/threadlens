@@ -62,6 +62,7 @@ export function App() {
     setSelectedSessionPath,
 
     runtime,
+    smokeStatus,
     threads,
     recovery,
     providerMatrix,
@@ -92,6 +93,7 @@ export function App() {
 
     analysisRaw,
     cleanupRaw,
+    smokeStatusLatest,
     cleanupData,
     selectedImpactRows,
 
@@ -133,6 +135,7 @@ export function App() {
     executionGraphData,
 
     runtimeLoading,
+    smokeStatusLoading,
     recoveryLoading,
     threadsLoading,
     dataSourcesLoading,
@@ -164,6 +167,19 @@ export function App() {
 
   const messages = getMessages(locale);
   const runtimeBackend = runtime.data?.data?.python_backend;
+  const smokeStatusValue =
+    smokeStatusLoading
+      ? "..."
+      : smokeStatusLatest?.status === "pass"
+        ? messages.kpi.smokePass
+        : smokeStatusLatest?.status === "fail"
+          ? messages.kpi.smokeFail
+          : smokeStatusLatest?.status === "invalid"
+            ? messages.kpi.smokeInvalid
+            : messages.kpi.smokeMissing;
+  const smokeStatusHint = smokeStatusLatest?.timestamp_utc
+    ? `${messages.kpi.smokeAt} ${smokeStatusLatest.timestamp_utc}`
+    : messages.kpi.smokeNoData;
   const showPythonBackendDegraded =
     runtime.isError || (!runtimeLoading && runtimeBackend?.reachable === false);
   const [acknowledgedForensicsErrorKeys, setAcknowledgedForensicsErrorKeys] = useState<{
@@ -451,6 +467,11 @@ export function App() {
           }
           hint={`${messages.kpi.backupSets} ${recovery.data?.summary?.backup_sets ?? 0}`}
         />
+        <KpiCard
+          label={messages.kpi.smoke}
+          value={smokeStatusValue}
+          hint={smokeStatusHint}
+        />
       </section>
 
       {showProviders ? (
@@ -654,6 +675,7 @@ export function App() {
       ) : null}
 
       {runtime.isError ? <div className="error-box">{messages.errors.runtime}</div> : null}
+      {smokeStatus.isError ? <div className="error-box">{messages.errors.smokeStatus}</div> : null}
       {recovery.isError ? <div className="error-box">{messages.errors.recovery}</div> : null}
       {providerMatrix.isError ? <div className="error-box">{messages.errors.providerMatrix}</div> : null}
       {providerSessions.isError ? <div className="error-box">{messages.errors.providerSessions}</div> : null}

@@ -122,6 +122,7 @@ export const directApiPaths = new Set([
   "/api/recovery-checklist",
   "/api/compare-apps",
   "/api/runtime-health",
+  "/api/smoke-status",
   "/api/data-sources",
   "/api/provider-matrix",
   "/api/provider-sessions",

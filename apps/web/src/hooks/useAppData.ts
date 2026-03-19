@@ -6,6 +6,7 @@ import { extractEnvelopeData, normalizeThreadRow, parseNum } from "../lib/helper
 import { detectInitialLocale } from "../i18n";
 import type {
   RuntimeEnvelope,
+  SmokeStatusEnvelope,
   ThreadsResponse,
   ThreadRow,
   RecoveryResponse,
@@ -284,10 +285,12 @@ export function useAppData() {
   const wantsProvidersData = wantsProvidersPanel;
   const wantsRoutingData = layoutView === "routing";
   const wantsRecoveryData = layoutView === "overview" || layoutView === "forensics";
+  const smokeStatusQueryEnabled = layoutView === "overview" || secondaryDataHydrated;
   const recoveryQueryEnabled = wantsRecoveryData || secondaryDataHydrated;
   const providerMatrixQueryEnabled = wantsProvidersSummary || wantsProvidersPanel;
   const dataSourcesQueryEnabled = wantsProvidersData;
   const recoveryRefetchInterval = wantsRecoveryData ? 15000 : false;
+  const smokeStatusRefetchInterval = layoutView === "overview" ? 20000 : false;
   const providerMatrixRefetchInterval = providerMatrixQueryEnabled ? 60000 : false;
   const providerSessionsRefetchInterval = wantsProvidersData ? 60000 : false;
   const providerParserRefetchInterval = wantsProvidersData ? 60000 : false;
@@ -343,6 +346,17 @@ export function useAppData() {
       apiGet<RuntimeEnvelope>("/api/agent-runtime", { signal }),
     refetchInterval: 10000,
     staleTime: 5000,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  });
+
+  const smokeStatus = useQuery({
+    queryKey: ["smoke-status"],
+    queryFn: ({ signal }) =>
+      apiGet<SmokeStatusEnvelope>("/api/smoke-status?limit=6", { signal }),
+    enabled: smokeStatusQueryEnabled,
+    refetchInterval: smokeStatusRefetchInterval,
+    staleTime: 10000,
     refetchOnWindowFocus: false,
     retry: 1,
   });
@@ -769,6 +783,9 @@ export function useAppData() {
 
   const analysisData = extractEnvelopeData<AnalyzeDeleteData>(analysisRaw);
   const cleanupData = extractEnvelopeData<CleanupPreviewData>(cleanupRaw);
+  const smokeStatusRoot =
+    extractEnvelopeData<NonNullable<SmokeStatusEnvelope["data"]>>(smokeStatus.data) ?? {};
+  const smokeStatusLatest = smokeStatusRoot.latest;
   const selectedImpactRows = (analysisData?.reports ?? []).filter((r) => selectedSet.has(r.id));
   const analyzeDeleteErrorMessage = analyzeDelete.error instanceof Error
     ? formatMutationErrorMessage(analyzeDelete.error.message, locale)
@@ -1012,6 +1029,7 @@ export function useAppData() {
 
   /* ---- loading flags ---- */
   const runtimeLoading = runtime.isLoading && !runtime.data;
+  const smokeStatusLoading = smokeStatus.isLoading && !smokeStatus.data;
   const recoveryLoading = recovery.isLoading && !recovery.data;
   const dataSourcesLoading = dataSources.isLoading && dataSourceRows.length === 0;
   const providerMatrixLoading = providerMatrix.isLoading && providers.length === 0;
@@ -1452,7 +1470,7 @@ export function useAppData() {
     selectedSessionPath, setSelectedSessionPath,
 
     /* query results (raw react-query objects for error states) */
-    runtime, threads, recovery, dataSources,
+    runtime, smokeStatus, threads, recovery, dataSources,
     providerMatrix, providerSessions, providerParserHealth,
     executionGraph,
 
@@ -1479,6 +1497,7 @@ export function useAppData() {
     /* derived – analysis / cleanup */
     analysisRaw, cleanupRaw,
     analysisData, cleanupData,
+    smokeStatusLatest,
     selectedImpactRows,
 
     /* derived – providers */
@@ -1510,7 +1529,7 @@ export function useAppData() {
     executionGraphData,
 
     /* loading flags */
-    runtimeLoading, recoveryLoading, threadsLoading, dataSourcesLoading,
+    runtimeLoading, smokeStatusLoading, recoveryLoading, threadsLoading, dataSourcesLoading,
     providerMatrixLoading, providerSessionsLoading,
     parserLoading, executionGraphLoading,
     threadsFastBooting,

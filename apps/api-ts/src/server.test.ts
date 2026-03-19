@@ -145,6 +145,19 @@ describe("api-ts direct endpoints", () => {
     expect(root.quick_counts).toBeTruthy();
   });
 
+  it("GET /api/smoke-status returns latest smoke status keys", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/smoke-status?limit=4" });
+    expect(res.statusCode).toBe(200);
+    const payload = res.json();
+    const root = payload.data ?? payload;
+    expect(root.generated_at).toBeTypeOf("string");
+    expect(root.summary_dir).toBeTypeOf("string");
+    expect(root.latest).toBeTruthy();
+    expect(["pass", "fail", "missing", "invalid"]).toContain(root.latest.status);
+    expect(["PASS", "FAIL", "MISSING", "INVALID"]).toContain(root.latest.result);
+    expect(Array.isArray(root.history)).toBe(true);
+  });
+
   it("GET /api/data-sources returns sources object", async () => {
     const res = await app.inject({ method: "GET", url: "/api/data-sources" });
     expect(res.statusCode).toBe(200);

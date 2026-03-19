@@ -81,6 +81,7 @@ import {
   runRecoveryDrillTs,
   getCompareAppsStatusTs,
   getRuntimeHealthTs,
+  getLatestSmokeStatusTs,
   getDataSourceInventoryTs,
   getRoadmapStatusTs,
   appendRoadmapCheckinTs,
@@ -962,6 +963,21 @@ export async function createServer(): Promise<FastifyInstance> {
       return reply
         .code(500)
         .send(envelope(null, `runtime-health-error: ${String(error)}`));
+    }
+  });
+
+  app.get<{ Querystring: QueryMap }>("/api/smoke-status", async (req, reply) => {
+    try {
+      const limitRaw = Array.isArray(req.query.limit)
+        ? req.query.limit[0]
+        : req.query.limit;
+      const historyLimit = Math.max(1, Math.min(20, Number(limitRaw) || 6));
+      const data = await getLatestSmokeStatusTs({ historyLimit });
+      return reply.code(200).send(withSchemaVersion(data));
+    } catch (error) {
+      return reply
+        .code(500)
+        .send(envelope(null, `smoke-status-error: ${String(error)}`));
     }
   });
 

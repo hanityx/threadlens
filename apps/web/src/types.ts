@@ -8,6 +8,41 @@ export type RuntimeEnvelope = ApiEnvelope<{
   tmux: { sessions: string[] };
 }>;
 
+export type SmokeStatusEnvelope = ApiEnvelope<{
+  generated_at?: string;
+  summary_dir?: string;
+  latest?: {
+    status?: "pass" | "fail" | "missing" | "invalid";
+    result?: "PASS" | "FAIL" | "MISSING" | "INVALID";
+    ok?: boolean;
+    timestamp_utc?: string;
+    age_sec?: number | null;
+    path?: string;
+    sources?: {
+      perf_report?: string;
+      forensics_report?: string;
+    };
+    perf?: {
+      ok?: boolean;
+      agent_runtime_sec?: number | null;
+      provider_sessions_30_sec?: number | null;
+      threads_60_sec?: number | null;
+      threads_160_sec?: number | null;
+    };
+    forensics?: {
+      result?: string;
+      analyze_status?: number | null;
+      cleanup_status?: number | null;
+      cleanup_token_valid?: boolean | null;
+    };
+    parse_error?: string;
+  };
+  history?: Array<{
+    timestamp_utc?: string;
+    path?: string;
+  }>;
+}>;
+
 /* ── Threads ──────────────────────────────────────────── */
 export type ThreadRow = {
   id?: string;
