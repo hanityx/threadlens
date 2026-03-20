@@ -146,6 +146,7 @@ export function App() {
     threadsFastBooting,
     threadsFetchMs,
     providersRefreshing,
+    refreshingAllData,
     providersLastRefreshAt,
     providerFetchMetrics,
 
@@ -163,6 +164,7 @@ export function App() {
     prefetchProvidersData,
     prefetchRoutingData,
     refreshProvidersData,
+    refreshAllData,
   } = useAppData();
 
   const messages = getMessages(locale);
@@ -395,6 +397,17 @@ export function App() {
               {messages.nav.densityCompact}
             </button>
           </div>
+          <button
+            type="button"
+            className="btn-outline"
+            onClick={() => {
+              void refreshAllData();
+            }}
+            disabled={busy || refreshingAllData}
+            title={messages.nav.syncHint}
+          >
+            {refreshingAllData ? messages.nav.syncing : messages.nav.syncNow}
+          </button>
           <button
             type="button"
             className="btn-outline"

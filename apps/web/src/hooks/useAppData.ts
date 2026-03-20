@@ -57,6 +57,8 @@ const SLOW_PROVIDER_SCAN_MS_DEFAULT = 1200;
 const SLOW_PROVIDER_SCAN_MS_MIN = 400;
 const SLOW_PROVIDER_SCAN_MS_MAX = 6000;
 const SLOW_PROVIDER_SCAN_MS_STORAGE_KEY = "cmc-slow-provider-threshold-ms";
+const SECONDARY_WARMUP_IDLE_TIMEOUT_MS = 2600;
+const SECONDARY_WARMUP_FALLBACK_MS = 1500;
 type ProviderFetchMetrics = {
   data_sources: number | null;
   matrix: number | null;
@@ -219,6 +221,7 @@ export function useAppData() {
     Record<string, string>
   >({});
   const [providersRefreshPending, setProvidersRefreshPending] = useState(false);
+  const [globalRefreshPending, setGlobalRefreshPending] = useState(false);
   const [providersLastRefreshAt, setProvidersLastRefreshAt] = useState<string>("");
   const [providerFetchMetrics, setProviderFetchMetrics] = useState<ProviderFetchMetrics>({
     data_sources: null,
@@ -322,9 +325,9 @@ export function useAppData() {
     };
 
     if (typeof w.requestIdleCallback === "function") {
-      idleId = w.requestIdleCallback(runWarmup, { timeout: 1800 });
+      idleId = w.requestIdleCallback(runWarmup, { timeout: SECONDARY_WARMUP_IDLE_TIMEOUT_MS });
     } else {
-      timeoutId = window.setTimeout(runWarmup, 900);
+      timeoutId = window.setTimeout(runWarmup, SECONDARY_WARMUP_FALLBACK_MS);
     }
 
     return () => {
@@ -1408,6 +1411,37 @@ export function useAppData() {
     providerParserQueryPath,
   ]);
 
+  const refreshAllData = useCallback(async () => {
+    if (globalRefreshPending) return;
+    setGlobalRefreshPending(true);
+    try {
+      const refreshJobs: Array<Promise<unknown>> = [
+        runtime.refetch({ cancelRefetch: false }),
+        threads.refetch({ cancelRefetch: false }),
+        smokeStatus.refetch({ cancelRefetch: false }),
+        recovery.refetch({ cancelRefetch: false }),
+      ];
+      if (layoutView === "routing") {
+        refreshJobs.push(executionGraph.refetch({ cancelRefetch: false }));
+      }
+      await Promise.allSettled(refreshJobs);
+      if (layoutView === "providers") {
+        await refreshProvidersData();
+      }
+    } finally {
+      setGlobalRefreshPending(false);
+    }
+  }, [
+    globalRefreshPending,
+    runtime,
+    threads,
+    smokeStatus,
+    recovery,
+    layoutView,
+    executionGraph,
+    refreshProvidersData,
+  ]);
+
   useEffect(() => {
     if (wantsProvidersData || wantsRoutingData) return;
     if (idleWarmupStartedRef.current) return;
@@ -1535,6 +1569,7 @@ export function useAppData() {
     threadsFastBooting,
     threadsFetchMs,
     providersRefreshing,
+    refreshingAllData: globalRefreshPending,
     providersLastRefreshAt,
     providerFetchMetrics,
 
@@ -1551,5 +1586,6 @@ export function useAppData() {
     prefetchProvidersData,
     prefetchRoutingData,
     refreshProvidersData,
+    refreshAllData,
   };
 }

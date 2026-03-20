@@ -19,6 +19,9 @@ const MESSAGES = {
       densityComfortable: "Comfort",
       densityCompact: "Compact",
       providerScope: "Provider Scope",
+      syncNow: "Sync Now",
+      syncing: "Syncing...",
+      syncHint: "Refresh runtime, thread, and safety data now",
     },
     hero: {
       title: "Mission Control",
@@ -385,6 +388,9 @@ const MESSAGES = {
       densityComfortable: "여유",
       densityCompact: "압축",
       providerScope: "프로바이더 범위",
+      syncNow: "지금 동기화",
+      syncing: "동기화 중...",
+      syncHint: "런타임/스레드/안전성 데이터를 즉시 다시 불러와",
     },
     hero: {
       title: "미션 컨트롤",
