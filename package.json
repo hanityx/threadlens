@@ -22,6 +22,11 @@
     "build:desktop": "pnpm --filter @codex/desktop-tauri run build",
     "release:macos:sign": "./scripts/macos-sign-notarize.sh",
     "release:preflight": "./scripts/release-preflight.sh",
+    "perf:smoke": "./scripts/perf-smoke.sh",
+    "perf:smoke:strict": "PERF_SMOKE_STRICT=1 ./scripts/perf-smoke.sh",
+    "forensics:smoke": "./scripts/forensics-smoke.sh",
+    "web:e2e:live": "./scripts/web-live-e2e-smoke.sh",
+    "smoke:summary": "./scripts/smoke-summary.sh",
     "test": "pnpm -r test",
     "test:contract": "pnpm --filter @codex/tests-api-contract test",
     "lint": "pnpm -r lint"

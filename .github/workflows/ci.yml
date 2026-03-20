@@ -49,7 +49,22 @@ jobs:
       - name: Test API
         run: pnpm --filter @codex/api-ts test
 
-      - name: Contract parity (strict)
+      - name: Test Web (unit)
+        run: pnpm --filter @codex/web test
+
+      - name: Install Playwright Chromium
+        if: matrix.node-version == 20
+        run: pnpm --filter @codex/web exec playwright install --with-deps chromium
+
+      - name: Test Web E2E (providers + token + perf)
+        if: matrix.node-version == 20
+        run: pnpm --filter @codex/web test:e2e
+
+      - name: Test Web E2E Live (real Python+TS backend)
+        if: matrix.node-version == 20
+        run: pnpm web:e2e:live
+
+      - name: Contract parity + forensics/perf smoke (strict)
         if: matrix.node-version == 20
         run: |
           set -euo pipefail
@@ -66,3 +81,40 @@ jobs:
             sleep 1
           done
           REQUIRE_PARITY=1 pnpm --filter @codex/tests-api-contract test
+          pnpm forensics:smoke
+          pnpm perf:smoke:strict
+          pnpm smoke:summary
+
+      - name: Upload perf smoke report
+        if: matrix.node-version == 20 && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-smoke-report-node20
+          path: .run/perf/perf-smoke-*.*
+          if-no-files-found: ignore
+
+      - name: Upload forensics smoke report
+        if: matrix.node-version == 20 && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forensics-smoke-report-node20
+          path: .run/forensics/forensics-smoke-*.*
+          if-no-files-found: ignore
+
+      - name: Upload smoke summary report
+        if: matrix.node-version == 20 && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-summary-report-node20
+          path: .run/smoke/smoke-summary-*.*
+          if-no-files-found: ignore
+
+      - name: Upload web live e2e smoke report
+        if: matrix.node-version == 20 && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-live-e2e-report-node20
+          path: |
+            .run/e2e-live/web-live-e2e-*.*
+            .run/e2e-live/test-results-*
+          if-no-files-found: ignore

@@ -6,6 +6,8 @@ dist/
 coverage/
 apps/**/dist/
 apps/**/.vite/
+apps/**/test-results/
+apps/**/playwright-report/
 apps/desktop-tauri/target/
 packages/**/dist/
 

@@ -42,7 +42,14 @@ jobs:
             sleep 1
           done
           pnpm --filter @codex/api-ts test
+          pnpm --filter @codex/web test
+          pnpm --filter @codex/web exec playwright install chromium
+          pnpm --filter @codex/web test:e2e
+          pnpm web:e2e:live
           REQUIRE_PARITY=1 pnpm --filter @codex/tests-api-contract test
+          pnpm forensics:smoke
+          pnpm perf:smoke:strict
+          pnpm smoke:summary
 
       - name: Build desktop bundle
         run: pnpm build:desktop
@@ -67,3 +74,37 @@ jobs:
         with:
           name: codex-legacy-layer-dmg
           path: apps/desktop-tauri/target/release/bundle/dmg/*.dmg
+
+      - name: Upload perf smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-smoke-report-macos-release
+          path: .run/perf/perf-smoke-*.*
+          if-no-files-found: ignore
+
+      - name: Upload forensics smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forensics-smoke-report-macos-release
+          path: .run/forensics/forensics-smoke-*.*
+          if-no-files-found: ignore
+
+      - name: Upload smoke summary report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-summary-report-macos-release
+          path: .run/smoke/smoke-summary-*.*
+          if-no-files-found: ignore
+
+      - name: Upload web live e2e smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-live-e2e-report-macos-release
+          path: |
+            .run/e2e-live/web-live-e2e-*.*
+            .run/e2e-live/test-results-*
+          if-no-files-found: ignore

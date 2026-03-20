@@ -22,6 +22,7 @@ type ParserSort =
   | "scan_ms_asc"
   | "name_asc"
   | "name_desc";
+type ProviderFlowState = "done" | "pending" | "blocked";
 type CsvColumnKey =
   | "provider"
   | "session_id"
@@ -298,6 +299,11 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     if (action === "archive_local") return messages.providers.actionArchiveLocal;
     return messages.providers.actionDeleteLocal;
   };
+  const flowStateLabel = (state: ProviderFlowState) => {
+    if (state === "done") return messages.providers.flowStatusDone;
+    if (state === "blocked") return messages.providers.flowStatusBlocked;
+    return messages.providers.flowStatusPending;
+  };
   const dataSourceLabel = (sourceKey: string) =>
     sourceKey
       .replace(/_/g, " ")
@@ -535,6 +541,145 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     });
     return map;
   }, [parserReports]);
+  const parserReportByProvider = useMemo(() => {
+    const map = new Map<string, (typeof parserReports)[number]>();
+    parserReports.forEach((report) => {
+      map.set(report.provider, report);
+    });
+    return map;
+  }, [parserReports]);
+  const providerMatrixById = useMemo(() => {
+    const map = new Map<string, ProviderMatrixProvider>();
+    providers.forEach((provider) => {
+      map.set(provider.provider, provider);
+    });
+    return map;
+  }, [providers]);
+  const providerSessionCountById = useMemo(() => {
+    const map = new Map<string, number>();
+    providerSessionRows.forEach((row) => {
+      map.set(row.provider, (map.get(row.provider) ?? 0) + 1);
+    });
+    return map;
+  }, [providerSessionRows]);
+  const dataSourcesByProvider = useMemo(() => {
+    const map = new Map<string, DataSourceInventoryRow[]>();
+    dataSourceRows.forEach((row) => {
+      const providerId = providerFromDataSource(row.source_key);
+      if (!providerId || providerId === "all") return;
+      const current = map.get(providerId) ?? [];
+      current.push(row);
+      map.set(providerId, current);
+    });
+    return map;
+  }, [dataSourceRows]);
+  const providerFlowCards = useMemo(() => {
+    return providerTabs
+      .filter((tab) => tab.id !== "all")
+      .map((tab) => {
+        const providerId = tab.id;
+        const providerInfo = providerMatrixById.get(providerId);
+        const parserInfo = parserReportByProvider.get(providerId);
+        const sources = dataSourcesByProvider.get(providerId) ?? [];
+        const presentSources = sources.filter((row) => row.present);
+        const roots = providerInfo?.evidence?.roots ?? [];
+        const sessionCount = providerSessionCountById.get(providerId) ?? 0;
+        const parseFail = Number(parserInfo?.parse_fail ?? 0);
+        const parseOk = Number(parserInfo?.parse_ok ?? 0);
+        const parseScore = parserInfo?.parse_score ?? null;
+        const canAnalyze = Boolean(providerInfo?.capabilities.analyze_context);
+        const canRead = Boolean(providerInfo?.capabilities.read_sessions);
+        const canSafeCleanup = Boolean(providerInfo?.capabilities.safe_cleanup);
+        const parserStageState: ProviderFlowState =
+          sessionCount === 0
+            ? "pending"
+            : parseFail > 0
+              ? "blocked"
+              : parseOk > 0 || parseScore !== null
+                ? "done"
+                : "pending";
+        const applyStageState: ProviderFlowState =
+          canSafeCleanup && sessionCount > 0 && parseFail === 0
+            ? "done"
+            : canSafeCleanup && sessionCount > 0
+              ? "pending"
+              : "blocked";
+
+        let nextStep = messages.providers.flowNextCollect;
+        if (presentSources.length > 0 && sessionCount === 0) {
+          nextStep = messages.providers.flowNextCollectSessions;
+        } else if (sessionCount > 0 && parseFail > 0) {
+          nextStep = messages.providers.flowNextParse;
+        } else if (!canSafeCleanup) {
+          nextStep = messages.providers.flowNextReadonly;
+        } else if (canSafeCleanup && sessionCount > 0 && parseFail === 0) {
+          nextStep = messages.providers.flowNextExecute;
+        } else if (sessionCount > 0) {
+          nextStep = messages.providers.flowNextDryRun;
+        }
+
+        return {
+          providerId,
+          name: tab.name,
+          status: tab.status,
+          scanMs: tab.scan_ms,
+          parseFail,
+          parseScore,
+          canRead,
+          canAnalyze,
+          canSafeCleanup,
+          roots,
+          sources,
+          presentSourceCount: presentSources.length,
+          sessionCount,
+          nextStep,
+          flow: [
+            {
+              key: "source",
+              label: messages.providers.flowStageDetect,
+              state: presentSources.length > 0 ? "done" : "pending",
+            },
+            {
+              key: "sessions",
+              label: messages.providers.flowStageSessions,
+              state: sessionCount > 0 ? "done" : "pending",
+            },
+            {
+              key: "parser",
+              label: messages.providers.flowStageParser,
+              state: parserStageState,
+            },
+            {
+              key: "cleanup",
+              label: messages.providers.flowStageSafeCleanup,
+              state: canSafeCleanup ? "done" : "blocked",
+            },
+            {
+              key: "apply",
+              label: messages.providers.flowStageApply,
+              state: applyStageState,
+            },
+          ] as Array<{ key: string; label: string; state: ProviderFlowState }>,
+        };
+      });
+  }, [
+    providerTabs,
+    providerMatrixById,
+    parserReportByProvider,
+    dataSourcesByProvider,
+    providerSessionCountById,
+    messages.providers.flowNextCollect,
+    messages.providers.flowNextCollectSessions,
+    messages.providers.flowNextParse,
+    messages.providers.flowNextReadonly,
+    messages.providers.flowNextExecute,
+    messages.providers.flowNextDryRun,
+    messages.providers.flowStageDetect,
+    messages.providers.flowStageSessions,
+    messages.providers.flowStageParser,
+    messages.providers.flowStageSafeCleanup,
+    messages.providers.flowStageApply,
+  ]);
   const slowHotspotCards = useMemo(() => {
     return slowProviderIds
       .map((providerId) => {
@@ -991,6 +1136,115 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
             ))}
           </div>
         )}
+      </section>
+
+      <section className="panel">
+        <header>
+          <h2>{messages.providers.flowBoardTitle}</h2>
+          <span>{messages.providers.flowBoardSubtitle} {providerFlowCards.length}</span>
+        </header>
+        <div className="provider-flow-board">
+          {providerFlowCards.map((card) => (
+            <article
+              key={`provider-flow-${card.providerId}`}
+              className={`provider-flow-card ${card.parseFail > 0 ? "is-warning" : ""}`.trim()}
+            >
+              <div className="provider-flow-head">
+                <div>
+                  <strong>{card.name}</strong>
+                  <div className="mono-sub">{card.providerId}</div>
+                </div>
+                <div className="provider-flow-head-meta">
+                  {card.scanMs !== null ? (
+                    <span className="provider-slow-badge">{formatFetchMs(card.scanMs)}</span>
+                  ) : null}
+                  <span className={`status-pill status-${card.status}`}>{statusLabel(card.status)}</span>
+                </div>
+              </div>
+
+              <div className="provider-capability-row">
+                <span className={`capability-chip ${card.canRead ? "is-on" : "is-off"}`}>{messages.providers.colRead}</span>
+                <span className={`capability-chip ${card.canAnalyze ? "is-on" : "is-off"}`}>{messages.providers.colAnalyze}</span>
+                <span className={`capability-chip ${card.canSafeCleanup ? "is-on" : "is-off"}`}>{messages.providers.colSafeCleanup}</span>
+              </div>
+
+              <div className="provider-flow-track">
+                {card.flow.map((stage, idx) => (
+                  <div key={`${card.providerId}-${stage.key}`} className="provider-flow-segment">
+                    <div className={`provider-flow-node is-${stage.state}`}>
+                      <span className="provider-flow-node-label">{stage.label}</span>
+                      <span className="provider-flow-node-state">{flowStateLabel(stage.state)}</span>
+                    </div>
+                    {idx < card.flow.length - 1 ? <span className="provider-flow-arrow">→</span> : null}
+                  </div>
+                ))}
+              </div>
+
+              <div className="provider-flow-config-grid">
+                <div className="provider-flow-config">
+                  <h3>{messages.providers.configMapRoots}</h3>
+                  <ul>
+                    {card.roots.length === 0 ? (
+                      <li className="mono-sub">{messages.providers.configMapNoRoots}</li>
+                    ) : (
+                      card.roots.slice(0, 3).map((root) => (
+                        <li key={`${card.providerId}-root-${root}`} className="mono-sub provider-config-path" title={root}>
+                          {root}
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                </div>
+                <div className="provider-flow-config">
+                  <h3>{messages.providers.configMapSources}</h3>
+                  <ul>
+                    {card.sources.length === 0 ? (
+                      <li className="mono-sub">{messages.providers.configMapNoSources}</li>
+                    ) : (
+                      card.sources.slice(0, 3).map((source) => (
+                        <li key={`${card.providerId}-source-${source.source_key}`}>
+                          <strong>{dataSourceLabel(source.source_key)}</strong>
+                          <span className="mono-sub provider-config-path" title={source.path}>
+                            {source.path || "-"}
+                          </span>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                </div>
+              </div>
+
+              <div className="provider-flow-actions">
+                <span className="sub-hint">
+                  {messages.providers.flowNextLabel} {card.nextStep}
+                </span>
+                <span className="sub-hint">
+                  {messages.providers.dataSourcesDetected} {card.presentSourceCount}/{card.sources.length} · {messages.providers.rows} {card.sessionCount}
+                  {card.parseFail > 0 ? ` · ${messages.providers.colParseFail} ${card.parseFail}` : ""}
+                  {card.parseScore !== null ? ` · ${messages.providers.score} ${card.parseScore}` : ""}
+                </span>
+                <div className="provider-flow-button-group">
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    onClick={() => jumpToProviderSessions(card.providerId, card.parseFail)}
+                  >
+                    {messages.providers.openSessions}
+                  </button>
+                  {card.parseFail > 0 ? (
+                    <button
+                      type="button"
+                      className="btn-outline"
+                      onClick={() => jumpToParserProvider(card.providerId)}
+                    >
+                      {messages.providers.hotspotOpenParser}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
       </section>
 
       <section className="toolbar">
