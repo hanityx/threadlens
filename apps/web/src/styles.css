@@ -1405,6 +1405,70 @@ tr:hover td {
   background: var(--hover);
 }
 
+.routing-node-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.routing-node-card {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  display: grid;
+  gap: 8px;
+}
+
+.routing-node-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.routing-kind-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-elev) 72%, transparent);
+}
+
+.routing-node-card.kind-entry {
+  border-color: color-mix(in srgb, var(--info) 40%, var(--line-soft));
+}
+
+.routing-node-card.kind-config {
+  border-color: color-mix(in srgb, var(--success) 34%, var(--line-soft));
+}
+
+.routing-node-card.kind-instruction {
+  border-color: color-mix(in srgb, var(--warn) 38%, var(--line-soft));
+}
+
+.routing-node-card.kind-workspace {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--line-soft));
+}
+
+.routing-node-card.kind-runtime {
+  border-color: color-mix(in srgb, var(--danger) 32%, var(--line-soft));
+}
+
+.routing-edge-flow {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.routing-arrow {
+  color: var(--text-secondary);
+}
+
 /* ── Chat ─────────────────────────────────────────────── */
 .chat-toolbar {
   display: flex;

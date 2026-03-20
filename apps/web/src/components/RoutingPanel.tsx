@@ -15,6 +15,30 @@ export function RoutingPanel({ messages, data, loading }: Props) {
     return m;
   }, [data]);
 
+  const orderedNodes = useMemo(() => {
+    const order: Record<string, number> = {
+      entry: 0,
+      config: 1,
+      instruction: 2,
+      workspace: 3,
+      runtime: 4,
+    };
+    return [...(data?.nodes ?? [])].sort((a, b) => {
+      const ao = order[a.kind] ?? 99;
+      const bo = order[b.kind] ?? 99;
+      if (ao !== bo) return ao - bo;
+      return a.label.localeCompare(b.label);
+    });
+  }, [data?.nodes]);
+
+  const kindLabel = (kind: string) => {
+    if (kind === "entry") return messages.routing.kindEntry;
+    if (kind === "config") return messages.routing.kindConfig;
+    if (kind === "instruction") return messages.routing.kindInstruction;
+    if (kind === "workspace") return messages.routing.kindWorkspace;
+    return messages.routing.kindRuntime;
+  };
+
   return (
     <section className="panel">
       <header>
@@ -43,17 +67,43 @@ export function RoutingPanel({ messages, data, loading }: Props) {
         ) : null}
 
         <div className="impact-list">
+          <h3>{messages.routing.flowMap}</h3>
+          {(orderedNodes ?? []).length === 0 ? (
+            <p className="sub-hint">{messages.routing.noNodes}</p>
+          ) : (
+            <div className="routing-node-grid">
+              {orderedNodes.map((node) => (
+                <article key={node.id} className={`routing-node-card kind-${node.kind}`}>
+                  <div className="routing-node-top">
+                    <strong>{node.label}</strong>
+                    <span className="routing-kind-chip">{kindLabel(node.kind)}</span>
+                  </div>
+                  <div className="routing-node-meta mono-sub">{node.id}</div>
+                  {node.detail ? <p className="sub-hint">{node.detail}</p> : null}
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="impact-list">
           <h3>{messages.routing.flowEdges}</h3>
-          <ul>
-            {(data?.edges ?? []).map((edge) => (
-              <li key={`${edge.from}-${edge.to}-${edge.reason}`}>
-                <strong>{nodeLabel.get(edge.from) ?? edge.from}</strong>
-                <span>
-                  {edge.reason} {"->"} {nodeLabel.get(edge.to) ?? edge.to}
-                </span>
-              </li>
-            ))}
-          </ul>
+          {(data?.edges ?? []).length === 0 ? (
+            <p className="sub-hint">{messages.routing.noEdges}</p>
+          ) : (
+            <ul>
+              {(data?.edges ?? []).map((edge) => (
+                <li key={`${edge.from}-${edge.to}-${edge.reason}`}>
+                  <div className="routing-edge-flow">
+                    <strong>{nodeLabel.get(edge.from) ?? edge.from}</strong>
+                    <span className="routing-arrow">→</span>
+                    <strong>{nodeLabel.get(edge.to) ?? edge.to}</strong>
+                  </div>
+                  <span>{edge.reason}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <div className="impact-list">
