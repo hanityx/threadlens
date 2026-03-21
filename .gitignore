@@ -5,11 +5,14 @@ dist/
 .vite/
 coverage/
 apps/**/dist/
+apps/**/dist-electron/
+apps/desktop-electron/build/
+apps/desktop-electron/app/
 apps/**/.vite/
 apps/**/test-results/
 apps/**/playwright-report/
-apps/desktop-tauri/target/
 packages/**/dist/
+*.tsbuildinfo
 
 # local runtime/cache
 .omx/
@@ -18,7 +21,9 @@ __pycache__/
 .DS_Store
 *.log
 .run/
+.playwright-cli/
 .preflight-*.log
+.env.release.local
 
 # local-only data & automation (never committed)
 daemon/

@@ -18,8 +18,7 @@ import { z } from "zod";
 import {
   ApiEnvelope,
   SCHEMA_VERSION,
-} from "@codex/shared-contracts";
-import { PYTHON_BACKEND_URL } from "./constants.js";
+} from "@provider-surface/shared-contracts";
 
 /* ── Types ────────────────────────────────────────────────────────── */
 
@@ -71,73 +70,6 @@ export async function fetchWithTimeout(
   } finally {
     clearTimeout(timer);
   }
-}
-
-export function buildProxyUrl(
-  pathname: string,
-  query?: Record<string, string | string[] | undefined>,
-): string {
-  const url = new URL(pathname, PYTHON_BACKEND_URL);
-  if (!query) return url.toString();
-  for (const [key, value] of Object.entries(query)) {
-    if (Array.isArray(value)) {
-      value.forEach((v) => url.searchParams.append(key, v));
-    } else if (value !== undefined) {
-      url.searchParams.append(key, value);
-    }
-  }
-  return url.toString();
-}
-
-export async function requestPythonJson(
-  pathname: string,
-  method: "GET" | "POST",
-  options: {
-    query?: QueryMap;
-    body?: unknown;
-    timeoutMs?: number;
-    retryCount?: number;
-    retryDelayMs?: number;
-  } = {},
-): Promise<{ status: number; payload: unknown }> {
-  const url = buildProxyUrl(pathname, options.query);
-  const headers: Record<string, string> = { accept: "application/json" };
-  let body: string | undefined;
-  if (method === "POST") {
-    headers["content-type"] = "application/json";
-    body = JSON.stringify(options.body ?? {});
-  }
-
-  const timeoutMs = options.timeoutMs ?? 12000;
-  const retryCount = Math.max(0, Number(options.retryCount ?? 0));
-  const retryDelayMs = Math.max(0, Number(options.retryDelayMs ?? 250));
-  let lastError: unknown = null;
-
-  for (let attempt = 0; attempt <= retryCount; attempt += 1) {
-    try {
-      const res = await fetchWithTimeout(
-        url,
-        {
-          method,
-          headers,
-          body,
-        },
-        timeoutMs,
-      );
-      const text = await res.text();
-      const parsed = safeJsonParse(text);
-      return {
-        status: res.status,
-        payload: withSchemaVersion(parsed ?? text),
-      };
-    } catch (error) {
-      lastError = error;
-      if (attempt >= retryCount) break;
-      await new Promise<void>((resolve) => setTimeout(resolve, retryDelayMs * (attempt + 1)));
-    }
-  }
-
-  throw lastError ?? new Error("python-request-failed");
 }
 
 /* ── JSON ─────────────────────────────────────────────────────────── */
@@ -268,6 +200,19 @@ export async function readFileHead(
   } finally {
     if (fh) await fh.close();
   }
+}
+
+export async function readHeadLines(
+  filePath: string,
+  maxLines = 5,
+): Promise<string[]> {
+  const text = await readFileHead(filePath, 8192);
+  if (!text) return [];
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter(Boolean)
+    .slice(0, Math.max(0, maxLines));
 }
 
 export async function readFileTail(

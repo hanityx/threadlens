@@ -2,24 +2,20 @@
  * Provider-domain business logic.
  *
  * Covers: provider matrix, session scanning, title detection,
- * transcript parsing, and session actions (archive/delete).
+ * transcript parsing, and session actions (backup/archive/delete).
  */
 
 import {
   stat,
+  lstat,
   open,
   readFile,
   readdir,
-  copyFile,
-  unlink,
-  mkdir,
-  writeFile,
+  realpath,
 } from "node:fs/promises";
 import path from "node:path";
-import { createHash, randomUUID } from "node:crypto";
 import {
   CODEX_HOME,
-  BACKUP_ROOT,
   CLAUDE_HOME,
   CLAUDE_PROJECTS_DIR,
   CLAUDE_TRANSCRIPTS_DIR,
@@ -37,7 +33,6 @@ import {
 import {
   pathExists,
   readFileHead,
-  readFileTail,
   walkFilesByExt,
   countFilesRecursiveByExt,
   countJsonlFilesRecursive,
@@ -47,6 +42,12 @@ import {
   nowIsoUtc,
   parseNumber,
 } from "./utils.js";
+import { buildSessionTranscript } from "../domains/providers/transcript.js";
+import {
+  buildProviderActionToken as buildProviderActionTokenInternal,
+  runProviderSessionAction as runProviderSessionActionInternal,
+} from "../domains/providers/actions.js";
+import { invalidateProviderSearchCaches } from "../domains/providers/search.js";
 
 /* ─────────────────────────────────────────────────────────────────── *
  *  Types                                                              *
@@ -61,7 +62,14 @@ export const PROVIDER_IDS = [
 ] as const;
 export type ProviderId = (typeof PROVIDER_IDS)[number];
 export type ProviderStatus = "active" | "detected" | "missing";
-export type ProviderSessionAction = "archive_local" | "delete_local";
+export type ProviderSessionAction =
+  | "backup_local"
+  | "archive_local"
+  | "delete_local";
+
+export type ProviderSessionActionOptions = {
+  backup_before_delete?: boolean;
+};
 
 export type ProviderSessionProbe = {
   ok: boolean;
@@ -110,7 +118,32 @@ export type TranscriptPayload = {
   messages: TranscriptMessage[];
 };
 
-type ProviderRootSpec = {
+export type ConversationSearchMatchKind = "title" | "message";
+
+export type ConversationSearchResult = {
+  provider: ProviderId;
+  session_id: string;
+  thread_id?: string | null;
+  title: string;
+  file_path: string;
+  mtime: string;
+  match_kind: ConversationSearchMatchKind;
+  snippet: string;
+  role?: TranscriptMessage["role"];
+};
+
+export type ConversationSearchPayload = {
+  generated_at: string;
+  q: string;
+  providers: ProviderId[];
+  limit: number;
+  searched_sessions: number;
+  available_sessions: number;
+  truncated: boolean;
+  results: ConversationSearchResult[];
+};
+
+export type ProviderRootSpec = {
   source: string;
   root: string;
   exts: string[];
@@ -165,13 +198,6 @@ type ProviderMatrixCacheEntry = {
   data: ProviderMatrixData;
 };
 
-type ProviderActionTokenEntry = {
-  provider: ProviderId;
-  action: ProviderSessionAction;
-  paths: string[];
-  expires_at: number;
-};
-
 type ChatGptRootsCacheEntry = {
   expires_at: number;
   roots: ProviderRootSpec[];
@@ -181,13 +207,8 @@ type ChatGptRootsCacheEntry = {
  *  Module-level caches                                                *
  * ─────────────────────────────────────────────────────────────────── */
 
-const PROVIDER_SCAN_CACHE_TTL_MS = 60_000;
 const PROVIDER_MATRIX_CACHE_TTL_MS = 30_000;
-const PROVIDER_ACTION_TOKEN_TTL_MS = 10 * 60_000;
 const CHATGPT_ROOT_DISCOVERY_TTL_MS = 45_000;
-const providerScanCache = new Map<string, ProviderScanCacheEntry>();
-const providerScanInflight = new Map<string, Promise<ProviderSessionScan>>();
-const providerActionTokenCache = new Map<string, ProviderActionTokenEntry>();
 let providerMatrixCache: ProviderMatrixCacheEntry | null = null;
 let providerMatrixInflight: Promise<ProviderMatrixData> | null = null;
 let codexTitleMapCache: CodexTitleMapCacheEntry | null = null;
@@ -197,11 +218,7 @@ let chatGptRootsCache: ChatGptRootsCacheEntry | null = null;
  *  Internal helpers (not exported)                                    *
  * ─────────────────────────────────────────────────────────────────── */
 
-function providerScanCacheKey(provider: ProviderId, limit: number): string {
-  return `${provider}:${limit}`;
-}
-
-function providerName(provider: ProviderId): string {
+export function providerName(provider: ProviderId): string {
   const labels: Record<ProviderId, string> = {
     codex: "Codex",
     chatgpt: "ChatGPT Desktop",
@@ -269,7 +286,7 @@ function inferFormat(filePath: string): "jsonl" | "json" | "unknown" {
   return "unknown";
 }
 
-function inferSessionId(filePath: string): string {
+export function inferSessionId(filePath: string): string {
   const base = path.basename(filePath);
   const ext = path.extname(base);
   if (!ext) return base;
@@ -283,18 +300,86 @@ function shortSessionId(sessionId: string): string {
   return `${id.slice(0, 8)}…${id.slice(-4)}`;
 }
 
-function isWorkspaceChatSessionPath(filePath: string): boolean {
+export function normalizeSearchText(value: string): string {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+export function normalizeSearchQuery(value: string): string {
+  return normalizeSearchText(value).toLowerCase();
+}
+
+export function buildSearchTokens(query: string): string[] {
+  return Array.from(
+    new Set(
+      normalizeSearchQuery(query)
+        .split(" ")
+        .map((token) => token.trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+function findSearchMatchIndex(
+  text: string,
+  normalizedQuery: string,
+  tokens: string[],
+): number {
+  const normalizedText = normalizeSearchQuery(text);
+  if (!normalizedText) return -1;
+  if (normalizedQuery) {
+    const queryIndex = normalizedText.indexOf(normalizedQuery);
+    if (queryIndex >= 0) return queryIndex;
+  }
+  for (const token of tokens) {
+    const tokenIndex = normalizedText.indexOf(token);
+    if (tokenIndex >= 0) return tokenIndex;
+  }
+  return -1;
+}
+
+export function matchesConversationSearch(
+  text: string,
+  normalizedQuery: string,
+  tokens: string[],
+): boolean {
+  const normalizedText = normalizeSearchQuery(text);
+  if (!normalizedText) return false;
+  if (normalizedQuery && normalizedText.includes(normalizedQuery)) return true;
+  if (!tokens.length) return false;
+  return tokens.every((token) => normalizedText.includes(token));
+}
+
+export function buildSearchSnippet(
+  text: string,
+  normalizedQuery: string,
+  tokens: string[],
+  maxLen = 180,
+): string {
+  const clean = normalizeSearchText(text);
+  if (!clean) return "";
+  if (clean.length <= maxLen) return clean;
+  const matchIndex = findSearchMatchIndex(clean, normalizedQuery, tokens);
+  if (matchIndex < 0) return `${clean.slice(0, maxLen - 1).trim()}…`;
+  const context = Math.max(32, Math.floor(maxLen / 2));
+  const start = Math.max(0, matchIndex - context);
+  const end = Math.min(clean.length, start + maxLen);
+  const prefix = start > 0 ? "…" : "";
+  const suffix = end < clean.length ? "…" : "";
+  return `${prefix}${clean.slice(start, end).trim()}${suffix}`;
+}
+
+export function isWorkspaceChatSessionPath(filePath: string): boolean {
   const normalized = path.resolve(filePath);
   const marker = `${path.sep}chatSessions${path.sep}`;
   return normalized.includes(marker) && normalized.endsWith(".json");
 }
 
-function isCopilotGlobalSessionLikeFile(filePath: string): boolean {
+export function isCopilotGlobalSessionLikeFile(filePath: string): boolean {
   const base = path.basename(filePath).toLowerCase();
   return base.includes("session");
 }
 
-function fallbackDisplayTitle(
+export function fallbackDisplayTitle(
   provider: ProviderId,
   sessionId: string,
   source: string,
@@ -316,7 +401,7 @@ function extractUuidFromText(text: string): string {
   return m ? m[0] : "";
 }
 
-function extractCodexThreadIdFromSessionName(name: string): string {
+export function extractCodexThreadIdFromSessionName(name: string): string {
   return extractUuidFromText(name);
 }
 
@@ -496,7 +581,7 @@ function detectSessionTitleFromHead(
 
 /* ── Session probing ──────────────────────────────────────────────── */
 
-async function probeSessionFile(
+export async function probeSessionFile(
   filePath: string,
 ): Promise<ProviderSessionProbe> {
   const format = inferFormat(filePath);
@@ -594,116 +679,9 @@ async function probeSessionFile(
   };
 }
 
-/* ── Transcript building ──────────────────────────────────────────── */
-
-function parseTranscriptRole(raw: unknown): TranscriptMessage["role"] {
-  const role = String(raw ?? "").toLowerCase();
-  if (
-    role === "user" ||
-    role === "assistant" ||
-    role === "developer" ||
-    role === "system" ||
-    role === "tool"
-  )
-    return role;
-  return "unknown";
-}
-
-function extractTranscriptText(value: unknown, depth = 0): string {
-  if (depth > 5 || value === null || value === undefined) return "";
-  if (typeof value === "string") return normalizeDetectedTitle(value, 2000);
-  if (Array.isArray(value)) {
-    const chunks = value
-      .slice(0, 30)
-      .map((item) => extractTranscriptText(item, depth + 1))
-      .filter(Boolean);
-    return normalizeDetectedTitle(chunks.join(" "), 2000);
-  }
-  if (typeof value !== "object") return "";
-  const obj = value as Record<string, unknown>;
-  const direct = [
-    "text",
-    "input_text",
-    "output_text",
-    "content",
-    "message",
-    "body",
-    "value",
-  ];
-  for (const key of direct) {
-    if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
-    const hit = extractTranscriptText(obj[key], depth + 1);
-    if (hit) return hit;
-  }
-  const fallback = Object.values(obj)
-    .slice(0, 12)
-    .map((item) => extractTranscriptText(item, depth + 1))
-    .find(Boolean);
-  return fallback ? normalizeDetectedTitle(fallback, 2000) : "";
-}
-
-function parseJsonlTranscriptLine(
-  line: string,
-): Omit<TranscriptMessage, "idx"> | null {
-  let obj: unknown;
-  try {
-    obj = JSON.parse(line);
-  } catch {
-    return null;
-  }
-  if (!obj || typeof obj !== "object") return null;
-  const row = obj as Record<string, unknown>;
-  const type = String(row.type ?? "unknown");
-  const ts = typeof row.timestamp === "string" ? row.timestamp : null;
-
-  if (type === "response_item") {
-    const payload = row.payload;
-    if (!payload || typeof payload !== "object") return null;
-    const payloadObj = payload as Record<string, unknown>;
-    if (String(payloadObj.type ?? "") === "message") {
-      const text = extractTranscriptText(payloadObj.content);
-      if (!text || looksLikeIdOnly(text) || isBoilerplateTitle(text))
-        return null;
-      return {
-        role: parseTranscriptRole(payloadObj.role),
-        text,
-        ts,
-        source_type: "response_item.message",
-      };
-    }
-    return null;
-  }
-
-  if (type === "event_msg") {
-    const payload = row.payload;
-    if (!payload || typeof payload !== "object") return null;
-    const payloadObj = payload as Record<string, unknown>;
-    const text = extractTranscriptText(payloadObj.message ?? payloadObj.text);
-    if (!text || looksLikeIdOnly(text) || isBoilerplateTitle(text)) return null;
-    return {
-      role: parseTranscriptRole(payloadObj.role ?? "assistant"),
-      text,
-      ts,
-      source_type: `event_msg.${String(payloadObj.type ?? "event")}`,
-    };
-  }
-
-  const role = parseTranscriptRole(row.role);
-  const text = extractTranscriptText(
-    row.text ?? row.message ?? row.content ?? row.payload,
-  );
-  if (!text || looksLikeIdOnly(text) || isBoilerplateTitle(text)) return null;
-  return {
-    role,
-    text,
-    ts,
-    source_type: type,
-  };
-}
-
 /* ── Codex title map ──────────────────────────────────────────────── */
 
-async function getCodexThreadTitleMap(): Promise<Map<string, string>> {
+export async function getCodexThreadTitleMap(): Promise<Map<string, string>> {
   const now = Date.now();
   if (codexTitleMapCache && codexTitleMapCache.expires_at > now) {
     return codexTitleMapCache.map;
@@ -741,7 +719,7 @@ async function getCodexThreadTitleMap(): Promise<Map<string, string>> {
 }
 
 /* ─────────────────────────────────────────────────────────────────── *
- *  Exported helpers (also used by route handlers in server.ts)        *
+ *  Exported helpers (also used by route handlers in app/create-server.ts)
  * ─────────────────────────────────────────────────────────────────── */
 
 export function providerStatus(
@@ -846,7 +824,31 @@ export function providerRootSpecs(provider: ProviderId): ProviderRootSpec[] {
   ];
 }
 
-async function providerScanRootSpecs(
+export function codexTranscriptSearchRoots(): ProviderRootSpec[] {
+  const homes = Array.from(
+    new Set([
+      CODEX_HOME,
+      path.join(HOME_DIR, ".codex-cli"),
+      path.join(HOME_DIR, ".codex"),
+    ].filter(Boolean)),
+  );
+  const roots: ProviderRootSpec[] = [];
+  for (const home of homes) {
+    roots.push({
+      source: "sessions",
+      root: path.join(home, "sessions"),
+      exts: [".jsonl"],
+    });
+    roots.push({
+      source: "archived_sessions",
+      root: path.join(home, "archived_sessions"),
+      exts: [".jsonl"],
+    });
+  }
+  return roots;
+}
+
+export async function providerScanRootSpecs(
   provider: ProviderId,
 ): Promise<ProviderRootSpec[]> {
   if (provider !== "chatgpt") return providerRootSpecs(provider);
@@ -873,11 +875,72 @@ export function isAllowedProviderFilePath(
   );
 }
 
+export async function resolveSafePathWithinRoots(
+  filePath: string,
+  rootPaths: string[],
+): Promise<string | null> {
+  const normalizedTarget = path.resolve(filePath);
+  let targetLstat;
+  try {
+    targetLstat = await lstat(normalizedTarget);
+  } catch {
+    return null;
+  }
+  if (targetLstat.isSymbolicLink()) return null;
+
+  let realTarget = "";
+  try {
+    realTarget = await realpath(normalizedTarget);
+  } catch {
+    return null;
+  }
+
+  for (const rootPath of rootPaths) {
+    try {
+      const realRoot = await realpath(rootPath);
+      if (
+        realTarget === realRoot ||
+        realTarget.startsWith(`${realRoot}${path.sep}`)
+      ) {
+        return realTarget;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+export async function resolveAllowedProviderFilePath(
+  provider: ProviderId,
+  filePath: string,
+): Promise<string | null> {
+  if (!isAllowedProviderFilePath(provider, filePath)) return null;
+
+  if (provider === "chatgpt") {
+    return resolveSafePathWithinRoots(filePath, [CHAT_DIR]);
+  }
+
+  const ext = path.extname(filePath).toLowerCase();
+  const matchingRoots = providerRootSpecs(provider)
+    .filter(
+      (spec) => spec.exts.includes(ext) && isPathInsideRoot(filePath, spec.root),
+    )
+    .map((spec) => spec.root);
+
+  if (!matchingRoots.length) return null;
+  return resolveSafePathWithinRoots(filePath, matchingRoots);
+}
+
 /* ─────────────────────────────────────────────────────────────────── *
  *  Exported business logic                                            *
  * ─────────────────────────────────────────────────────────────────── */
 
 async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
+  const codexHomes = Array.from(
+    new Set(codexTranscriptSearchRoots().map((spec) => path.dirname(spec.root))),
+  );
   const codexRootExists = await pathExists(CODEX_HOME);
   const chatGptRootExists = await pathExists(CHAT_DIR);
   const claudeRootExists = await pathExists(CLAUDE_HOME);
@@ -959,9 +1022,10 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
         hard_delete: supportsProviderCleanup("codex"),
       },
       evidence: {
-        roots: [CODEX_HOME, CHAT_DIR],
+        roots: codexHomes,
         session_log_count: codexSessionLogs,
-        notes: "full safety cleanup and forensics available",
+        notes:
+          "This is an operations-grade model built around thread_id, pinned state, and global state, so impact analysis and cleanup dry-runs live in a dedicated surface.",
       },
     },
     {
@@ -982,7 +1046,7 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
         roots: [CHAT_DIR],
         session_log_count: chatGptSessionLogs,
         notes:
-          "read-only mode: binary chat cache is observable, destructive actions are disabled",
+          "Read-first cache model: focused on desktop cache and conversation artifacts, with destructive actions disabled.",
       },
     },
     {
@@ -1003,7 +1067,7 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
         roots: [CLAUDE_HOME, CLAUDE_PROJECTS_DIR, CLAUDE_TRANSCRIPTS_DIR],
         session_log_count: claudeSessionLogs,
         notes:
-          "dev mode: scans projects + transcripts storage for local archive/delete",
+          "Managed around session_id plus raw project and transcript files. Reading the original conversation and running file-level dry-runs is the main path.",
       },
     },
     {
@@ -1029,7 +1093,7 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
         ],
         session_log_count: geminiSessionLogs,
         notes:
-          "dev mode: scans tmp/history plus antigravity conversation store",
+          "Managed across history, tmp, and checkpoint-style session stores. Raw session-store distribution matters more than a thread model here.",
       },
     },
     {
@@ -1061,7 +1125,7 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
         ],
         session_log_count: copilotSignalFiles,
         notes:
-          "dev mode: scans global session artifacts + workspace chat sessions",
+          "Auxiliary diagnostics only: scans global traces and workspace chat sessions, but it is not part of the core operating path.",
       },
     },
   ];
@@ -1125,85 +1189,9 @@ export function buildProviderActionToken(
   provider: ProviderId,
   action: ProviderSessionAction,
   filePaths: string[],
+  options?: ProviderSessionActionOptions,
 ): string {
-  const normalized = Array.from(
-    new Set(
-      filePaths
-        .map((item) => path.resolve(String(item || "").trim()))
-        .filter(Boolean),
-    ),
-  ).sort();
-  const raw = JSON.stringify({
-    provider,
-    action,
-    paths: normalized,
-  });
-  const digest = createHash("sha256")
-    .update(raw, "utf-8")
-    .digest("hex")
-    .slice(0, 12)
-    .toUpperCase();
-  return `PROVIDER-${digest}`;
-}
-
-function normalizeProviderActionPaths(filePaths: string[]): string[] {
-  return Array.from(
-    new Set(
-      filePaths
-        .map((item) => path.resolve(String(item || "").trim()))
-        .filter(Boolean),
-    ),
-  ).sort();
-}
-
-function pruneProviderActionTokens(now = Date.now()) {
-  for (const [token, entry] of providerActionTokenCache.entries()) {
-    if (entry.expires_at <= now) providerActionTokenCache.delete(token);
-  }
-}
-
-function issueProviderActionConfirmToken(
-  provider: ProviderId,
-  action: ProviderSessionAction,
-  filePaths: string[],
-): string {
-  const normalized = normalizeProviderActionPaths(filePaths);
-  const token = `PROVIDER-${randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`;
-  providerActionTokenCache.set(token, {
-    provider,
-    action,
-    paths: normalized,
-    expires_at: Date.now() + PROVIDER_ACTION_TOKEN_TTL_MS,
-  });
-  return token;
-}
-
-function consumeProviderActionConfirmToken(
-  token: string,
-  provider: ProviderId,
-  action: ProviderSessionAction,
-  filePaths: string[],
-): { ok: boolean; reason: string } {
-  pruneProviderActionTokens();
-  const key = String(token || "").trim();
-  if (!key) return { ok: false, reason: "missing-confirm-token" };
-  const entry = providerActionTokenCache.get(key);
-  if (!entry) return { ok: false, reason: "invalid-confirm-token" };
-  if (entry.expires_at <= Date.now()) {
-    providerActionTokenCache.delete(key);
-    return { ok: false, reason: "expired-confirm-token" };
-  }
-  const normalized = normalizeProviderActionPaths(filePaths);
-  const sameProvider = entry.provider === provider;
-  const sameAction = entry.action === action;
-  const samePaths =
-    entry.paths.length === normalized.length &&
-    entry.paths.every((item, idx) => item === normalized[idx]);
-  if (!sameProvider || !sameAction || !samePaths) {
-    return { ok: false, reason: "confirm-token-scope-mismatch" };
-  }
-  providerActionTokenCache.delete(key);
-  return { ok: true, reason: "" };
+  return buildProviderActionTokenInternal(provider, action, filePaths, options);
 }
 
 export async function runProviderSessionAction(
@@ -1212,521 +1200,24 @@ export async function runProviderSessionAction(
   filePaths: string[],
   dryRun: boolean,
   confirmToken: string,
+  options?: ProviderSessionActionOptions,
 ) {
-  pruneProviderActionTokens();
-  const uniquePaths = Array.from(
-    new Set(filePaths.map((item) => String(item || "").trim()).filter(Boolean)),
-  );
-  if (!supportsProviderCleanup(provider)) {
-    return {
-      ok: false,
-      provider,
-      action,
-      dry_run: dryRun,
-      target_count: uniquePaths.length,
-      valid_count: 0,
-      applied_count: 0,
-      confirm_token_expected: "",
-      confirm_token_accepted: false,
-      skipped: [],
-      error: "cleanup-disabled-provider",
-    };
-  }
-  const skipped: Array<{ file_path: string; reason: string }> = [];
-  const valid: string[] = [];
-
-  for (const candidate of uniquePaths) {
-    if (!isAllowedProviderFilePath(provider, candidate)) {
-      skipped.push({
-        file_path: candidate,
-        reason: "outside-provider-root-or-extension",
-      });
-      continue;
-    }
-    try {
-      const st = await stat(candidate);
-      if (!st.isFile()) {
-        skipped.push({ file_path: candidate, reason: "not-a-file" });
-        continue;
-      }
-      valid.push(candidate);
-    } catch {
-      skipped.push({ file_path: candidate, reason: "not-found" });
-    }
-  }
-
-  if (!valid.length && !dryRun) {
-    return {
-      ok: false,
-      provider,
-      action,
-      dry_run: false,
-      target_count: uniquePaths.length,
-      valid_count: valid.length,
-      applied_count: 0,
-      confirm_token_expected: "",
-      confirm_token_accepted: false,
-      skipped,
-      error: "no-valid-targets",
-    };
-  }
-
-  if (dryRun) {
-    const expectedToken = valid.length
-      ? issueProviderActionConfirmToken(provider, action, valid)
-      : "";
-    return {
-      ok: true,
-      provider,
-      action,
-      dry_run: true,
-      target_count: uniquePaths.length,
-      valid_count: valid.length,
-      applied_count: 0,
-      confirm_token_expected: expectedToken,
-      confirm_token_accepted: false,
-      skipped,
-      mode: "preview",
-    };
-  }
-
-  const consume = consumeProviderActionConfirmToken(
+  return runProviderSessionActionInternal(
+    {
+      resolveAllowedProviderFilePath,
+      supportsProviderCleanup,
+      invalidateProviderCaches: (targetProvider) => {
+        invalidateProviderSearchCaches(targetProvider);
+        providerMatrixCache = null;
+      },
+    },
+    provider,
+    action,
+    filePaths,
+    dryRun,
     confirmToken,
-    provider,
-    action,
-    valid,
+    options,
   );
-  if (!consume.ok) {
-    const expectedToken = valid.length
-      ? issueProviderActionConfirmToken(provider, action, valid)
-      : "";
-    return {
-      ok: false,
-      provider,
-      action,
-      dry_run: false,
-      target_count: uniquePaths.length,
-      valid_count: valid.length,
-      applied_count: 0,
-      confirm_token_expected: expectedToken,
-      confirm_token_accepted: false,
-      skipped,
-      error: consume.reason,
-    };
-  }
-
-  let applied = 0;
-  let archivedTo: string | null = null;
-  const failed: Array<{ file_path: string; step: string; error: string }> = [];
-  if (action === "archive_local") {
-    const folderName = nowIsoUtc().replace(/[:.]/g, "-");
-    const destination = path.join(
-      BACKUP_ROOT,
-      "provider_actions",
-      provider,
-      folderName,
-    );
-    await mkdir(destination, { recursive: true });
-    const manifestItems: Array<{
-      source_path: string;
-      backup_rel_path: string;
-      backup_abs_path: string;
-    }> = [];
-    for (let i = 0; i < valid.length; i += 1) {
-      const sourcePath = path.resolve(valid[i]);
-      const relFromFsRoot = sourcePath.replace(/^([A-Za-z]:)?[\\/]+/, "");
-      const targetPath = path.join(destination, relFromFsRoot);
-      try {
-        await mkdir(path.dirname(targetPath), { recursive: true });
-        await copyFile(sourcePath, targetPath);
-        manifestItems.push({
-          source_path: sourcePath,
-          backup_rel_path: relFromFsRoot,
-          backup_abs_path: targetPath,
-        });
-        await unlink(sourcePath);
-        applied += 1;
-      } catch (error) {
-        failed.push({
-          file_path: sourcePath,
-          step: "archive_local",
-          error: String(error),
-        });
-      }
-    }
-    const manifestPath = path.join(destination, "_manifest.json");
-    try {
-      await writeFile(
-        manifestPath,
-        JSON.stringify(
-          {
-            generated_at: nowIsoUtc(),
-            provider,
-            action,
-            item_count: manifestItems.length,
-            items: manifestItems,
-          },
-          null,
-          2,
-        ),
-        "utf-8",
-      );
-    } catch (error) {
-      failed.push({
-        file_path: manifestPath,
-        step: "manifest_write",
-        error: String(error),
-      });
-    }
-    archivedTo = destination;
-  } else {
-    for (const sourcePath of valid) {
-      try {
-        await unlink(sourcePath);
-        applied += 1;
-      } catch (error) {
-        failed.push({
-          file_path: sourcePath,
-          step: "delete_local",
-          error: String(error),
-        });
-      }
-    }
-  }
-
-  for (const key of providerScanCache.keys()) {
-    if (key.startsWith(`${provider}:`)) {
-      providerScanCache.delete(key);
-    }
-  }
-  providerMatrixCache = null;
-
-  return {
-    ok: failed.length === 0,
-    provider,
-    action,
-    dry_run: false,
-    target_count: uniquePaths.length,
-    valid_count: valid.length,
-    applied_count: applied,
-    confirm_token_expected: "",
-    confirm_token_accepted: true,
-    skipped,
-    failed,
-    archived_to: archivedTo,
-    mode: failed.length === 0 ? "applied" : applied > 0 ? "partial" : "failed",
-  };
 }
 
-/* ── Session scanning ─────────────────────────────────────────────── */
-
-async function scanProviderSessions(
-  provider: ProviderId,
-  limit = 80,
-): Promise<ProviderSessionScan> {
-  const startedAt = Date.now();
-  const safeLimit = Math.max(1, Math.min(240, Number(limit) || 80));
-  const roots = await providerScanRootSpecs(provider);
-  const rootExists =
-    provider === "chatgpt"
-      ? await pathExists(CHAT_DIR)
-      : (await Promise.all(roots.map((r) => pathExists(r.root)))).some(Boolean);
-
-  const candidates: Array<{
-    source: string;
-    file_path: string;
-    size_bytes: number;
-    mtime: string;
-    mtime_ms: number;
-  }> = [];
-  const gatherLimit = Math.max(safeLimit * 2, 80);
-
-  const rootFiles = await Promise.all(
-    roots.map((spec) => {
-      const providerLimit =
-        provider === "copilot" &&
-        (spec.source === "vscode_workspace_chats" ||
-          spec.source === "cursor_workspace_chats")
-          ? Math.max(gatherLimit * 8, 1200)
-          : gatherLimit;
-      return walkFilesByExt(spec.root, spec.exts, providerLimit);
-    }),
-  );
-  for (let i = 0; i < roots.length; i += 1) {
-    const spec = roots[i];
-    const files = rootFiles[i] ?? [];
-    const filteredFiles =
-      provider === "copilot" &&
-      (spec.source === "vscode_workspace_chats" ||
-        spec.source === "cursor_workspace_chats")
-        ? files.filter((filePath) => isWorkspaceChatSessionPath(filePath))
-        : provider === "copilot" &&
-            (spec.source === "vscode_global" || spec.source === "cursor_global")
-          ? files.filter((filePath) =>
-              isCopilotGlobalSessionLikeFile(filePath),
-            )
-          : files;
-    for (const file of filteredFiles) {
-      try {
-        const st = await stat(file);
-        candidates.push({
-          source: spec.source,
-          file_path: file,
-          size_bytes: Number(st.size),
-          mtime: new Date(Number(st.mtimeMs)).toISOString(),
-          mtime_ms: Number(st.mtimeMs),
-        });
-      } catch {
-        // no-op
-      }
-    }
-  }
-
-  candidates.sort((a, b) => b.mtime_ms - a.mtime_ms);
-  const selected = candidates.slice(0, safeLimit);
-  const codexTitleMap =
-    provider === "codex" ? await getCodexThreadTitleMap() : null;
-  const rows: ProviderSessionRow[] = await Promise.all(
-    selected.map(async (candidate) => {
-      const rawSessionId = inferSessionId(candidate.file_path);
-      const codexThreadId =
-        provider === "codex"
-          ? extractCodexThreadIdFromSessionName(rawSessionId)
-          : "";
-      const sessionId = codexThreadId || rawSessionId;
-      const probe = await probeSessionFile(candidate.file_path);
-      return {
-        provider,
-        source: candidate.source,
-        session_id: sessionId,
-        display_title:
-          (codexTitleMap && codexThreadId
-            ? codexTitleMap.get(codexThreadId)
-            : "") ||
-          probe.detected_title ||
-          fallbackDisplayTitle(provider, sessionId, candidate.source),
-        file_path: candidate.file_path,
-        size_bytes: candidate.size_bytes,
-        mtime: candidate.mtime,
-        probe,
-      };
-    }),
-  );
-
-  return {
-    provider,
-    name: providerName(provider),
-    status: providerStatus(rootExists, candidates.length),
-    rows,
-    scanned: rows.length,
-    truncated: candidates.length > safeLimit,
-    scan_ms: Math.max(0, Date.now() - startedAt),
-  };
-}
-
-export async function getProviderSessionScan(
-  provider: ProviderId,
-  limit = 80,
-  options?: { forceRefresh?: boolean },
-): Promise<ProviderSessionScan> {
-  const safeLimit = Math.max(1, Math.min(240, Number(limit) || 80));
-  const key = providerScanCacheKey(provider, safeLimit);
-  const forceRefresh = Boolean(options?.forceRefresh);
-  const now = Date.now();
-  if (!forceRefresh) {
-    const cached = providerScanCache.get(key);
-    if (cached && cached.expires_at > now) return cached.scan;
-  } else {
-    providerScanCache.delete(key);
-  }
-
-  const inflight = providerScanInflight.get(key);
-  if (inflight) return inflight;
-
-  const task = scanProviderSessions(provider, safeLimit)
-    .then((scan) => {
-      providerScanCache.set(key, {
-        expires_at: Date.now() + PROVIDER_SCAN_CACHE_TTL_MS,
-        scan,
-      });
-      return scan;
-    })
-    .finally(() => {
-      providerScanInflight.delete(key);
-    });
-
-  providerScanInflight.set(key, task);
-  return task;
-}
-
-export async function getProviderSessionsTs(
-  provider?: ProviderId,
-  limit = 80,
-  options?: { forceRefresh?: boolean },
-) {
-  const targets: ProviderId[] = provider ? [provider] : listProviderIds();
-  const scans = await Promise.all(
-    targets.map((p) => getProviderSessionScan(p, limit, options)),
-  );
-
-  const rows = scans.flatMap((scan) => scan.rows);
-  return {
-    generated_at: nowIsoUtc(),
-    summary: {
-      providers: scans.length,
-      rows: rows.length,
-      parse_ok: rows.filter((row) => row.probe.ok).length,
-      parse_fail: rows.filter((row) => !row.probe.ok).length,
-    },
-    providers: scans.map((scan) => ({
-      provider: scan.provider,
-      name: scan.name,
-      status: scan.status,
-      scanned: scan.scanned,
-      truncated: scan.truncated,
-      scan_ms: scan.scan_ms,
-    })),
-    rows,
-  };
-}
-
-export async function getProviderParserHealthTs(
-  provider?: ProviderId,
-  limitPerProvider = 80,
-  options?: { forceRefresh?: boolean },
-) {
-  const targets: ProviderId[] = provider ? [provider] : listProviderIds();
-  const scans = await Promise.all(
-    targets.map((item) =>
-      getProviderSessionScan(item, limitPerProvider, options),
-    ),
-  );
-  const reports: Array<Record<string, unknown>> = scans.map((scan) => {
-    const parseOk = scan.rows.filter((row) => row.probe.ok).length;
-    const parseFail = scan.rows.length - parseOk;
-    const score = scan.rows.length
-      ? Number(((parseOk / scan.rows.length) * 100).toFixed(1))
-      : null;
-    return {
-      provider: scan.provider,
-      name: scan.name,
-      status: scan.status,
-      scanned: scan.rows.length,
-      parse_ok: parseOk,
-      parse_fail: parseFail,
-      parse_score: score,
-      truncated: scan.truncated,
-      scan_ms: scan.scan_ms,
-      sample_errors: scan.rows
-        .filter((row) => !row.probe.ok)
-        .slice(0, 8)
-        .map((row) => ({
-          session_id: row.session_id,
-          path: row.file_path,
-          format: row.probe.format,
-          error: row.probe.error,
-        })),
-    };
-  });
-  const totalScanned = reports.reduce(
-    (sum, row) => sum + parseNumber((row as Record<string, unknown>).scanned),
-    0,
-  );
-  const totalFail = reports.reduce(
-    (sum, row) =>
-      sum + parseNumber((row as Record<string, unknown>).parse_fail),
-    0,
-  );
-  const totalOk = reports.reduce(
-    (sum, row) => sum + parseNumber((row as Record<string, unknown>).parse_ok),
-    0,
-  );
-  return {
-    generated_at: nowIsoUtc(),
-    summary: {
-      providers: reports.length,
-      scanned: totalScanned,
-      parse_ok: totalOk,
-      parse_fail: totalFail,
-      parse_score: totalScanned
-        ? Number(((totalOk / totalScanned) * 100).toFixed(1))
-        : null,
-    },
-    reports,
-  };
-}
-
-/* ── Transcript for a codex thread ────────────────────────────────── */
-
-export async function resolveCodexSessionPathByThreadId(
-  threadId: string,
-): Promise<string | null> {
-  const normalized = String(threadId || "").trim();
-  if (!normalized) return null;
-
-  const recent = await getProviderSessionScan("codex", 240);
-  const inRecent = recent.rows.find((row) => row.session_id === normalized);
-  if (inRecent) return inRecent.file_path;
-
-  const roots = providerRootSpecs("codex");
-  for (const spec of roots) {
-    const files = await walkFilesByExt(spec.root, spec.exts, 8000);
-    const hit = files.find((file) => path.basename(file).includes(normalized));
-    if (hit) return hit;
-  }
-  return null;
-}
-
-export async function buildSessionTranscript(
-  provider: ProviderId,
-  filePath: string,
-  limit: number,
-): Promise<TranscriptPayload> {
-  const safeLimit = Math.max(20, Math.min(2000, Number(limit) || 200));
-  const format = inferFormat(filePath);
-  const threadId =
-    provider === "codex"
-      ? extractCodexThreadIdFromSessionName(inferSessionId(filePath))
-      : "";
-
-  if (format !== "jsonl") {
-    return {
-      provider,
-      thread_id: threadId || null,
-      file_path: filePath,
-      scanned_lines: 0,
-      message_count: 0,
-      truncated: false,
-      messages: [],
-    };
-  }
-
-  const tail = await readFileTail(filePath, 2_621_440);
-  const lines = tail.text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const messages: TranscriptMessage[] = [];
-  for (const line of lines) {
-    const parsed = parseJsonlTranscriptLine(line);
-    if (!parsed) continue;
-    messages.push({ ...parsed, idx: messages.length + 1 });
-  }
-
-  const sliced = messages
-    .slice(Math.max(0, messages.length - safeLimit))
-    .map((msg, index) => ({
-      ...msg,
-      idx: index + 1,
-    }));
-
-  return {
-    provider,
-    thread_id: threadId || null,
-    file_path: filePath,
-    scanned_lines: lines.length,
-    message_count: sliced.length,
-    truncated: tail.truncated || messages.length > safeLimit,
-    messages: sliced,
-  };
-}
+export { buildSessionTranscript };

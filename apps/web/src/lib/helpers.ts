@@ -25,6 +25,39 @@ export function parseNum(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+export function formatDateTime(value: string | number | Date | null | undefined): string {
+  if (value === null || value === undefined || value === "") return "-";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("ko-KR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+export function formatInteger(value: number | null | undefined): string {
+  const num = Number(value ?? 0);
+  if (!Number.isFinite(num)) return "0";
+  return new Intl.NumberFormat("ko-KR").format(Math.round(num));
+}
+
+export function normalizeDisplayValue(value: unknown): string {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) return "";
+  const lowered = trimmed.toLowerCase();
+  if (
+    lowered === "none" ||
+    lowered === "null" ||
+    lowered === "undefined" ||
+    lowered === "unknown" ||
+    lowered === "n/a" ||
+    lowered === "-"
+  ) {
+    return "";
+  }
+  return trimmed;
+}
+
 /** Normalize a raw row record into a well-typed ThreadRow */
 export function normalizeThreadRow(input: Record<string, unknown>): ThreadRow {
   const threadId = String(input.thread_id ?? input.id ?? "");

@@ -1,9 +1,9 @@
-import type { ApiEnvelope, ExecutionGraphData } from "@codex/shared-contracts";
+import type { ApiEnvelope, ExecutionGraphData } from "@provider-surface/shared-contracts";
 import type { TranscriptMessage } from "./components/TranscriptLog";
 
 /* ── Runtime ──────────────────────────────────────────── */
 export type RuntimeEnvelope = ApiEnvelope<{
-  python_backend: { reachable: boolean; latency_ms: number | null; url: string };
+  runtime_backend: { reachable: boolean; latency_ms: number | null; url: string };
   process: { pid: number; uptime_sec: number; node: string };
   tmux: { sessions: string[] };
 }>;
@@ -164,38 +164,66 @@ export type ProviderParserHealthEnvelope = ApiEnvelope<{
     parse_fail: number;
     parse_score: number | null;
   };
-  reports?: Array<{
-    provider: string;
-    name: string;
-    status: "active" | "detected" | "missing";
-    scanned: number;
-    parse_ok: number;
-    parse_fail: number;
-    parse_score: number | null;
-    truncated: boolean;
-    scan_ms?: number;
-    sample_errors?: Array<{
-      session_id: string;
-      format: string;
-      error: string | null;
-    }>;
-  }>;
+  reports?: ProviderParserHealthReport[];
 }>;
+
+export type ProviderParserHealthReport = {
+  provider: string;
+  name: string;
+  status: "active" | "detected" | "missing";
+  scanned: number;
+  parse_ok: number;
+  parse_fail: number;
+  parse_score: number | null;
+  truncated: boolean;
+  scan_ms?: number;
+  sample_errors?: Array<{
+    session_id: string;
+    format: string;
+    error: string | null;
+  }>;
+};
 
 /* ── Provider Session Action ──────────────────────────── */
 export type ProviderSessionActionResult = {
   ok: boolean;
   provider: string;
-  action: "archive_local" | "delete_local";
+  action: "backup_local" | "archive_local" | "delete_local";
   dry_run: boolean;
   target_count: number;
   valid_count: number;
   applied_count: number;
   confirm_token_expected: string;
   confirm_token_accepted: boolean;
+  backup_before_delete?: boolean;
+  backed_up_count?: number;
+  backup_to?: string | null;
+  backup_manifest_path?: string | null;
   skipped?: Array<{ file_path: string; reason: string }>;
   archived_to?: string | null;
   mode?: string;
+  error?: string;
+};
+
+export type RecoveryBackupExportResponse = {
+  ok: boolean;
+  generated_at?: string;
+  backup_root?: string;
+  export_root?: string;
+  export_dir?: string;
+  archive_path?: string;
+  manifest_path?: string;
+  selected_backup_ids?: string[];
+  missing_backup_ids?: string[];
+  exported_count?: number;
+  exported_sets?: Array<{
+    backup_id: string;
+    source_path: string;
+    export_path: string;
+    file_count: number;
+    total_bytes: number;
+    latest_mtime: string;
+  }>;
   error?: string;
 };
 
@@ -256,12 +284,36 @@ export type TranscriptPayload = {
   messages: TranscriptMessage[];
 };
 
+export type ConversationSearchHit = {
+  provider: string;
+  session_id: string;
+  thread_id?: string | null;
+  title?: string;
+  display_title?: string;
+  file_path: string;
+  mtime: string;
+  match_kind: "title" | "message";
+  snippet: string;
+  role?: string | null;
+  source?: string;
+};
+
+export type ConversationSearchEnvelope = ApiEnvelope<{
+  generated_at?: string;
+  q?: string;
+  providers?: string[];
+  searched_sessions?: number;
+  available_sessions?: number;
+  truncated?: boolean;
+  results?: ConversationSearchHit[];
+}>;
+
 /* ── UI State ─────────────────────────────────────────── */
 export type FilterMode = "all" | "high-risk" | "pinned";
 export type ProviderView = "all" | (string & {});
 export type ProviderDataDepth = "fast" | "balanced" | "deep";
-export type LayoutView = "overview" | "threads" | "providers" | "forensics" | "routing";
-export type Locale = "ko" | "en";
+export type LayoutView = "overview" | "search" | "threads" | "providers";
+export type Locale = "en";
 export type UiDensity = "comfortable" | "compact";
 
 export type ExecutionGraphEnvelope = ApiEnvelope<ExecutionGraphData>;

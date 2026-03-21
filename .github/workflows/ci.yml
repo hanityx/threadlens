@@ -2,7 +2,6 @@ name: CI
 
 on:
   push:
-    branches: [main, codex/**]
   pull_request:
     branches: [main]
 
@@ -34,31 +33,38 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: OSS hygiene
+        run: pnpm oss:hygiene
+
+      - name: Public export verify
+        if: matrix.node-version == 20
+        run: pnpm public:verify
+
       - name: Lint (type-check)
         run: |
-          pnpm --filter @codex/shared-contracts build
-          pnpm --filter @codex/api-ts lint
-          pnpm --filter @codex/web lint
+          pnpm --filter @provider-surface/shared-contracts build
+          pnpm --filter @provider-surface/api lint
+          pnpm --filter @provider-surface/web lint
 
       - name: Build API
-        run: pnpm --filter @codex/api-ts build
+        run: pnpm --filter @provider-surface/api build
 
       - name: Build Web
-        run: pnpm --filter @codex/web build
+        run: pnpm --filter @provider-surface/web build
 
       - name: Test API
-        run: pnpm --filter @codex/api-ts test
+        run: pnpm --filter @provider-surface/api test
 
       - name: Test Web (unit)
-        run: pnpm --filter @codex/web test
+        run: pnpm --filter @provider-surface/web test
 
       - name: Install Playwright Chromium
         if: matrix.node-version == 20
-        run: pnpm --filter @codex/web exec playwright install --with-deps chromium
+        run: pnpm --filter @provider-surface/web exec playwright install --with-deps chromium
 
       - name: Test Web E2E (providers + token + perf)
         if: matrix.node-version == 20
-        run: pnpm --filter @codex/web test:e2e
+        run: pnpm --filter @provider-surface/web test:e2e
 
       - name: Test Web E2E Live (real Python+TS backend)
         if: matrix.node-version == 20
@@ -70,7 +76,7 @@ jobs:
           set -euo pipefail
           python3 server.py >/tmp/ci-python.log 2>&1 &
           PY_PID=$!
-          pnpm --filter @codex/api-ts dev >/tmp/ci-api-ts.log 2>&1 &
+          pnpm --filter @provider-surface/api dev >/tmp/ci-api-ts.log 2>&1 &
           TS_PID=$!
           trap 'kill $TS_PID $PY_PID >/dev/null 2>&1 || true' EXIT
           for i in {1..60}; do
@@ -80,7 +86,7 @@ jobs:
             fi
             sleep 1
           done
-          REQUIRE_PARITY=1 pnpm --filter @codex/tests-api-contract test
+          REQUIRE_PARITY=1 pnpm --filter @provider-surface/tests-api-contract test
           pnpm forensics:smoke
           pnpm perf:smoke:strict
           pnpm smoke:summary

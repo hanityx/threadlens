@@ -20,39 +20,17 @@ jobs:
         with:
           version: 10.4.1
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
       - name: Install deps
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
-      - name: Run tests
-        run: |
-          set -euo pipefail
-          python3 server.py >/tmp/release-python.log 2>&1 &
-          PY_PID=$!
-          pnpm --filter @codex/api-ts dev >/tmp/release-api-ts.log 2>&1 &
-          TS_PID=$!
-          trap 'kill $TS_PID $PY_PID >/dev/null 2>&1 || true' EXIT
-          for i in {1..60}; do
-            if curl -fsS http://127.0.0.1:8787/api/runtime-health >/dev/null 2>&1 \
-              && curl -fsS http://127.0.0.1:8788/api/healthz >/dev/null 2>&1; then
-              break
-            fi
-            sleep 1
-          done
-          pnpm --filter @codex/api-ts test
-          pnpm --filter @codex/web test
-          pnpm --filter @codex/web exec playwright install chromium
-          pnpm --filter @codex/web test:e2e
-          pnpm web:e2e:live
-          REQUIRE_PARITY=1 pnpm --filter @codex/tests-api-contract test
-          pnpm forensics:smoke
-          pnpm perf:smoke:strict
-          pnpm smoke:summary
+      - name: OSS hygiene
+        run: pnpm oss:hygiene
 
-      - name: Build desktop bundle
-        run: pnpm build:desktop
+      - name: Release preflight
+        run: pnpm release:preflight
+
+      - name: Build desktop zip
+        run: pnpm package:desktop
 
       - name: Sign and notarize (optional)
         if: ${{ secrets.APPLE_SIGN_IDENTITY != '' && secrets.APPLE_ID != '' && secrets.APPLE_TEAM_ID != '' && secrets.APPLE_APP_PASSWORD != '' }}
@@ -66,14 +44,15 @@ jobs:
       - name: Upload app artifact
         uses: actions/upload-artifact@v4
         with:
-          name: codex-legacy-layer-app
-          path: apps/desktop-tauri/target/release/bundle/macos/Codex Mission Control.app
+          name: provider-surface-app
+          path: apps/desktop-electron/dist/mac-arm64/Provider Observatory.app
 
-      - name: Upload dmg artifact
+      - name: Upload desktop zip artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: codex-legacy-layer-dmg
-          path: apps/desktop-tauri/target/release/bundle/dmg/*.dmg
+          name: provider-surface-zips
+          path: apps/desktop-electron/dist/*.zip
+          if-no-files-found: ignore
 
       - name: Upload perf smoke report
         if: always()

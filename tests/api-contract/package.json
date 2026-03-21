@@ -1,5 +1,5 @@
 {
-  "name": "@codex/tests-api-contract",
+  "name": "@provider-surface/tests-api-contract",
   "version": "0.1.0",
   "private": true,
   "type": "module",

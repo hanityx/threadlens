@@ -1,11 +1,11 @@
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { getLatestSmokeStatusTs } from "./recovery";
+import { exportRecoveryBackupsTs, getLatestSmokeStatusTs } from "./recovery";
 
 async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
-  const dir = await mkdtemp(path.join(os.tmpdir(), "cmc-smoke-"));
+  const dir = await mkdtemp(path.join(os.tmpdir(), "po-smoke-"));
   try {
     return await fn(dir);
   } finally {
@@ -140,6 +140,86 @@ describe("getLatestSmokeStatusTs", () => {
       expect(data.latest.status).toBe("missing");
       expect(data.latest.result).toBe("MISSING");
       expect(data.history.length).toBe(0);
+    });
+  });
+});
+
+describe("exportRecoveryBackupsTs", () => {
+  it("exports all backup sets when no ids are provided", async () => {
+    await withTempDir(async (rootDir) => {
+      const backupRoot = path.join(rootDir, "backups");
+      const exportRoot = path.join(rootDir, "exports");
+      const cleanupBackup = path.join(backupRoot, "20260304T224500Z");
+      const providerBackup = path.join(
+        backupRoot,
+        "provider_actions",
+        "codex",
+        "20260305T010101Z",
+      );
+      await mkdir(cleanupBackup, { recursive: true });
+      await mkdir(providerBackup, { recursive: true });
+      await mkdir(path.join(cleanupBackup, "Users", "developer"), { recursive: true });
+      await mkdir(path.join(providerBackup, "Users", "developer"), { recursive: true });
+      await writeFile(path.join(cleanupBackup, "Users", "developer", "a.txt"), "alpha", "utf-8");
+      await writeFile(path.join(providerBackup, "Users", "developer", "b.txt"), "beta", "utf-8");
+
+      const result = await exportRecoveryBackupsTs({
+        roots: { backup_root: backupRoot, export_root: exportRoot },
+        archiveWriter: async (_sourceDir, archivePath) => {
+          await writeFile(archivePath, "fake-zip", "utf-8");
+        },
+      });
+
+      expect(result.ok).toBe(true);
+      expect(result.exported_count).toBe(2);
+      expect(result.selected_backup_ids).toContain("20260304T224500Z");
+      expect(result.selected_backup_ids).toContain(
+        "provider_actions/codex/20260305T010101Z",
+      );
+      const archiveStat = await stat(String(result.archive_path));
+      expect(archiveStat.isFile()).toBe(true);
+      const manifest = JSON.parse(
+        await readFile(String(result.manifest_path), "utf-8"),
+      ) as { exported_count: number };
+      expect(manifest.exported_count).toBe(2);
+    });
+  });
+
+  it("exports only selected backup ids and reports missing ids", async () => {
+    await withTempDir(async (rootDir) => {
+      const backupRoot = path.join(rootDir, "backups");
+      const exportRoot = path.join(rootDir, "exports");
+      const cleanupBackup = path.join(backupRoot, "20260304T224500Z");
+      const providerBackup = path.join(
+        backupRoot,
+        "provider_actions",
+        "claude",
+        "20260305T020202Z",
+      );
+      await mkdir(cleanupBackup, { recursive: true });
+      await mkdir(providerBackup, { recursive: true });
+      await mkdir(path.join(cleanupBackup, "Users", "developer"), { recursive: true });
+      await mkdir(path.join(providerBackup, "Users", "developer"), { recursive: true });
+      await writeFile(path.join(cleanupBackup, "Users", "developer", "one.txt"), "one", "utf-8");
+      await writeFile(path.join(providerBackup, "Users", "developer", "two.txt"), "two", "utf-8");
+
+      const result = await exportRecoveryBackupsTs({
+        backup_ids: [
+          "provider_actions/claude/20260305T020202Z",
+          "missing-backup-id",
+        ],
+        roots: { backup_root: backupRoot, export_root: exportRoot },
+        archiveWriter: async (_sourceDir, archivePath) => {
+          await writeFile(archivePath, "fake-zip", "utf-8");
+        },
+      });
+
+      expect(result.ok).toBe(true);
+      expect(result.exported_count).toBe(1);
+      expect(result.selected_backup_ids).toEqual([
+        "provider_actions/claude/20260305T020202Z",
+      ]);
+      expect(result.missing_backup_ids).toEqual(["missing-backup-id"]);
     });
   });
 });

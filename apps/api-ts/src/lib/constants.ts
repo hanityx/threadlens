@@ -11,35 +11,48 @@ import { fileURLToPath } from "node:url";
 
 /* ── Build-time paths ─────────────────────────────────────────────── */
 
-const THIS_DIR = path.dirname(fileURLToPath(import.meta.url));
+const THIS_DIR = process.env.PROVIDER_OBSERVATORY_PROJECT_ROOT
+  ? path.join(process.env.PROVIDER_OBSERVATORY_PROJECT_ROOT, ".api-root")
+  : path.dirname(fileURLToPath(import.meta.url));
 // lib/ → src/ → api-ts/ → apps/ → project root
-export const PROJECT_ROOT = path.resolve(THIS_DIR, "../../../..");
+export const PROJECT_ROOT =
+  process.env.PROVIDER_OBSERVATORY_PROJECT_ROOT ??
+  path.resolve(THIS_DIR, "../../../..");
 
 /* ── Server config ────────────────────────────────────────────────── */
 
 export const DEFAULT_PORT = Number(process.env.API_TS_PORT ?? 8788);
-export const PYTHON_BACKEND_URL =
-  process.env.PYTHON_BACKEND_URL ?? "http://127.0.0.1:8787";
 export const APP_VERSION = process.env.APP_VERSION ?? "0.1.0";
 export const START_TS = Date.now();
 
 /* ── Project-level files ──────────────────────────────────────────── */
 
-export const ROADMAP_STATE_FILE = path.join(PROJECT_ROOT, "roadmap_state.json");
-export const ROADMAP_LOG_FILE = path.join(
+export const STATE_DIR = path.resolve(
   PROJECT_ROOT,
+  process.env.THREADLENS_STATE_DIR ?? path.join(".run", "state"),
+);
+export const ROADMAP_STATE_FILE = path.join(STATE_DIR, "roadmap_state.json");
+export const ROADMAP_LOG_FILE = path.join(
+  STATE_DIR,
   "roadmap_checkins.jsonl",
 );
 export const RECOVERY_CHECKLIST_FILE = path.join(
-  PROJECT_ROOT,
+  STATE_DIR,
   "w4_checklist.json",
 );
-export const RECOVERY_PLAN_DIR = path.join(PROJECT_ROOT, "recovery_plans");
+export const RECOVERY_PLAN_DIR = path.join(STATE_DIR, "recovery_plans");
+export const ALERT_RULES_FILE = path.join(STATE_DIR, "alert_rules.json");
+export const ALERT_STATE_FILE = path.join(STATE_DIR, "alert_state.json");
+export const ALERT_EVENTS_FILE = path.join(STATE_DIR, "alert_events.jsonl");
 
 /* ── Codex paths ──────────────────────────────────────────────────── */
 
 export const CODEX_HOME =
   process.env.CODEX_HOME ?? path.join(process.env.HOME ?? "", ".codex");
+export const CODEX_GLOBAL_STATE_FILE = path.join(
+  CODEX_HOME,
+  ".codex-global-state.json",
+);
 export const BACKUP_ROOT = path.join(CODEX_HOME, "local_cleanup_backups");
 export const THREADS_BOOT_CACHE_FILE = path.join(
   PROJECT_ROOT,
@@ -50,6 +63,7 @@ export const THREADS_BOOT_CACHE_FILE = path.join(
 /* ── Provider storage roots ───────────────────────────────────────── */
 
 export const HOME_DIR = process.env.HOME ?? "";
+export const LABS_DIR = path.join(HOME_DIR, "Labs");
 export const CHAT_DIR = path.join(
   HOME_DIR,
   "Library",
@@ -120,6 +134,7 @@ export const directApiPaths = new Set([
   "/api/recovery-center",
   "/api/recovery-drill",
   "/api/recovery-checklist",
+  "/api/related-tools",
   "/api/compare-apps",
   "/api/runtime-health",
   "/api/smoke-status",
@@ -143,11 +158,4 @@ export const directApiPaths = new Set([
   "/api/execution-graph",
 ]);
 
-export const proxiedApiPaths = new Set([
-  "/api/threads",
-  "/api/thread-pin",
-  "/api/thread-archive-local",
-  "/api/thread-resume-command",
-  "/api/analyze-delete",
-  "/api/local-cleanup",
-]);
+export const proxiedApiPaths = new Set<string>([]);

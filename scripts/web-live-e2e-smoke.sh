@@ -5,6 +5,9 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 OUT_DIR="${OUT_DIR:-$ROOT/.run/e2e-live}"
+API_TS_PORT="${WEB_LIVE_API_TS_PORT:-8799}"
+API_TS_BASE="http://127.0.0.1:${API_TS_PORT}"
+WEB_PORT="${PLAYWRIGHT_LIVE_PORT:-5183}"
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 LOG_FILE="$OUT_DIR/web-live-e2e-${TIMESTAMP}.log"
 JSON_REPORT="$OUT_DIR/web-live-e2e-${TIMESTAMP}.json"
@@ -13,17 +16,12 @@ PW_OUTPUT_DIR="$OUT_DIR/test-results-${TIMESTAMP}"
 
 mkdir -p "$OUT_DIR"
 
-PY_PID=""
 TS_PID=""
-STARTED_PY=0
 STARTED_TS=0
 
 cleanup() {
   if [[ "$STARTED_TS" -eq 1 ]] && [[ -n "$TS_PID" ]] && kill -0 "$TS_PID" >/dev/null 2>&1; then
     kill "$TS_PID" >/dev/null 2>&1 || true
-  fi
-  if [[ "$STARTED_PY" -eq 1 ]] && [[ -n "$PY_PID" ]] && kill -0 "$PY_PID" >/dev/null 2>&1; then
-    kill "$PY_PID" >/dev/null 2>&1 || true
   fi
 }
 trap cleanup EXIT
@@ -42,29 +40,23 @@ wait_for_health() {
   return 1
 }
 
-if ! curl -fsS "http://127.0.0.1:8787/api/runtime-health" >/dev/null 2>&1; then
-  echo "[boot] starting python backend on 8787"
-  python3 "$ROOT/server.py" >"$ROOT/.web-live-e2e-python.log" 2>&1 &
-  PY_PID="$!"
-  STARTED_PY=1
-fi
-wait_for_health "http://127.0.0.1:8787/api/runtime-health" "python-backend"
-
-if ! curl -fsS "http://127.0.0.1:8788/api/healthz" >/dev/null 2>&1; then
-  echo "[boot] starting api-ts backend on 8788"
-  pnpm --filter @codex/api-ts dev >"$ROOT/.web-live-e2e-api-ts.log" 2>&1 &
+if ! curl -fsS "$API_TS_BASE/api/healthz" >/dev/null 2>&1; then
+  echo "[boot] starting api-ts backend on ${API_TS_PORT}"
+  API_TS_PORT="$API_TS_PORT" pnpm --filter @provider-surface/api dev >"$ROOT/.web-live-e2e-api-ts.log" 2>&1 &
   TS_PID="$!"
   STARTED_TS=1
 fi
-wait_for_health "http://127.0.0.1:8788/api/healthz" "api-ts"
+wait_for_health "$API_TS_BASE/api/healthz" "api-ts"
 
 echo "[prep] ensure playwright chromium"
-pnpm --filter @codex/web exec playwright install chromium >/dev/null
+pnpm --filter @provider-surface/web exec playwright install chromium >/dev/null
 
 echo "[run] web live e2e smoke"
 started_at="$(date +%s)"
 set +e
-pnpm --filter @codex/web exec playwright test -c playwright.live.config.ts --output "$PW_OUTPUT_DIR" 2>&1 | tee "$LOG_FILE"
+PLAYWRIGHT_LIVE_API_PROXY_TARGET="$API_TS_BASE" \
+PLAYWRIGHT_LIVE_PORT="$WEB_PORT" \
+pnpm --filter @provider-surface/web exec playwright test -c playwright.live.config.ts --output "$PW_OUTPUT_DIR" 2>&1 | tee "$LOG_FILE"
 run_status="${PIPESTATUS[0]}"
 set -e
 ended_at="$(date +%s)"

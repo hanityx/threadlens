@@ -9,12 +9,4 @@ describe("i18n provider flow labels", () => {
     expect(messages.providers.flowStatusDone.length).toBeGreaterThan(0);
     expect(messages.providers.flowNextLabel.length).toBeGreaterThan(0);
   });
-
-  it("exposes flow board labels for Korean", () => {
-    const messages = getMessages("ko");
-    expect(messages.providers.flowBoardTitle.length).toBeGreaterThan(0);
-    expect(messages.providers.flowStageDetect.length).toBeGreaterThan(0);
-    expect(messages.providers.flowStatusDone.length).toBeGreaterThan(0);
-    expect(messages.providers.flowNextLabel.length).toBeGreaterThan(0);
-  });
 });

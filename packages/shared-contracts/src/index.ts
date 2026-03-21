@@ -9,7 +9,7 @@ export type ApiEnvelope<T> = {
 
 export type AgentRuntimeState = {
   ts: string;
-  python_backend: {
+  runtime_backend: {
     url: string;
     reachable: boolean;
     latency_ms: number | null;
@@ -49,7 +49,7 @@ export type BulkThreadActionResult = {
 export type ExecutionGraphNode = {
   id: string;
   label: string;
-  kind: "entry" | "config" | "instruction" | "runtime" | "workspace";
+  kind: "entry" | "config" | "instruction" | "runtime" | "workspace" | "provider";
   detail?: string;
 };
 
@@ -70,5 +70,29 @@ export type ExecutionGraphData = {
     notify_hook?: string;
     developer_instructions_excerpt?: string;
     trusted_projects: string[];
+    providers: Array<{
+      provider: string;
+      name: string;
+      status: "active" | "detected" | "missing";
+      capability_level: "full" | "read-only" | "unavailable";
+      session_log_count: number;
+      roots: string[];
+      notes: string;
+      capabilities: {
+        read_sessions: boolean;
+        analyze_context: boolean;
+        safe_cleanup: boolean;
+        hard_delete: boolean;
+      };
+    }>;
+    data_sources: Array<{
+      source_key: string;
+      path: string;
+      present: boolean;
+      file_count?: number;
+      dir_count?: number;
+      total_bytes?: number;
+      latest_mtime?: string | null;
+    }>;
   };
 };

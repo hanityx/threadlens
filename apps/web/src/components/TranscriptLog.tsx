@@ -1,5 +1,6 @@
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import type { Messages } from "../i18n";
+import { formatDateTime } from "../lib/helpers";
 
 type TranscriptMessage = {
   idx: number;
@@ -17,9 +18,13 @@ type Props = {
   messageCount: number;
   limit: number;
   maxLimit?: number;
+  initialVisibleCount?: number;
+  visibleStep?: number;
   emptyLabel?: string;
   onLoadMore: () => void;
 };
+
+type RoleFilter = TranscriptMessage["role"] | "all" | "dialog";
 
 export function TranscriptLog({
   messages,
@@ -28,12 +33,15 @@ export function TranscriptLog({
   truncated,
   messageCount,
   limit,
-  maxLimit = 2000,
+  maxLimit = 10_000,
+  initialVisibleCount = 24,
+  visibleStep = 24,
   emptyLabel,
   onLoadMore,
 }: Props) {
   const [searchInput, setSearchInput] = useState("");
-  const [roleFilter, setRoleFilter] = useState<TranscriptMessage["role"] | "all">("all");
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("dialog");
+  const [visibleCount, setVisibleCount] = useState(initialVisibleCount);
   const deferredSearch = useDeferredValue(searchInput);
   const resolvedEmptyLabel = emptyLabel ?? messages.transcript.empty;
 
@@ -49,21 +57,48 @@ export function TranscriptLog({
   const filteredTranscript = useMemo(() => {
     const q = deferredSearch.trim().toLowerCase();
     return transcript.filter((msg) => {
-      if (roleFilter !== "all" && msg.role !== roleFilter) return false;
+      if (roleFilter === "dialog" && msg.role !== "user" && msg.role !== "assistant") return false;
+      if (roleFilter !== "all" && roleFilter !== "dialog" && msg.role !== roleFilter) return false;
       if (!q) return true;
       const text = `${msg.text ?? ""} ${msg.source_type ?? ""}`.toLowerCase();
       return text.includes(q);
     });
   }, [transcript, deferredSearch, roleFilter]);
 
+  useEffect(() => {
+    setVisibleCount(initialVisibleCount);
+  }, [transcript, deferredSearch, roleFilter, initialVisibleCount]);
+
+  const renderedTranscript = useMemo(
+    () => filteredTranscript.slice(0, visibleCount),
+    [filteredTranscript, visibleCount],
+  );
+  const hasMoreRenderedTranscript = renderedTranscript.length < filteredTranscript.length;
+
   return (
     <>
-      <div className="impact-kv">
-        <span>{messages.transcript.title}</span>
-        <strong>
-          {messageCount} {messages.transcript.messagesUnit}
-        </strong>
+      <div className="transcript-summary-strip">
+        <div className="transcript-summary-main">
+          <span className="overview-note-label">{messages.transcript.title}</span>
+          <strong>
+            {messageCount} {messages.transcript.messagesUnit}
+          </strong>
+        </div>
+        <div className="transcript-summary-meta">
+          <span className="sub-hint">
+            {messages.transcript.filteredCount} {renderedTranscript.length}/{filteredTranscript.length}
+          </span>
+          <span className="sub-hint">
+            {messages.transcript.showingCount} {renderedTranscript.length}/{messageCount}
+          </span>
+          <span className="sub-hint">{truncated ? messages.transcript.partial : messages.transcript.full}</span>
+        </div>
       </div>
+      <p className="sub-hint transcript-intro-copy">
+        {roleFilter === "dialog"
+          ? "By default this view shows only user and assistant turns. Change the role filter if you want system, tool, or developer logs too."
+          : "The transcript is filtered by the selected role and search query."}
+      </p>
       <div className="chat-toolbar transcript-controls">
         <input
           type="search"
@@ -75,8 +110,9 @@ export function TranscriptLog({
         <select
           className="filter-select transcript-role-filter"
           value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value as TranscriptMessage["role"] | "all")}
+          onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
         >
+          <option value="dialog">{messages.transcript.roleDialog}</option>
           <option value="all">{messages.transcript.roleAll}</option>
           <option value="user">{messages.transcript.roleUser}</option>
           <option value="assistant">{messages.transcript.roleAssistant}</option>
@@ -85,28 +121,43 @@ export function TranscriptLog({
           <option value="tool">{messages.transcript.roleTool}</option>
           <option value="unknown">{messages.transcript.roleUnknown}</option>
         </select>
-        <span className="sub-hint">
-          {messages.transcript.filteredCount} {filteredTranscript.length}
-        </span>
+        {roleFilter === "dialog" ? (
+          <span className="sub-hint">{messages.transcript.dialogHint}</span>
+        ) : null}
       </div>
-      <div className="chat-toolbar">
-        <span className="sub-hint">{truncated ? messages.transcript.partial : messages.transcript.full}</span>
-        <button type="button" className="btn-outline" onClick={onLoadMore} disabled={loading || limit >= maxLimit}>
-          {messages.transcript.loadMore}
+      <div className="chat-toolbar transcript-actions-row">
+        <button
+          type="button"
+          className="btn-outline"
+          onClick={() => setVisibleCount((prev) => Math.min(prev + visibleStep, filteredTranscript.length))}
+          disabled={loading || !hasMoreRenderedTranscript}
+        >
+          {messages.transcript.showMoreLoaded}
+        </button>
+        <button
+          type="button"
+          className="btn-outline"
+          onClick={onLoadMore}
+          disabled={loading || !truncated || limit >= maxLimit}
+        >
+          {messages.transcript.loadMoreFromSource}
         </button>
       </div>
       <div className="chat-log">
         {loading ? <div className="skeleton-line" /> : null}
         {!loading && filteredTranscript.length === 0 ? <p className="sub-hint">{resolvedEmptyLabel}</p> : null}
-        {filteredTranscript.map((msg) => (
+        {renderedTranscript.map((msg) => (
           <article key={`msg-${msg.idx}-${msg.ts ?? "na"}`} className={`chat-item role-${msg.role}`}>
             <header>
               <strong>{roleLabel(msg.role)}</strong>
-              <span>{msg.ts ? new Date(msg.ts).toLocaleString() : msg.source_type}</span>
+              <span>{msg.ts ? formatDateTime(msg.ts) : msg.source_type}</span>
             </header>
             <p>{msg.text}</p>
           </article>
         ))}
+        {!loading && hasMoreRenderedTranscript ? (
+          <p className="sub-hint">{messages.transcript.previewHint}</p>
+        ) : null}
       </div>
     </>
   );

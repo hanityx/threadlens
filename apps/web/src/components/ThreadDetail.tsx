@@ -1,5 +1,5 @@
 import type { Messages } from "../i18n";
-import type { ThreadRow, ThreadForensicsEnvelope } from "../types";
+import type { ConversationSearchHit, ThreadRow, ThreadForensicsEnvelope } from "../types";
 import { TranscriptLog } from "./TranscriptLog";
 import type { TranscriptPayload } from "../types";
 
@@ -7,6 +7,7 @@ export interface ThreadDetailProps {
   messages: Messages;
   selectedThread: ThreadRow | null;
   selectedThreadId: string;
+  searchContext: ConversationSearchHit | null;
   threadDetailLoading: boolean;
   selectedThreadDetail: NonNullable<ThreadForensicsEnvelope["reports"]>[0] | null;
   threadTranscriptData: TranscriptPayload | null;
@@ -27,6 +28,7 @@ export function ThreadDetail(props: ThreadDetailProps) {
     messages,
     selectedThread,
     selectedThreadId,
+    searchContext,
     threadDetailLoading,
     selectedThreadDetail,
     threadTranscriptData,
@@ -44,6 +46,46 @@ export function ThreadDetail(props: ThreadDetailProps) {
   const disabledReason = threadActionsDisabled
     ? messages.threadDetail.backendDownHint
     : undefined;
+  const normalizeDisplayValue = (value?: string | null) => {
+    const trimmed = String(value ?? "").trim();
+    if (!trimmed) return "";
+    const lowered = trimmed.toLowerCase();
+    if (["none", "null", "unknown", "n/a", "undefined", "-"].includes(lowered)) return "";
+    return trimmed;
+  };
+  const fallbackContext =
+    searchContext?.thread_id && searchContext.thread_id === selectedThreadId ? searchContext : null;
+  const hasSelection = Boolean(selectedThreadId);
+  const resolvedTitle =
+    normalizeDisplayValue(selectedThread?.title) ||
+    normalizeDisplayValue(selectedThreadDetail?.title) ||
+    normalizeDisplayValue(fallbackContext?.display_title) ||
+    normalizeDisplayValue(fallbackContext?.title) ||
+    normalizeDisplayValue(fallbackContext?.session_id) ||
+    messages.threadDetail.unknownTitle;
+  const resolvedSource =
+    normalizeDisplayValue(selectedThread?.source) ||
+    normalizeDisplayValue(selectedThread?.project_bucket) ||
+    normalizeDisplayValue(fallbackContext?.source) ||
+    normalizeDisplayValue(fallbackContext?.provider) ||
+    normalizeDisplayValue(threadTranscriptData?.provider) ||
+    messages.threadDetail.unknownSource;
+  const resolvedRiskScore =
+    selectedThread?.risk_score ??
+    selectedThreadDetail?.impact?.risk_score ??
+    0;
+  const resolvedRiskLevel =
+    selectedThread?.risk_level ??
+    selectedThreadDetail?.impact?.risk_level ??
+    messages.common.unknown;
+  const resolvedCwd =
+    selectedThread?.cwd ||
+    selectedThreadDetail?.cwd ||
+    "";
+  const fallbackNotice =
+    hasSelection && !selectedThread
+      ? messages.threadDetail.fallbackHint
+      : "";
 
   return (
     <section className="panel">
@@ -52,36 +94,42 @@ export function ThreadDetail(props: ThreadDetailProps) {
         <span>{selectedThreadId ? messages.common.selected : messages.common.none}</span>
       </header>
       <div className="impact-body">
-        {!selectedThread ? (
+        {!hasSelection ? (
           <p className="sub-hint">{messages.threadDetail.clickHint}</p>
         ) : (
           <>
             <details className="detail-section" open>
               <summary>{messages.threadDetail.sectionOverview}</summary>
               <div className="detail-section-body">
+                {fallbackNotice ? (
+                  <div className="info-box compact">
+                    <strong>{messages.threadDetail.fallbackTitle}</strong>
+                    <p>{fallbackNotice}</p>
+                  </div>
+                ) : null}
                 <div className="impact-kv">
                   <span>{messages.threadDetail.fieldTitle}</span>
-                  <strong className="title-main">{selectedThread.title || "-"}</strong>
+                  <strong className="title-main">{resolvedTitle || "-"}</strong>
                 </div>
                 <div className="impact-kv">
                   <span>{messages.threadDetail.fieldId}</span>
-                  <strong className="mono-sub">{selectedThread.thread_id}</strong>
+                  <strong className="mono-sub">{selectedThreadId}</strong>
                 </div>
                 <div className="impact-kv">
                   <span>{messages.threadDetail.fieldSource}</span>
-                  <strong>{selectedThread.source || selectedThread.project_bucket || "-"}</strong>
+                  <strong>{resolvedSource || "-"}</strong>
                 </div>
                 <div className="impact-kv">
                   <span>{messages.threadDetail.fieldRisk}</span>
                   <strong>
-                    {selectedThread.risk_score ?? 0}
-                    {selectedThread.risk_level ? ` (${selectedThread.risk_level})` : ""}
+                    {resolvedRiskScore}
+                    {resolvedRiskLevel ? ` (${resolvedRiskLevel})` : ""}
                   </strong>
                 </div>
-                {selectedThread.cwd ? (
+                {resolvedCwd ? (
                   <div className="impact-kv">
                     <span>{messages.threadDetail.fieldCwd}</span>
-                    <strong className="mono-sub">{selectedThread.cwd}</strong>
+                    <strong className="mono-sub">{resolvedCwd}</strong>
                   </div>
                 ) : null}
               </div>
@@ -152,7 +200,7 @@ export function ThreadDetail(props: ThreadDetailProps) {
                 ) : null}
               </div>
             </details>
-            <details className="detail-section detail-section-transcript">
+            <details className="detail-section detail-section-transcript" open>
               <summary>{messages.threadDetail.sectionTranscript}</summary>
               <div className="detail-section-body">
                 <TranscriptLog
@@ -162,7 +210,8 @@ export function ThreadDetail(props: ThreadDetailProps) {
                   truncated={threadTranscriptData?.truncated ?? false}
                   messageCount={threadTranscriptData?.message_count ?? 0}
                   limit={threadTranscriptLimit}
-                  onLoadMore={() => setThreadTranscriptLimit((prev) => Math.min(prev + 250, 2000))}
+                  maxLimit={10_000}
+                  onLoadMore={() => setThreadTranscriptLimit((prev) => Math.min(prev + 250, 10_000))}
                 />
               </div>
             </details>

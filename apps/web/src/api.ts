@@ -1,5 +1,9 @@
+const desktopApiBaseUrl =
+  typeof window !== "undefined" ? window.providerObservatoryDesktop?.apiBaseUrl : undefined;
+
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
+  desktopApiBaseUrl ??
   (import.meta.env.DEV ? "" : "http://127.0.0.1:8788");
 
 async function buildApiError(path: string, res: Response): Promise<Error> {

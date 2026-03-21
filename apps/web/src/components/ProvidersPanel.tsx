@@ -7,8 +7,10 @@ import type {
   DataSourceInventoryRow,
   ProviderSessionRow,
   ProviderSessionActionResult,
+  RecoveryBackupExportResponse,
 } from "../types";
 import { SKELETON_ROWS } from "../types";
+import { formatDateTime, formatInteger } from "../lib/helpers";
 
 type ProviderSessionSort = "mtime_desc" | "mtime_asc" | "size_desc" | "size_asc" | "title_asc" | "title_desc";
 type ProviderProbeFilter = "all" | "ok" | "fail";
@@ -87,6 +89,26 @@ const FORENSICS_CSV_COLUMNS: Record<CsvColumnKey, boolean> = {
   file_path: true,
 };
 const SLOW_THRESHOLD_OPTIONS_MS = [800, 1200, 1600, 2200, 3000];
+const PROVIDER_CSV_COLUMNS_STORAGE_KEY = "po-provider-csv-columns";
+const LEGACY_PROVIDER_CSV_COLUMNS_STORAGE_KEY = "cmc-provider-csv-columns";
+const PROVIDER_SLOW_ONLY_STORAGE_KEY = "po-provider-slow-only";
+const LEGACY_PROVIDER_SLOW_ONLY_STORAGE_KEY = "cmc-provider-slow-only";
+const CORE_PROVIDER_IDS = ["codex", "claude", "gemini"] as const;
+const OPTIONAL_PROVIDER_IDS = ["copilot"] as const;
+
+function readStorageValue(keys: readonly string[]): string | null {
+  if (typeof window === "undefined") return null;
+  for (const key of keys) {
+    const value = window.localStorage.getItem(key);
+    if (value !== null) return value;
+  }
+  return null;
+}
+
+function writeStorageValue(key: string, value: string): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(key, value);
+}
 
 function csvCell(value: unknown): string {
   const raw = String(value ?? "");
@@ -94,12 +116,6 @@ function csvCell(value: unknown): string {
     return `"${raw.replace(/"/g, "\"\"")}"`;
   }
   return raw;
-}
-
-function formatLocalDate(value: string): string {
-  const t = Date.parse(value);
-  if (Number.isNaN(t)) return "-";
-  return new Date(t).toLocaleString();
 }
 
 function formatBytes(value: number): string {
@@ -124,7 +140,10 @@ function formatFetchMs(value: number | null): string {
 function readCsvColumnPrefs(): Record<CsvColumnKey, boolean> {
   if (typeof window === "undefined") return DEFAULT_CSV_COLUMNS;
   try {
-    const raw = window.localStorage.getItem("cmc-provider-csv-columns");
+    const raw = readStorageValue([
+      PROVIDER_CSV_COLUMNS_STORAGE_KEY,
+      LEGACY_PROVIDER_CSV_COLUMNS_STORAGE_KEY,
+    ]);
     if (!raw) return DEFAULT_CSV_COLUMNS;
     const parsed = JSON.parse(raw) as Partial<Record<CsvColumnKey, boolean>>;
     const next: Record<CsvColumnKey, boolean> = { ...DEFAULT_CSV_COLUMNS };
@@ -140,7 +159,10 @@ function readCsvColumnPrefs(): Record<CsvColumnKey, boolean> {
 function readSlowOnlyPref(): boolean {
   if (typeof window === "undefined") return false;
   try {
-    return window.localStorage.getItem("cmc-provider-slow-only") === "1";
+    return (
+      readStorageValue([PROVIDER_SLOW_ONLY_STORAGE_KEY, LEGACY_PROVIDER_SLOW_ONLY_STORAGE_KEY]) ===
+      "1"
+    );
   } catch {
     return false;
   }
@@ -148,6 +170,7 @@ function readSlowOnlyPref(): boolean {
 
 export interface ProvidersPanelProps {
   messages: Messages;
+  sessionDetailSlot?: React.ReactNode;
 
   providers: ProviderMatrixProvider[];
   providerSummary?: { total: number; active: number; detected: number } | undefined;
@@ -170,6 +193,7 @@ export interface ProvidersPanelProps {
   setProviderDataDepth: (v: ProviderDataDepth) => void;
 
   providerSessionRows: ProviderSessionRow[];
+  allProviderSessionRows: ProviderSessionRow[];
   providerSessionSummary: {
     providers: number;
     rows: number;
@@ -189,10 +213,30 @@ export interface ProvidersPanelProps {
   selectedProviderFilePaths: string[];
   canRunProviderAction: boolean;
   busy: boolean;
-  runProviderAction: (action: "archive_local" | "delete_local", dryRun: boolean) => void;
+  providerDeleteBackupEnabled: boolean;
+  setProviderDeleteBackupEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  runProviderAction: (
+    action: "backup_local" | "archive_local" | "delete_local",
+    dryRun: boolean,
+    options?: { backup_before_delete?: boolean },
+  ) => void;
   providerActionData: ProviderSessionActionResult | null;
+  runRecoveryBackupExport: (backupIds: string[]) => void;
+  recoveryBackupExportData: RecoveryBackupExportResponse | null;
 
   parserReports: Array<{
+    provider: string;
+    name: string;
+    status: "active" | "detected" | "missing";
+    scanned: number;
+    parse_ok: number;
+    parse_fail: number;
+    parse_score: number | null;
+    truncated: boolean;
+    scan_ms?: number;
+    sample_errors?: Array<{ session_id: string; format: string; error: string | null }>;
+  }>;
+  allParserReports: Array<{
     provider: string;
     name: string;
     status: "active" | "detected" | "missing";
@@ -229,6 +273,7 @@ export interface ProvidersPanelProps {
 export function ProvidersPanel(props: ProvidersPanelProps) {
   const {
     messages,
+    sessionDetailSlot,
     providers,
     providerSummary,
     providerMatrixLoading,
@@ -241,6 +286,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     providerDataDepth,
     setProviderDataDepth,
     providerSessionRows,
+    allProviderSessionRows,
     providerSessionSummary,
     dataSourceRows,
     dataSourcesLoading,
@@ -255,9 +301,14 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     selectedProviderFilePaths,
     canRunProviderAction,
     busy,
+    providerDeleteBackupEnabled,
+    setProviderDeleteBackupEnabled,
     runProviderAction,
     providerActionData,
+    runRecoveryBackupExport,
+    recoveryBackupExportData,
     parserReports,
+    allParserReports,
     parserLoading,
     parserSummary,
     selectedSessionPath,
@@ -281,13 +332,14 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const [hotspotScopeOrigin, setHotspotScopeOrigin] = useState<ProviderView | null>(null);
   const [csvColumns, setCsvColumns] = useState<Record<CsvColumnKey, boolean>>(readCsvColumnPrefs);
   const providerSessionsSectionRef = useRef<HTMLElement | null>(null);
-  const parserSectionRef = useRef<HTMLElement | null>(null);
+  const parserSectionRef = useRef<HTMLDetailsElement | null>(null);
   const [pendingSessionJump, setPendingSessionJump] = useState<{
     provider: string;
     sessionId: string;
   } | null>(null);
   const [pendingParserFocusProvider, setPendingParserFocusProvider] = useState<string>("");
   const [parserJumpStatus, setParserJumpStatus] = useState<"idle" | "found" | "not_found">("idle");
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const statusLabel = (status: "active" | "detected" | "missing") => {
     if (status === "active") return messages.providers.statusActive;
@@ -295,7 +347,8 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     return messages.providers.statusMissing;
   };
 
-  const actionLabel = (action: "archive_local" | "delete_local") => {
+  const actionLabel = (action: "backup_local" | "archive_local" | "delete_local") => {
+    if (action === "backup_local") return messages.providers.actionBackupLocal;
     if (action === "archive_local") return messages.providers.actionArchiveLocal;
     return messages.providers.actionDeleteLocal;
   };
@@ -304,10 +357,35 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     if (state === "blocked") return messages.providers.flowStatusBlocked;
     return messages.providers.flowStatusPending;
   };
-  const dataSourceLabel = (sourceKey: string) =>
-    sourceKey
+  const capabilityLevelLabel = (level: string) => {
+    if (level === "full") return "Full capability";
+    if (level === "read-only") return "Read-only";
+    if (level === "unavailable") return "Unavailable";
+    return level;
+  };
+  const dataSourceLabel = (sourceKey: string) => {
+    const key = sourceKey.toLowerCase();
+    if (key === "history") return "History";
+    if (key === "global_state") return "Global state";
+    if (key === "sessions") return "Sessions";
+    if (key === "archived_sessions") return "Archived sessions";
+    if (key === "codex_root") return "Codex root";
+    if (key === "chat_root") return "Chat root";
+    if (key === "claude_root") return "Claude root";
+    if (key === "claude_projects") return "Claude projects";
+    if (key === "claude_transcripts") return "Claude transcripts";
+    if (key === "gemini_root") return "Gemini root";
+    if (key === "gemini_tmp") return "Gemini temp store";
+    if (key === "gemini_history") return "Gemini history";
+    if (key === "gemini_antigravity") return "Gemini conversation store";
+    if (key === "copilot_vscode") return "Copilot VS Code";
+    if (key === "copilot_cursor") return "Copilot Cursor";
+    if (key === "copilot_vscode_workspace") return "Copilot VS Code workspace";
+    if (key === "copilot_cursor_workspace") return "Copilot Cursor workspace";
+    return sourceKey
       .replace(/_/g, " ")
       .replace(/\b[a-z]/g, (ch) => ch.toUpperCase());
+  };
   const providerFromDataSource = (sourceKey: string): ProviderView | null => {
     const key = sourceKey.toLowerCase();
     if (key.startsWith("claude")) return "claude";
@@ -329,6 +407,20 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     Boolean(providerId && providerTabs.some((tab) => tab.id === providerId));
 
   const providerLabel = providerView === "all" ? messages.common.allAi : selectedProviderLabel;
+  const backupActionResult = providerActionData?.action === "backup_local" ? providerActionData : null;
+  const sessionFileActionResult =
+    providerActionData && providerActionData.action !== "backup_local" ? providerActionData : null;
+  const latestBackupCount =
+    backupActionResult?.backed_up_count ?? (backupActionResult?.backup_to ? 1 : 0);
+  const latestBackupPath =
+    backupActionResult?.backup_to ?? "No selective backup has been created in this session yet.";
+  const latestExportCount = recoveryBackupExportData?.exported_count ?? 0;
+  const backupFlowHint =
+    selectedProviderFilePaths.length > 0
+      ? `Back up the ${selectedProviderFilePaths.length} selected sessions first, then continue into archive or delete dry-runs below.`
+      : "Select source sessions first, then start with a backup.";
+  const deleteBackupModeLabel = providerDeleteBackupEnabled ? "On" : "Off";
+  const canRunProviderBackup = providerView !== "all" && selectedProviderFilePaths.length > 0;
   const canApplySlowOnly = providerView === "all";
   const effectiveSlowOnly = canApplySlowOnly && slowOnly;
   const slowProviderSet = useMemo(
@@ -338,6 +430,21 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const providerTabById = useMemo(
     () => new Map(providerTabs.map((tab) => [tab.id, tab])),
     [providerTabs],
+  );
+  const managedProviderTabs = useMemo(
+    () => providerTabs.filter((tab) => tab.id !== "all"),
+    [providerTabs],
+  );
+  const coreProviderTabs = useMemo(
+    () => managedProviderTabs.filter((tab) => CORE_PROVIDER_IDS.includes(tab.id as (typeof CORE_PROVIDER_IDS)[number])),
+    [managedProviderTabs],
+  );
+  const optionalProviderTabs = useMemo(
+    () =>
+      managedProviderTabs.filter((tab) =>
+        OPTIONAL_PROVIDER_IDS.includes(tab.id as (typeof OPTIONAL_PROVIDER_IDS)[number]),
+      ),
+    [managedProviderTabs],
   );
   const slowThresholdOptions = useMemo(() => {
     if (SLOW_THRESHOLD_OPTIONS_MS.includes(slowProviderThresholdMs)) {
@@ -384,7 +491,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   }, [sourceFilter, sourceFilterOptions]);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem("cmc-provider-slow-only", slowOnly ? "1" : "0");
+    writeStorageValue(PROVIDER_SLOW_ONLY_STORAGE_KEY, slowOnly ? "1" : "0");
   }, [slowOnly]);
   const providerSessionComputedIndex = useMemo(() => {
     const searchText = new Map<string, string>();
@@ -430,7 +537,22 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   ]);
   const sortedProviderSessionRows = useMemo(() => {
     const rows = [...filteredProviderSessionRows];
+    const transcriptPriority = (row: typeof rows[number]) => {
+      if (row.probe.format === "jsonl") return 4;
+      if (row.file_path.endsWith(".metadata.json")) return 1;
+      if (row.probe.format === "json") {
+        if (row.source.includes("workspace_chats") || row.source === "tmp" || row.source === "projects") {
+          return 3;
+        }
+        return 2;
+      }
+      if (row.probe.format === "unknown") return 0;
+      return 1;
+    };
     rows.sort((a, b) => {
+      const aPriority = transcriptPriority(a);
+      const bPriority = transcriptPriority(b);
+      if (aPriority !== bPriority) return bPriority - aPriority;
       const aPath = a.file_path;
       const bPath = b.file_path;
       const aTs = providerSessionComputedIndex.mtimeTs.get(aPath) ?? 0;
@@ -475,7 +597,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   );
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem("cmc-provider-csv-columns", JSON.stringify(csvColumns));
+    writeStorageValue(PROVIDER_CSV_COLUMNS_STORAGE_KEY, JSON.stringify(csvColumns));
   }, [csvColumns]);
   const filteredParserReports = useMemo(
     () =>
@@ -543,11 +665,11 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   }, [parserReports]);
   const parserReportByProvider = useMemo(() => {
     const map = new Map<string, (typeof parserReports)[number]>();
-    parserReports.forEach((report) => {
+    allParserReports.forEach((report) => {
       map.set(report.provider, report);
     });
     return map;
-  }, [parserReports]);
+  }, [allParserReports]);
   const providerMatrixById = useMemo(() => {
     const map = new Map<string, ProviderMatrixProvider>();
     providers.forEach((provider) => {
@@ -557,11 +679,11 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   }, [providers]);
   const providerSessionCountById = useMemo(() => {
     const map = new Map<string, number>();
-    providerSessionRows.forEach((row) => {
+    allProviderSessionRows.forEach((row) => {
       map.set(row.provider, (map.get(row.provider) ?? 0) + 1);
     });
     return map;
-  }, [providerSessionRows]);
+  }, [allProviderSessionRows]);
   const dataSourcesByProvider = useMemo(() => {
     const map = new Map<string, DataSourceInventoryRow[]>();
     dataSourceRows.forEach((row) => {
@@ -573,6 +695,15 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     });
     return map;
   }, [dataSourceRows]);
+  const transcriptReadyCountByProvider = useMemo(() => {
+    const map = new Map<string, number>();
+    allProviderSessionRows.forEach((row) => {
+      const ready = row.probe.format === "jsonl" || row.probe.format === "json";
+      if (!ready) return;
+      map.set(row.provider, (map.get(row.provider) ?? 0) + 1);
+    });
+    return map;
+  }, [allProviderSessionRows]);
   const providerFlowCards = useMemo(() => {
     return providerTabs
       .filter((tab) => tab.id !== "all")
@@ -680,6 +811,10 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     messages.providers.flowStageSafeCleanup,
     messages.providers.flowStageApply,
   ]);
+  const providerFlowCardById = useMemo(
+    () => new Map(providerFlowCards.map((card) => [card.providerId, card])),
+    [providerFlowCards],
+  );
   const slowHotspotCards = useMemo(() => {
     return slowProviderIds
       .map((providerId) => {
@@ -714,6 +849,41 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const selectedSessionParseFailCount = selectedSessionProvider
     ? parseFailByProvider[selectedSessionProvider]
     : undefined;
+  const selectedManagementCard = useMemo(
+    () => providerFlowCardById.get(providerView) ?? null,
+    [providerFlowCardById, providerView],
+  );
+  const selectedProviderMeta = useMemo(
+    () => (providerView === "all" ? null : providerMatrixById.get(providerView) ?? null),
+    [providerMatrixById, providerView],
+  );
+  const selectedProviderTranscriptReady = useMemo(
+    () => (providerView === "all" ? 0 : transcriptReadyCountByProvider.get(providerView) ?? 0),
+    [providerView, transcriptReadyCountByProvider],
+  );
+  const selectedProviderPresentSources = useMemo(
+    () =>
+      providerView === "all"
+        ? 0
+        : (dataSourcesByProvider.get(providerView) ?? []).filter((row) => row.present).length,
+    [dataSourcesByProvider, providerView],
+  );
+  const selectedProviderSessionCount = useMemo(
+    () => (providerView === "all" ? 0 : providerSessionCountById.get(providerView) ?? 0),
+    [providerSessionCountById, providerView],
+  );
+  const selectedSessionPreview = useMemo(
+    () => providerSessionRows.find((row) => row.file_path === selectedSessionPath) ?? null,
+    [providerSessionRows, selectedSessionPath],
+  );
+  const visibleFlowCards = useMemo(() => {
+    if (providerView === "all") {
+      return providerFlowCards.filter((card) =>
+        CORE_PROVIDER_IDS.includes(card.providerId as (typeof CORE_PROVIDER_IDS)[number]),
+      );
+    }
+    return providerFlowCards.filter((card) => card.providerId === providerView);
+  }, [providerFlowCards, providerView]);
 
   const exportFilteredSessionsCsv = () => {
     const headers = enabledCsvColumns.length > 0 ? enabledCsvColumns : CSV_COLUMN_KEYS;
@@ -806,6 +976,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   };
   const jumpToParserProvider = (providerId: string) => {
     if (!providerId) return;
+    setAdvancedOpen(true);
     if (parserFailOnly) setParserFailOnly(false);
     setParserDetailProvider(providerId);
     setPendingParserFocusProvider(providerId);
@@ -881,17 +1052,775 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const clearSlowFocus = () => {
     setSlowOnly(false);
   };
+  const showProviderColumn = providerView === "all";
 
   return (
     <>
-      <section className="panel provider-panel">
+      <section className="panel provider-workspace-bar">
         <header>
-          <h2>{messages.providers.matrixTitle}</h2>
-          <span>
-            {messages.providers.active} {providerSummary?.active ?? 0}/{providerSummary?.total ?? providers.length}
-          </span>
+          <h2>{messages.providers.hubTitle}</h2>
+          <span>{providerLabel}</span>
         </header>
-        <div className="provider-table-wrap">
+        <div className="provider-workspace-main">
+          <div className="provider-workspace-primary">
+            <div className="ai-management-focusbar">
+              <button
+                type="button"
+                className={`provider-chip ${providerView === "all" ? "is-active" : ""}`.trim()}
+                onClick={() => setProviderView("all")}
+              >
+                {messages.common.allAi}
+              </button>
+              {coreProviderTabs.map((tab) => (
+                <button
+                  key={`core-provider-chip-${tab.id}`}
+                  type="button"
+                  className={`provider-chip ${providerView === tab.id ? "is-active" : ""}`.trim()}
+                  onClick={() => setProviderView(tab.id)}
+                >
+                  {tab.name}
+                </button>
+              ))}
+              {optionalProviderTabs.length > 0 ? (
+                <details className="provider-chip-disclosure">
+                  <summary>{messages.providers.optionalProvidersSummary}</summary>
+                  <div className="provider-chip-disclosure-body">
+                    {optionalProviderTabs.map((tab) => (
+                      <button
+                        key={`optional-provider-chip-${tab.id}`}
+                        type="button"
+                        className={`provider-chip ${providerView === tab.id ? "is-active" : ""}`.trim()}
+                        onClick={() => setProviderView(tab.id)}
+                      >
+                        {tab.name}
+                      </button>
+                    ))}
+                  </div>
+                </details>
+              ) : null}
+            </div>
+
+            <div className="provider-workspace-summary">
+              <article className="provider-summary-cell">
+                <span>{messages.providers.hubMetricSessions}</span>
+                <strong>{selectedManagementCard ? selectedProviderSessionCount : providerSessionRows.length}</strong>
+              </article>
+              <article className="provider-summary-cell">
+                <span>{messages.providers.hubMetricSources}</span>
+                <strong>{selectedManagementCard ? selectedProviderPresentSources : detectedDataSourceCount}</strong>
+              </article>
+              <article className="provider-summary-cell">
+                <span>{messages.providers.hubMetricTranscript}</span>
+                <strong>{selectedManagementCard ? selectedProviderTranscriptReady : providerSessionSummary.parse_ok ?? 0}</strong>
+              </article>
+              <article className="provider-summary-cell">
+                <span>{messages.providers.hubMetricParseFail}</span>
+                <strong>{selectedManagementCard ? selectedManagementCard.parseFail : parserSummary.parse_fail ?? 0}</strong>
+              </article>
+            </div>
+          </div>
+
+          <div className="provider-workspace-actions">
+            <div className="provider-workspace-actions-head">
+              <strong>{messages.providers.backupHubTitle}</strong>
+              <span className="sub-hint">
+                {messages.providers.backupHubSelected} {selectedProviderFilePaths.length} · {messages.providers.backupHubLatest} {latestBackupCount}
+              </span>
+            </div>
+            <div className="provider-action-toolbar-inline">
+              <label className="check-inline">
+                <input
+                  type="checkbox"
+                  checked={providerDeleteBackupEnabled}
+                  onChange={(event) => setProviderDeleteBackupEnabled(event.target.checked)}
+                />
+                {messages.providers.deleteWithBackup}
+              </label>
+              <button
+                className="btn-base"
+                type="button"
+                disabled={!canRunProviderBackup || busy}
+                onClick={() => runProviderAction("backup_local", false)}
+              >
+                {messages.providers.backupSelected}
+              </button>
+              <button
+                className="btn-outline"
+                type="button"
+                disabled={busy}
+                onClick={() => runRecoveryBackupExport([])}
+              >
+                {messages.providers.exportAllBackups}
+              </button>
+            </div>
+            {selectedSessionPreview ? (
+              <div className="provider-selection-preview">
+                <strong>{selectedSessionPreview.display_title || selectedSessionPreview.probe.detected_title || selectedSessionPreview.session_id}</strong>
+                <span className="sub-hint">
+                  {selectedSessionPreview.session_id} · {selectedSessionPreview.provider} · {selectedSessionPreview.probe.format}
+                </span>
+              </div>
+            ) : null}
+            {backupActionResult ? (
+              <div className="provider-inline-result">
+                <strong>Latest backup run</strong>
+                <span>
+                  {messages.providers.valid} {backupActionResult.valid_count} · {messages.providers.applied} {backupActionResult.applied_count}
+                  {typeof backupActionResult.backed_up_count === "number"
+                    ? ` · ${messages.providers.backedUp} ${backupActionResult.backed_up_count}`
+                    : ""}
+                </span>
+              </div>
+            ) : latestExportCount > 0 ? (
+              <div className="provider-inline-result">
+                <strong>{messages.providers.backupHubExported}</strong>
+                <span>{latestExportCount}</span>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </section>
+
+      <section className="provider-ops-layout">
+        <section className="panel" ref={providerSessionsSectionRef}>
+          <header>
+            <h2>{messages.providers.sessionsTitle}</h2>
+            <span>
+              {providerSessionSummary.rows ?? providerSessionRows.length} {messages.providers.rows} · {messages.providers.parseOk}{" "}
+              {providerSessionSummary.parse_ok ?? 0}
+              {" · "}
+              {messages.providers.queryLimit} {providerSessionsLimit}
+              {providerRowsSampled ? ` · ${messages.providers.sampledHint}` : ""}
+            </span>
+          </header>
+          {showProviderSessionsZeroState ? (
+            <div className="info-box compact">
+              <span className="sub-hint">
+                {selectedProviderHasPresentSource
+                  ? messages.providers.sessionsEmptyDetectedNoLogs
+                  : messages.providers.sessionsEmptyNoSources}
+                {` · ${messages.providers.sessionsEmptyActionHint}`}
+              </span>
+              <button
+                className="btn-outline"
+                type="button"
+                onClick={() => {
+                  setProviderDataDepth("deep");
+                  refreshProvidersData();
+                }}
+              >
+                {messages.providers.depthDeep} + {messages.providers.refreshNow}
+              </button>
+            </div>
+          ) : null}
+          <div className="sub-toolbar sessions-control-strip">
+            <input
+              className="search-input"
+              placeholder={messages.providers.sessionSearchPlaceholder}
+              value={sessionFilter}
+              onChange={(e) => setSessionFilter(e.target.value)}
+            />
+            <select
+              className="filter-select"
+              aria-label={messages.providers.probeFilterLabel}
+              value={probeFilter}
+              onChange={(e) => setProbeFilter(e.target.value as ProviderProbeFilter)}
+            >
+              <option value="all">{messages.providers.probeAll}</option>
+              <option value="ok">{messages.providers.probeOk}</option>
+              <option value="fail">{messages.providers.probeFail}</option>
+            </select>
+            <div className="sessions-control-meta">
+              <span className="sub-hint">
+                {messages.providers.filteredRows} {sortedProviderSessionRows.length}/{providerSessionRows.length}
+                {sortedProviderSessionRows.length > renderedProviderSessionRows.length
+                  ? ` · ${messages.providers.renderingWindow} ${renderedProviderSessionRows.length}/${sortedProviderSessionRows.length}`
+                  : ""}
+              </span>
+              <label className="check-inline">
+                <input
+                  type="checkbox"
+                  checked={allFilteredProviderRowsSelected || allProviderRowsSelected}
+                  onChange={(e) =>
+                    toggleSelectAllProviderRows(e.target.checked, filteredProviderFilePaths)
+                  }
+                />
+                {messages.providers.selectAllInTab}
+              </label>
+              <span className="sub-hint">
+                {providerLabel} · {messages.providers.selected} {selectedProviderFilePaths.length}
+              </span>
+            </div>
+          </div>
+          <div className="sub-toolbar sessions-action-strip">
+            <div className="sessions-action-main">
+              <button
+                className="btn-outline"
+                disabled={!canRunProviderAction || busy}
+                onClick={() => runProviderAction("archive_local", true)}
+              >
+                {messages.providers.archiveDryRun}
+              </button>
+              <button
+                className="btn-base"
+                disabled={!canRunProviderAction || busy}
+                onClick={() => runProviderAction("archive_local", false)}
+              >
+                {messages.providers.archive}
+              </button>
+              <button
+                className="btn-outline"
+                disabled={!canRunProviderAction || busy}
+                onClick={() => runProviderAction("delete_local", true)}
+              >
+                {messages.providers.deleteDryRun}
+              </button>
+              <button
+                className="btn-danger"
+                disabled={!canRunProviderAction || busy}
+                onClick={() =>
+                  runProviderAction("delete_local", false, {
+                    backup_before_delete: providerDeleteBackupEnabled,
+                  })
+                }
+              >
+                {messages.providers.delete}
+              </button>
+            </div>
+            <div className="sessions-action-tools">
+            {selectedSessionProvider ? (
+              <button
+                type="button"
+                className={`status-pill status-pill-button ${Number(selectedSessionParseFailCount ?? 0) > 0 ? "status-detected" : "status-active"}`}
+                onClick={() => jumpToParserProvider(selectedSessionProvider)}
+              >
+                {messages.providers.parserLinkedBadge} {selectedSessionProvider} · {messages.providers.parserLinkedFails}{" "}
+                {selectedSessionParseFailCount ?? messages.common.unknown}
+                <span className="status-pill-action">{messages.providers.parserLinkedOpen}</span>
+              </button>
+            ) : null}
+            <details className="inline-tools-disclosure">
+              <summary>Advanced filters / export</summary>
+              <div className="sub-toolbar inline-tools-disclosure-body">
+                <select
+                  className="filter-select"
+                  aria-label={messages.providers.sourceFilterLabel}
+                  value={sourceFilter}
+                  onChange={(e) => setSourceFilter(e.target.value as ProviderSourceFilter)}
+                >
+                  <option value="all">{messages.providers.sourceAll}</option>
+                  {sourceFilterOptions.map((item) => (
+                    <option key={`source-filter-${item.source}`} value={item.source}>
+                      {item.source} ({item.count})
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="filter-select"
+                  aria-label={messages.providers.sortLabel}
+                  value={sessionSort}
+                  onChange={(e) => setSessionSort(e.target.value as ProviderSessionSort)}
+                >
+                  <option value="mtime_desc">{messages.providers.sortNewest}</option>
+                  <option value="mtime_asc">{messages.providers.sortOldest}</option>
+                  <option value="size_desc">{messages.providers.sortSizeDesc}</option>
+                  <option value="size_asc">{messages.providers.sortSizeAsc}</option>
+                  <option value="title_asc">{messages.providers.sortTitleAsc}</option>
+                  <option value="title_desc">{messages.providers.sortTitleDesc}</option>
+                </select>
+                <label className="check-inline">
+                  <input
+                    type="checkbox"
+                    checked={slowOnly}
+                    disabled={!canApplySlowOnly}
+                    onChange={(e) => setSlowOnly(e.target.checked)}
+                  />
+                  {messages.providers.slowOnlyFilter}
+                </label>
+                {!canApplySlowOnly && slowOnly ? (
+                  <>
+                    <span className="sub-hint">{messages.providers.slowOnlyDormant}</span>
+                    <button
+                      type="button"
+                      className="btn-outline"
+                      onClick={() => setProviderView("all")}
+                    >
+                      {messages.common.allAi}
+                    </button>
+                  </>
+                ) : null}
+                <button
+                  className="btn-outline"
+                  type="button"
+                  disabled={sortedProviderSessionRows.length === 0 || enabledCsvColumns.length === 0}
+                  onClick={exportFilteredSessionsCsv}
+                >
+                  {messages.providers.exportCsv}
+                </button>
+              </div>
+              <div className="sub-toolbar inline-tools-disclosure-body">
+                <button
+                  className="btn-outline"
+                  type="button"
+                  onClick={() => setCsvColumns({ ...DEFAULT_CSV_COLUMNS })}
+                >
+                  {messages.providers.csvPresetAll}
+                </button>
+                <button
+                  className="btn-outline"
+                  type="button"
+                  onClick={() => setCsvColumns({ ...COMPACT_CSV_COLUMNS })}
+                >
+                  {messages.providers.csvPresetCompact}
+                </button>
+                <button
+                  className="btn-outline"
+                  type="button"
+                  onClick={() => setCsvColumns({ ...FORENSICS_CSV_COLUMNS })}
+                >
+                  {messages.providers.csvPresetForensics}
+                </button>
+              </div>
+              <div className="sub-toolbar inline-tools-disclosure-body">
+                {CSV_COLUMN_KEYS.map((key) => (
+                  <label key={`csv-col-${key}`} className="check-inline">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(csvColumns[key])}
+                      onChange={(e) => setCsvColumns((prev) => ({ ...prev, [key]: e.target.checked }))}
+                    />
+                    {csvColumnLabel(key)}
+                  </label>
+                ))}
+                <span className="sub-hint">
+                  {messages.providers.csvSelectedColumns} {enabledCsvColumns.length}/{CSV_COLUMN_KEYS.length}
+                </span>
+              </div>
+            </details>
+            </div>
+            {!canRunProviderAction && providerView !== "all" ? (
+              <span className="sub-hint">{messages.providers.readOnlyHint}</span>
+            ) : null}
+          </div>
+          <div className="provider-table-wrap">
+            <table className="provider-session-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  {showProviderColumn ? <th className="col-provider">{messages.providers.colProvider}</th> : null}
+                  <th>{messages.providers.colSession}</th>
+                  <th className="col-source">{messages.threadDetail.fieldSource}</th>
+                  <th className="col-format">{messages.providers.colFormat}</th>
+                  <th className="col-probe">{messages.providers.colProbe}</th>
+                  <th className="col-modified">{messages.sessionDetail.fieldModified}</th>
+                  <th className="col-size">{messages.providers.colSize}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {renderedProviderSessionRows.map((row) => (
+                  <tr
+                    key={`${row.provider}-${row.session_id}-${row.file_path}`}
+                    data-file-key={encodeURIComponent(row.file_path)}
+                    className={[
+                      selectedSessionPath === row.file_path ? "active-row" : "",
+                      slowProviderSet.has(row.provider) ? "provider-slow-row" : "",
+                    ].filter(Boolean).join(" ") || undefined}
+                    onClick={() => {
+                      setSelectedSessionPath(row.file_path);
+                      setParserDetailProvider(row.provider);
+                    }}
+                  >
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(selectedProviderFiles[row.file_path])}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) =>
+                          setSelectedProviderFiles((prev) => ({ ...prev, [row.file_path]: e.target.checked }))
+                        }
+                      />
+                    </td>
+                    {showProviderColumn ? <td className="col-provider">{row.provider}</td> : null}
+                    <td className="title-col">
+                      <button
+                        type="button"
+                        className="table-link-button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelectedSessionPath(row.file_path);
+                          setParserDetailProvider(row.provider);
+                        }}
+                      >
+                        <div className="title-main">{row.display_title || row.probe.detected_title || row.session_id}</div>
+                        <div className="mono-sub">{row.session_id}</div>
+                      </button>
+                    </td>
+                    <td className="col-source">{row.source}</td>
+                    <td className="col-format">{row.probe.format}</td>
+                    <td className="col-probe">{row.probe.ok ? messages.common.ok : messages.common.fail}</td>
+                    <td className="col-modified">{formatDateTime(row.mtime)}</td>
+                    <td className="col-size">{formatInteger(row.size_bytes)}</td>
+                  </tr>
+                ))}
+                {providerSessionsLoading
+                  ? Array.from({ length: SKELETON_ROWS }).map((_, idx) => (
+                      <tr key={`provider-session-skeleton-${idx}`}>
+                        <td colSpan={showProviderColumn ? 8 : 7}>
+                          <div className="skeleton-line" />
+                        </td>
+                      </tr>
+                    ))
+                  : null}
+                {sortedProviderSessionRows.length === 0 && !providerSessionsLoading ? (
+                  <tr>
+                    <td colSpan={showProviderColumn ? 8 : 7} className="sub-hint">
+                      {messages.providers.sessionsLoading}
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+          {sortedProviderSessionRows.length > renderedProviderSessionRows.length ? (
+            <div className="sub-toolbar">
+              <button
+                className="btn-outline"
+                type="button"
+                onClick={() => setRenderLimit((prev) => prev + 120)}
+              >
+                {messages.providers.loadMoreRows} {renderedProviderSessionRows.length}/{sortedProviderSessionRows.length}
+              </button>
+            </div>
+          ) : null}
+          {sessionFileActionResult ? (
+            <section className="provider-result-grid">
+              <article className="provider-result-card">
+                <span className="overview-note-label">{messages.providers.actionResultTitle}</span>
+                <strong>
+                  {actionLabel(sessionFileActionResult.action)}
+                  {sessionFileActionResult.dry_run ? ` · ${messages.providers.resultPreview}` : ""}
+                </strong>
+                <p>
+                  {messages.providers.valid} {sessionFileActionResult.valid_count} · {messages.providers.applied}{" "}
+                  {sessionFileActionResult.applied_count}
+                  {typeof sessionFileActionResult.backed_up_count === "number"
+                    ? ` · ${messages.providers.backedUp} ${sessionFileActionResult.backed_up_count}`
+                    : ""}
+                </p>
+                {sessionFileActionResult.confirm_token_expected ? (
+                  <code>{sessionFileActionResult.confirm_token_expected}</code>
+                ) : null}
+              </article>
+              {sessionFileActionResult.backup_to ? (
+                <article className="provider-result-card">
+                  <span className="overview-note-label">{messages.providers.backupLocation}</span>
+                  <strong className="mono-sub">{sessionFileActionResult.backup_to}</strong>
+                  <p>
+                    {sessionFileActionResult.backup_manifest_path
+                      ? `${messages.providers.backupManifest}: ${sessionFileActionResult.backup_manifest_path}`
+                      : messages.providers.backupReadyHint}
+                  </p>
+                </article>
+              ) : null}
+              {sessionFileActionResult.archived_to ? (
+                <article className="provider-result-card">
+                  <span className="overview-note-label">{messages.providers.archiveLocation}</span>
+                  <strong className="mono-sub">{sessionFileActionResult.archived_to}</strong>
+                  <p>{messages.providers.archiveReadyHint}</p>
+                </article>
+              ) : null}
+            </section>
+          ) : null}
+          {csvExportedRows !== null ? (
+            <div className="sub-toolbar">
+              <span className="sub-hint">
+                {messages.providers.csvExported} {csvExportedRows}
+              </span>
+            </div>
+          ) : null}
+        </section>
+
+        <section className="provider-side-stack">
+        {sessionDetailSlot}
+        {advancedOpen ? (
+        <details className="panel panel-disclosure" ref={parserSectionRef}>
+          <summary>
+            {messages.providers.parserTitle} · {messages.providers.score} {parserSummary.parse_score ?? "-"}
+          </summary>
+          <div className="panel-disclosure-body">
+            <div className="sub-toolbar">
+              <span className="sub-hint">{messages.providers.parserJumpHint}</span>
+              {selectedSessionProvider ? (
+                <span className="sub-hint">
+                  {messages.providers.parserLinkedProvider} {selectedSessionProvider}
+                  {!selectedSessionProviderVisibleInParser ? ` · ${messages.providers.parserLinkedHidden}` : ""}
+                </span>
+              ) : null}
+            </div>
+            <div className="sub-toolbar">
+              <label className="check-inline">
+                <input
+                  type="checkbox"
+                  checked={parserFailOnly}
+                  onChange={(e) => setParserFailOnly(e.target.checked)}
+                />
+                {messages.providers.parserFailOnly}
+              </label>
+              <span className="sub-hint">
+                {messages.providers.filteredRows} {filteredParserReports.length}/{parserReports.length}
+              </span>
+              <select
+                className="filter-select"
+                aria-label={messages.providers.parserSortLabel}
+                value={parserSort}
+                onChange={(e) => setParserSort(e.target.value as ParserSort)}
+              >
+                <option value="fail_desc">{messages.providers.parserSortFailDesc}</option>
+                <option value="fail_asc">{messages.providers.parserSortFailAsc}</option>
+                <option value="score_desc">{messages.providers.parserSortScoreDesc}</option>
+                <option value="score_asc">{messages.providers.parserSortScoreAsc}</option>
+                <option value="scan_ms_desc">{messages.providers.parserSortScanDesc}</option>
+                <option value="scan_ms_asc">{messages.providers.parserSortScanAsc}</option>
+                <option value="name_asc">{messages.providers.parserSortNameAsc}</option>
+                <option value="name_desc">{messages.providers.parserSortNameDesc}</option>
+              </select>
+            </div>
+            <div className="provider-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>{messages.providers.colProvider}</th>
+                    <th>{messages.providers.colStatus}</th>
+                    <th>{messages.providers.colScanned}</th>
+                    <th>{messages.providers.colScanMs}</th>
+                    <th>{messages.providers.colParseOk}</th>
+                    <th>{messages.providers.colParseFail}</th>
+                    <th>{messages.providers.colScore}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedParserReports.map((report) => (
+                    <tr
+                      key={`parser-${report.provider}`}
+                      data-parser-provider-key={encodeURIComponent(report.provider)}
+                      className={[
+                        "parser-jump-row",
+                        selectedSessionProvider === report.provider ? "parser-linked-row" : "",
+                        slowProviderSet.has(report.provider) ? "provider-slow-row" : "",
+                      ].filter(Boolean).join(" ")}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => jumpToProviderSessions(report.provider, Number(report.parse_fail))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          jumpToProviderSessions(report.provider, Number(report.parse_fail));
+                        }
+                      }}
+                    >
+                      <td>{report.name}</td>
+                      <td>
+                        <span className={`status-pill status-${report.status}`}>{statusLabel(report.status)}</span>
+                      </td>
+                      <td>{report.scanned}</td>
+                      <td>{formatFetchMs(report.scan_ms ?? null)}</td>
+                      <td>{report.parse_ok}</td>
+                      <td>{report.parse_fail}</td>
+                      <td>{report.parse_score ?? "-"}</td>
+                    </tr>
+                  ))}
+                  {parserLoading
+                    ? Array.from({ length: 4 }).map((_, idx) => (
+                        <tr key={`parser-health-skeleton-${idx}`}>
+                          <td colSpan={7}>
+                            <div className="skeleton-line" />
+                          </td>
+                        </tr>
+                      ))
+                    : null}
+                  {sortedParserReports.length === 0 && !parserLoading ? (
+                    <tr>
+                      <td colSpan={7} className="sub-hint">
+                        {messages.providers.parserLoading}
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+            <div className="sub-toolbar">
+              <label className="provider-quick-switch">
+                <span>{messages.providers.parserDetailLabel}</span>
+                <select
+                  className="provider-quick-select"
+                  value={parserDetailProvider}
+                  onChange={(e) => setParserDetailProvider(e.target.value)}
+                  disabled={parserReportsWithErrors.length === 0}
+                >
+                  {parserReportsWithErrors.length === 0 ? (
+                    <option value="">{messages.providers.parserNoSampleErrors}</option>
+                  ) : (
+                    parserReportsWithErrors.map((report) => (
+                      <option key={`parser-detail-${report.provider}`} value={report.provider}>
+                        {report.name} ({report.sample_errors?.length ?? 0})
+                      </option>
+                    ))
+                  )}
+                </select>
+              </label>
+            </div>
+            <div className="parser-errors">
+              {parserJumpStatus === "found" ? (
+                <p className="sub-hint">{messages.providers.parserJumpFound}</p>
+              ) : null}
+              {parserJumpStatus === "not_found" ? (
+                <p className="sub-hint">{messages.providers.parserJumpNotFound}</p>
+              ) : null}
+              {parserDetailReport?.sample_errors?.length ? (
+                <>
+                  <p className="sub-hint">
+                    {messages.providers.parserSelectedErrors} {parserDetailReport.name}
+                  </p>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>{messages.providers.parserFieldSessionId}</th>
+                        <th>{messages.providers.parserFieldFormat}</th>
+                        <th>{messages.providers.parserFieldError}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {parserDetailReport.sample_errors.map((entry, idx) => (
+                        <tr
+                          key={`parser-error-${parserDetailReport.provider}-${entry.session_id}-${idx}`}
+                          className="parser-error-jump-row"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => jumpToSessionFromParserError(parserDetailReport.provider, entry.session_id)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              jumpToSessionFromParserError(parserDetailReport.provider, entry.session_id);
+                            }
+                          }}
+                        >
+                          <td className="mono-sub">{entry.session_id}</td>
+                          <td>{entry.format}</td>
+                          <td>{entry.error ?? "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              ) : (
+                <p className="sub-hint">{messages.providers.parserNoSampleErrors}</p>
+              )}
+            </div>
+          </div>
+        </details>
+        ) : null}
+        </section>
+      </section>
+
+      <details
+        className="panel panel-disclosure provider-advanced-shell"
+        open={advancedOpen}
+        onToggle={(event) => {
+          setAdvancedOpen((event.currentTarget as HTMLDetailsElement).open);
+        }}
+      >
+        <summary>
+          {messages.providers.advancedTitle}
+          <span className="panel-summary-subcopy"> · {messages.providers.advancedSubtitle}</span>
+        </summary>
+        <div className="panel-disclosure-body provider-advanced-stack">
+      {advancedOpen ? (
+        <>
+      <section className="toolbar provider-diagnostics-toolbar">
+        <button
+          className="btn-outline"
+          type="button"
+          onClick={refreshProvidersData}
+          disabled={providersRefreshing}
+        >
+          {providersRefreshing
+            ? messages.providers.refreshing
+            : messages.providers.refreshNow}
+        </button>
+        <span className="sub-hint">
+          {providersLastRefreshAt
+            ? `${messages.providers.lastRefresh} ${formatDateTime(providersLastRefreshAt)}`
+            : "No refresh history yet."}
+        </span>
+        <details className="inline-tools-disclosure">
+          <summary>Scan settings / slow diagnostics</summary>
+          <div className="sub-toolbar inline-tools-disclosure-body">
+            <label className="provider-quick-switch">
+              <span>{messages.providers.depthLabel}</span>
+              <select
+                className="provider-quick-select"
+                value={providerDataDepth}
+                onChange={(e) => setProviderDataDepth(e.target.value as ProviderDataDepth)}
+              >
+                <option value="fast">{messages.providers.depthFast}</option>
+                <option value="balanced">{messages.providers.depthBalanced}</option>
+                <option value="deep">{messages.providers.depthDeep}</option>
+              </select>
+            </label>
+            <label className="provider-quick-switch">
+              <span>{messages.providers.slowThresholdLabel}</span>
+              <select
+                className="provider-quick-select"
+                value={String(slowProviderThresholdMs)}
+                onChange={(e) => {
+                  const nextValue = Number(e.target.value);
+                  if (Number.isFinite(nextValue)) setSlowProviderThresholdMs(nextValue);
+                }}
+              >
+                {slowThresholdOptions.map((thresholdMs) => (
+                  <option key={`slow-threshold-${thresholdMs}`} value={thresholdMs}>
+                    {thresholdMs}ms
+                  </option>
+                ))}
+              </select>
+            </label>
+            {canReturnHotspotScope ? (
+              <button
+                className="btn-outline"
+                type="button"
+                onClick={() => {
+                  if (!hotspotScopeOrigin) return;
+                  setProviderView(hotspotScopeOrigin);
+                  setHotspotScopeOrigin(null);
+                }}
+              >
+                {messages.providers.scopeReturn} {hotspotOriginLabel}
+              </button>
+            ) : null}
+            <span className="sub-hint">
+              {messages.providers.parserHint}
+              {` · ${messages.providers.fetchMsLabel} `}
+              {`${messages.providers.fetchMsDataSources} ${formatFetchMs(providerFetchMetrics.data_sources)}`}
+              {` · ${messages.providers.fetchMsMatrix} ${formatFetchMs(providerFetchMetrics.matrix)}`}
+              {` · ${messages.providers.fetchMsSessions} ${formatFetchMs(providerFetchMetrics.sessions)}`}
+              {` · ${messages.providers.fetchMsParser} ${formatFetchMs(providerFetchMetrics.parser)}`}
+              {` · ${messages.providers.slowProvidersLabel} ${slowProviderIds.length}/${providerTabCount}`}
+              {` · ${messages.providers.slowThresholdLabel} ${slowProviderThresholdMs}ms`}
+              {slowProviderIds.length > 0
+                ? ` · ${slowProviderSummary}`
+                : ` · ${messages.providers.slowProvidersNone}`}
+              {hasSlowProviderFetch ? ` · ${messages.providers.fetchMsSlow}` : ""}
+            </span>
+          </div>
+        </details>
+      </section>
+
+      <details className="panel panel-disclosure provider-panel">
+        <summary>
+          {messages.providers.matrixDisclosure} · {messages.providers.active}{" "}
+          {providerSummary?.active ?? 0}/{providerSummary?.total ?? providers.length}
+        </summary>
+        <div className="panel-disclosure-body provider-table-wrap">
           <table>
             <thead>
               <tr>
@@ -933,7 +1862,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
                     <td>
                       <span className={`status-pill status-${p.status}`}>{statusLabel(p.status)}</span>
                     </td>
-                    <td>{p.capability_level}</td>
+                    <td>{capabilityLevelLabel(p.capability_level)}</td>
                     <td>{p.capabilities.read_sessions ? messages.common.yes : "-"}</td>
                     <td>{p.capabilities.analyze_context ? messages.common.yes : "-"}</td>
                     <td>{p.capabilities.safe_cleanup ? messages.common.yes : "-"}</td>
@@ -982,16 +1911,14 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
             </tbody>
           </table>
         </div>
-      </section>
+      </details>
 
-      <section className="panel">
-        <header>
-          <h2>{messages.providers.dataSourcesTitle}</h2>
-          <span>
-            {messages.providers.dataSourcesDetected} {detectedDataSourceCount}/{dataSourceRows.length}
-          </span>
-        </header>
-        <div className="data-source-grid">
+      <details className="panel panel-disclosure">
+        <summary>
+          {messages.providers.dataSourcesDisclosure} · {messages.providers.dataSourcesDetected}{" "}
+          {detectedDataSourceCount}/{dataSourceRows.length}
+        </summary>
+        <div className="panel-disclosure-body data-source-grid">
           {dataSourcesLoading && dataSourceRows.length === 0
             ? Array.from({ length: 6 }).map((_, idx) => (
                 <div key={`data-source-skeleton-${idx}`} className="data-source-card">
@@ -1035,116 +1962,84 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
                         {messages.providers.dataSourcesSize} {formatBytes(row.total_bytes)}
                       </span>
                       <span>
-                        {messages.providers.dataSourcesUpdated} {formatLocalDate(row.latest_mtime)}
+                        {messages.providers.dataSourcesUpdated} {formatDateTime(row.latest_mtime)}
                       </span>
                     </div>
                   </article>
                 );
               })}
         </div>
-      </section>
+      </details>
 
-      <section className="provider-tabs" role="tablist" aria-label={messages.providers.providerTabsLabel}>
-        {providerTabs.map((tab) => (
-          <button
-            key={`provider-tab-${tab.id}`}
-            type="button"
-            role="tab"
-            aria-selected={providerView === tab.id}
-            className={`provider-tab ${providerView === tab.id ? "is-active" : ""} ${tab.is_slow ? "is-slow" : ""}`.trim()}
-            onClick={() => {
-              setHotspotScopeOrigin(null);
-              setProviderView(tab.id);
-            }}
-          >
-            <span className="provider-tab-title">{tab.id === "all" ? messages.common.allAi : tab.name}</span>
-            <span className="provider-tab-meta">
-              {tab.scanned} {messages.providers.sessionsSuffix}
-            </span>
-            {tab.scan_ms !== null ? (
-              <span className="provider-tab-meta">{formatFetchMs(tab.scan_ms)}</span>
-            ) : null}
-            {tab.is_slow ? (
-              <span className="provider-slow-badge">{messages.providers.slowProviderBadge}</span>
-            ) : null}
-            <span className={`status-pill status-${tab.status}`}>{statusLabel(tab.status)}</span>
-          </button>
-        ))}
-      </section>
-
-      <section className="panel">
-        <header>
-          <h2>{messages.providers.hotspotTitle}</h2>
-          <div className="hotspot-header-actions">
-            <span>
-              {slowHotspotCards.length}/{providerTabCount}
-            </span>
-            {!slowFocusActive ? (
-              <button
-                type="button"
-                className="btn-outline"
-                onClick={focusSlowProviders}
-              >
-                {messages.providers.hotspotFocusSlow}
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="btn-outline"
-                onClick={clearSlowFocus}
-              >
-                {messages.providers.hotspotClearFocus}
-              </button>
-            )}
+      {slowHotspotCards.length > 0 ? (
+        <details className="panel panel-disclosure">
+          <summary>
+            {messages.providers.hotspotDisclosure} · {slowHotspotCards.length}/{providerTabCount}
+          </summary>
+          <div className="panel-disclosure-body">
+            <div className="sub-toolbar">
+              {!slowFocusActive ? (
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={focusSlowProviders}
+                >
+                  {messages.providers.hotspotFocusSlow}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={clearSlowFocus}
+                >
+                  {messages.providers.hotspotClearFocus}
+                </button>
+              )}
+            </div>
+            <div className="hotspot-grid">
+              {slowHotspotCards.map((card) => (
+                <article key={`hotspot-${card.provider}`} className="hotspot-card">
+                  <div className="hotspot-head">
+                    <strong>{card.name}</strong>
+                    <span className="provider-slow-badge">
+                      {messages.providers.slowProviderBadge} {formatFetchMs(card.scanMs)}
+                    </span>
+                  </div>
+                  <div className="hotspot-meta">
+                    <span>{messages.providers.hotspotScan} {formatFetchMs(card.scanMs)}</span>
+                    <span>{messages.providers.hotspotRows} {card.scanned}</span>
+                    <span>{messages.providers.hotspotParseFail} {card.parseFail}</span>
+                    <span>{messages.providers.score} {card.parseScore ?? "-"}</span>
+                  </div>
+                  <div className="hotspot-actions">
+                    <button
+                      type="button"
+                      className="btn-outline"
+                      onClick={() => jumpToProviderSessions(card.provider, card.parseFail, { fromHotspot: true })}
+                    >
+                      {messages.providers.openSessions}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-outline"
+                      onClick={() => jumpToParserProvider(card.provider)}
+                    >
+                      {messages.providers.hotspotOpenParser}
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
           </div>
-        </header>
-        {slowHotspotCards.length === 0 ? (
-          <p className="sub-hint">{messages.providers.hotspotEmpty}</p>
-        ) : (
-          <div className="hotspot-grid">
-            {slowHotspotCards.map((card) => (
-              <article key={`hotspot-${card.provider}`} className="hotspot-card">
-                <div className="hotspot-head">
-                  <strong>{card.name}</strong>
-                  <span className="provider-slow-badge">
-                    {messages.providers.slowProviderBadge} {formatFetchMs(card.scanMs)}
-                  </span>
-                </div>
-                <div className="hotspot-meta">
-                  <span>{messages.providers.hotspotScan} {formatFetchMs(card.scanMs)}</span>
-                  <span>{messages.providers.hotspotRows} {card.scanned}</span>
-                  <span>{messages.providers.hotspotParseFail} {card.parseFail}</span>
-                  <span>{messages.providers.score} {card.parseScore ?? "-"}</span>
-                </div>
-                <div className="hotspot-actions">
-                  <button
-                    type="button"
-                    className="btn-outline"
-                    onClick={() => jumpToProviderSessions(card.provider, card.parseFail, { fromHotspot: true })}
-                  >
-                    {messages.providers.openSessions}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-outline"
-                    onClick={() => jumpToParserProvider(card.provider)}
-                  >
-                    {messages.providers.hotspotOpenParser}
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
+        </details>
+      ) : null}
 
-      <section className="panel">
-        <header>
-          <h2>{messages.providers.flowBoardTitle}</h2>
-          <span>{messages.providers.flowBoardSubtitle} {providerFlowCards.length}</span>
-        </header>
-        <div className="provider-flow-board">
-          {providerFlowCards.map((card) => (
+      <details className="panel panel-disclosure">
+        <summary>
+          {messages.providers.flowBoardTitle} · {messages.providers.flowBoardSubtitle} {visibleFlowCards.length}
+        </summary>
+        <div className="panel-disclosure-body provider-flow-board">
+          {visibleFlowCards.map((card) => (
             <article
               key={`provider-flow-${card.providerId}`}
               className={`provider-flow-card ${card.parseFail > 0 ? "is-warning" : ""}`.trim()}
@@ -1245,567 +2140,16 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
             </article>
           ))}
         </div>
-      </section>
-
-      <section className="toolbar">
-        <label className="provider-quick-switch">
-          <span>{messages.providers.depthLabel}</span>
-          <select
-            className="provider-quick-select"
-            value={providerDataDepth}
-            onChange={(e) => setProviderDataDepth(e.target.value as ProviderDataDepth)}
-          >
-            <option value="fast">{messages.providers.depthFast}</option>
-            <option value="balanced">{messages.providers.depthBalanced}</option>
-            <option value="deep">{messages.providers.depthDeep}</option>
-          </select>
-        </label>
-        <label className="provider-quick-switch">
-          <span>{messages.providers.slowThresholdLabel}</span>
-          <select
-            className="provider-quick-select"
-            value={String(slowProviderThresholdMs)}
-            onChange={(e) => {
-              const nextValue = Number(e.target.value);
-              if (Number.isFinite(nextValue)) setSlowProviderThresholdMs(nextValue);
-            }}
-          >
-            {slowThresholdOptions.map((thresholdMs) => (
-              <option key={`slow-threshold-${thresholdMs}`} value={thresholdMs}>
-                {thresholdMs}ms
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          className="btn-outline"
-          type="button"
-          onClick={refreshProvidersData}
-          disabled={providersRefreshing}
-        >
-          {providersRefreshing
-            ? messages.providers.refreshing
-            : messages.providers.refreshNow}
-        </button>
-        {canReturnHotspotScope ? (
-          <button
-            className="btn-outline"
-            type="button"
-            onClick={() => {
-              if (!hotspotScopeOrigin) return;
-              setProviderView(hotspotScopeOrigin);
-              setHotspotScopeOrigin(null);
-            }}
-          >
-            {messages.providers.scopeReturn} {hotspotOriginLabel}
-          </button>
-        ) : null}
-        <span className="sub-hint">
-          {messages.providers.parserHint}
-          {providersLastRefreshAt
-            ? ` · ${messages.providers.lastRefresh} ${formatLocalDate(providersLastRefreshAt)}`
-            : ""}
-          {` · ${messages.providers.fetchMsLabel} `}
-          {`${messages.providers.fetchMsDataSources} ${formatFetchMs(providerFetchMetrics.data_sources)}`}
-          {` · ${messages.providers.fetchMsMatrix} ${formatFetchMs(providerFetchMetrics.matrix)}`}
-          {` · ${messages.providers.fetchMsSessions} ${formatFetchMs(providerFetchMetrics.sessions)}`}
-          {` · ${messages.providers.fetchMsParser} ${formatFetchMs(providerFetchMetrics.parser)}`}
-          {` · ${messages.providers.slowProvidersLabel} ${slowProviderIds.length}/${providerTabCount}`}
-          {` · ${messages.providers.slowThresholdLabel} ${slowProviderThresholdMs}ms`}
-          {slowProviderIds.length > 0
-            ? ` · ${slowProviderSummary}`
-            : ` · ${messages.providers.slowProvidersNone}`}
-          {hasSlowProviderFetch ? ` · ${messages.providers.fetchMsSlow}` : ""}
-        </span>
-      </section>
-
-      <section className="provider-ops-layout">
-        <section className="panel" ref={providerSessionsSectionRef}>
-          <header>
-            <h2>{messages.providers.sessionsTitle}</h2>
-            <span>
-              {providerSessionSummary.rows ?? providerSessionRows.length} {messages.providers.rows} · {messages.providers.parseOk}{" "}
-              {providerSessionSummary.parse_ok ?? 0}
-              {" · "}
-              {messages.providers.queryLimit} {providerSessionsLimit}
-              {providerRowsSampled ? ` · ${messages.providers.sampledHint}` : ""}
-            </span>
-          </header>
-          {showProviderSessionsZeroState ? (
-            <div className="sub-toolbar">
-              <span className="sub-hint">
-                {selectedProviderHasPresentSource
-                  ? messages.providers.sessionsEmptyDetectedNoLogs
-                  : messages.providers.sessionsEmptyNoSources}
-                {` · ${messages.providers.sessionsEmptyActionHint}`}
-              </span>
-              <button
-                className="btn-outline"
-                type="button"
-                onClick={() => {
-                  setProviderDataDepth("deep");
-                  refreshProvidersData();
-                }}
-              >
-                {messages.providers.depthDeep} + {messages.providers.refreshNow}
-              </button>
-            </div>
-          ) : null}
-          <div className="sub-toolbar">
-            <input
-              className="search-input"
-              placeholder={messages.providers.sessionSearchPlaceholder}
-              value={sessionFilter}
-              onChange={(e) => setSessionFilter(e.target.value)}
-            />
-            <select
-              className="filter-select"
-              aria-label={messages.providers.probeFilterLabel}
-              value={probeFilter}
-              onChange={(e) => setProbeFilter(e.target.value as ProviderProbeFilter)}
-            >
-              <option value="all">{messages.providers.probeAll}</option>
-              <option value="ok">{messages.providers.probeOk}</option>
-              <option value="fail">{messages.providers.probeFail}</option>
-            </select>
-            <select
-              className="filter-select"
-              aria-label={messages.providers.sourceFilterLabel}
-              value={sourceFilter}
-              onChange={(e) => setSourceFilter(e.target.value as ProviderSourceFilter)}
-            >
-              <option value="all">{messages.providers.sourceAll}</option>
-              {sourceFilterOptions.map((item) => (
-                <option key={`source-filter-${item.source}`} value={item.source}>
-                  {item.source} ({item.count})
-                </option>
-              ))}
-            </select>
-            <select
-              className="filter-select"
-              aria-label={messages.providers.sortLabel}
-              value={sessionSort}
-              onChange={(e) => setSessionSort(e.target.value as ProviderSessionSort)}
-            >
-              <option value="mtime_desc">{messages.providers.sortNewest}</option>
-              <option value="mtime_asc">{messages.providers.sortOldest}</option>
-              <option value="size_desc">{messages.providers.sortSizeDesc}</option>
-              <option value="size_asc">{messages.providers.sortSizeAsc}</option>
-              <option value="title_asc">{messages.providers.sortTitleAsc}</option>
-              <option value="title_desc">{messages.providers.sortTitleDesc}</option>
-            </select>
-            <label className="check-inline">
-              <input
-                type="checkbox"
-                checked={slowOnly}
-                disabled={!canApplySlowOnly}
-                onChange={(e) => setSlowOnly(e.target.checked)}
-              />
-              {messages.providers.slowOnlyFilter}
-            </label>
-            {!canApplySlowOnly && slowOnly ? (
-              <>
-                <span className="sub-hint">{messages.providers.slowOnlyDormant}</span>
-                <button
-                  type="button"
-                  className="btn-outline"
-                  onClick={() => setProviderView("all")}
-                >
-                  {messages.common.allAi}
-                </button>
-              </>
-            ) : null}
-            <span className="sub-hint">
-              {messages.providers.filteredRows} {sortedProviderSessionRows.length}/{providerSessionRows.length}
-              {sortedProviderSessionRows.length > renderedProviderSessionRows.length
-                ? ` · ${messages.providers.renderingWindow} ${renderedProviderSessionRows.length}/${sortedProviderSessionRows.length}`
-                : ""}
-            </span>
-            <button
-              className="btn-outline"
-              type="button"
-              disabled={sortedProviderSessionRows.length === 0 || enabledCsvColumns.length === 0}
-              onClick={exportFilteredSessionsCsv}
-            >
-              {messages.providers.exportCsv}
-            </button>
-            <details>
-              <summary>{messages.providers.csvColumns}</summary>
-              <div className="sub-toolbar">
-                <button
-                  className="btn-outline"
-                  type="button"
-                  onClick={() => setCsvColumns({ ...DEFAULT_CSV_COLUMNS })}
-                >
-                  {messages.providers.csvPresetAll}
-                </button>
-                <button
-                  className="btn-outline"
-                  type="button"
-                  onClick={() => setCsvColumns({ ...COMPACT_CSV_COLUMNS })}
-                >
-                  {messages.providers.csvPresetCompact}
-                </button>
-                <button
-                  className="btn-outline"
-                  type="button"
-                  onClick={() => setCsvColumns({ ...FORENSICS_CSV_COLUMNS })}
-                >
-                  {messages.providers.csvPresetForensics}
-                </button>
-              </div>
-              <div className="sub-toolbar">
-                {CSV_COLUMN_KEYS.map((key) => (
-                  <label key={`csv-col-${key}`} className="check-inline">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(csvColumns[key])}
-                      onChange={(e) => setCsvColumns((prev) => ({ ...prev, [key]: e.target.checked }))}
-                    />
-                    {csvColumnLabel(key)}
-                  </label>
-                ))}
-                <span className="sub-hint">
-                  {messages.providers.csvSelectedColumns} {enabledCsvColumns.length}/{CSV_COLUMN_KEYS.length}
-                </span>
-              </div>
-            </details>
-          </div>
-          <div className="sub-toolbar">
-            <label className="check-inline">
-              <input
-                type="checkbox"
-                checked={allFilteredProviderRowsSelected || allProviderRowsSelected}
-                onChange={(e) =>
-                  toggleSelectAllProviderRows(e.target.checked, filteredProviderFilePaths)
-                }
-              />
-              {messages.providers.selectAllInTab}
-            </label>
-            <span className="sub-hint">
-              {providerLabel} · {messages.providers.selected} {selectedProviderFilePaths.length}
-            </span>
-            {selectedSessionProvider ? (
-              <button
-                type="button"
-                className={`status-pill status-pill-button ${Number(selectedSessionParseFailCount ?? 0) > 0 ? "status-detected" : "status-active"}`}
-                onClick={() => jumpToParserProvider(selectedSessionProvider)}
-              >
-                {messages.providers.parserLinkedBadge} {selectedSessionProvider} · {messages.providers.parserLinkedFails}{" "}
-                {selectedSessionParseFailCount ?? messages.common.unknown}
-                <span className="status-pill-action">{messages.providers.parserLinkedOpen}</span>
-              </button>
-            ) : null}
-          </div>
-          <div className="sub-toolbar">
-            <button
-              className="btn-outline"
-              disabled={!canRunProviderAction || busy}
-              onClick={() => runProviderAction("archive_local", true)}
-            >
-              {messages.providers.archiveDryRun}
-            </button>
-            <button
-              className="btn-base"
-              disabled={!canRunProviderAction || busy}
-              onClick={() => runProviderAction("archive_local", false)}
-            >
-              {messages.providers.archive}
-            </button>
-            <button
-              className="btn-outline"
-              disabled={!canRunProviderAction || busy}
-              onClick={() => runProviderAction("delete_local", true)}
-            >
-              {messages.providers.deleteDryRun}
-            </button>
-            <button
-              className="btn-accent"
-              disabled={!canRunProviderAction || busy}
-              onClick={() => runProviderAction("delete_local", false)}
-            >
-              {messages.providers.delete}
-            </button>
-            <span className="sub-hint">{messages.providers.alwaysDryRun}</span>
-            {!canRunProviderAction && providerView !== "all" ? (
-              <span className="sub-hint">{messages.providers.readOnlyHint}</span>
-            ) : null}
-          </div>
-          <div className="provider-table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th></th>
-                  <th>{messages.providers.colProvider}</th>
-                  <th>{messages.providers.colSession}</th>
-                  <th>{messages.threadDetail.fieldSource}</th>
-                  <th>{messages.providers.colFormat}</th>
-                  <th>{messages.providers.colProbe}</th>
-                  <th>{messages.sessionDetail.fieldModified}</th>
-                  <th>{messages.providers.colSize}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {renderedProviderSessionRows.map((row) => (
-                  <tr
-                    key={`${row.provider}-${row.session_id}-${row.file_path}`}
-                    data-file-key={encodeURIComponent(row.file_path)}
-                    className={[
-                      selectedSessionPath === row.file_path ? "active-row" : "",
-                      slowProviderSet.has(row.provider) ? "provider-slow-row" : "",
-                    ].filter(Boolean).join(" ") || undefined}
-                    onClick={() => {
-                      setSelectedSessionPath(row.file_path);
-                      setParserDetailProvider(row.provider);
-                    }}
-                  >
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={Boolean(selectedProviderFiles[row.file_path])}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) =>
-                          setSelectedProviderFiles((prev) => ({ ...prev, [row.file_path]: e.target.checked }))
-                        }
-                      />
-                    </td>
-                    <td>{row.provider}</td>
-                    <td className="title-col">
-                      <div className="title-main">{row.display_title || row.probe.detected_title || row.session_id}</div>
-                      <div className="mono-sub">{row.session_id}</div>
-                    </td>
-                    <td>{row.source}</td>
-                    <td>{row.probe.format}</td>
-                    <td>{row.probe.ok ? messages.common.ok : messages.common.fail}</td>
-                    <td>{formatLocalDate(row.mtime)}</td>
-                    <td>{row.size_bytes.toLocaleString()}</td>
-                  </tr>
-                ))}
-                {providerSessionsLoading
-                  ? Array.from({ length: SKELETON_ROWS }).map((_, idx) => (
-                      <tr key={`provider-session-skeleton-${idx}`}>
-                        <td colSpan={8}>
-                          <div className="skeleton-line" />
-                        </td>
-                      </tr>
-                    ))
-                  : null}
-                {sortedProviderSessionRows.length === 0 && !providerSessionsLoading ? (
-                  <tr>
-                    <td colSpan={8} className="sub-hint">
-                      {messages.providers.sessionsLoading}
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-          {sortedProviderSessionRows.length > renderedProviderSessionRows.length ? (
-            <div className="sub-toolbar">
-              <button
-                className="btn-outline"
-                type="button"
-                onClick={() => setRenderLimit((prev) => prev + 120)}
-              >
-                {messages.providers.loadMoreRows} {renderedProviderSessionRows.length}/{sortedProviderSessionRows.length}
-              </button>
-            </div>
-          ) : null}
-          {providerActionData ? (
-            <div className="sub-toolbar">
-              <span className="sub-hint">
-                {messages.providers.action} {actionLabel(providerActionData.action)} · {messages.providers.valid}{" "}
-                {providerActionData.valid_count} · {messages.providers.applied} {providerActionData.applied_count} · {messages.providers.token}{" "}
-                {providerActionData.confirm_token_expected}
-              </span>
-            </div>
-          ) : null}
-          {csvExportedRows !== null ? (
-            <div className="sub-toolbar">
-              <span className="sub-hint">
-                {messages.providers.csvExported} {csvExportedRows}
-              </span>
-            </div>
-          ) : null}
-        </section>
-
-        <section className="panel" ref={parserSectionRef}>
-          <header>
-            <h2>{messages.providers.parserTitle}</h2>
-            <span>
-              {messages.providers.score} {parserSummary.parse_score ?? "-"}
-            </span>
-          </header>
-          <div className="sub-toolbar">
-            <span className="sub-hint">{messages.providers.parserJumpHint}</span>
-            {selectedSessionProvider ? (
-              <span className="sub-hint">
-                {messages.providers.parserLinkedProvider} {selectedSessionProvider}
-                {!selectedSessionProviderVisibleInParser ? ` · ${messages.providers.parserLinkedHidden}` : ""}
-              </span>
-            ) : null}
-          </div>
-          <div className="sub-toolbar">
-            <label className="check-inline">
-              <input
-                type="checkbox"
-                checked={parserFailOnly}
-                onChange={(e) => setParserFailOnly(e.target.checked)}
-              />
-              {messages.providers.parserFailOnly}
-            </label>
-            <span className="sub-hint">
-              {messages.providers.filteredRows} {filteredParserReports.length}/{parserReports.length}
-            </span>
-            <select
-              className="filter-select"
-              aria-label={messages.providers.parserSortLabel}
-              value={parserSort}
-              onChange={(e) => setParserSort(e.target.value as ParserSort)}
-            >
-              <option value="fail_desc">{messages.providers.parserSortFailDesc}</option>
-              <option value="fail_asc">{messages.providers.parserSortFailAsc}</option>
-              <option value="score_desc">{messages.providers.parserSortScoreDesc}</option>
-              <option value="score_asc">{messages.providers.parserSortScoreAsc}</option>
-              <option value="scan_ms_desc">{messages.providers.parserSortScanDesc}</option>
-              <option value="scan_ms_asc">{messages.providers.parserSortScanAsc}</option>
-              <option value="name_asc">{messages.providers.parserSortNameAsc}</option>
-              <option value="name_desc">{messages.providers.parserSortNameDesc}</option>
-            </select>
-          </div>
-          <div className="provider-table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>{messages.providers.colProvider}</th>
-                  <th>{messages.providers.colStatus}</th>
-                  <th>{messages.providers.colScanned}</th>
-                  <th>{messages.providers.colScanMs}</th>
-                  <th>{messages.providers.colParseOk}</th>
-                  <th>{messages.providers.colParseFail}</th>
-                  <th>{messages.providers.colScore}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedParserReports.map((report) => (
-                  <tr
-                    key={`parser-${report.provider}`}
-                    data-parser-provider-key={encodeURIComponent(report.provider)}
-                    className={[
-                      "parser-jump-row",
-                      selectedSessionProvider === report.provider ? "parser-linked-row" : "",
-                      slowProviderSet.has(report.provider) ? "provider-slow-row" : "",
-                    ].filter(Boolean).join(" ")}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => jumpToProviderSessions(report.provider, Number(report.parse_fail))}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        jumpToProviderSessions(report.provider, Number(report.parse_fail));
-                      }
-                    }}
-                  >
-                    <td>{report.name}</td>
-                    <td>
-                      <span className={`status-pill status-${report.status}`}>{statusLabel(report.status)}</span>
-                    </td>
-                    <td>{report.scanned}</td>
-                    <td>{formatFetchMs(report.scan_ms ?? null)}</td>
-                    <td>{report.parse_ok}</td>
-                    <td>{report.parse_fail}</td>
-                    <td>{report.parse_score ?? "-"}</td>
-                  </tr>
-                ))}
-                {parserLoading
-                  ? Array.from({ length: 4 }).map((_, idx) => (
-                      <tr key={`parser-health-skeleton-${idx}`}>
-                        <td colSpan={7}>
-                          <div className="skeleton-line" />
-                        </td>
-                      </tr>
-                    ))
-                  : null}
-                {sortedParserReports.length === 0 && !parserLoading ? (
-                  <tr>
-                    <td colSpan={7} className="sub-hint">
-                      {messages.providers.parserLoading}
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-          <div className="sub-toolbar">
-            <label className="provider-quick-switch">
-              <span>{messages.providers.parserDetailLabel}</span>
-              <select
-                className="provider-quick-select"
-                value={parserDetailProvider}
-                onChange={(e) => setParserDetailProvider(e.target.value)}
-                disabled={parserReportsWithErrors.length === 0}
-              >
-                {parserReportsWithErrors.length === 0 ? (
-                  <option value="">{messages.providers.parserNoSampleErrors}</option>
-                ) : (
-                  parserReportsWithErrors.map((report) => (
-                    <option key={`parser-detail-${report.provider}`} value={report.provider}>
-                      {report.name} ({report.sample_errors?.length ?? 0})
-                    </option>
-                  ))
-                )}
-              </select>
-            </label>
-          </div>
-          <div className="parser-errors">
-            {parserJumpStatus === "found" ? (
-              <p className="sub-hint">{messages.providers.parserJumpFound}</p>
-            ) : null}
-            {parserJumpStatus === "not_found" ? (
-              <p className="sub-hint">{messages.providers.parserJumpNotFound}</p>
-            ) : null}
-            {parserDetailReport?.sample_errors?.length ? (
-              <>
-                <p className="sub-hint">
-                  {messages.providers.parserSelectedErrors} {parserDetailReport.name}
-                </p>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>{messages.providers.parserFieldSessionId}</th>
-                      <th>{messages.providers.parserFieldFormat}</th>
-                      <th>{messages.providers.parserFieldError}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {parserDetailReport.sample_errors.map((entry, idx) => (
-                      <tr
-                        key={`parser-error-${parserDetailReport.provider}-${entry.session_id}-${idx}`}
-                        className="parser-error-jump-row"
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => jumpToSessionFromParserError(parserDetailReport.provider, entry.session_id)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            jumpToSessionFromParserError(parserDetailReport.provider, entry.session_id);
-                          }
-                        }}
-                      >
-                        <td className="mono-sub">{entry.session_id}</td>
-                        <td>{entry.format}</td>
-                        <td>{entry.error ?? "-"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </>
-            ) : (
-              <p className="sub-hint">{messages.providers.parserNoSampleErrors}</p>
-            )}
-          </div>
-        </section>
-      </section>
+      </details>
+        </>
+      ) : (
+        <div className="info-box compact">
+          <strong>Deep diagnostics stay optional.</strong>
+          <p>Open this only for parser failures, slow scans, or path-level debugging.</p>
+        </div>
+      )}
+        </div>
+      </details>
     </>
   );
 }

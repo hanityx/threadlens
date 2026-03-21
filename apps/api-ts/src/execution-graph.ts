@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import type { ExecutionGraphData, ExecutionGraphEdge, ExecutionGraphNode } from "@codex/shared-contracts";
+import type { ExecutionGraphData, ExecutionGraphEdge, ExecutionGraphNode } from "@provider-surface/shared-contracts";
+import { getProviderMatrixTs } from "./lib/providers.js";
+import { getDataSourceInventoryTs } from "./domains/recovery/inventory.js";
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -82,8 +84,12 @@ export async function getExecutionGraphData(codexHome: string): Promise<Executio
   const codexConfigPath = path.join(codexHome, "config.toml");
   const globalStatePath = path.join(codexHome, ".codex-global-state.json");
 
-  const configRaw = await readFile(codexConfigPath, "utf-8").catch(() => "");
-  const stateRaw = await readFile(globalStatePath, "utf-8").catch(() => "{}");
+  const [configRaw, stateRaw, providerMatrix, dataSourceInventory] = await Promise.all([
+    readFile(codexConfigPath, "utf-8").catch(() => ""),
+    readFile(globalStatePath, "utf-8").catch(() => "{}"),
+    getProviderMatrixTs(),
+    getDataSourceInventoryTs(),
+  ]);
   const stateObj = safeJsonParse(stateRaw);
 
   const notifyArr = parseTomlStringArray(configRaw, "notify");
@@ -97,7 +103,7 @@ export async function getExecutionGraphData(codexHome: string): Promise<Executio
   }
 
   const nodes: ExecutionGraphNode[] = [
-    { id: "entry", label: "Codex Prompt Entry", kind: "entry", detail: "GUI/CLI user prompt" },
+    { id: "entry", label: "Prompt entry", kind: "entry", detail: "GUI or CLI user input" },
     {
       id: "config",
       label: "~/.codex/config.toml",
@@ -106,16 +112,16 @@ export async function getExecutionGraphData(codexHome: string): Promise<Executio
     },
     {
       id: "instructions",
-      label: "Instruction Resolver",
+      label: "Instruction interpreter",
       kind: "instruction",
       detail: "system > developer > user > AGENTS.md scope",
     },
-    { id: "agents", label: "AGENTS.md Chain", kind: "instruction", detail: "workspace/root + nested overrides" },
+    { id: "agents", label: "AGENTS.md chain", kind: "instruction", detail: "workspace/root plus nested overrides" },
     {
       id: "runtime",
-      label: "Codex Runtime",
+      label: "Execution runtime",
       kind: "runtime",
-      detail: "tool calls + local file reads/writes",
+      detail: "Tool calls plus local file reads and writes",
     },
     {
       id: "global",
@@ -126,30 +132,92 @@ export async function getExecutionGraphData(codexHome: string): Promise<Executio
   ];
 
   const edges: ExecutionGraphEdge[] = [
-    { from: "entry", to: "instructions", reason: "prompt received" },
+    { from: "entry", to: "instructions", reason: "Receive prompt" },
     { from: "config", to: "instructions", reason: "developer_instructions / features / hooks" },
-    { from: "instructions", to: "agents", reason: "AGENTS.md scope resolution" },
-    { from: "agents", to: "runtime", reason: "task execution constraints" },
-    { from: "runtime", to: "global", reason: "thread/session metadata read/write" },
+    { from: "instructions", to: "agents", reason: "Resolve AGENTS.md scope" },
+    { from: "agents", to: "runtime", reason: "Apply execution constraints" },
+    { from: "runtime", to: "global", reason: "Read and write thread/session metadata" },
   ];
 
   const findings: string[] = [];
+  const providerEvidence = (providerMatrix.providers ?? []).map((provider) => ({
+    provider: provider.provider,
+    name: provider.name,
+    status: provider.status,
+    capability_level: provider.capability_level,
+    session_log_count: Number(provider.evidence?.session_log_count ?? 0),
+    roots: Array.isArray(provider.evidence?.roots)
+      ? provider.evidence.roots.map((item) => redactPathForUi(String(item)))
+      : [],
+    notes: String(provider.evidence?.notes ?? "").trim(),
+    capabilities: {
+      read_sessions: Boolean(provider.capabilities.read_sessions),
+      analyze_context: Boolean(provider.capabilities.analyze_context),
+      safe_cleanup: Boolean(provider.capabilities.safe_cleanup),
+      hard_delete: Boolean(provider.capabilities.hard_delete),
+    },
+  }));
+  const dataSourceEvidence = Object.entries(dataSourceInventory.sources ?? {})
+    .map(([sourceKey, raw]) => {
+      const pathValue = isRecord(raw) ? String(raw.path ?? "") : "";
+      const presentValue = isRecord(raw)
+        ? Boolean(raw.present ?? raw.exists)
+        : false;
+      return {
+        source_key: sourceKey,
+        path: redactPathForUi(pathValue),
+        present: presentValue,
+        file_count: isRecord(raw) ? Number(raw.file_count ?? 0) : 0,
+        dir_count: isRecord(raw) ? Number(raw.dir_count ?? 0) : 0,
+        total_bytes: isRecord(raw) ? Number(raw.total_bytes ?? raw.size_bytes ?? 0) : 0,
+        latest_mtime: isRecord(raw) ? String(raw.latest_mtime ?? raw.mtime ?? "") || null : null,
+      };
+    })
+    .sort((a, b) => {
+      if (a.present !== b.present) return a.present ? -1 : 1;
+      return a.source_key.localeCompare(b.source_key);
+    });
+
+  for (const provider of providerEvidence) {
+    const providerId = `provider-${provider.provider}`;
+    const capabilitySummary =
+      provider.capability_level === "full"
+        ? "Full capability"
+        : provider.capability_level === "read-only"
+          ? "Read only"
+          : "Unavailable";
+    const statusSummary =
+      provider.status === "active"
+        ? "Active"
+        : provider.status === "detected"
+          ? "Detected"
+          : "Missing";
+    nodes.push({
+      id: providerId,
+      label: provider.name,
+      kind: "provider",
+      detail: `${statusSummary} · ${capabilitySummary} · ${provider.session_log_count} logs${
+        provider.notes ? ` · ${shortenText(provider.notes, 96)}` : ""
+      }`,
+    });
+    edges.push({ from: "runtime", to: providerId, reason: "Scan local sessions and logs" });
+  }
 
   if (notify.includes("oh-my-codex")) {
-    findings.push("oh-my-codex notify hook is wired in config — it participates in the runtime/notification path.");
+    findings.push("The oh-my-codex notify hook is wired into config, so it participates in runtime and notification flow.");
     nodes.push({
       id: "omx",
-      label: "oh-my-codex Hook",
+      label: "oh-my-codex hook",
       kind: "runtime",
       detail: redactSensitiveText(notify),
     });
     edges.push({ from: "config", to: "omx", reason: "notify hook" });
-    edges.push({ from: "omx", to: "runtime", reason: "hook-driven integration" });
+    edges.push({ from: "omx", to: "runtime", reason: "Hook-based integration" });
   }
 
   if (developerInstructions.toLowerCase().includes("agents.md")) {
-    findings.push("developer_instructions in config strongly guides AGENTS.md-based orchestration.");
-    edges.push({ from: "config", to: "agents", reason: "developer_instructions mentions AGENTS.md" });
+    findings.push("The config developer instructions strongly steer AGENTS.md-based orchestration.");
+    edges.push({ from: "config", to: "agents", reason: "developer_instructions references AGENTS.md" });
   }
 
   for (const proj of trustedProjects) {
@@ -161,10 +229,31 @@ export async function getExecutionGraphData(codexHome: string): Promise<Executio
       kind: "workspace",
       detail: redactPathForUi(proj),
     });
-    edges.push({ from: "config", to: projId, reason: "trusted project entry" });
+    edges.push({ from: "config", to: projId, reason: "Trusted project entry" });
   }
   if (trustedProjects.length > 0) {
-    findings.push(`${trustedProjects.length} trusted project(s) registered — exposed as thread reference candidates.`);
+    findings.push(`${trustedProjects.length} trusted projects are registered, so they appear as thread-reference candidates.`);
+  }
+
+  if (providerEvidence.length > 0) {
+    const activeProviders = providerEvidence.filter((item) => item.status === "active").length;
+    const detectedProviders = providerEvidence.filter((item) => item.status !== "missing").length;
+    findings.push(
+      `${detectedProviders} providers were detected, and ${activeProviders} of them can read sessions right now.`,
+    );
+    const cleanupReadyProviders = providerEvidence.filter(
+      (item) => item.capabilities.safe_cleanup,
+    ).length;
+    findings.push(
+      `${cleanupReadyProviders} providers support safe-cleanup dry-runs, while the rest stay read-first or diagnostic-only.`,
+    );
+  }
+
+  const presentSources = dataSourceEvidence.filter((item) => item.present);
+  if (presentSources.length > 0) {
+    findings.push(
+      `${presentSources.length} local data paths were confirmed and linked as provider-detection evidence.`,
+    );
   }
 
   if (isRecord(stateObj)) {
@@ -174,7 +263,7 @@ export async function getExecutionGraphData(codexHome: string): Promise<Executio
     if (activeRoots.length > 0) {
       nodes.push({
         id: "active-roots",
-        label: "Active Workspace Roots",
+        label: "Active workspace roots",
         kind: "workspace",
         detail: `${activeRoots.length} roots`,
       });
@@ -195,6 +284,8 @@ export async function getExecutionGraphData(codexHome: string): Promise<Executio
         ? shortenText(redactSensitiveText(developerInstructions))
         : undefined,
       trusted_projects: trustedProjects.map((item) => redactPathForUi(item)),
+      providers: providerEvidence,
+      data_sources: dataSourceEvidence,
     },
   };
 }

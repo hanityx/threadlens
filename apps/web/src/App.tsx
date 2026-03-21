@@ -1,10 +1,30 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, startTransition, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useAppData } from "./hooks/useAppData";
 import { KpiCard } from "./components/KpiCard";
 import { ThreadsTable } from "./components/ThreadsTable";
-import { ThreadDetail } from "./components/ThreadDetail";
-import { SessionDetail } from "./components/SessionDetail";
 import { getMessages } from "./i18n";
+import { formatDateTime } from "./lib/helpers";
+import type { ConversationSearchHit, LayoutView, ProviderView } from "./types";
+
+const SetupWizard = lazy(async () => {
+  const mod = await import("./components/SetupWizard");
+  return { default: mod.SetupWizard };
+});
+
+const SearchPanel = lazy(async () => {
+  const mod = await import("./components/SearchPanel");
+  return { default: mod.SearchPanel };
+});
+
+const ThreadDetail = lazy(async () => {
+  const mod = await import("./components/ThreadDetail");
+  return { default: mod.ThreadDetail };
+});
+
+const SessionDetail = lazy(async () => {
+  const mod = await import("./components/SessionDetail");
+  return { default: mod.SessionDetail };
+});
 
 const ProvidersPanel = lazy(async () => {
   const mod = await import("./components/ProvidersPanel");
@@ -25,6 +45,18 @@ const preloadProvidersPanel = () => {
   void import("./components/ProvidersPanel");
 };
 
+const preloadSearchPanel = () => {
+  void import("./components/SearchPanel");
+};
+
+const preloadThreadDetail = () => {
+  void import("./components/ThreadDetail");
+};
+
+const preloadSessionDetail = () => {
+  void import("./components/SessionDetail");
+};
+
 const preloadRoutingPanel = () => {
   void import("./components/RoutingPanel");
 };
@@ -33,14 +65,38 @@ const preloadForensicsPanel = () => {
   void import("./components/ForensicsPanel");
 };
 
+const HIDDEN_PROVIDER_IDS = new Set(["chatgpt"]);
+const OPTIONAL_PROVIDER_IDS = new Set(["copilot"]);
+const PROVIDER_DISPLAY_ORDER = ["all", "codex", "claude", "gemini", "copilot"];
+
+const providerFromSourceKey = (sourceKey: string): string | null => {
+  const key = sourceKey.toLowerCase();
+  if (key.startsWith("claude")) return "claude";
+  if (key.startsWith("gemini")) return "gemini";
+  if (key.startsWith("copilot")) return "copilot";
+  if (key.startsWith("chat_")) return "chatgpt";
+  if (
+    key.startsWith("codex_") ||
+    key === "sessions" ||
+    key === "archived_sessions" ||
+    key === "history" ||
+    key === "global_state"
+  ) {
+    return "codex";
+  }
+  return null;
+};
+
 export function App() {
   const panelChunkWarmupStartedRef = useRef(false);
   const threadSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const detailLayoutRef = useRef<HTMLElement | null>(null);
+  const [searchThreadContext, setSearchThreadContext] = useState<ConversationSearchHit | null>(null);
+  const [providersDiagnosticsOpen, setProvidersDiagnosticsOpen] = useState(false);
+  const [setupGuideOpen, setSetupGuideOpen] = useState(false);
   const {
     theme,
     setTheme,
-    locale,
-    setLocale,
     density,
     setDensity,
     layoutView,
@@ -99,26 +155,25 @@ export function App() {
     selectedImpactRows,
 
     providers,
-    providerSummary,
     providerTabs,
+    allProviderSessionRows,
     slowProviderIds,
     slowProviderThresholdMs,
     setSlowProviderThresholdMs,
     providerSessionRows,
-    providerSessionSummary,
     providerSessionsLimit,
     providerRowsSampled,
     dataSourceRows,
-    allProviderRowsSelected,
     selectedProviderLabel,
     selectedProviderFilePaths,
     canRunProviderAction,
     canRunSelectedSessionAction,
     providerActionData,
+    providerDeleteBackupEnabled,
+    setProviderDeleteBackupEnabled,
+    recoveryBackupExportData,
+    allParserReports,
     parserReports,
-    parserSummary,
-    readOnlyProviders,
-    cleanupReadyProviders,
 
     selectedThread,
     threadDetailLoading,
@@ -152,24 +207,32 @@ export function App() {
     providerFetchMetrics,
 
     busy,
-    showProviders,
-    showThreadsTable,
-    showForensics,
-    showRouting,
-    showDetails,
-
     toggleSelectAllFiltered,
     toggleSelectAllProviderRows,
     runProviderAction,
     runSingleProviderAction,
+    runRecoveryBackupExport,
     prefetchProvidersData,
     prefetchRoutingData,
     refreshProvidersData,
     refreshAllData,
-  } = useAppData();
+  } = useAppData({ providersDiagnosticsOpen });
 
-  const messages = getMessages(locale);
-  const runtimeBackend = runtime.data?.data?.python_backend;
+  const changeLayoutView = (nextView: LayoutView) => {
+    startTransition(() => {
+      setLayoutView(nextView);
+    });
+  };
+
+  const changeProviderView = (nextView: ProviderView) => {
+    startTransition(() => {
+      setProviderView(nextView);
+    });
+  };
+
+  const messages = getMessages("en");
+  const showOverviewChrome = layoutView === "overview";
+  const runtimeBackend = runtime.data?.data?.runtime_backend;
   const smokeStatusValue =
     smokeStatusLoading
       ? "..."
@@ -183,7 +246,7 @@ export function App() {
   const smokeStatusHint = smokeStatusLatest?.timestamp_utc
     ? `${messages.kpi.smokeAt} ${smokeStatusLatest.timestamp_utc}`
     : messages.kpi.smokeNoData;
-  const showPythonBackendDegraded =
+  const showRuntimeBackendDegraded =
     runtime.isError || (!runtimeLoading && runtimeBackend?.reachable === false);
   const [acknowledgedForensicsErrorKeys, setAcknowledgedForensicsErrorKeys] = useState<{
     analyze: string;
@@ -198,30 +261,185 @@ export function App() {
   const cleanupErrorKey = cleanupDryRunError
     ? `cleanup:${cleanupDryRunErrorMessage || "unknown"}`
     : "";
+  const visibleProviderTabs = useMemo(() => {
+    const filtered = providerTabs.filter(
+      (tab) => tab.id === "all" || !HIDDEN_PROVIDER_IDS.has(tab.id),
+    );
+    return [...filtered].sort((left, right) => {
+      const leftIndex = PROVIDER_DISPLAY_ORDER.indexOf(left.id);
+      const rightIndex = PROVIDER_DISPLAY_ORDER.indexOf(right.id);
+      if (leftIndex !== -1 || rightIndex !== -1) {
+        const safeLeft = leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex;
+        const safeRight = rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex;
+        if (safeLeft !== safeRight) return safeLeft - safeRight;
+      }
+      return left.name.localeCompare(right.name);
+    });
+  }, [providerTabs]);
+  const visibleProviderIds = useMemo(
+    () =>
+      visibleProviderTabs
+        .filter(
+          (tab) =>
+            tab.id !== "all" &&
+            (providerView !== "all" || !OPTIONAL_PROVIDER_IDS.has(tab.id)),
+        )
+        .map((tab) => tab.id as Exclude<ProviderView, "all">),
+    [providerView, visibleProviderTabs],
+  );
+  const visibleProviderIdSet = useMemo(() => new Set(visibleProviderIds), [visibleProviderIds]);
+  const visibleProviders = useMemo(
+    () => providers.filter((provider) => visibleProviderIdSet.has(provider.provider)),
+    [providers, visibleProviderIdSet],
+  );
+  const visibleProviderSummary = useMemo(
+    () => {
+      const visibleTabs = visibleProviderTabs.filter((tab) => tab.id !== "all");
+      const fallbackTotal = visibleTabs.length;
+      const fallbackActive = visibleTabs.filter((tab) => tab.status === "active").length;
+      const fallbackDetected = visibleTabs.filter((tab) => tab.status === "detected").length;
+      if (visibleProviders.length === 0 && fallbackTotal > 0) {
+        return {
+          total: fallbackTotal,
+          active: fallbackActive,
+          detected: fallbackDetected,
+        };
+      }
+      return {
+        total: visibleProviders.length,
+        active: visibleProviders.filter((provider) => provider.status === "active").length,
+        detected: visibleProviders.filter((provider) => provider.status === "detected").length,
+      };
+    },
+    [visibleProviderTabs, visibleProviders],
+  );
+  const visibleCleanupReadyProviders = useMemo(
+    () =>
+      visibleProviders
+        .filter((provider) => provider.capabilities.safe_cleanup)
+        .map((provider) => provider.name),
+    [visibleProviders],
+  );
+  const cleanupReadyCount = visibleCleanupReadyProviders.length;
+  const visibleReadOnlyProviders = useMemo(
+    () =>
+      visibleProviders
+        .filter((provider) => provider.capability_level === "read-only")
+        .map((provider) => provider.name),
+    [visibleProviders],
+  );
+  const readOnlyCount = visibleReadOnlyProviders.length;
+  const visibleSlowProviderIds = useMemo(
+    () => slowProviderIds.filter((providerId) => visibleProviderIdSet.has(providerId)),
+    [slowProviderIds, visibleProviderIdSet],
+  );
+  const visibleProviderSessionRows = useMemo(
+    () => providerSessionRows.filter((row) => visibleProviderIdSet.has(row.provider)),
+    [providerSessionRows, visibleProviderIdSet],
+  );
+  const allVisibleProviderSessionRows = useMemo(
+    () => allProviderSessionRows.filter((row) => visibleProviderIdSet.has(row.provider)),
+    [allProviderSessionRows, visibleProviderIdSet],
+  );
+  const visibleProviderSessionSummary = useMemo(() => {
+    const providersInRows = new Set(visibleProviderSessionRows.map((row) => row.provider));
+    const parseOk = visibleProviderSessionRows.filter((row) => row.probe.ok).length;
+    return {
+      providers: providerView === "all" ? providersInRows.size || visibleProviders.length : 1,
+      rows: visibleProviderSessionRows.length,
+      parse_ok: parseOk,
+      parse_fail: visibleProviderSessionRows.length - parseOk,
+    };
+  }, [providerView, visibleProviderSessionRows, visibleProviders.length]);
+  const visibleParserReports = useMemo(
+    () => parserReports.filter((report) => visibleProviderIdSet.has(report.provider)),
+    [parserReports, visibleProviderIdSet],
+  );
+  const allVisibleParserReports = useMemo(
+    () => allParserReports.filter((report) => visibleProviderIdSet.has(report.provider)),
+    [allParserReports, visibleProviderIdSet],
+  );
+  const visibleParserSummary = useMemo(() => {
+    const scanned = visibleParserReports.reduce(
+      (sum, report) => sum + Number(report.scanned || 0),
+      0,
+    );
+    const parseOk = visibleParserReports.reduce(
+      (sum, report) => sum + Number(report.parse_ok || 0),
+      0,
+    );
+    const parseFail = visibleParserReports.reduce(
+      (sum, report) => sum + Number(report.parse_fail || 0),
+      0,
+    );
+    return {
+      providers: visibleParserReports.length,
+      scanned,
+      parse_ok: parseOk,
+      parse_fail: parseFail,
+      parse_score: scanned ? Number(((parseOk / scanned) * 100).toFixed(1)) : null,
+    };
+  }, [visibleParserReports]);
+  const visibleDataSourceRows = useMemo(
+    () =>
+      dataSourceRows.filter((row) => {
+        const providerId = providerFromSourceKey(row.source_key);
+        return providerId ? visibleProviderIdSet.has(providerId) : true;
+      }),
+    [dataSourceRows, visibleProviderIdSet],
+  );
+  const visibleAllProviderRowsSelected =
+    visibleProviderSessionRows.length > 0 &&
+    visibleProviderSessionRows.every((row) => Boolean(selectedProviderFiles[row.file_path]));
+  const searchProviderOptions = useMemo(
+    () =>
+      visibleProviderTabs
+        .filter((tab) => tab.id !== "all")
+        .map((tab) => ({ id: tab.id, name: tab.name })),
+    [visibleProviderTabs],
+  );
+  const showSearch = layoutView === "search";
+  const showProviders = layoutView === "providers";
+  const showThreadsTable = layoutView === "threads";
+  const showForensics = layoutView === "threads";
+  const showRouting = layoutView === "providers" && providersDiagnosticsOpen;
+  const showThreadDetail = layoutView === "threads";
+  const showSessionDetail = layoutView === "providers";
+  const showDetails = showThreadDetail || showSessionDetail;
   const showGlobalAnalyzeDeleteError =
     !showForensics &&
-    !showPythonBackendDegraded &&
+    !showRuntimeBackendDegraded &&
     Boolean(analyzeErrorKey) &&
     acknowledgedForensicsErrorKeys.analyze !== analyzeErrorKey;
   const showGlobalCleanupDryRunError =
     !showForensics &&
-    !showPythonBackendDegraded &&
+    !showRuntimeBackendDegraded &&
     Boolean(cleanupErrorKey) &&
     acknowledgedForensicsErrorKeys.cleanup !== cleanupErrorKey;
 
   const handleProvidersIntent = () => {
     prefetchProvidersData();
     preloadProvidersPanel();
+    preloadSessionDetail();
   };
-
-  const handleRoutingIntent = () => {
+  const handleSearchIntent = () => {
+    preloadSearchPanel();
+  };
+  const handleDiagnosticsIntent = () => {
     prefetchRoutingData();
     preloadRoutingPanel();
   };
 
-  const handleForensicsIntent = () => {
-    preloadForensicsPanel();
-  };
+  useEffect(() => {
+    if (providerView === "all") return;
+    if (visibleProviderIdSet.has(providerView)) return;
+    const fallbackProvider =
+      (visibleProviderTabs.find((tab) => tab.id !== "all")?.id as ProviderView | undefined) ??
+      "all";
+    startTransition(() => {
+      setProviderView(fallbackProvider);
+    });
+  }, [providerView, visibleProviderIdSet, visibleProviderTabs]);
 
   useEffect(() => {
     if (!showForensics) return;
@@ -261,6 +479,22 @@ export function App() {
   }, [cleanupErrorKey]);
 
   useEffect(() => {
+    if (!showThreadDetail || !selectedThreadId) return;
+    detailLayoutRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [selectedThreadId, showThreadDetail]);
+
+  useEffect(() => {
+    if (!showSessionDetail || !selectedSessionPath) return;
+    detailLayoutRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [selectedSessionPath, showSessionDetail]);
+
+  useEffect(() => {
+    if (!searchThreadContext) return;
+    if (searchThreadContext.thread_id === selectedThreadId) return;
+    setSearchThreadContext(null);
+  }, [searchThreadContext, selectedThreadId]);
+
+  useEffect(() => {
     if (layoutView !== "threads") return;
     if (panelChunkWarmupStartedRef.current) return;
     if (typeof window === "undefined") return;
@@ -272,9 +506,8 @@ export function App() {
 
     const runWarmup = () => {
       if (cancelled) return;
-      preloadProvidersPanel();
-      preloadRoutingPanel();
       preloadForensicsPanel();
+      preloadThreadDetail();
     };
 
     const w = window as Window & {
@@ -315,32 +548,30 @@ export function App() {
 
       if (event.key === "1") {
         event.preventDefault();
-        setLayoutView("overview");
+        changeLayoutView("overview");
         return;
       }
       if (event.key === "2") {
         event.preventDefault();
-        setLayoutView("threads");
+        changeLayoutView("search");
         return;
       }
       if (event.key === "3") {
         event.preventDefault();
-        setLayoutView("providers");
+        changeLayoutView("threads");
         return;
       }
       if (event.key === "4") {
         event.preventDefault();
-        setLayoutView("forensics");
+        changeLayoutView("providers");
         return;
       }
-      if (event.key === "5") {
+      if (event.key === "/") {
         event.preventDefault();
-        setLayoutView("routing");
-        return;
-      }
-      if (event.key === "/" && showThreadsTable) {
-        event.preventDefault();
-        const input = threadSearchInputRef.current;
+        const input =
+          layoutView === "threads"
+            ? threadSearchInputRef.current
+            : (document.querySelector(".search-panel .search-input") as HTMLInputElement | null);
         input?.focus();
         input?.select();
       }
@@ -348,7 +579,7 @@ export function App() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [setLayoutView, showThreadsTable]);
+  }, [layoutView]);
 
   return (
     <main className="page">
@@ -357,100 +588,38 @@ export function App() {
           <button
             type="button"
             className={`view-btn ${layoutView === "overview" ? "is-active" : ""}`}
-            onClick={() => setLayoutView("overview")}
+            onClick={() => changeLayoutView("overview")}
           >
             {messages.nav.overview}
           </button>
           <button
             type="button"
+            className={`view-btn ${layoutView === "search" ? "is-active" : ""}`}
+            onClick={() => changeLayoutView("search")}
+            onMouseEnter={handleSearchIntent}
+            onFocus={handleSearchIntent}
+          >
+            {messages.nav.search}
+          </button>
+          <button
+            type="button"
             className={`view-btn ${layoutView === "threads" ? "is-active" : ""}`}
-            onClick={() => setLayoutView("threads")}
+            onClick={() => changeLayoutView("threads")}
           >
             {messages.nav.threads}
           </button>
           <button
             type="button"
             className={`view-btn ${layoutView === "providers" ? "is-active" : ""}`}
-            onClick={() => setLayoutView("providers")}
+            onClick={() => changeLayoutView("providers")}
             onMouseEnter={handleProvidersIntent}
             onFocus={handleProvidersIntent}
             onTouchStart={handleProvidersIntent}
           >
             {messages.nav.providers}
           </button>
-          <button
-            type="button"
-            className={`view-btn ${layoutView === "forensics" ? "is-active" : ""}`}
-            onClick={() => setLayoutView("forensics")}
-            onMouseEnter={handleForensicsIntent}
-            onFocus={handleForensicsIntent}
-            onTouchStart={handleForensicsIntent}
-          >
-            {messages.nav.forensics}
-          </button>
-          <button
-            type="button"
-            className={`view-btn ${layoutView === "routing" ? "is-active" : ""}`}
-            onClick={() => setLayoutView("routing")}
-            onMouseEnter={handleRoutingIntent}
-            onFocus={handleRoutingIntent}
-            onTouchStart={handleRoutingIntent}
-          >
-            {messages.nav.routing}
-          </button>
         </div>
         <div className="top-controls">
-          <label className="provider-quick-switch">
-            <span>{messages.nav.providerScope}</span>
-            <select
-              className="provider-quick-select"
-              value={providerView}
-              onChange={(e) => setProviderView(e.target.value)}
-            >
-              {providerTabs.map((tab) => (
-                <option key={`provider-scope-${tab.id}`} value={tab.id}>
-                  {tab.id === "all" ? messages.common.allAi : tab.name}
-                  {" ("}
-                  {tab.scanned}
-                  {tab.scan_ms !== null ? ` · ${tab.scan_ms}ms` : ""}
-                  {tab.is_slow ? ` · ${messages.providers.slowProviderBadge}` : ""}
-                  {")"}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="lang-switch" role="group" aria-label={messages.nav.language}>
-            <button
-              type="button"
-              className={`lang-btn ${locale === "ko" ? "is-active" : ""}`}
-              onClick={() => setLocale("ko")}
-            >
-              {messages.nav.languageKo}
-            </button>
-            <button
-              type="button"
-              className={`lang-btn ${locale === "en" ? "is-active" : ""}`}
-              onClick={() => setLocale("en")}
-            >
-              {messages.nav.languageEn}
-            </button>
-          </div>
-          <div className="density-switch" role="group" aria-label={messages.nav.density}>
-            <button
-              type="button"
-              className={`density-btn ${density === "comfortable" ? "is-active" : ""}`}
-              onClick={() => setDensity("comfortable")}
-            >
-              {messages.nav.densityComfortable}
-            </button>
-            <button
-              type="button"
-              className={`density-btn ${density === "compact" ? "is-active" : ""}`}
-              onClick={() => setDensity("compact")}
-            >
-              {messages.nav.densityCompact}
-            </button>
-          </div>
           <button
             type="button"
             className="btn-outline"
@@ -473,80 +642,193 @@ export function App() {
         </div>
       </section>
 
-      <section className="hero">
-        <div className="hero-top">
-          <h1>{messages.hero.title}</h1>
-          <span className="hero-badge">{messages.hero.badge}</span>
-        </div>
-        <p>{messages.hero.description}</p>
-        <div className="hero-meta">
-          <span className="meta-chip">
-            {messages.hero.active} {providerSummary?.active ?? 0}/{providerSummary?.total ?? providers.length}
-          </span>
-          <span className="meta-chip">
-            {messages.hero.safeCleanup} {cleanupReadyProviders.join(", ") || "-"}
-          </span>
-          <span className="meta-chip">
-            {messages.hero.readOnly} {readOnlyProviders.join(", ") || "-"}
-          </span>
-          <span className="meta-chip">
-            {messages.hero.threads} {rows.length}
-          </span>
-          <span className="meta-chip">
-            {messages.hero.highRisk} {highRiskCount}
-          </span>
-        </div>
-      </section>
+      {showOverviewChrome ? (
+        <section className="hero">
+          <div className="hero-shell">
+            <div className="hero-copy">
+              <div className="hero-top">
+                <h1>{messages.hero.title}</h1>
+                <span className="hero-badge">{messages.hero.badge}</span>
+              </div>
+              <p>{messages.hero.description}</p>
+              <div className="hero-meta">
+                <span className="meta-chip">
+                  {messages.hero.active} {visibleProviderSummary.active}/{visibleProviderSummary.total}
+                </span>
+                <span className="meta-chip">
+                  {messages.hero.safeCleanup} {cleanupReadyCount}
+                </span>
+                <span className="meta-chip">
+                  {messages.hero.readOnly} {readOnlyCount}
+                </span>
+                <span className="meta-chip">
+                  {messages.hero.threads} {rows.length}
+                </span>
+                <span className="meta-chip">
+                  {messages.hero.highRisk} {highRiskCount}
+                </span>
+              </div>
+            </div>
+            <aside className="hero-console">
+              <div className="hero-console-head">
+                <span className="overview-note-label">Core loop</span>
+                <strong>Search. Cleanup. Backup.</strong>
+                <p>Find the conversation, verify the cleanup move, then protect the original session.</p>
+              </div>
+              <div className="hero-console-steps">
+                <article className="hero-console-step">
+                  <div>
+                    <strong>Search</strong>
+                    <p>{visibleProviderSessionSummary.rows} searchable sessions with direct jumps into the right workspace.</p>
+                  </div>
+                </article>
+                <article className="hero-console-step">
+                  <div>
+                    <strong>Cleanup</strong>
+                    <p>{highRiskCount} high-risk threads are waiting for review and dry-run checks.</p>
+                  </div>
+                </article>
+                <article className="hero-console-step">
+                  <div>
+                    <strong>Backup vault</strong>
+                    <p>{recovery.data?.summary?.backup_sets ?? 0} backup sets are ready for selective backup or full export.</p>
+                  </div>
+                </article>
+              </div>
+            </aside>
+          </div>
+        </section>
+      ) : null}
 
-      {showPythonBackendDegraded ? (
+      {showRuntimeBackendDegraded ? (
         <section className="degraded-banner" role="status" aria-live="polite">
-          <strong>{messages.alerts.pythonBackendDownTitle}</strong>
-          <p>{messages.alerts.pythonBackendDownBody}</p>
+          <strong>{messages.alerts.runtimeBackendDownTitle}</strong>
+          <p>{messages.alerts.runtimeBackendDownBody}</p>
           <span>
-            {messages.alerts.pythonBackendDownHint} {runtimeBackend?.url ?? "http://127.0.0.1:8787"}
+            {messages.alerts.runtimeBackendDownHint} {runtimeBackend?.url ?? "ts-native"}
           </span>
         </section>
       ) : null}
 
-      <section className="kpi-grid">
-        <KpiCard
-          label={messages.kpi.pythonBackend}
-          value={runtimeLoading ? "..." : runtime.data?.data?.python_backend.reachable ? messages.kpi.reachable : messages.kpi.down}
-          hint={runtime.data?.data?.python_backend.url}
-        />
-        <KpiCard
-          label={messages.kpi.latency}
-          value={runtimeLoading ? "..." : runtime.data?.data?.python_backend.latency_ms ?? "-"}
-          hint="ms"
-        />
-        <KpiCard label={messages.kpi.pinned} value={threadsLoading ? "..." : pinnedCount} hint={`/${rows.length}`} />
-        <KpiCard
-          label={messages.kpi.highRisk}
-          value={threadsLoading ? "..." : highRiskCount}
-          hint={messages.kpi.highRiskHint}
-        />
-        <KpiCard
-          label={messages.kpi.recovery}
-          value={
-            recoveryLoading
-              ? "..."
-              : `${recovery.data?.summary?.checklist_done ?? 0}/${recovery.data?.summary?.checklist_total ?? 0}`
-          }
-          hint={`${messages.kpi.backupSets} ${recovery.data?.summary?.backup_sets ?? 0}`}
-        />
-        <KpiCard
-          label={messages.kpi.smoke}
-          value={smokeStatusValue}
-          hint={smokeStatusHint}
-        />
-      </section>
+      {layoutView === "overview" ? (
+        <section className="overview-grid">
+          <section className="panel overview-spotlight">
+            <header>
+              <h2>Resume work fast</h2>
+              <span>Jump straight into the next operation.</span>
+            </header>
+            <div className="overview-status-strip">
+              <span>
+                Runtime{" "}
+                {runtimeLoading
+                  ? "..."
+                  : runtime.data?.data?.runtime_backend.reachable
+                    ? `${messages.kpi.reachable} · ${runtime.data?.data?.runtime_backend.latency_ms ?? "-"} ms`
+                    : messages.kpi.down}
+              </span>
+              <span>
+                Cleanup{" "}
+                {threadsLoading
+                  ? "..."
+                  : `${highRiskCount} high-risk · ${messages.kpi.pinned} ${pinnedCount}/${rows.length}`}
+              </span>
+              <span>
+                Recovery{" "}
+                {recoveryLoading
+                  ? "..."
+                  : `${recovery.data?.summary?.checklist_done ?? 0}/${recovery.data?.summary?.checklist_total ?? 0} ready · ${messages.kpi.backupSets} ${recovery.data?.summary?.backup_sets ?? 0}`}
+              </span>
+            </div>
+            <div className="overview-resume-grid">
+              <button
+                type="button"
+                className="overview-resume-card"
+                onClick={() => changeLayoutView("search")}
+                onMouseEnter={handleSearchIntent}
+                onFocus={handleSearchIntent}
+              >
+                <span className="overview-note-label">Search</span>
+                <strong>Find a phrase across raw sessions</strong>
+                <p>{visibleProviderSessionSummary.rows} searchable sessions ready to jump into detail.</p>
+              </button>
+              <button
+                type="button"
+                className="overview-resume-card"
+                onClick={() => changeLayoutView("threads")}
+              >
+                <span className="overview-note-label">Cleanup</span>
+                <strong>Review high-risk Codex threads</strong>
+                <p>{highRiskCount} high-risk threads waiting for dry-run review.</p>
+              </button>
+              <button
+                type="button"
+                className="overview-resume-card"
+                onClick={() => changeLayoutView("providers")}
+                onMouseEnter={handleProvidersIntent}
+                onFocus={handleProvidersIntent}
+              >
+                <span className="overview-note-label">Backup</span>
+                <strong>Protect source sessions first</strong>
+                <p>{recovery.data?.summary?.backup_sets ?? 0} backup sets are already available.</p>
+              </button>
+            </div>
+          </section>
 
-      {showProviders ? (
+          <details
+            className="overview-secondary-panel"
+            open={setupGuideOpen}
+            onToggle={(event) => {
+              setSetupGuideOpen((event.currentTarget as HTMLDetailsElement).open);
+            }}
+          >
+            <summary>{setupGuideOpen ? "Hide setup helper" : "Optional setup helper"}</summary>
+            <div className="overview-secondary-body">
+              {setupGuideOpen ? (
+                <Suspense
+                  fallback={
+                    <div className="info-box compact">
+                      <strong>{messages.common.loading}</strong>
+                      <p>Loading quick setup.</p>
+                    </div>
+                  }
+                >
+                  <SetupWizard
+                    providers={visibleProviders}
+                    dataSourceRows={visibleDataSourceRows}
+                    providerSessionRows={visibleProviderSessionRows}
+                    parserReports={visibleParserReports}
+                    providersRefreshing={providersRefreshing}
+                    providersLastRefreshAt={providersLastRefreshAt}
+                    onRefresh={refreshProvidersData}
+                    onOpenProviders={(providerId) => {
+                      if (providerId && visibleProviderIdSet.has(providerId)) {
+                        changeProviderView(providerId as ProviderView);
+                      } else {
+                        changeProviderView("all");
+                      }
+                      changeLayoutView("providers");
+                    }}
+                    onOpenDiagnostics={() => changeLayoutView("providers")}
+                  />
+                </Suspense>
+              ) : (
+                <div className="info-box compact">
+                  <strong>Skip this if you already know the workspace.</strong>
+                  <p>Use Search, Cleanup, or Sessions directly. Open this only when provider detection or paths need a refresh.</p>
+                </div>
+              )}
+            </div>
+          </details>
+          <p className="overview-secondary-note">Only open setup when provider paths or detection look wrong.</p>
+        </section>
+      ) : null}
+
+      {showSearch ? (
         <Suspense
           fallback={
             <section className="panel">
               <header>
-                <h2>{messages.nav.providers}</h2>
+                <h2>{messages.nav.search}</h2>
                 <span>{messages.common.loading}</span>
               </header>
               <div className="sub-toolbar">
@@ -555,65 +837,165 @@ export function App() {
             </section>
           }
         >
-          <ProvidersPanel
+          <SearchPanel
             messages={messages}
-            providers={providers}
-            providerSummary={providerSummary}
-            providerMatrixLoading={providerMatrixLoading}
-            providerTabs={providerTabs}
-            slowProviderIds={slowProviderIds}
-            slowProviderThresholdMs={slowProviderThresholdMs}
-            setSlowProviderThresholdMs={setSlowProviderThresholdMs}
-            providerView={providerView}
-            setProviderView={setProviderView}
-            providerDataDepth={providerDataDepth}
-            setProviderDataDepth={setProviderDataDepth}
-            providerSessionRows={providerSessionRows}
-            providerSessionSummary={providerSessionSummary}
-            providerSessionsLimit={providerSessionsLimit}
-            providerRowsSampled={providerRowsSampled}
-            dataSourceRows={dataSourceRows}
-            dataSourcesLoading={dataSourcesLoading}
-            providerSessionsLoading={providerSessionsLoading}
-            selectedProviderFiles={selectedProviderFiles}
-            setSelectedProviderFiles={setSelectedProviderFiles}
-            allProviderRowsSelected={allProviderRowsSelected}
-            toggleSelectAllProviderRows={toggleSelectAllProviderRows}
-            selectedProviderLabel={selectedProviderLabel}
-            selectedProviderFilePaths={selectedProviderFilePaths}
-            canRunProviderAction={canRunProviderAction}
-            busy={busy}
-            runProviderAction={runProviderAction}
-            providerActionData={providerActionData}
-            parserReports={parserReports}
-            parserLoading={parserLoading}
-            parserSummary={parserSummary}
-            selectedSessionPath={selectedSessionPath}
-            setSelectedSessionPath={setSelectedSessionPath}
-            providersRefreshing={providersRefreshing}
-            providersLastRefreshAt={providersLastRefreshAt}
-            providerFetchMetrics={providerFetchMetrics}
-            refreshProvidersData={refreshProvidersData}
+            providerOptions={searchProviderOptions}
+            onOpenSession={(hit: ConversationSearchHit) => {
+              if (visibleProviderIdSet.has(hit.provider)) {
+                changeProviderView(hit.provider as ProviderView);
+              } else {
+                changeProviderView("all");
+              }
+              setSearchThreadContext(null);
+              setSelectedThreadId("");
+              setSelectedSessionPath(hit.file_path);
+              changeLayoutView("providers");
+            }}
+            onOpenThread={(hit: ConversationSearchHit) => {
+              if (!hit.thread_id) return;
+              setSearchThreadContext(hit);
+              setSelectedSessionPath("");
+              setSelectedThreadId(hit.thread_id);
+              changeLayoutView("threads");
+            }}
           />
         </Suspense>
       ) : null}
 
-      {showRouting ? (
-        <Suspense
-          fallback={
-            <section className="panel">
-              <header>
-                <h2>{messages.nav.routing}</h2>
-                <span>{messages.common.loading}</span>
-              </header>
-              <div className="sub-toolbar">
-                <div className="skeleton-line" />
-              </div>
-            </section>
-          }
-        >
-          <RoutingPanel messages={messages} data={executionGraphData} loading={executionGraphLoading} />
-        </Suspense>
+      {showProviders ? (
+        <>
+          <section className="provider-page-stack">
+          <Suspense
+            fallback={
+              <section className="panel">
+                <header>
+                  <h2>{messages.nav.providers}</h2>
+                  <span>{messages.common.loading}</span>
+                </header>
+                <div className="sub-toolbar">
+                  <div className="skeleton-line" />
+                </div>
+              </section>
+            }
+          >
+            <ProvidersPanel
+              messages={messages}
+              sessionDetailSlot={
+                <Suspense
+                  fallback={
+                    <section className="panel">
+                      <header>
+                        <h2>{messages.sessionDetail.title}</h2>
+                        <span>{messages.common.loading}</span>
+                      </header>
+                      <div className="sub-toolbar">
+                        <div className="skeleton-line" />
+                      </div>
+                    </section>
+                  }
+                >
+                  <SessionDetail
+                    key={selectedSession?.file_path ?? "empty-session-detail"}
+                    messages={messages}
+                    selectedSession={selectedSession}
+                    sessionTranscriptData={sessionTranscriptData}
+                    sessionTranscriptLoading={sessionTranscriptLoading}
+                    sessionTranscriptLimit={sessionTranscriptLimit}
+                    setSessionTranscriptLimit={setSessionTranscriptLimit}
+                    busy={busy}
+                    canRunSessionAction={canRunSelectedSessionAction}
+                    providerDeleteBackupEnabled={providerDeleteBackupEnabled}
+                    setProviderDeleteBackupEnabled={setProviderDeleteBackupEnabled}
+                    runSingleProviderAction={runSingleProviderAction}
+                  />
+                </Suspense>
+              }
+              providers={visibleProviders}
+              providerSummary={visibleProviderSummary}
+              providerMatrixLoading={providerMatrixLoading}
+              providerTabs={visibleProviderTabs}
+              slowProviderIds={visibleSlowProviderIds}
+              slowProviderThresholdMs={slowProviderThresholdMs}
+              setSlowProviderThresholdMs={setSlowProviderThresholdMs}
+              providerView={providerView}
+              setProviderView={setProviderView}
+              providerDataDepth={providerDataDepth}
+              setProviderDataDepth={setProviderDataDepth}
+              providerSessionRows={visibleProviderSessionRows}
+              allProviderSessionRows={allVisibleProviderSessionRows}
+              providerSessionSummary={visibleProviderSessionSummary}
+              providerSessionsLimit={providerSessionsLimit}
+              providerRowsSampled={providerRowsSampled}
+              dataSourceRows={visibleDataSourceRows}
+              dataSourcesLoading={dataSourcesLoading}
+              providerSessionsLoading={providerSessionsLoading}
+              selectedProviderFiles={selectedProviderFiles}
+              setSelectedProviderFiles={setSelectedProviderFiles}
+              allProviderRowsSelected={visibleAllProviderRowsSelected}
+              toggleSelectAllProviderRows={toggleSelectAllProviderRows}
+              selectedProviderLabel={selectedProviderLabel}
+              selectedProviderFilePaths={selectedProviderFilePaths}
+              canRunProviderAction={canRunProviderAction}
+              busy={busy}
+              providerDeleteBackupEnabled={providerDeleteBackupEnabled}
+              setProviderDeleteBackupEnabled={setProviderDeleteBackupEnabled}
+              runProviderAction={runProviderAction}
+              providerActionData={providerActionData}
+              runRecoveryBackupExport={runRecoveryBackupExport}
+              recoveryBackupExportData={recoveryBackupExportData}
+              parserReports={visibleParserReports}
+              allParserReports={allVisibleParserReports}
+              parserLoading={parserLoading}
+              parserSummary={visibleParserSummary}
+              selectedSessionPath={selectedSessionPath}
+              setSelectedSessionPath={setSelectedSessionPath}
+              providersRefreshing={providersRefreshing}
+              providersLastRefreshAt={providersLastRefreshAt}
+              providerFetchMetrics={providerFetchMetrics}
+              refreshProvidersData={refreshProvidersData}
+            />
+          </Suspense>
+
+          <details
+            className="panel panel-disclosure"
+            open={providersDiagnosticsOpen}
+            onToggle={(event) => {
+              const nextOpen = (event.currentTarget as HTMLDetailsElement).open;
+              setProvidersDiagnosticsOpen(nextOpen);
+              if (nextOpen) handleDiagnosticsIntent();
+            }}
+          >
+            <summary>{providersDiagnosticsOpen ? "Hide advanced diagnostics" : "Open advanced diagnostics"}</summary>
+            <div className="panel-disclosure-body">
+              {showRouting ? (
+                <Suspense
+                  fallback={
+                    <section className="panel">
+                      <header>
+                        <h2>{messages.nav.routing}</h2>
+                        <span>{messages.common.loading}</span>
+                      </header>
+                      <div className="sub-toolbar">
+                        <div className="skeleton-line" />
+                      </div>
+                    </section>
+                  }
+                >
+                  <RoutingPanel
+                    messages={messages}
+                    data={executionGraphData}
+                    loading={executionGraphLoading}
+                    providerView={providerView}
+                    providerSessionRows={visibleProviderSessionRows}
+                    parserReports={visibleParserReports}
+                    visibleProviderIds={visibleProviderIds}
+                  />
+                </Suspense>
+              ) : null}
+            </div>
+          </details>
+          </section>
+        </>
       ) : null}
 
       {showThreadsTable ? (
@@ -650,32 +1032,32 @@ export function App() {
         </section>
       ) : null}
 
-      {showThreadsTable || showForensics ? (
-        <section className={`ops-layout ${showForensics ? "" : "single"}`.trim()}>
-          {showThreadsTable ? (
-            <ThreadsTable
-              messages={messages}
-              visibleRows={visibleRows}
-              filteredRows={filteredRows}
-              totalCount={threads.data?.total ?? rows.length}
-              threadsLoading={threadsLoading}
-              threadsError={threads.isError}
-              selected={selected}
-              setSelected={setSelected}
-              selectedThreadId={selectedThreadId}
-              setSelectedThreadId={setSelectedThreadId}
-              allFilteredSelected={allFilteredSelected}
-              toggleSelectAllFiltered={toggleSelectAllFiltered}
-              selectedIds={selectedIds}
-              busy={busy}
-              threadActionsDisabled={showPythonBackendDegraded}
-              bulkPin={bulkPin}
-              bulkUnpin={bulkUnpin}
-              bulkArchive={bulkArchive}
-              analyzeDelete={analyzeDelete}
-              cleanupDryRun={cleanupDryRun}
-            />
-          ) : null}
+      {showThreadsTable ? (
+        <>
+          <ThreadsTable
+            messages={messages}
+            visibleRows={visibleRows}
+            filteredRows={filteredRows}
+            totalCount={threads.data?.total ?? rows.length}
+            threadsLoading={threadsLoading}
+            threadsError={threads.isError}
+            selected={selected}
+            setSelected={setSelected}
+            selectedThreadId={selectedThreadId}
+            setSelectedThreadId={setSelectedThreadId}
+            allFilteredSelected={allFilteredSelected}
+            toggleSelectAllFiltered={toggleSelectAllFiltered}
+            selectedIds={selectedIds}
+            selectedImpactCount={selectedImpactRows.length}
+            cleanupData={cleanupData}
+            busy={busy}
+            threadActionsDisabled={showRuntimeBackendDegraded}
+            bulkPin={bulkPin}
+            bulkUnpin={bulkUnpin}
+            bulkArchive={bulkArchive}
+            analyzeDelete={analyzeDelete}
+            cleanupDryRun={cleanupDryRun}
+          />
 
           {showForensics ? (
             <Suspense
@@ -693,7 +1075,7 @@ export function App() {
             >
               <ForensicsPanel
                 messages={messages}
-                threadActionsDisabled={showPythonBackendDegraded}
+                threadActionsDisabled={showRuntimeBackendDegraded}
                 selectedIds={selectedIds}
                 rows={rows}
                 busy={busy}
@@ -710,41 +1092,79 @@ export function App() {
               />
             </Suspense>
           ) : null}
-        </section>
+        </>
       ) : null}
 
       {showDetails ? (
-        <section className="detail-layout">
-          <ThreadDetail
-            messages={messages}
-            selectedThread={selectedThread}
-            selectedThreadId={selectedThreadId}
-            threadDetailLoading={threadDetailLoading}
-            selectedThreadDetail={selectedThreadDetail}
-            threadTranscriptData={threadTranscriptData}
-            threadTranscriptLoading={threadTranscriptLoading}
-            threadTranscriptLimit={threadTranscriptLimit}
-            setThreadTranscriptLimit={setThreadTranscriptLimit}
-            busy={busy}
-            threadActionsDisabled={showPythonBackendDegraded}
-            bulkPin={bulkPin}
-            bulkUnpin={bulkUnpin}
-            bulkArchive={bulkArchive}
-            analyzeDelete={analyzeDelete}
-            cleanupDryRun={cleanupDryRun}
-          />
+        <section
+          ref={detailLayoutRef}
+          className={`detail-layout ${showThreadDetail && showSessionDetail ? "" : "single"}`.trim()}
+        >
+          {showThreadDetail ? (
+            <Suspense
+              fallback={
+                <section className="panel">
+                  <header>
+                    <h2>{messages.threadDetail.title}</h2>
+                    <span>{messages.common.loading}</span>
+                  </header>
+                  <div className="sub-toolbar">
+                    <div className="skeleton-line" />
+                  </div>
+                </section>
+              }
+            >
+              <ThreadDetail
+                messages={messages}
+                selectedThread={selectedThread}
+                selectedThreadId={selectedThreadId}
+                searchContext={searchThreadContext}
+                threadDetailLoading={threadDetailLoading}
+                selectedThreadDetail={selectedThreadDetail}
+                threadTranscriptData={threadTranscriptData}
+                threadTranscriptLoading={threadTranscriptLoading}
+                threadTranscriptLimit={threadTranscriptLimit}
+                setThreadTranscriptLimit={setThreadTranscriptLimit}
+                busy={busy}
+                threadActionsDisabled={showRuntimeBackendDegraded}
+                bulkPin={bulkPin}
+                bulkUnpin={bulkUnpin}
+                bulkArchive={bulkArchive}
+                analyzeDelete={analyzeDelete}
+                cleanupDryRun={cleanupDryRun}
+              />
+            </Suspense>
+          ) : null}
 
-          <SessionDetail
-            messages={messages}
-            selectedSession={selectedSession}
-            sessionTranscriptData={sessionTranscriptData}
-            sessionTranscriptLoading={sessionTranscriptLoading}
-            sessionTranscriptLimit={sessionTranscriptLimit}
-            setSessionTranscriptLimit={setSessionTranscriptLimit}
-            busy={busy}
-            canRunSessionAction={canRunSelectedSessionAction}
-            runSingleProviderAction={runSingleProviderAction}
-          />
+          {showSessionDetail && !showProviders ? (
+            <Suspense
+              fallback={
+                <section className="panel">
+                  <header>
+                    <h2>{messages.sessionDetail.title}</h2>
+                    <span>{messages.common.loading}</span>
+                  </header>
+                  <div className="sub-toolbar">
+                    <div className="skeleton-line" />
+                  </div>
+                </section>
+              }
+            >
+              <SessionDetail
+                messages={messages}
+                selectedSession={selectedSession}
+                sessionTranscriptData={sessionTranscriptData}
+                sessionTranscriptLoading={sessionTranscriptLoading}
+                sessionTranscriptLimit={sessionTranscriptLimit}
+                setSessionTranscriptLimit={setSessionTranscriptLimit}
+                busy={busy}
+                canRunSessionAction={canRunSelectedSessionAction}
+                providerDeleteBackupEnabled={providerDeleteBackupEnabled}
+                setProviderDeleteBackupEnabled={setProviderDeleteBackupEnabled}
+                runSingleProviderAction={runSingleProviderAction}
+              />
+            </Suspense>
+          ) : null}
         </section>
       ) : null}
 
@@ -772,7 +1192,7 @@ export function App() {
           {providerSessionActionErrorMessage ? <div className="mono-sub">{providerSessionActionErrorMessage}</div> : null}
         </div>
       ) : null}
-      {bulkActionError && !showPythonBackendDegraded ? (
+      {bulkActionError && !showRuntimeBackendDegraded ? (
         <div className="error-box">
           <div>{messages.errors.threadAction}</div>
           {bulkActionErrorMessage ? <div className="mono-sub">{bulkActionErrorMessage}</div> : null}

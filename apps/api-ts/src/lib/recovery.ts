@@ -1,9 +1,10 @@
 /**
  * Recovery center, runtime health, data-source inventory,
- * compare-apps status, and roadmap operations.
+ * related-tools status, and roadmap operations.
  */
 
 import {
+  cp,
   mkdir,
   readFile,
   readdir,
@@ -11,6 +12,7 @@ import {
   writeFile,
   chmod,
 } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import {
   PROJECT_ROOT,
@@ -19,16 +21,7 @@ import {
   BACKUP_ROOT,
   RECOVERY_CHECKLIST_FILE,
   RECOVERY_PLAN_DIR,
-  HOME_DIR,
   CHAT_DIR,
-  CLAUDE_HOME,
-  CLAUDE_PROJECTS_DIR,
-  GEMINI_HOME,
-  GEMINI_TMP_DIR,
-  COPILOT_VSCODE_GLOBAL,
-  COPILOT_CURSOR_GLOBAL,
-  ROADMAP_STATE_FILE,
-  ROADMAP_LOG_FILE,
 } from "./constants.js";
 import {
   pathExists,
@@ -36,15 +29,12 @@ import {
   walkFiles,
   isRecord,
   nowIsoUtc,
-  cleanTitleText,
   parseNumber,
   runCmdText,
   safeJsonParse,
   countDirsWithPrefix,
   quickFileCount,
   countJsonlFilesRecursive,
-  scanPathStatsTs,
-  requestPythonJson,
 } from "./utils.js";
 
 /* ─────────────────────────────────────────────────────────────────── *
@@ -59,11 +49,11 @@ type RecoveryChecklistItem = {
 
 function defaultRecoveryChecklist(): RecoveryChecklistItem[] {
   return [
-    { id: "backup_exists", label: "최신 백업 세트 존재 확인", done: false },
-    { id: "dry_run_ok", label: "정리 dry-run 결과 확인", done: false },
-    { id: "token_verified", label: "실행 토큰 검증", done: false },
-    { id: "drill_run", label: "복구 드릴 실행/검토", done: false },
-    { id: "post_verify", label: "실행 후 상태 검증", done: false },
+    { id: "backup_exists", label: "Confirm the latest backup set exists", done: false },
+    { id: "dry_run_ok", label: "Review the cleanup dry-run result", done: false },
+    { id: "token_verified", label: "Verify the execution token", done: false },
+    { id: "drill_run", label: "Run and review the recovery drill", done: false },
+    { id: "post_verify", label: "Verify state after execution", done: false },
   ];
 }
 
@@ -137,18 +127,134 @@ type RecoveryBackupCandidate = {
   mtime_ms: number;
 };
 
+type RecoveryRootsOverride = {
+  backup_root?: string;
+  export_root?: string;
+};
+
+type RelatedToolConfig = {
+  id: string;
+  name: string;
+  path?: string;
+  command?: string;
+  location?: string;
+  running_pattern?: string;
+  tmux_session?: string;
+  start_cmd?: string;
+  watch_cmd?: string;
+  notes?: string;
+};
+
+function sanitizeRelatedToolConfig(raw: unknown): RelatedToolConfig | null {
+  if (!isRecord(raw)) return null;
+  const name = String(raw.name ?? "").trim();
+  if (!name) return null;
+  const providedId = String(raw.id ?? "").trim();
+  const id =
+    providedId ||
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  if (!id) return null;
+  return {
+    id,
+    name,
+    path: String(raw.path ?? "").trim() || undefined,
+    command: String(raw.command ?? "").trim() || undefined,
+    location: String(raw.location ?? "").trim() || undefined,
+    running_pattern: String(raw.running_pattern ?? "").trim() || undefined,
+    tmux_session: String(raw.tmux_session ?? "").trim() || undefined,
+    start_cmd: String(raw.start_cmd ?? "").trim() || undefined,
+    watch_cmd: String(raw.watch_cmd ?? "").trim() || undefined,
+    notes: String(raw.notes ?? "").trim() || undefined,
+  };
+}
+
+function loadRelatedToolConfigs(): RelatedToolConfig[] {
+  const raw = String(process.env.THREADLENS_RELATED_TOOLS_JSON ?? "").trim();
+  if (!raw) return [];
+  const parsed = safeJsonParse(raw);
+  if (!Array.isArray(parsed)) return [];
+  const seen = new Set<string>();
+  return parsed
+    .map((item) => sanitizeRelatedToolConfig(item))
+    .filter((item): item is RelatedToolConfig => Boolean(item))
+    .filter((item) => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+}
+
+function resolveRelatedToolCommand(command?: string): string {
+  const normalized = String(command ?? "").trim();
+  if (!normalized || !/^[a-zA-Z0-9._-]+$/.test(normalized)) return "";
+  return runCmdText(`command -v ${normalized}`);
+}
+
+async function resolveRelatedToolStatus(
+  config: RelatedToolConfig,
+  tmuxLs: string,
+) {
+  let resolvedLocation = "";
+  let installed = false;
+
+  const toolPath = String(config.path ?? "").trim();
+  if (toolPath && await pathExists(toolPath)) {
+    resolvedLocation = toolPath;
+    installed = true;
+  }
+
+  if (!installed) {
+    const commandLocation = resolveRelatedToolCommand(config.command);
+    if (commandLocation) {
+      resolvedLocation = commandLocation;
+      installed = true;
+    }
+  }
+
+  const runningPattern = String(config.running_pattern ?? config.command ?? "").trim();
+  const running = runningPattern
+    ? Boolean(runCmdText(`pgrep -fl '${runningPattern.replace(/'/g, "'\\''")}'`))
+    : false;
+  const tmuxSession = String(config.tmux_session ?? "").trim();
+  const tmuxSessionReady = tmuxSession
+    ? tmuxLs
+        .split("\n")
+        .some((line) => line.trim().startsWith(`${tmuxSession}:`))
+    : false;
+
+  return {
+    id: config.id,
+    name: config.name,
+    installed,
+    running,
+    location: resolvedLocation || config.location || "(not found)",
+    start_cmd: config.start_cmd || "",
+    watch_cmd: config.watch_cmd || "",
+    notes: config.notes || "",
+    ...(tmuxSession ? { tmux_session_ready: tmuxSessionReady } : {}),
+  };
+}
+
 function isCleanupBackupId(name: string): boolean {
   return /^\d{8}T\d{6}Z$/.test(String(name || "").trim());
 }
 
-async function listBackupCandidates(): Promise<RecoveryBackupCandidate[]> {
-  const entries = await readdir(BACKUP_ROOT, { withFileTypes: true });
+async function listBackupCandidates(
+  options?: { backupRoot?: string },
+): Promise<RecoveryBackupCandidate[]> {
+  const backupRoot = options?.backupRoot ?? BACKUP_ROOT;
+  const entries = await readdir(backupRoot, { withFileTypes: true }).catch(
+    () => [],
+  );
   const out: RecoveryBackupCandidate[] = [];
 
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     const backupId = entry.name;
-    const fullPath = path.join(BACKUP_ROOT, backupId);
+    const fullPath = path.join(backupRoot, backupId);
     const dirStat = await stat(fullPath).catch(() => null);
     const dirMtimeMs = Number(dirStat?.mtimeMs ?? 0);
 
@@ -199,9 +305,12 @@ async function listBackupCandidates(): Promise<RecoveryBackupCandidate[]> {
   return out;
 }
 
-async function scanBackupSets(limit = 20): Promise<RecoveryBackupSet[]> {
+async function scanBackupSets(
+  limit = 20,
+  options?: { backupRoot?: string },
+): Promise<RecoveryBackupSet[]> {
   try {
-    const candidates = await listBackupCandidates();
+    const candidates = await listBackupCandidates(options);
     const dirs = candidates
       .sort((a, b) => {
         if (a.rank !== b.rank) return a.rank - b.rank;
@@ -238,6 +347,32 @@ async function scanBackupSets(limit = 20): Promise<RecoveryBackupSet[]> {
   } catch {
     return [];
   }
+}
+
+type RecoveryBackupExportOptions = {
+  backup_ids?: string[];
+  roots?: RecoveryRootsOverride;
+  archiveWriter?: (sourceDir: string, archivePath: string) => Promise<void> | void;
+};
+
+function recoveryExportRoot(override?: string): string {
+  return override ?? path.join(PROJECT_ROOT, ".run", "recovery-exports");
+}
+
+function sanitizeBackupExportSegment(backupId: string): string {
+  return String(backupId || "")
+    .replace(/[\\/]+/g, "__")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120) || "backup-set";
+}
+
+async function defaultRecoveryArchiveWriter(sourceDir: string, archivePath: string) {
+  execFileSync(
+    "ditto",
+    ["-c", "-k", "--sequesterRsrc", "--keepParent", sourceDir, archivePath],
+    { stdio: "ignore" },
+  );
 }
 
 async function buildRestorePlan(
@@ -364,62 +499,129 @@ export async function runRecoveryDrillTs() {
   };
 }
 
-/* ─────────────────────────────────────────────────────────────────── *
- *  Compare-apps status                                                *
- * ─────────────────────────────────────────────────────────────────── */
-
-export async function getCompareAppsStatusTs() {
-  const codexSessionPath = "/Applications/CodexSession.app";
-  const codexSessionRunning = Boolean(
-    runCmdText("pgrep -fl 'CodexSession.app/Contents/MacOS/codex-session'"),
+export async function exportRecoveryBackupsTs(
+  options: RecoveryBackupExportOptions = {},
+) {
+  const requestedIds = Array.from(
+    new Set(
+      (options.backup_ids ?? [])
+        .map((item) => String(item || "").trim())
+        .filter(Boolean),
+    ),
+  );
+  const backupRoot = options.roots?.backup_root ?? BACKUP_ROOT;
+  const exportRoot = recoveryExportRoot(options.roots?.export_root);
+  const allSets = await scanBackupSets(200, { backupRoot });
+  const selectedSets = requestedIds.length
+    ? allSets.filter((set) => requestedIds.includes(set.backup_id))
+    : allSets;
+  const missingBackupIds = requestedIds.filter(
+    (backupId) => !selectedSets.some((set) => set.backup_id === backupId),
   );
 
-  let projectAlphaBin = runCmdText("command -v project-alpha");
-  if (!projectAlphaBin) {
-    const fallback = path.join(HOME_DIR, ".npm-global", "bin", "project-alpha");
-    if (await pathExists(fallback)) projectAlphaBin = fallback;
+  if (!selectedSets.length) {
+    return {
+      ok: false,
+      error: requestedIds.length ? "backup-ids-not-found" : "no-backups-found",
+      selected_backup_ids: requestedIds,
+      missing_backup_ids: missingBackupIds,
+      backup_root: backupRoot,
+      export_root: exportRoot,
+    };
   }
-  const projectAlphaRunning = Boolean(runCmdText("pgrep -fl project-alpha"));
-  const tmuxLs = runCmdText("tmux ls");
-  const projectAlphaTmux = tmuxLs
-    .split("\n")
-    .some((line) => line.trim().startsWith("project-alpha-app:"));
 
+  const timestamp = nowIsoUtc().replace(/[:.]/g, "-");
+  const exportDir = path.join(exportRoot, `backup-export-${timestamp}`);
+  const payloadRoot = path.join(exportDir, "backup-sets");
+  await mkdir(payloadRoot, { recursive: true });
+
+  const exportedSets: Array<{
+    backup_id: string;
+    source_path: string;
+    export_path: string;
+    file_count: number;
+    total_bytes: number;
+    latest_mtime: string;
+  }> = [];
+
+  for (const set of selectedSets) {
+    const exportPath = path.join(
+      payloadRoot,
+      sanitizeBackupExportSegment(set.backup_id),
+    );
+    await cp(set.path, exportPath, { recursive: true });
+    exportedSets.push({
+      backup_id: set.backup_id,
+      source_path: set.path,
+      export_path: exportPath,
+      file_count: set.file_count,
+      total_bytes: set.total_bytes,
+      latest_mtime: set.latest_mtime,
+    });
+  }
+
+  const manifestPath = path.join(exportDir, "manifest.json");
+  await writeFile(
+    manifestPath,
+    JSON.stringify(
+      {
+        generated_at: nowIsoUtc(),
+        backup_root: backupRoot,
+        export_root: exportRoot,
+        selected_backup_ids: selectedSets.map((set) => set.backup_id),
+        missing_backup_ids: missingBackupIds,
+        exported_count: exportedSets.length,
+        exported_sets: exportedSets,
+      },
+      null,
+      2,
+    ),
+    "utf-8",
+  );
+
+  const archivePath = `${exportDir}.zip`;
+  const archiveWriter = options.archiveWriter ?? defaultRecoveryArchiveWriter;
+  await archiveWriter(exportDir, archivePath);
+
+  return {
+    ok: true,
+    generated_at: nowIsoUtc(),
+    backup_root: backupRoot,
+    export_root: exportRoot,
+    export_dir: exportDir,
+    archive_path: archivePath,
+    manifest_path: manifestPath,
+    selected_backup_ids: selectedSets.map((set) => set.backup_id),
+    missing_backup_ids: missingBackupIds,
+    exported_count: exportedSets.length,
+    exported_sets: exportedSets,
+  };
+}
+
+/* ─────────────────────────────────────────────────────────────────── *
+ *  Related-tools status                                               *
+ * ─────────────────────────────────────────────────────────────────── */
+
+export async function getRelatedToolsStatusTs() {
+  const tmuxLs = runCmdText("tmux ls");
   const overviewRunning = Boolean(
-    runCmdText("lsof -nP -iTCP:8787 -sTCP:LISTEN"),
+    runCmdText("lsof -nP -iTCP:8788 -sTCP:LISTEN"),
+  );
+  const configuredTools = await Promise.all(
+    loadRelatedToolConfigs().map((tool) => resolveRelatedToolStatus(tool, tmuxLs)),
   );
 
   const apps = [
+    ...configuredTools,
     {
-      id: "codex-session",
-      name: "Codex Session",
-      installed: await pathExists(codexSessionPath),
-      running: codexSessionRunning,
-      location: codexSessionPath,
-      start_cmd: "open -a CodexSession",
-      watch_cmd: "",
-      notes: "Alternative GUI client for Codex",
-    },
-    {
-      id: "project-alpha",
-      name: "Project Alpha",
-      installed: Boolean(projectAlphaBin),
-      running: projectAlphaRunning,
-      location: projectAlphaBin || "(not found)",
-      start_cmd: "project-alpha",
-      watch_cmd: "tmux attach -t project-alpha-app",
-      notes: "tmux-based worktree/session manager",
-      tmux_session_ready: projectAlphaTmux,
-    },
-    {
-      id: "codex-overview",
-      name: "Codex Mission Control",
+      id: "provider-surface",
+      name: "Provider Observatory",
       installed: await pathExists(PROJECT_ROOT),
       running: overviewRunning,
-      location: path.join(PROJECT_ROOT, "server.py"),
-      start_cmd: `tmux new-session -d -s codex-overview-server \"cd ${PROJECT_ROOT} && python3 server.py\"`,
-      watch_cmd: "tmux attach -t codex-overview-server",
-      notes: "Local observability dashboard (this project)",
+      location: path.join(PROJECT_ROOT, "apps", "api-ts", "src", "app", "create-server.ts"),
+      start_cmd: `tmux new-session -d -s provider-surface-api \"cd ${PROJECT_ROOT} && pnpm --filter @provider-surface/api dev\"`,
+      watch_cmd: "tmux attach -t provider-surface-api",
+      notes: "Local multi-provider observability dashboard (TS-only runtime)",
     },
   ];
   const summary = {
@@ -432,6 +634,10 @@ export async function getCompareAppsStatusTs() {
     summary,
     apps,
   };
+}
+
+export async function getCompareAppsStatusTs() {
+  return getRelatedToolsStatusTs();
 }
 
 /* ─────────────────────────────────────────────────────────────────── *
@@ -956,209 +1162,4 @@ export async function getLatestSmokeStatusTs(options?: {
     });
   smokeStatusInflight.set(historyLimit, inflight);
   return inflight;
-}
-
-/* ─────────────────────────────────────────────────────────────────── *
- *  Data-source inventory                                              *
- * ─────────────────────────────────────────────────────────────────── */
-
-export async function getDataSourceInventoryTs() {
-  const historyPath = path.join(CODEX_HOME, "history.jsonl");
-  const globalStatePath = path.join(CODEX_HOME, ".codex-global-state.json");
-
-  // Root-level inventories are intentionally shallow to keep first load fast.
-  // Detailed counts still come from dedicated session paths below.
-  const codexRoot = await scanPathStatsTs(CODEX_HOME, false, "*");
-  const chatRoot = await scanPathStatsTs(CHAT_DIR, false, "*");
-  const claudeRoot = await scanPathStatsTs(CLAUDE_HOME, false, "*");
-  const claudeProjects = await scanPathStatsTs(
-    CLAUDE_PROJECTS_DIR,
-    false,
-    "*.jsonl",
-  );
-  const geminiRoot = await scanPathStatsTs(GEMINI_HOME, false, "*");
-  const geminiTmp = await scanPathStatsTs(GEMINI_TMP_DIR, false, "*.jsonl");
-  const copilotVsCode = await scanPathStatsTs(
-    COPILOT_VSCODE_GLOBAL,
-    false,
-    "*",
-  );
-  const copilotCursor = await scanPathStatsTs(
-    COPILOT_CURSOR_GLOBAL,
-    false,
-    "*",
-  );
-  const sessions = await scanPathStatsTs(
-    path.join(CODEX_HOME, "sessions"),
-    true,
-    "*.jsonl",
-  );
-  const archivedSessions = await scanPathStatsTs(
-    path.join(CODEX_HOME, "archived_sessions"),
-    true,
-    "*.jsonl",
-  );
-  const history = await scanPathStatsTs(historyPath, false, "*");
-  const globalState = await scanPathStatsTs(globalStatePath, false, "*");
-
-  return {
-    generated_at: nowIsoUtc(),
-    sources: {
-      codex_root: codexRoot,
-      chat_root: chatRoot,
-      claude_root: claudeRoot,
-      claude_projects: claudeProjects,
-      gemini_root: geminiRoot,
-      gemini_tmp: geminiTmp,
-      copilot_vscode: copilotVsCode,
-      copilot_cursor: copilotCursor,
-      sessions,
-      archived_sessions: archivedSessions,
-      history: {
-        path: historyPath,
-        present: await pathExists(historyPath),
-        size_bytes: history.total_bytes,
-        mtime: history.latest_mtime,
-      },
-      global_state: {
-        path: globalStatePath,
-        present: await pathExists(globalStatePath),
-        size_bytes: globalState.total_bytes,
-        mtime: globalState.latest_mtime,
-      },
-    },
-  };
-}
-
-/* ─────────────────────────────────────────────────────────────────── *
- *  Roadmap                                                            *
- * ─────────────────────────────────────────────────────────────────── */
-
-async function readRoadmapState(): Promise<Record<string, unknown>[]> {
-  const data = await readJsonFile(ROADMAP_STATE_FILE);
-  if (Array.isArray(data)) {
-    return data.filter((x) => isRecord(x));
-  }
-  if (isRecord(data) && Array.isArray(data.weeks)) {
-    return data.weeks.filter((x) => isRecord(x));
-  }
-  return [];
-}
-
-async function readRoadmapCheckins(
-  limit = 80,
-): Promise<Record<string, unknown>[]> {
-  try {
-    const raw = await readFile(ROADMAP_LOG_FILE, "utf-8");
-    const rows = raw
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => safeJsonParse(line))
-      .filter((x): x is Record<string, unknown> => isRecord(x));
-    if (limit <= 0) return rows;
-    return rows.slice(-limit);
-  } catch {
-    return [];
-  }
-}
-
-export async function getRoadmapStatusTs() {
-  const weeks = await readRoadmapState();
-  const checkins = await readRoadmapCheckins(80);
-  const statusCounts: Record<string, number> = {
-    done: 0,
-    in_progress: 0,
-    planned: 0,
-    blocked: 0,
-  };
-  for (const week of weeks) {
-    const raw = String(week.status ?? "planned");
-    const status = Object.prototype.hasOwnProperty.call(statusCounts, raw)
-      ? raw
-      : "planned";
-    statusCounts[status] += 1;
-  }
-  const remainingTracks = weeks
-    .filter((week) => String(week.status ?? "") !== "done")
-    .map((week) => String(week.week_id ?? ""))
-    .filter(Boolean);
-
-  return {
-    generated_at: nowIsoUtc(),
-    status_counts: statusCounts,
-    remaining_tracks: remainingTracks,
-    weeks,
-    checkins,
-  };
-}
-
-export async function appendRoadmapCheckinTs(note: string, actor: string) {
-  let overview: Record<string, unknown> = {};
-  let runtime: Record<string, unknown> = {};
-  let apps: Record<string, unknown> = {};
-
-  try {
-    const o = await requestPythonJson("/api/overview", "GET", {
-      query: { include_threads: "0" },
-      timeoutMs: 14000,
-    });
-    if (isRecord(o.payload)) overview = o.payload;
-  } catch {
-    // no-op
-  }
-  try {
-    const r = await requestPythonJson("/api/runtime-health", "GET", {
-      timeoutMs: 8000,
-    });
-    if (isRecord(r.payload)) runtime = r.payload;
-  } catch {
-    // no-op
-  }
-  try {
-    const a = await requestPythonJson("/api/compare-apps", "GET", {
-      timeoutMs: 8000,
-    });
-    if (isRecord(a.payload)) apps = a.payload;
-  } catch {
-    // no-op
-  }
-
-  const summary = isRecord(overview.summary) ? overview.summary : {};
-  const risk = isRecord(overview.risk_summary) ? overview.risk_summary : {};
-  const appSummary = isRecord(apps.summary) ? apps.summary : {};
-
-  const highRisk = parseNumber(summary.high_risk_threads);
-  const ctxHigh = parseNumber(risk.ctx_high_total);
-  const orphan = parseNumber(risk.orphan_candidates);
-  const lightweightHealthScore = Math.max(
-    0,
-    100 -
-      Math.min(
-        75,
-        highRisk * 4 + Math.floor(ctxHigh / 4) + Math.floor(orphan / 3),
-      ),
-  );
-
-  const entry = {
-    ts: nowIsoUtc(),
-    actor: actor || "codex",
-    note: cleanTitleText(note || "", 280),
-    snapshot: {
-      threads: parseNumber(summary.thread_total),
-      high_risk: highRisk,
-      ctx_high: ctxHigh,
-      orphan,
-      health_score: lightweightHealthScore,
-      running_apps: parseNumber(appSummary.running_total),
-      uptime_min: parseNumber(runtime.uptime_min, 0),
-    },
-  };
-
-  await mkdir(path.dirname(ROADMAP_LOG_FILE), { recursive: true });
-  await writeFile(ROADMAP_LOG_FILE, `${JSON.stringify(entry, null, 0)}\n`, {
-    encoding: "utf-8",
-    flag: "a",
-  });
-  return entry;
 }

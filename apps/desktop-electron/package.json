@@ -1,0 +1,45 @@
+{
+  "name": "@provider-surface/desktop-electron",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Electron shell for Provider Observatory",
+  "author": "Provider Observatory Contributors",
+  "main": "main.cjs",
+  "scripts": {
+    "dev": "electron .",
+    "icon:build": "./scripts/build-app-icon.sh",
+    "stage": "node scripts/stage-desktop-assets.cjs",
+    "build": "pnpm run icon:build && pnpm run stage && node --check main.cjs && node --check preload.cjs",
+    "dist:dir": "pnpm run build && electron-builder --dir",
+    "dist:mac": "pnpm run build && electron-builder --mac dir zip",
+    "lint": "node --check main.cjs && node --check preload.cjs"
+  },
+  "devDependencies": {
+    "electron": "^41.0.2",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.providerobservatory.desktop",
+    "productName": "Provider Observatory",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "app/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "app/api/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icon.icns",
+      "target": [
+        "dir",
+        "zip"
+      ]
+    }
+  }
+}

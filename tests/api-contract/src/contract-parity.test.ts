@@ -1,11 +1,11 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
 const TS_BASE = process.env.CONTRACT_TS_BASE ?? "http://127.0.0.1:8788";
-const PY_BASE = process.env.CONTRACT_PY_BASE ?? "http://127.0.0.1:8787";
+const LEGACY_BASE = process.env.CONTRACT_PY_BASE ?? "http://127.0.0.1:8787";
 const REQUIRE_PARITY = process.env.REQUIRE_PARITY === "1";
 
 let tsReachable = false;
-let pyReachable = false;
+let legacyReachable = false;
 
 async function isReachable(url: string, timeoutMs = 5000): Promise<boolean> {
   const controller = new AbortController();
@@ -84,33 +84,33 @@ function unwrapGatewayPayload(value: unknown): unknown {
 
 beforeAll(async () => {
   tsReachable = await isReachable(`${TS_BASE}/api/healthz`, 5000);
-  pyReachable = await isReachable(`${PY_BASE}/api/runtime-health`, 5000);
+  legacyReachable = await isReachable(`${LEGACY_BASE}/api/runtime-health`, 5000);
 }, 20000);
 
-describe("api contract parity (python vs ts)", () => {
+describe("api contract parity (legacy vs ts)", () => {
   it("services are reachable for parity test", () => {
-    if (!tsReachable || !pyReachable) {
+    if (!tsReachable || !legacyReachable) {
       console.warn("Skipping strict parity checks because services are not both reachable", {
         tsReachable,
-        pyReachable,
+        legacyReachable,
         TS_BASE,
-        PY_BASE,
+        LEGACY_BASE,
       });
     }
     if (REQUIRE_PARITY) {
       expect(tsReachable).toBe(true);
-      expect(pyReachable).toBe(true);
+      expect(legacyReachable).toBe(true);
       return;
     }
-    expect(tsReachable || pyReachable).toBe(true);
+    expect(tsReachable || legacyReachable).toBe(true);
   });
 
   it("/api/threads preserves top-level response keys", async () => {
-    if (!tsReachable || !pyReachable) return;
+    if (!tsReachable || !legacyReachable) return;
 
     const query = "offset=0&limit=20&sort=updated_desc";
     const tsDataRaw = await getJson(`${TS_BASE}/api/threads?${query}`, 25000);
-    const pyData = await getJson(`${PY_BASE}/api/threads?${query}`, 25000);
+    const pyData = await getJson(`${LEGACY_BASE}/api/threads?${query}`, 25000);
     const tsData = unwrapGatewayPayload(tsDataRaw);
 
     expect(hasKeys(tsData, ["total", "offset", "limit", "rows"])).toBe(true);
@@ -120,10 +120,10 @@ describe("api contract parity (python vs ts)", () => {
   }, 30000);
 
   it("/api/roadmap-status keeps core shape", async () => {
-    if (!tsReachable || !pyReachable) return;
+    if (!tsReachable || !legacyReachable) return;
 
     const tsDataRaw = await getJson(`${TS_BASE}/api/roadmap-status`, 15000);
-    const pyData = await getJson(`${PY_BASE}/api/roadmap-status`, 15000);
+    const pyData = await getJson(`${LEGACY_BASE}/api/roadmap-status`, 15000);
     const tsData = unwrapGatewayPayload(tsDataRaw);
 
     expect(hasKeys(tsData, ["weeks", "generated_at", "checkins", "status_counts", "remaining_tracks"])).toBe(true);
@@ -133,19 +133,19 @@ describe("api contract parity (python vs ts)", () => {
   }, 20000);
 
   it("/api/thread-pin invalid payload status parity", async () => {
-    if (!tsReachable || !pyReachable) return;
+    if (!tsReachable || !legacyReachable) return;
     const payload = { ids: [] };
     const tsRes = await postJson(`${TS_BASE}/api/thread-pin`, payload, 10000);
-    const pyRes = await postJson(`${PY_BASE}/api/thread-pin`, payload, 10000);
+    const pyRes = await postJson(`${LEGACY_BASE}/api/thread-pin`, payload, 10000);
     expect(tsRes.status).toBe(pyRes.status);
     expect(tsRes.status).toBeGreaterThanOrEqual(400);
   }, 15000);
 
   it("/api/local-cleanup invalid payload status parity", async () => {
-    if (!tsReachable || !pyReachable) return;
+    if (!tsReachable || !legacyReachable) return;
     const payload = { ids: ["sample-thread"], dry_run: true, options: [] };
     const tsRes = await postJson(`${TS_BASE}/api/local-cleanup`, payload, 12000);
-    const pyRes = await postJson(`${PY_BASE}/api/local-cleanup`, payload, 12000);
+    const pyRes = await postJson(`${LEGACY_BASE}/api/local-cleanup`, payload, 12000);
     expect(tsRes.status).toBe(pyRes.status);
     expect([200, 400]).toContain(tsRes.status);
   }, 18000);

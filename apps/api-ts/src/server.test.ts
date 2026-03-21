@@ -13,12 +13,12 @@ describe("api-ts direct endpoints", () => {
     await app.close();
   });
 
-  it("GET /api/healthz returns hybrid mode", async () => {
+  it("GET /api/healthz returns ts-only mode", async () => {
     const res = await app.inject({ method: "GET", url: "/api/healthz" });
     expect(res.statusCode).toBe(200);
     const payload = res.json();
     expect(payload.ok).toBe(true);
-    expect(payload.data.mode).toBe("hybrid");
+    expect(payload.data.mode).toBe("ts-only");
     expect(payload.schema_version).toBeTypeOf("string");
   });
 
@@ -28,7 +28,7 @@ describe("api-ts direct endpoints", () => {
     const payload = res.json();
     expect(payload.ok).toBe(true);
     expect(payload.data.runtime).toBe("fastify");
-    expect(payload.data.desktop).toBe("tauri");
+    expect(payload.data.desktop).toBe("electron");
   });
 
   it("GET /api/roadmap-status returns roadmap keys", async () => {
@@ -50,15 +50,7 @@ describe("api-ts direct endpoints", () => {
     expect(payload.ok).toBe(false);
   });
 
-  it("POST /api/bulk-thread-action uses python-compatible ids payload", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-
+  it("POST /api/bulk-thread-action runs TS-native pin action", async () => {
     const res = await app.inject({
       method: "POST",
       url: "/api/bulk-thread-action",
@@ -66,11 +58,14 @@ describe("api-ts direct endpoints", () => {
     });
 
     expect(res.statusCode).toBe(200);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
-    const sent = JSON.parse(String(init.body));
-    expect(sent).toEqual({ ids: ["thread-1"], pinned: true });
-    vi.unstubAllGlobals();
+    const payload = res.json();
+    expect(payload.data.success).toBe(1);
+    expect(payload.data.failed).toBe(0);
+    expect(payload.data.results[0]).toMatchObject({
+      thread_id: "thread-1",
+      ok: true,
+      status: 200,
+    });
   });
 
   it("POST /api/thread-pin validates ids schema at TS layer", async () => {
@@ -84,6 +79,26 @@ describe("api-ts direct endpoints", () => {
     expect(payload.ok).toBe(false);
   });
 
+  it("GET /api/threads responds from TS composition without python fetch", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const res = await app.inject({
+        method: "GET",
+        url: "/api/threads?offset=0&limit=20&q=&sort=updated_desc",
+      });
+      expect(res.statusCode).toBe(200);
+      const payload = res.json();
+      const root = payload.data ?? payload;
+      expect(Array.isArray(root.rows)).toBe(true);
+      expect(typeof root.total).toBe("number");
+      expect(root.source).toBe("ts-overview-read-model");
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("POST /api/thread-resume-command validates ids schema at TS layer", async () => {
     const res = await app.inject({
       method: "POST",
@@ -94,6 +109,45 @@ describe("api-ts direct endpoints", () => {
     const payload = res.json();
     expect(payload.ok).toBe(false);
   });
+
+  it("POST /api/thread-resume-command responds from TS route without python fetch", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/thread-resume-command",
+        payload: { ids: ["thread-1"] },
+      });
+      expect(res.statusCode).toBe(200);
+      const payload = res.json();
+      const root = payload.data ?? payload;
+      expect(root.commands).toEqual(["codex resume thread-1"]);
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("POST /api/analyze-delete responds from TS route without python fetch", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/analyze-delete",
+        payload: { ids: ["thread-1"] },
+      });
+      expect(res.statusCode).toBe(200);
+      const payload = res.json();
+      const root = payload.data ?? payload;
+      expect(Array.isArray(root.reports)).toBe(true);
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
 
   it("POST /api/roadmap-checkin returns ok with entry", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
@@ -126,13 +180,18 @@ describe("api-ts direct endpoints", () => {
     expect(Array.isArray(root.checklist)).toBe(true);
   });
 
-  it("GET /api/compare-apps returns app summary", async () => {
-    const res = await app.inject({ method: "GET", url: "/api/compare-apps" });
+  it("GET /api/related-tools returns tool summary", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/related-tools" });
     expect(res.statusCode).toBe(200);
     const payload = res.json();
     const root = payload.data ?? payload;
     expect(root.summary).toBeTruthy();
     expect(Array.isArray(root.apps)).toBe(true);
+  });
+
+  it("GET /api/compare-apps remains available as compatibility alias", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/compare-apps" });
+    expect(res.statusCode).toBe(200);
   });
 
   it("GET /api/runtime-health returns runtime keys", async () => {
@@ -373,17 +432,31 @@ describe("api-ts direct endpoints", () => {
     expect(payload.ok).toBe(false);
   });
 
-  it("GET /api/alert-hooks responds through TS route", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ generated_at: new Date().toISOString(), active_alerts: [] }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
-    );
+  it("GET /api/agent-loops responds from TS route without python fetch", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const res = await app.inject({ method: "GET", url: "/api/agent-loops" });
+      expect(res.statusCode).toBe(200);
+      const payload = res.json();
+      const root = payload.data ?? payload;
+      expect(Array.isArray(root.rows)).toBe(true);
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("GET /api/alert-hooks responds from TS route without python fetch", async () => {
+    const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     try {
       const res = await app.inject({ method: "GET", url: "/api/alert-hooks" });
       expect(res.statusCode).toBe(200);
+      const payload = res.json();
+      const root = payload.data ?? payload;
+      expect(Array.isArray(root.active_alerts)).toBe(true);
+      expect(fetchMock).not.toHaveBeenCalled();
     } finally {
       vi.unstubAllGlobals();
     }
@@ -411,33 +484,33 @@ describe("api-ts direct endpoints", () => {
     expect(payload.ok).toBe(false);
   });
 
-  it("GET /api/overview responds through TS route", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ summary: {} }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
-    );
+  it("GET /api/overview responds from TS composition without python fetch", async () => {
+    const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     try {
       const res = await app.inject({ method: "GET", url: "/api/overview?include_threads=0&refresh=1" });
       expect(res.statusCode).toBe(200);
+      const payload = res.json();
+      const root = payload.data ?? payload;
+      expect(root.summary).toBeTruthy();
+      expect(typeof root.summary.thread_total).toBe("number");
+      expect(root.risk_summary).toBeTruthy();
+      expect(fetchMock).not.toHaveBeenCalled();
     } finally {
       vi.unstubAllGlobals();
     }
   });
 
   it("GET /api/codex-observatory responds through TS route", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ summary: {} }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
-    );
+    const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     try {
       const res = await app.inject({ method: "GET", url: "/api/codex-observatory?refresh=1" });
       expect(res.statusCode).toBe(200);
+      const payload = res.json();
+      const root = payload.data ?? payload;
+      expect(root.summary).toBeTruthy();
+      expect(fetchMock).not.toHaveBeenCalled();
     } finally {
       vi.unstubAllGlobals();
     }
@@ -463,6 +536,25 @@ describe("api-ts direct endpoints", () => {
     expect(res.statusCode).toBe(400);
     const payload = res.json();
     expect(payload.ok).toBe(false);
+  });
+
+  it("POST /api/thread-forensics responds from TS composition without python fetch", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/thread-forensics",
+        payload: { ids: [] },
+      });
+      expect(res.statusCode).toBe(200);
+      const payload = res.json();
+      const root = payload.data ?? payload;
+      expect(Array.isArray(root.reports)).toBe(true);
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("GET /api/thread-transcript validates required thread_id", async () => {
@@ -518,7 +610,7 @@ describe("api-ts direct endpoints", () => {
     expect(payload.ok).toBe(false);
   });
 
-  it("POST /api/analyze-delete forwards valid ids to python", async () => {
+  it("POST /api/analyze-delete returns TS-native impact payload", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ ok: true, count: 1, reports: [] }), {
         status: 200,
@@ -533,16 +625,17 @@ describe("api-ts direct endpoints", () => {
         payload: { ids: ["thread-1"] },
       });
       expect(res.statusCode).toBe(200);
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
-      const sent = JSON.parse(String(init.body));
-      expect(sent).toEqual({ ids: ["thread-1"] });
+      const payload = res.json();
+      const root = payload.data ?? payload;
+      expect(root.count).toBe(1);
+      expect(Array.isArray(root.reports)).toBe(true);
+      expect(fetchMock).not.toHaveBeenCalled();
     } finally {
       vi.unstubAllGlobals();
     }
   });
 
-  it("POST /api/local-cleanup normalizes non-object options for python parity", async () => {
+  it("POST /api/local-cleanup normalizes non-object options for TS parity", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ ok: true, mode: "dry-run" }), {
         status: 200,
@@ -557,11 +650,12 @@ describe("api-ts direct endpoints", () => {
         payload: { ids: ["thread-1"], dry_run: true, options: ["x"] },
       });
       expect(res.statusCode).toBe(200);
-      const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
-      const sent = JSON.parse(String(init.body));
-      expect(sent.options).toEqual({});
-      expect(sent.ids).toEqual(["thread-1"]);
-      expect(sent.dry_run).toBe(true);
+      const payload = res.json();
+      const root = payload.data ?? payload;
+      expect(root.ok).toBe(true);
+      expect(root.mode).toBe("dry-run");
+      expect(root.requested_ids).toBe(1);
+      expect(fetchMock).not.toHaveBeenCalled();
     } finally {
       vi.unstubAllGlobals();
     }

@@ -1,7 +1,7 @@
 {
-  "name": "@codex/web",
+  "name": "@provider-surface/web",
   "version": "0.1.0",
-  "description": "React dashboard for Codex Mission Control",
+  "description": "React dashboard for Provider Observatory",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -15,7 +15,7 @@
     "lint": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@codex/shared-contracts": "workspace:*",
+    "@provider-surface/shared-contracts": "workspace:*",
     "@tanstack/react-query": "^5.64.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

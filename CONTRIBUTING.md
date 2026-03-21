@@ -1,4 +1,4 @@
-# Contributing to Codex Mission Control
+# Contributing to Provider Observatory
 
 Thank you for your interest in contributing! This document provides guidelines for contributing to the project.
 
@@ -8,19 +8,20 @@ Thank you for your interest in contributing! This document provides guidelines f
 2. Install dependencies: `pnpm install`
 3. Start the dev stack:
    ```bash
-   python3 server.py          # Python backend on :8787
    pnpm dev                   # TS API (:8788) + Web UI (:5174)
+   pnpm dev:desktop           # Optional Electron shell
    ```
 
 ## Development Workflow
 
 ### Before Submitting
 
-- Run API tests: `pnpm --filter @codex/api-ts test`
-- Run API build: `pnpm --filter @codex/api-ts build`
-- Run Web build: `pnpm --filter @codex/web build`
+- Run API tests: `pnpm --filter @provider-surface/api test`
+- Run API build: `pnpm --filter @provider-surface/api build`
+- Run Web build: `pnpm --filter @provider-surface/web build`
+- Run OSS hygiene sweep: `pnpm oss:hygiene`
 
-All three must pass before a PR is accepted.
+All four must pass before a PR is accepted.
 
 ### Project Structure
 
@@ -28,9 +29,9 @@ All three must pass before a PR is accepted.
 |---|---|
 | `apps/api-ts` | Fastify API gateway (TypeScript) |
 | `apps/web` | React + Vite dashboard |
-| `apps/desktop-tauri` | Tauri v2 desktop shell |
+| `apps/desktop-electron` | Electron desktop shell |
 | `packages/shared-contracts` | Shared TypeScript types |
-| `server.py` | Legacy Python backend |
+| `legacy/server.py` | Legacy admin/offline tooling |
 
 ### Code Style
 

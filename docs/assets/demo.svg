@@ -66,7 +66,7 @@
   <circle cx="72" cy="60" r="6" fill="#ff5f57"/>
   <circle cx="92" cy="60" r="6" fill="#febc2e"/>
   <circle cx="112" cy="60" r="6" fill="#28c840"/>
-  <text x="640" y="65" text-anchor="middle" class="sans" font-size="13" fill="#6b7a90">Codex Mission Control</text>
+  <text x="640" y="65" text-anchor="middle" class="sans" font-size="13" fill="#6b7a90">Provider Observatory</text>
 
   <!-- Navigation tabs -->
   <g transform="translate(60, 90)">
@@ -79,25 +79,25 @@
     <rect width="90" height="32" rx="6" fill="rgba(99,102,241,0.06)">
       <animate attributeName="fill" values="rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.18);rgba(99,102,241,0.18);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06)" dur="20s" repeatCount="indefinite"/>
     </rect>
-    <text x="45" y="21" text-anchor="middle" class="sans" font-size="12" fill="#a0aec0">Threads</text>
+    <text x="45" y="21" text-anchor="middle" class="sans" font-size="12" fill="#a0aec0">Search</text>
   </g>
   <g transform="translate(270, 90)">
     <rect width="100" height="32" rx="6" fill="rgba(99,102,241,0.06)">
       <animate attributeName="fill" values="rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.18);rgba(99,102,241,0.18);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06)" dur="20s" repeatCount="indefinite"/>
     </rect>
-    <text x="50" y="21" text-anchor="middle" class="sans" font-size="12" fill="#a0aec0">Providers</text>
+    <text x="50" y="21" text-anchor="middle" class="sans" font-size="12" fill="#a0aec0">Cleanup</text>
   </g>
   <g transform="translate(380, 90)">
     <rect width="95" height="32" rx="6" fill="rgba(99,102,241,0.06)">
       <animate attributeName="fill" values="rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.18);rgba(99,102,241,0.18);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06)" dur="20s" repeatCount="indefinite"/>
     </rect>
-    <text x="48" y="21" text-anchor="middle" class="sans" font-size="12" fill="#a0aec0">Forensics</text>
+    <text x="48" y="21" text-anchor="middle" class="sans" font-size="12" fill="#a0aec0">Sessions</text>
   </g>
   <g transform="translate(485, 90)">
     <rect width="85" height="32" rx="6" fill="rgba(99,102,241,0.06)">
       <animate attributeName="fill" values="rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.06);rgba(99,102,241,0.18);rgba(99,102,241,0.18);rgba(99,102,241,0.06)" dur="20s" repeatCount="indefinite"/>
     </rect>
-    <text x="42" y="21" text-anchor="middle" class="sans" font-size="12" fill="#a0aec0">Routing</text>
+    <text x="42" y="21" text-anchor="middle" class="sans" font-size="12" fill="#a0aec0">Advanced</text>
   </g>
 
   <!-- Theme toggle button -->
@@ -116,9 +116,9 @@
       <rect width="1160" height="90" rx="10" fill="url(#hero-grad)" stroke="rgba(99,102,241,0.12)" stroke-width="0.5"/>
       <!-- Gradient accent bar at top -->
       <rect width="1160" height="3" rx="1.5" fill="url(#accent-grad)" opacity="0.6"/>
-      <text x="20" y="35" class="sans" font-size="22" font-weight="700" fill="#eef2f9">Mission Control</text>
+      <text x="20" y="35" class="sans" font-size="22" font-weight="700" fill="#eef2f9">Provider Observatory</text>
       <rect x="200" y="18" width="145" height="24" rx="12" fill="rgba(99,102,241,0.12)"/>
-      <text x="272" y="35" text-anchor="middle" class="sans" font-size="11" font-weight="600" fill="#a78bfa">Safety + Forensics</text>
+      <text x="272" y="35" text-anchor="middle" class="sans" font-size="11" font-weight="600" fill="#a78bfa">Search + Cleanup</text>
       <text x="20" y="55" class="sans" font-size="13" fill="#6b7a90">Observe multi-AI operations in one view.</text>
 
       <!-- Meta chips -->
@@ -140,7 +140,7 @@
         <rect width="220" height="2" rx="1" fill="url(#accent-grad)" opacity="0.4"/>
         <text x="16" y="28" class="sans" font-size="11" fill="#6b7a90">Python Backend</text>
         <text x="16" y="55" class="sans" font-size="24" font-weight="700" fill="#818cf8" filter="url(#glow-violet)">Reachable</text>
-        <text x="16" y="75" class="mono" font-size="10" fill="#6b7a90">127.0.0.1:8787</text>
+        <text x="16" y="75" class="mono" font-size="10" fill="#6b7a90">127.0.0.1:8788</text>
       </g>
 
       <!-- Card 2: Latency -->
@@ -371,7 +371,7 @@
   <g opacity="0">
     <animate attributeName="opacity" values="0;0;0;0;0;0;0;1;1;0;0;0" dur="20s" repeatCount="indefinite"/>
     <g transform="translate(60, 140)">
-      <text x="0" y="24" class="sans" font-size="16" font-weight="600" fill="#eef2f9">Forensics Analysis</text>
+      <text x="0" y="24" class="sans" font-size="16" font-weight="600" fill="#eef2f9">Cleanup Review</text>
 
       <g transform="translate(0, 45)">
         <rect width="560" height="300" rx="8" fill="#141924" stroke="rgba(99,102,241,0.1)" stroke-width="0.5"/>
@@ -522,16 +522,16 @@
     <circle cx="72" cy="60" r="6" fill="#ff5f57"/>
     <circle cx="92" cy="60" r="6" fill="#febc2e"/>
     <circle cx="112" cy="60" r="6" fill="#28c840"/>
-    <text x="640" y="65" text-anchor="middle" class="sans" font-size="13" fill="#64748b">Codex Mission Control</text>
+    <text x="640" y="65" text-anchor="middle" class="sans" font-size="13" fill="#64748b">Provider Observatory</text>
 
     <!-- Light mode hero -->
     <g transform="translate(60, 140)">
       <rect width="1160" height="90" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="0.5"/>
       <!-- Light accent bar -->
       <rect width="1160" height="3" rx="1.5" fill="url(#accent-grad)" opacity="0.5"/>
-      <text x="20" y="35" class="sans" font-size="22" font-weight="700" fill="#0f172a">Mission Control</text>
+      <text x="20" y="35" class="sans" font-size="22" font-weight="700" fill="#0f172a">Provider Observatory</text>
       <rect x="200" y="18" width="145" height="24" rx="12" fill="rgba(99,102,241,0.1)"/>
-      <text x="272" y="35" text-anchor="middle" class="sans" font-size="11" font-weight="600" fill="#6366f1">Safety + Forensics</text>
+      <text x="272" y="35" text-anchor="middle" class="sans" font-size="11" font-weight="600" fill="#6366f1">Sessions + Cleanup</text>
       <text x="20" y="55" class="sans" font-size="13" fill="#64748b">Observe multi-AI operations in one view.</text>
     </g>
 
@@ -573,6 +573,6 @@
 
   <!-- Version badge -->
   <g transform="translate(60, 770)">
-    <text class="mono" font-size="10" fill="#6b7a90">codex-legacy-layer v0.1.0 — demo animation (20s loop)</text>
+    <text class="mono" font-size="10" fill="#6b7a90">provider-surface v0.1.0 — demo animation (20s loop)</text>
   </g>
 </svg>

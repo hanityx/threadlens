@@ -12,8 +12,10 @@ Key implementation details or approach taken.
 
 ## Checklist
 
-- [ ] `pnpm --filter @codex/api-ts build` passes
-- [ ] `pnpm --filter @codex/api-ts test` passes (36/36)
-- [ ] `pnpm --filter @codex/web build` passes
+- [ ] `pnpm --filter @provider-surface/api build` passes
+- [ ] `pnpm --filter @provider-surface/api test` passes
+- [ ] `pnpm --filter @provider-surface/web build` passes
+- [ ] `pnpm oss:hygiene` passes
+- [ ] `pnpm release:preflight` passes or the reason it was skipped is explained
 - [ ] No hardcoded absolute paths
 - [ ] User-facing strings are in English

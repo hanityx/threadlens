@@ -1,34 +1,67 @@
 {
-  "name": "codex-overview-monorepo",
+  "name": "provider-surface-monorepo",
   "private": true,
   "version": "0.1.0",
-  "description": "Local-first observability and thread-operations dashboard for Codex",
+  "description": "Local-first observability dashboard for AI provider sessions",
   "license": "MIT",
+  "homepage": "https://github.com/provider-surface/provider-surface",
+  "bugs": {
+    "url": "https://github.com/provider-surface/provider-surface/issues"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/codex-overview/codex-overview.git"
+    "url": "https://github.com/provider-surface/provider-surface.git"
   },
+  "keywords": [
+    "electron",
+    "observability",
+    "ai",
+    "providers",
+    "sessions",
+    "local-first"
+  ],
   "engines": {
     "node": ">=20",
     "pnpm": ">=10"
   },
   "packageManager": "pnpm@10.4.1",
+  "pnpm": {
+    "overrides": {
+      "esbuild": "^0.27.4",
+      "fastify": "^5.8.2",
+      "yauzl": "^3.2.1"
+    }
+  },
   "scripts": {
-    "dev:api": "pnpm --filter @codex/api-ts dev",
-    "dev:web": "pnpm --filter @codex/web dev",
-    "dev:desktop": "pnpm --filter @codex/desktop-tauri dev",
-    "dev": "pnpm -r --parallel --filter @codex/api-ts --filter @codex/web dev",
-    "build": "pnpm -r build",
-    "build:desktop": "pnpm --filter @codex/desktop-tauri run build",
+    "dev:api": "pnpm --filter @provider-surface/api dev",
+    "dev:web": "pnpm --filter @provider-surface/web dev",
+    "dev:desktop": "ELECTRON_RENDERER_URL=http://127.0.0.1:5174 pnpm --filter @provider-surface/desktop-electron dev",
+    "dev": "pnpm -r --parallel --filter @provider-surface/api --filter @provider-surface/web dev",
+    "build": "pnpm --filter @provider-surface/shared-contracts build && pnpm --filter @provider-surface/api build && pnpm --filter @provider-surface/web build",
+    "build:desktop": "pnpm --filter @provider-surface/shared-contracts build && pnpm --filter @provider-surface/web build && pnpm --filter @provider-surface/api bundle:desktop && pnpm --filter @provider-surface/desktop-electron build",
+    "package:desktop": "pnpm build:desktop && pnpm --filter @provider-surface/desktop-electron dist:mac",
+    "package:desktop:dir": "pnpm build:desktop && pnpm --filter @provider-surface/desktop-electron dist:dir",
+    "release:bundle": "./scripts/release-bundle.sh",
+    "release:artifacts:cleanup": "./scripts/cleanup-release-artifacts.sh",
+    "release:status": "./scripts/release-status.sh",
+    "release:public:prepare": "./scripts/prepare-public-release.sh",
+    "release:public:stage": "./scripts/stage-public-release.sh",
+    "release:public:ready": "./scripts/refresh-public-ready.sh",
+    "release:macos:doctor": "./scripts/macos-sign-doctor.sh",
     "release:macos:sign": "./scripts/macos-sign-notarize.sh",
     "release:preflight": "./scripts/release-preflight.sh",
+    "oss:hygiene": "./scripts/oss-hygiene.sh",
+    "public:export": "./scripts/export-public-tree.sh",
+    "public:init": "./scripts/init-public-repo.sh",
+    "public:push-ready": "./scripts/public-push-ready.sh",
+    "public:verify": "./scripts/verify-public-export.sh",
     "perf:smoke": "./scripts/perf-smoke.sh",
     "perf:smoke:strict": "PERF_SMOKE_STRICT=1 ./scripts/perf-smoke.sh",
     "forensics:smoke": "./scripts/forensics-smoke.sh",
     "web:e2e:live": "./scripts/web-live-e2e-smoke.sh",
     "smoke:summary": "./scripts/smoke-summary.sh",
     "test": "pnpm -r test",
-    "test:contract": "pnpm --filter @codex/tests-api-contract test",
+    "test:contract": "pnpm --filter @provider-surface/tests-api-contract test",
     "lint": "pnpm -r lint"
   },
   "devDependencies": {
