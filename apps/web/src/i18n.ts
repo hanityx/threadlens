@@ -59,6 +59,7 @@ const MESSAGES = {
       pinned: "Pinned",
       threadsFetchMs: "Threads fetch",
       threadsBootMode: "Fast boot mode (light payload)",
+      shortcuts: "Shortcuts: 1-5 views, / search",
       detailHint: "Run actions from the detail panel or use Bulk Actions below",
     },
     alerts: {
@@ -439,6 +440,7 @@ const MESSAGES = {
       pinned: "고정됨",
       threadsFetchMs: "스레드 조회",
       threadsBootMode: "빠른 부팅 모드 (경량 조회)",
+      shortcuts: "단축키: 1-5 화면 전환, / 검색",
       detailHint: "세부 패널에서 실행하거나 아래 일괄 액션을 사용해",
     },
     alerts: {

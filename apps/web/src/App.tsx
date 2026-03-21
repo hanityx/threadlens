@@ -35,6 +35,7 @@ const preloadForensicsPanel = () => {
 
 export function App() {
   const panelChunkWarmupStartedRef = useRef(false);
+  const threadSearchInputRef = useRef<HTMLInputElement | null>(null);
   const {
     theme,
     setTheme,
@@ -295,6 +296,59 @@ export function App() {
       }
     };
   }, [layoutView]);
+
+  useEffect(() => {
+    const isTypingTarget = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false;
+      const tag = target.tagName.toLowerCase();
+      return (
+        target.isContentEditable ||
+        tag === "input" ||
+        tag === "textarea" ||
+        tag === "select"
+      );
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (isTypingTarget(event.target)) return;
+
+      if (event.key === "1") {
+        event.preventDefault();
+        setLayoutView("overview");
+        return;
+      }
+      if (event.key === "2") {
+        event.preventDefault();
+        setLayoutView("threads");
+        return;
+      }
+      if (event.key === "3") {
+        event.preventDefault();
+        setLayoutView("providers");
+        return;
+      }
+      if (event.key === "4") {
+        event.preventDefault();
+        setLayoutView("forensics");
+        return;
+      }
+      if (event.key === "5") {
+        event.preventDefault();
+        setLayoutView("routing");
+        return;
+      }
+      if (event.key === "/" && showThreadsTable) {
+        event.preventDefault();
+        const input = threadSearchInputRef.current;
+        input?.focus();
+        input?.select();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [setLayoutView, showThreadsTable]);
 
   return (
     <main className="page">
@@ -565,9 +619,15 @@ export function App() {
       {showThreadsTable ? (
         <section className="toolbar">
           <input
+            ref={threadSearchInputRef}
             placeholder={messages.toolbar.searchThreads}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                (e.currentTarget as HTMLInputElement).blur();
+              }
+            }}
             className="search-input"
           />
           <select
@@ -585,6 +645,7 @@ export function App() {
           {threadsFastBooting ? (
             <span className="sub-hint">{messages.toolbar.threadsBootMode}</span>
           ) : null}
+          <span className="sub-hint">{messages.toolbar.shortcuts}</span>
           <span className="sub-hint">{messages.toolbar.detailHint}</span>
         </section>
       ) : null}
