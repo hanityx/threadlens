@@ -1,3 +1,4 @@
+import { useDeferredValue, useMemo, useState } from "react";
 import type { Messages } from "../i18n";
 
 type TranscriptMessage = {
@@ -31,6 +32,9 @@ export function TranscriptLog({
   emptyLabel,
   onLoadMore,
 }: Props) {
+  const [searchInput, setSearchInput] = useState("");
+  const [roleFilter, setRoleFilter] = useState<TranscriptMessage["role"] | "all">("all");
+  const deferredSearch = useDeferredValue(searchInput);
   const resolvedEmptyLabel = emptyLabel ?? messages.transcript.empty;
 
   const roleLabel = (role: TranscriptMessage["role"]) => {
@@ -42,6 +46,16 @@ export function TranscriptLog({
     return messages.transcript.roleUnknown;
   };
 
+  const filteredTranscript = useMemo(() => {
+    const q = deferredSearch.trim().toLowerCase();
+    return transcript.filter((msg) => {
+      if (roleFilter !== "all" && msg.role !== roleFilter) return false;
+      if (!q) return true;
+      const text = `${msg.text ?? ""} ${msg.source_type ?? ""}`.toLowerCase();
+      return text.includes(q);
+    });
+  }, [transcript, deferredSearch, roleFilter]);
+
   return (
     <>
       <div className="impact-kv">
@@ -49,6 +63,31 @@ export function TranscriptLog({
         <strong>
           {messageCount} {messages.transcript.messagesUnit}
         </strong>
+      </div>
+      <div className="chat-toolbar transcript-controls">
+        <input
+          type="search"
+          className="search-input transcript-search"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder={messages.transcript.searchPlaceholder}
+        />
+        <select
+          className="filter-select transcript-role-filter"
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value as TranscriptMessage["role"] | "all")}
+        >
+          <option value="all">{messages.transcript.roleAll}</option>
+          <option value="user">{messages.transcript.roleUser}</option>
+          <option value="assistant">{messages.transcript.roleAssistant}</option>
+          <option value="developer">{messages.transcript.roleDeveloper}</option>
+          <option value="system">{messages.transcript.roleSystem}</option>
+          <option value="tool">{messages.transcript.roleTool}</option>
+          <option value="unknown">{messages.transcript.roleUnknown}</option>
+        </select>
+        <span className="sub-hint">
+          {messages.transcript.filteredCount} {filteredTranscript.length}
+        </span>
       </div>
       <div className="chat-toolbar">
         <span className="sub-hint">{truncated ? messages.transcript.partial : messages.transcript.full}</span>
@@ -58,8 +97,8 @@ export function TranscriptLog({
       </div>
       <div className="chat-log">
         {loading ? <div className="skeleton-line" /> : null}
-        {!loading && transcript.length === 0 ? <p className="sub-hint">{resolvedEmptyLabel}</p> : null}
-        {transcript.map((msg) => (
+        {!loading && filteredTranscript.length === 0 ? <p className="sub-hint">{resolvedEmptyLabel}</p> : null}
+        {filteredTranscript.map((msg) => (
           <article key={`msg-${msg.idx}-${msg.ts ?? "na"}`} className={`chat-item role-${msg.role}`}>
             <header>
               <strong>{roleLabel(msg.role)}</strong>

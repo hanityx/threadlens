@@ -1478,6 +1478,19 @@ tr:hover td {
   flex-wrap: wrap;
 }
 
+.transcript-controls {
+  gap: 10px;
+}
+
+.transcript-search {
+  min-width: 280px;
+  flex: 1;
+}
+
+.transcript-role-filter {
+  min-width: 150px;
+}
+
 .detail-action-bar {
   position: sticky;
   top: 8px;
