@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const http = require("node:http");
 const net = require("node:net");
 const { spawn } = require("node:child_process");
-const { app, BrowserWindow, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, shell } = require("electron");
 
 const isDev = Boolean(process.env.ELECTRON_RENDERER_URL);
 const DESKTOP_API_START_PORT = Number(
@@ -13,6 +13,69 @@ const DESKTOP_API_HOST = "127.0.0.1";
 const DESKTOP_API_READY_TIMEOUT_MS = 12000;
 let desktopApiProcess = null;
 let desktopApiBaseUrl = `http://${DESKTOP_API_HOST}:${DESKTOP_API_START_PORT}`;
+const WINDOW_TITLE_SUFFIX = typeof process.env.PROVIDER_OBSERVATORY_WINDOW_TITLE_SUFFIX === "string"
+  ? process.env.PROVIDER_OBSERVATORY_WINDOW_TITLE_SUFFIX.trim()
+  : "";
+
+function resolveExistingPath(filePath) {
+  const normalized = typeof filePath === "string" ? filePath.trim() : "";
+  if (!normalized) {
+    throw new Error("File path is required.");
+  }
+
+  const resolved = path.resolve(normalized);
+  if (!fs.existsSync(resolved)) {
+    throw new Error(`File not found: ${resolved}`);
+  }
+  return resolved;
+}
+
+async function previewLocalPath(filePath) {
+  if (process.platform === "darwin") {
+    const previewProcess = spawn("qlmanage", ["-p", filePath], {
+      detached: true,
+      stdio: "ignore",
+    });
+    previewProcess.unref();
+    return;
+  }
+
+  const openError = await shell.openPath(filePath);
+  if (openError) {
+    throw new Error(openError);
+  }
+}
+
+function createRouteSearch(route) {
+  const params = new URLSearchParams();
+  if (route?.view) params.set("view", String(route.view));
+  if (route?.provider) params.set("provider", String(route.provider));
+  if (route?.filePath) params.set("filePath", String(route.filePath));
+  if (route?.threadId) params.set("threadId", String(route.threadId));
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
+function readInitialRoute() {
+  const raw = typeof process.env.PROVIDER_OBSERVATORY_INITIAL_ROUTE === "string"
+    ? process.env.PROVIDER_OBSERVATORY_INITIAL_ROUTE.trim()
+    : "";
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    return {
+      view: typeof parsed.view === "string" ? parsed.view : "",
+      provider: typeof parsed.provider === "string" ? parsed.provider : "",
+      filePath: typeof parsed.filePath === "string" ? parsed.filePath : "",
+      threadId: typeof parsed.threadId === "string" ? parsed.threadId : "",
+    };
+  } catch (error) {
+    console.warn("[desktop] invalid PROVIDER_OBSERVATORY_INITIAL_ROUTE", error);
+    return null;
+  }
+}
 
 function logDesktopApi(stream, chunk) {
   const lines = String(chunk || "")
@@ -129,13 +192,16 @@ async function startDesktopApi() {
   }
 }
 
-function createMainWindow() {
+function createMainWindow(route = null) {
+  const windowTitle = WINDOW_TITLE_SUFFIX
+    ? `Provider Observatory ${WINDOW_TITLE_SUFFIX}`
+    : "Provider Observatory";
   const win = new BrowserWindow({
     width: 1440,
     height: 960,
     minWidth: 1024,
     minHeight: 720,
-    title: "Provider Observatory",
+    title: windowTitle,
     backgroundColor: "#0a0d14",
     autoHideMenuBar: true,
     webPreferences: {
@@ -152,12 +218,71 @@ function createMainWindow() {
   });
 
   const entry = resolveRendererEntry();
+  const routeSearch = createRouteSearch(route);
   if (isDev) {
-    void win.loadURL(entry);
+    const entryUrl = new URL(entry);
+    if (routeSearch) {
+      entryUrl.search = routeSearch;
+    }
+    void win.loadURL(entryUrl.toString());
   } else {
-    void win.loadFile(entry);
+    void win.loadFile(entry, routeSearch ? { search: routeSearch } : undefined);
   }
 }
+
+ipcMain.handle("provider-surface:file-action", async (_event, payload) => {
+  try {
+    const action = typeof payload?.action === "string" ? payload.action : "";
+    const filePath = resolveExistingPath(payload?.filePath);
+    console.log(`[desktop-electron] file-action action=${action || "unknown"} path=${filePath}`);
+
+    if (action === "reveal") {
+      shell.showItemInFolder(filePath);
+      return { ok: true };
+    }
+
+    if (action === "open") {
+      const openError = await shell.openPath(filePath);
+      if (openError) {
+        throw new Error(openError);
+      }
+      return { ok: true };
+    }
+
+    if (action === "preview") {
+      await previewLocalPath(filePath);
+      return { ok: true };
+    }
+
+    return { ok: false, error: `Unsupported file action: ${action || "unknown"}` };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+});
+
+ipcMain.handle("provider-surface:open-window", async (_event, payload) => {
+  try {
+    const route = {
+      view: typeof payload?.view === "string" ? payload.view : "",
+      provider: typeof payload?.provider === "string" ? payload.provider : "",
+      filePath: typeof payload?.filePath === "string" ? payload.filePath : "",
+      threadId: typeof payload?.threadId === "string" ? payload.threadId : "",
+    };
+    console.log(
+      `[desktop-electron] open-window view=${route.view || "none"} provider=${route.provider || "none"} filePath=${route.filePath || "none"} threadId=${route.threadId || "none"}`,
+    );
+    createMainWindow(route);
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+});
 
 app.whenReady().then(() => {
   Promise.resolve()
@@ -166,7 +291,7 @@ app.whenReady().then(() => {
       console.error("[desktop-api] failed to start", error);
     })
     .finally(() => {
-      createMainWindow();
+      createMainWindow(readInitialRoute());
     });
 
   app.on("activate", () => {
