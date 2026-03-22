@@ -6,11 +6,11 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/cli.ts",
-    "build": "tsc -p tsconfig.json",
-    "bundle:desktop": "rm -rf dist-electron && esbuild src/cli.ts --bundle --platform=node --format=cjs --target=node20 --define:import.meta.url='\"file:///provider-surface/api-cli.mjs\"' --outfile=dist-electron/server.cjs",
+    "build": "pnpm --filter @provider-surface/shared-contracts build && tsc -p tsconfig.json",
+    "bundle:desktop": "pnpm --filter @provider-surface/shared-contracts build && rm -rf dist-electron && esbuild src/cli.ts --bundle --platform=node --format=cjs --target=node20 --define:import.meta.url='\"file:///provider-surface/api-cli.mjs\"' --outfile=dist-electron/server.cjs",
     "start": "node dist/cli.js",
     "test": "vitest run",
-    "lint": "tsc -p tsconfig.json --noEmit"
+    "lint": "pnpm --filter @provider-surface/shared-contracts build && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@provider-surface/shared-contracts": "workspace:*",

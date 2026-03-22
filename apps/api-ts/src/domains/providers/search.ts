@@ -307,7 +307,6 @@ export async function searchConversationRows(
 
   const results: ConversationSearchResult[] = [];
   let searchedSessions = 0;
-  let truncated = false;
 
   for (const row of sortedRows) {
     searchedSessions += 1;
@@ -328,27 +327,15 @@ export async function searchConversationRows(
         snippet: buildSearchSnippet(identity.title, normalizedQuery, tokens, 140),
       });
     }
-    const needsMoreResults = results.length < safeLimit;
     const transcript = await transcriptLoader(row.provider, row.file_path).catch(
       () => null,
     );
-    if (!transcript?.messages?.length) {
-      if (results.length >= safeLimit) {
-        truncated = searchedSessions < sortedRows.length;
-        break;
-      }
-      continue;
-    }
+    if (!transcript?.messages?.length) continue;
 
-    let foundOverflowMatch = false;
     for (let i = 0; i < transcript.messages.length; i += 1) {
       const message = transcript.messages[i];
       if (!matchesConversationSearch(message.text, normalizedQuery, tokens)) {
         continue;
-      }
-      if (!needsMoreResults) {
-        foundOverflowMatch = true;
-        break;
       }
       results.push({
         ...baseResult,
@@ -356,26 +343,14 @@ export async function searchConversationRows(
         snippet: buildSearchSnippet(message.text, normalizedQuery, tokens),
         role: message.role,
       });
-      if (results.length >= safeLimit) {
-        truncated =
-          searchedSessions < sortedRows.length ||
-          i < transcript.messages.length - 1;
-        break;
-      }
-    }
-
-    if (results.length >= safeLimit) {
-      truncated =
-        truncated || foundOverflowMatch || searchedSessions < sortedRows.length;
-      break;
     }
   }
 
   return {
     searched_sessions: searchedSessions,
     available_sessions: sortedRows.length,
-    truncated,
-    results,
+    truncated: results.length > safeLimit,
+    results: results.slice(0, safeLimit),
   };
 }
 
