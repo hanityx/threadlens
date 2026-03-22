@@ -4,7 +4,8 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@provider-surface/shared-contracts": ["../../packages/shared-contracts/src/index.ts"]
     }
   },
   "include": ["src", "vite.config.ts"]

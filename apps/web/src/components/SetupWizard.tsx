@@ -223,27 +223,27 @@ export function SetupWizard({
   return (
     <section className="panel setup-wizard-panel">
       <header>
-        <h2>Provider Setup Wizard</h2>
-        <span>Detect local traces, choose the providers to focus on, and save a clean starting state.</span>
+        <h2>프로바이더 설정 도우미</h2>
+        <span>로컬 흔적을 감지하고, 집중할 프로바이더를 고른 뒤, 깔끔한 시작 상태를 저장해.</span>
       </header>
 
       <div className="setup-wizard-shell">
-        <ol className="setup-wizard-steps" aria-label="Provider setup steps">
+        <ol className="setup-wizard-steps" aria-label="프로바이더 설정 단계">
           {[
             {
               step: 1 as WizardStep,
-              title: "Detect local traces",
-              body: "Refresh local roots and cached activity before choosing what to focus on.",
+              title: "로컬 흔적 감지",
+              body: "무엇에 집중할지 고르기 전에 로컬 루트와 캐시 활동을 새로고침해.",
             },
             {
               step: 2 as WizardStep,
-              title: "Choose focus providers",
-              body: "Pick the providers this dashboard should prioritize first.",
+              title: "집중 프로바이더 선택",
+              body: "이 대시보드가 우선으로 다룰 프로바이더를 골라.",
             },
             {
               step: 3 as WizardStep,
-              title: "Review readiness",
-              body: "Check source coverage, session volume, and whether safe cleanup is available.",
+              title: "준비 상태 검토",
+              body: "소스 커버리지, 세션 수, 안전 정리 가능 여부를 확인해.",
             },
           ].map((item) => {
             const state = stepState(currentStepState, item.step, Boolean(completedAt));
@@ -253,9 +253,9 @@ export function SetupWizard({
                 className={`setup-wizard-step setup-wizard-step-${state}`}
               >
                 <div className="setup-wizard-step-top">
-                  <span className="setup-wizard-step-index">Step {item.step}</span>
+                  <span className="setup-wizard-step-index">단계 {item.step}</span>
                   <span className={`status-pill status-${state === "done" ? "active" : state === "current" ? "detected" : "missing"}`}>
-                    {state === "done" ? "Done" : state === "current" ? "In progress" : "Upcoming"}
+                    {state === "done" ? "완료" : state === "current" ? "진행 중" : "예정"}
                   </span>
                 </div>
                 <strong>{item.title}</strong>
@@ -268,68 +268,68 @@ export function SetupWizard({
         {completedAt && !expandedAfterComplete ? (
           <div className="setup-wizard-complete setup-wizard-complete-compact">
             <div className="setup-wizard-complete-copy">
-              <strong>Initial setup is done</strong>
+              <strong>초기 설정이 끝났어</strong>
               <p>
-                You do not need to keep this wizard open anymore. Reopen it only when needed, and otherwise jump straight into operations or search.
+                이 도우미를 계속 열어둘 필요는 없어. 필요할 때만 다시 열고, 평소엔 바로 작업이나 검색으로 가면 돼.
               </p>
             </div>
             <div className="setup-wizard-metric-row">
               <article className="setup-wizard-metric">
-                <span>Focus AI</span>
+                <span>집중 AI</span>
                 <strong>{selectedCards.length || selectedProviderIds.length || providerCards.length}</strong>
               </article>
               <article className="setup-wizard-metric">
-                <span>Detected traces</span>
+                <span>감지된 흔적</span>
                 <strong>{detectedSourceCount}</strong>
               </article>
               <article className="setup-wizard-metric">
-                <span>Last saved</span>
+                <span>마지막 저장</span>
                 <strong>{formatTimestamp(completedAt)}</strong>
               </article>
             </div>
             <div className="setup-wizard-actions">
               <button type="button" className="btn-accent" onClick={() => goToProviders()}>
-                Open providers
+                세션 화면 열기
               </button>
               <button type="button" className="btn-outline" onClick={() => setExpandedAfterComplete(true)}>
-                Reopen wizard
+                도우미 다시 열기
               </button>
             </div>
           </div>
         ) : completedAt ? (
           <div className="setup-wizard-complete">
             <div className="setup-wizard-complete-copy">
-              <strong>Setup saved</strong>
+              <strong>설정을 저장했어</strong>
               <p>
-                Saved the focused view for {selectedCards.length || selectedProviderIds.length || providerCards.length} providers.
+                {selectedCards.length || selectedProviderIds.length || providerCards.length}개 프로바이더 기준의 집중 화면을 저장했어.
               </p>
             </div>
             <div className="setup-wizard-metric-row">
               <article className="setup-wizard-metric">
-                <span>Completed at</span>
+                <span>완료 시각</span>
                 <strong>{formatTimestamp(completedAt)}</strong>
               </article>
               <article className="setup-wizard-metric">
-                <span>Detected traces</span>
+                <span>감지된 흔적</span>
                 <strong>{detectedSourceCount}</strong>
               </article>
               <article className="setup-wizard-metric">
-                <span>Last refresh</span>
-                <strong>{providersLastRefreshAt || "Not refreshed yet"}</strong>
+                <span>마지막 새로고침</span>
+                <strong>{providersLastRefreshAt || "아직 새로고침 안 함"}</strong>
               </article>
             </div>
             <div className="setup-wizard-actions">
               <button type="button" className="btn-accent" onClick={() => goToProviders()}>
-                Open providers
+                세션 화면 열기
               </button>
               <button type="button" className="btn-outline" onClick={onOpenDiagnostics}>
-                Open AI diagnostics
+                AI 진단 열기
               </button>
               <button type="button" className="btn-outline" onClick={() => setExpandedAfterComplete(false)}>
-                Collapse
+                접기
               </button>
               <button type="button" className="btn-outline" onClick={rerunWizard}>
-                Run wizard again
+                도우미 다시 실행
               </button>
             </div>
           </div>
@@ -338,23 +338,23 @@ export function SetupWizard({
             {currentStep === 1 ? (
               <>
                 <div className="setup-wizard-copy">
-                  <strong>Step 1: detect local provider traces</strong>
+                  <strong>1단계: 로컬 프로바이더 흔적 감지</strong>
                   <p>
-                    Refresh local data sources first so the wizard can recommend providers that are actually installed and already producing session logs.
+                    도우미가 실제 설치되어 있고 이미 세션 로그를 만들고 있는 프로바이더를 추천할 수 있게 먼저 로컬 데이터 소스를 새로고침해.
                   </p>
                 </div>
                 <div className="setup-wizard-metric-row">
                   <article className="setup-wizard-metric">
-                    <span>Detected sources</span>
+                    <span>감지된 소스</span>
                     <strong>{detectedSourceCount}</strong>
                   </article>
                   <article className="setup-wizard-metric">
-                    <span>Known providers</span>
+                    <span>알려진 프로바이더</span>
                     <strong>{providerCards.length}</strong>
                   </article>
                   <article className="setup-wizard-metric">
-                    <span>Last refresh</span>
-                    <strong>{providersLastRefreshAt || "Not refreshed yet"}</strong>
+                    <span>마지막 새로고침</span>
+                    <strong>{providersLastRefreshAt || "아직 새로고침 안 함"}</strong>
                   </article>
                 </div>
                 <div className="setup-wizard-actions">
@@ -364,13 +364,13 @@ export function SetupWizard({
                     onClick={onRefresh}
                     disabled={providersRefreshing}
                   >
-                    {providersRefreshing ? "Refreshing..." : "Refresh detection"}
+                    {providersRefreshing ? "새로고침 중..." : "감지 새로고침"}
                   </button>
                   <button type="button" className="btn-outline" onClick={() => setCurrentStep(2)}>
-                    {detectedSourceCount > 0 ? "Continue with detected sources" : "Continue without detection"}
+                    {detectedSourceCount > 0 ? "감지된 소스로 계속" : "감지 없이 계속"}
                   </button>
                   <button type="button" className="btn-outline" onClick={() => goToProviders()}>
-                    Open providers
+                    세션 화면 열기
                   </button>
                 </div>
               </>
@@ -379,22 +379,22 @@ export function SetupWizard({
             {currentStep === 2 ? (
               <>
                 <div className="setup-wizard-copy">
-                  <strong>Step 2: choose focus providers</strong>
+                  <strong>2단계: 집중 프로바이더 선택</strong>
                   <p>
-                    Pick the providers you care about right now. Nothing is deleted here; the wizard only saves which providers should be emphasized first.
+                    지금 중요하게 볼 프로바이더를 골라. 여기서 삭제는 일어나지 않고, 어떤 프로바이더를 먼저 강조할지만 저장해.
                   </p>
                   <p>
-                    Recommended providers are shown as guidance only. Nothing is auto-selected; only your explicit choices are saved.
+                    추천 프로바이더는 참고용으로만 보여줘. 자동 선택은 없고, 네가 직접 고른 것만 저장돼.
                   </p>
                 </div>
                 <div className="info-box">
-                  <strong>Recommended targets</strong>
+                  <strong>추천 대상</strong>
                   <p>
                     {recommendedProviderIds.length > 0
                       ? recommendedProviderIds
                           .map((providerId) => providerCards.find((card) => card.providerId === providerId)?.name ?? providerId)
                           .join(", ")
-                      : "No recommendation is ready yet. Refresh detection in step 1 first."}
+                      : "아직 추천이 준비되지 않았어. 먼저 1단계에서 감지를 새로고침해."}
                   </p>
                 </div>
                 <div className="setup-wizard-choice-grid">
@@ -411,13 +411,13 @@ export function SetupWizard({
                         <div className="setup-wizard-choice-head">
                           <strong>{card.name}</strong>
                           <span className={`status-pill status-${card.status === "missing" ? "missing" : card.status === "active" ? "active" : "detected"}`}>
-                            {card.status === "active" ? "Active" : card.status === "detected" ? "Detected" : "Missing"}
+                            {card.status === "active" ? "활성" : card.status === "detected" ? "감지됨" : "없음"}
                           </span>
                         </div>
                         <div className="setup-wizard-choice-meta">
-                          <span>{card.sourceCount} traces</span>
-                          <span>{card.sessionCount} sessions</span>
-                          <span>{card.rootCount} roots</span>
+                          <span>{card.sourceCount}개 흔적</span>
+                          <span>{card.sessionCount}개 세션</span>
+                          <span>{card.rootCount}개 루트</span>
                         </div>
                       </button>
                     );
@@ -430,7 +430,7 @@ export function SetupWizard({
                     onClick={applyRecommendedSelection}
                     disabled={recommendedProviderIds.length === 0}
                   >
-                    Select recommended AI only
+                    추천 AI만 선택
                   </button>
                   <button
                     type="button"
@@ -438,10 +438,10 @@ export function SetupWizard({
                     onClick={clearSelection}
                     disabled={selectedProviderIds.length === 0}
                   >
-                    Clear selection
+                    선택 비우기
                   </button>
                   <button type="button" className="btn-outline" onClick={() => setCurrentStep(1)}>
-                    Back
+                    뒤로
                   </button>
                   <button
                     type="button"
@@ -449,7 +449,7 @@ export function SetupWizard({
                     onClick={() => setCurrentStep(3)}
                     disabled={selectedProviderIds.length === 0}
                   >
-                    Continue to readiness review
+                    준비 상태 검토로 계속
                   </button>
                 </div>
               </>
@@ -458,9 +458,9 @@ export function SetupWizard({
             {currentStep === 3 ? (
               <>
                 <div className="setup-wizard-copy">
-                  <strong>Step 3: review readiness</strong>
+                  <strong>3단계: 준비 상태 검토</strong>
                   <p>
-                    Before saving this starting state, verify that the selected providers have traces, session history, parser coverage, and safe cleanup support.
+                    이 시작 상태를 저장하기 전에, 선택한 프로바이더에 흔적, 세션 이력, 파서 커버리지, 안전 정리 지원이 있는지 확인해.
                   </p>
                 </div>
                 {selectedCards.length > 0 ? (
@@ -470,20 +470,20 @@ export function SetupWizard({
                         <div className="setup-wizard-choice-head">
                           <h3>{card.name}</h3>
                           <span className={`status-pill status-${card.status === "missing" ? "missing" : card.status === "active" ? "active" : "detected"}`}>
-                            {card.status === "active" ? "Active" : card.status === "detected" ? "Detected" : "Missing"}
+                            {card.status === "active" ? "활성" : card.status === "detected" ? "감지됨" : "없음"}
                           </span>
                         </div>
                         <div className="setup-wizard-summary-list">
-                          <span>Source traces: {card.sourceCount > 0 ? `${card.sourceCount} detected` : "none"}</span>
-                          <span>Sessions: {card.sessionCount}</span>
-                          <span>Parser score: {card.parseScore === null ? "not scanned yet" : `${card.parseScore}%`}</span>
-                          <span>Read access: {card.canRead ? "ready" : "blocked"}</span>
-                          <span>Safe cleanup: {card.canSafeCleanup ? "available" : "unavailable"}</span>
-                          <span>Analysis: {card.canAnalyze ? "available" : "blocked"}</span>
+                          <span>소스 흔적: {card.sourceCount > 0 ? `${card.sourceCount}개 감지` : "없음"}</span>
+                          <span>세션: {card.sessionCount}</span>
+                          <span>파서 점수: {card.parseScore === null ? "아직 스캔 안 함" : `${card.parseScore}%`}</span>
+                          <span>읽기 접근: {card.canRead ? "준비됨" : "차단됨"}</span>
+                          <span>안전 정리: {card.canSafeCleanup ? "가능" : "불가"}</span>
+                          <span>분석: {card.canAnalyze ? "가능" : "차단됨"}</span>
                         </div>
                         <div className="setup-wizard-actions">
                           <button type="button" className="btn-outline" onClick={() => goToProviders(card.providerId)}>
-                            Open {card.name}
+                            {card.name} 열기
                           </button>
                         </div>
                       </article>
@@ -491,16 +491,16 @@ export function SetupWizard({
                   </div>
                 ) : (
                   <article className="setup-wizard-empty">
-                    <strong>No provider is selected yet</strong>
-                    <p>Go back one step and choose at least one provider before finishing the wizard.</p>
+                    <strong>아직 선택된 프로바이더가 없어</strong>
+                    <p>한 단계 뒤로 가서 적어도 하나의 프로바이더를 고른 뒤 마무리해.</p>
                   </article>
                 )}
                 <div className="setup-wizard-actions">
                   <button type="button" className="btn-outline" onClick={() => setCurrentStep(2)}>
-                    Back
+                    뒤로
                   </button>
                   <button type="button" className="btn-outline" onClick={onRefresh} disabled={providersRefreshing}>
-                    {providersRefreshing ? "Refreshing..." : "Refresh before saving"}
+                    {providersRefreshing ? "새로고침 중..." : "저장 전 새로고침"}
                   </button>
                   <button
                     type="button"
@@ -508,7 +508,7 @@ export function SetupWizard({
                     onClick={markComplete}
                     disabled={selectedCards.length === 0}
                   >
-                    Mark setup complete
+                    설정 완료로 표시
                   </button>
                 </div>
               </>

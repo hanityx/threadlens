@@ -87,8 +87,31 @@ const providerFromSourceKey = (sourceKey: string): string | null => {
   return null;
 };
 
+const normalizeDesktopRouteFilePath = (filePath: string): string => {
+  const trimmed = String(filePath || "").trim();
+  if (!trimmed) return "";
+  if (trimmed.includes("/.codex/sessions/")) {
+    return trimmed.replace("/.codex/sessions/", "/.codex-cli/sessions/");
+  }
+  return trimmed;
+};
+
+type DesktopRouteState = {
+  view: LayoutView | "";
+  provider: ProviderView | "";
+  filePath: string;
+  threadId: string;
+};
+
 export function App() {
   const panelChunkWarmupStartedRef = useRef(false);
+  const desktopRouteAppliedRef = useRef(false);
+  const desktopRouteRef = useRef<DesktopRouteState>({
+    view: "",
+    provider: "",
+    filePath: "",
+    threadId: "",
+  });
   const threadSearchInputRef = useRef<HTMLInputElement | null>(null);
   const detailLayoutRef = useRef<HTMLElement | null>(null);
   const [searchThreadContext, setSearchThreadContext] = useState<ConversationSearchHit | null>(null);
@@ -230,7 +253,7 @@ export function App() {
     });
   };
 
-  const messages = getMessages("en");
+  const messages = getMessages("ko");
   const showOverviewChrome = layoutView === "overview";
   const runtimeBackend = runtime.data?.data?.runtime_backend;
   const smokeStatusValue =
@@ -416,6 +439,81 @@ export function App() {
     !showRuntimeBackendDegraded &&
     Boolean(cleanupErrorKey) &&
     acknowledgedForensicsErrorKeys.cleanup !== cleanupErrorKey;
+
+  useEffect(() => {
+    if (desktopRouteAppliedRef.current) return;
+    if (typeof window === "undefined") return;
+
+    desktopRouteAppliedRef.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const view = params.get("view");
+    const provider = params.get("provider");
+    const filePath = params.get("filePath");
+    const threadId = params.get("threadId");
+
+    desktopRouteRef.current = {
+      view:
+        view === "overview" || view === "search" || view === "providers" || view === "threads"
+          ? view
+          : "",
+      provider:
+        provider === "all" ||
+        provider === "codex" ||
+        provider === "claude" ||
+        provider === "gemini" ||
+        provider === "copilot" ||
+        provider === "chatgpt"
+          ? provider
+          : "",
+      filePath: normalizeDesktopRouteFilePath(filePath ?? ""),
+      threadId: threadId ?? "",
+    };
+
+    const hasRouteSignal = Boolean(view || provider || filePath || threadId);
+    if (!hasRouteSignal) return;
+
+    const routedView = desktopRouteRef.current.view;
+    if (routedView) {
+      startTransition(() => {
+        setLayoutView(routedView);
+      });
+    }
+
+    if (desktopRouteRef.current.provider) {
+      startTransition(() => {
+        setProviderView(desktopRouteRef.current.provider);
+      });
+    }
+
+    if (desktopRouteRef.current.filePath) {
+      setSelectedSessionPath(desktopRouteRef.current.filePath);
+      if (desktopRouteRef.current.view !== "threads") {
+        startTransition(() => {
+          setLayoutView("providers");
+        });
+      }
+    }
+
+    if (desktopRouteRef.current.threadId) {
+      setSelectedThreadId(desktopRouteRef.current.threadId);
+      startTransition(() => {
+        setLayoutView("threads");
+      });
+    }
+  }, [setLayoutView, setProviderView, setSelectedSessionPath, setSelectedThreadId]);
+
+  useEffect(() => {
+    const routedProvider = desktopRouteRef.current.provider;
+    if (!routedProvider || routedProvider === "all") return;
+    const nonAllVisibleTabs = visibleProviderTabs.filter((tab) => tab.id !== "all");
+    if (nonAllVisibleTabs.length === 0) return;
+    const routeVisible = nonAllVisibleTabs.some((tab) => tab.id === routedProvider);
+    if (!routeVisible || providerView === routedProvider) return;
+
+    startTransition(() => {
+      setProviderView(routedProvider);
+    });
+  }, [providerView, setProviderView, visibleProviderTabs]);
 
   const handleProvidersIntent = () => {
     prefetchProvidersData();
@@ -671,27 +769,27 @@ export function App() {
             </div>
             <aside className="hero-console">
               <div className="hero-console-head">
-                <span className="overview-note-label">Core loop</span>
-                <strong>Search. Cleanup. Backup.</strong>
-                <p>Find the conversation, verify the cleanup move, then protect the original session.</p>
+                <span className="overview-note-label">핵심 흐름</span>
+                <strong>검색. 정리. 백업.</strong>
+                <p>대화를 찾고, 정리 단계를 검토한 뒤, 원본 세션을 먼저 보호해.</p>
               </div>
               <div className="hero-console-steps">
                 <article className="hero-console-step">
                   <div>
-                    <strong>Search</strong>
-                    <p>{visibleProviderSessionSummary.rows} searchable sessions with direct jumps into the right workspace.</p>
+                    <strong>검색</strong>
+                    <p>{visibleProviderSessionSummary.rows}개 세션을 바로 검색해서 맞는 작업 화면으로 이동할 수 있어.</p>
                   </div>
                 </article>
                 <article className="hero-console-step">
                   <div>
-                    <strong>Cleanup</strong>
-                    <p>{highRiskCount} high-risk threads are waiting for review and dry-run checks.</p>
+                    <strong>정리</strong>
+                    <p>{highRiskCount}개의 고위험 스레드가 드라이런 검토를 기다리고 있어.</p>
                   </div>
                 </article>
                 <article className="hero-console-step">
                   <div>
-                    <strong>Backup vault</strong>
-                    <p>{recovery.data?.summary?.backup_sets ?? 0} backup sets are ready for selective backup or full export.</p>
+                    <strong>백업 보관함</strong>
+                    <p>{recovery.data?.summary?.backup_sets ?? 0}개의 백업 세트를 선택 백업이나 전체 export에 바로 쓸 수 있어.</p>
                   </div>
                 </article>
               </div>
@@ -714,63 +812,84 @@ export function App() {
         <section className="overview-grid">
           <section className="panel overview-spotlight">
             <header>
-              <h2>Resume work fast</h2>
-              <span>Jump straight into the next operation.</span>
+              <h2>워크벤치 런처</h2>
+              <span>지금 필요한 작업 surface로 바로 진입해.</span>
             </header>
-            <div className="overview-status-strip">
-              <span>
-                Runtime{" "}
-                {runtimeLoading
-                  ? "..."
-                  : runtime.data?.data?.runtime_backend.reachable
-                    ? `${messages.kpi.reachable} · ${runtime.data?.data?.runtime_backend.latency_ms ?? "-"} ms`
-                    : messages.kpi.down}
-              </span>
-              <span>
-                Cleanup{" "}
-                {threadsLoading
-                  ? "..."
-                  : `${highRiskCount} high-risk · ${messages.kpi.pinned} ${pinnedCount}/${rows.length}`}
-              </span>
-              <span>
-                Recovery{" "}
-                {recoveryLoading
-                  ? "..."
-                  : `${recovery.data?.summary?.checklist_done ?? 0}/${recovery.data?.summary?.checklist_total ?? 0} ready · ${messages.kpi.backupSets} ${recovery.data?.summary?.backup_sets ?? 0}`}
-              </span>
-            </div>
-            <div className="overview-resume-grid">
-              <button
-                type="button"
-                className="overview-resume-card"
-                onClick={() => changeLayoutView("search")}
-                onMouseEnter={handleSearchIntent}
-                onFocus={handleSearchIntent}
-              >
-                <span className="overview-note-label">Search</span>
-                <strong>Find a phrase across raw sessions</strong>
-                <p>{visibleProviderSessionSummary.rows} searchable sessions ready to jump into detail.</p>
-              </button>
-              <button
-                type="button"
-                className="overview-resume-card"
-                onClick={() => changeLayoutView("threads")}
-              >
-                <span className="overview-note-label">Cleanup</span>
-                <strong>Review high-risk Codex threads</strong>
-                <p>{highRiskCount} high-risk threads waiting for dry-run review.</p>
-              </button>
-              <button
-                type="button"
-                className="overview-resume-card"
-                onClick={() => changeLayoutView("providers")}
-                onMouseEnter={handleProvidersIntent}
-                onFocus={handleProvidersIntent}
-              >
-                <span className="overview-note-label">Backup</span>
-                <strong>Protect source sessions first</strong>
-                <p>{recovery.data?.summary?.backup_sets ?? 0} backup sets are already available.</p>
-              </button>
+            <div className="overview-launcher-layout">
+              <div className="overview-launcher-main">
+                <div className="overview-status-strip">
+                  <span>
+                    런타임{" "}
+                    {runtimeLoading
+                      ? "..."
+                      : runtime.data?.data?.runtime_backend.reachable
+                        ? `${messages.kpi.reachable} · ${runtime.data?.data?.runtime_backend.latency_ms ?? "-"} ms`
+                        : messages.kpi.down}
+                  </span>
+                  <span>
+                    정리{" "}
+                    {threadsLoading
+                      ? "..."
+                      : `${highRiskCount} 고위험 · ${messages.kpi.pinned} ${pinnedCount}/${rows.length}`}
+                  </span>
+                  <span>
+                    복구{" "}
+                    {recoveryLoading
+                      ? "..."
+                      : `${recovery.data?.summary?.checklist_done ?? 0}/${recovery.data?.summary?.checklist_total ?? 0} ready · ${messages.kpi.backupSets} ${recovery.data?.summary?.backup_sets ?? 0}`}
+                  </span>
+                </div>
+                <div className="overview-resume-grid">
+                  <button
+                    type="button"
+                    className="overview-resume-card"
+                    onClick={() => changeLayoutView("search")}
+                    onMouseEnter={handleSearchIntent}
+                    onFocus={handleSearchIntent}
+                  >
+                    <span className="overview-note-label">검색</span>
+                    <strong>원문 세션 전체에서 문구 찾기</strong>
+                    <p>{visibleProviderSessionSummary.rows}개 세션을 바로 찾고 상세로 들어갈 수 있어.</p>
+                  </button>
+                  <button
+                    type="button"
+                    className="overview-resume-card"
+                    onClick={() => changeLayoutView("threads")}
+                  >
+                    <span className="overview-note-label">정리</span>
+                    <strong>고위험 Codex 스레드 검토</strong>
+                    <p>{highRiskCount}개의 고위험 스레드가 드라이런 검토를 기다리고 있어.</p>
+                  </button>
+                  <button
+                    type="button"
+                    className="overview-resume-card"
+                    onClick={() => changeLayoutView("providers")}
+                    onMouseEnter={handleProvidersIntent}
+                    onFocus={handleProvidersIntent}
+                  >
+                    <span className="overview-note-label">백업</span>
+                    <strong>원본 세션부터 보호</strong>
+                    <p>{recovery.data?.summary?.backup_sets ?? 0}개의 백업 세트를 바로 쓸 수 있어.</p>
+                  </button>
+                </div>
+              </div>
+              <aside className="overview-operator-rail" aria-label="operator guide">
+                <div className="overview-operator-card">
+                  <span className="overview-note-label">메인 surface</span>
+                  <strong>TUI가 daily operator surface</strong>
+                  <p>GUI는 먼저 찾고 검토하는 workbench고, 반복 조작은 TUI에서 더 빠르게 처리하는 방향으로 가져가.</p>
+                </div>
+                <div className="overview-operator-card">
+                  <span className="overview-note-label">제품 경계</span>
+                  <strong>CLI는 engine, Electron은 local value</strong>
+                  <p>CLI는 자동화와 JSON entry만 유지하고, Electron은 Finder reveal, preview, multi-window 같은 로컬 기능만 붙여.</p>
+                </div>
+                <div className="overview-operator-card">
+                  <span className="overview-note-label">지금 backlog</span>
+                  <strong>Quartz Mono dark-first 먼저 고정</strong>
+                  <p>라이트모드는 구조 파생으로만 만들고, Search와 Sessions는 카드보다 작업 밀도를 우선해서 다듬어.</p>
+                </div>
+              </aside>
             </div>
           </section>
 
@@ -781,14 +900,14 @@ export function App() {
               setSetupGuideOpen((event.currentTarget as HTMLDetailsElement).open);
             }}
           >
-            <summary>{setupGuideOpen ? "Hide setup helper" : "Optional setup helper"}</summary>
+            <summary>{setupGuideOpen ? "설정 도우미 숨기기" : "선택 설정 도우미"}</summary>
             <div className="overview-secondary-body">
               {setupGuideOpen ? (
                 <Suspense
                   fallback={
                     <div className="info-box compact">
                       <strong>{messages.common.loading}</strong>
-                      <p>Loading quick setup.</p>
+                      <p>설정 도우미 불러오는 중.</p>
                     </div>
                   }
                 >
@@ -813,13 +932,13 @@ export function App() {
                 </Suspense>
               ) : (
                 <div className="info-box compact">
-                  <strong>Skip this if you already know the workspace.</strong>
-                  <p>Use Search, Cleanup, or Sessions directly. Open this only when provider detection or paths need a refresh.</p>
+                  <strong>워크스페이스를 이미 알면 건너뛰어도 돼.</strong>
+                  <p>검색, 정리, 세션으로 바로 가고, 프로바이더 감지나 경로를 다시 확인할 때만 열어.</p>
                 </div>
               )}
             </div>
           </details>
-          <p className="overview-secondary-note">Only open setup when provider paths or detection look wrong.</p>
+          <p className="overview-secondary-note">프로바이더 경로나 감지가 이상할 때만 이 도우미를 열어.</p>
         </section>
       ) : null}
 
@@ -965,7 +1084,7 @@ export function App() {
               if (nextOpen) handleDiagnosticsIntent();
             }}
           >
-            <summary>{providersDiagnosticsOpen ? "Hide advanced diagnostics" : "Open advanced diagnostics"}</summary>
+            <summary>{providersDiagnosticsOpen ? "고급 진단 숨기기" : "고급 진단 열기"}</summary>
             <div className="panel-disclosure-body">
               {showRouting ? (
                 <Suspense
@@ -999,41 +1118,71 @@ export function App() {
       ) : null}
 
       {showThreadsTable ? (
-        <section className="toolbar">
-          <input
-            ref={threadSearchInputRef}
-            placeholder={messages.toolbar.searchThreads}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                (e.currentTarget as HTMLInputElement).blur();
-              }
-            }}
-            className="search-input"
-          />
-          <select
-            className="filter-select"
-            value={filterMode}
-            onChange={(e) => setFilterMode(e.target.value as "all" | "high-risk" | "pinned")}
-          >
-            <option value="all">{messages.toolbar.all}</option>
-            <option value="high-risk">{messages.toolbar.highRisk}</option>
-            <option value="pinned">{messages.toolbar.pinned}</option>
-          </select>
-          <span className="sub-hint">
-            {messages.toolbar.threadsFetchMs} {threadsFetchMs !== null ? `${threadsFetchMs}ms` : "-"}
-          </span>
-          {threadsFastBooting ? (
-            <span className="sub-hint">{messages.toolbar.threadsBootMode}</span>
-          ) : null}
-          <span className="sub-hint">{messages.toolbar.shortcuts}</span>
-          <span className="sub-hint">{messages.toolbar.detailHint}</span>
+        <section className="panel cleanup-command-shell">
+          <header>
+            <h2>Cleanup review queue</h2>
+            <span>선택, 영향 분석, 드라이런 순서로 검토해.</span>
+          </header>
+          <div className="cleanup-command-body">
+            <div className="thread-workflow-copy">
+              <span className="overview-note-label">cleanup workbench</span>
+              <strong>고위험 Codex 스레드를 list + review rail로 다뤄.</strong>
+              <p>먼저 queue를 좁히고, 영향 분석과 드라이런 토큰을 확인한 뒤 실제 정리 여부를 결정하는 흐름으로 가져가.</p>
+            </div>
+            <div className="thread-status-grid">
+              <article className="thread-status-card">
+                <span>queue</span>
+                <strong>{visibleRows.length}/{filteredRows.length}</strong>
+                <p>현재 렌더링된 스레드 / 필터 결과</p>
+              </article>
+              <article className={`thread-status-card ${selectedIds.length > 0 ? "is-accent" : ""}`.trim()}>
+                <span>selected</span>
+                <strong>{selectedIds.length}</strong>
+                <p>현재 review 대상에 올린 스레드 수</p>
+              </article>
+              <article className={`thread-status-card ${cleanupData?.confirm_token_expected ? "is-ready" : ""}`.trim()}>
+                <span>dry-run</span>
+                <strong>{cleanupData?.confirm_token_expected ? "ready" : "pending"}</strong>
+                <p>{selectedImpactRows.length > 0 ? `${selectedImpactRows.length} impact rows ready` : "영향 분석부터 먼저 실행"}</p>
+              </article>
+            </div>
+            <section className="toolbar cleanup-toolbar">
+              <input
+                ref={threadSearchInputRef}
+                placeholder={messages.toolbar.searchThreads}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    (e.currentTarget as HTMLInputElement).blur();
+                  }
+                }}
+                className="search-input"
+              />
+              <select
+                className="filter-select"
+                value={filterMode}
+                onChange={(e) => setFilterMode(e.target.value as "all" | "high-risk" | "pinned")}
+              >
+                <option value="all">{messages.toolbar.all}</option>
+                <option value="high-risk">{messages.toolbar.highRisk}</option>
+                <option value="pinned">{messages.toolbar.pinned}</option>
+              </select>
+              <span className="sub-hint">
+                {messages.toolbar.threadsFetchMs} {threadsFetchMs !== null ? `${threadsFetchMs}ms` : "-"}
+              </span>
+              {threadsFastBooting ? (
+                <span className="sub-hint">{messages.toolbar.threadsBootMode}</span>
+              ) : null}
+              <span className="sub-hint">{messages.toolbar.shortcuts}</span>
+              <span className="sub-hint">{messages.toolbar.detailHint}</span>
+            </section>
+          </div>
         </section>
       ) : null}
 
       {showThreadsTable ? (
-        <>
+        <section className={`${showForensics ? "ops-layout" : "ops-layout single"}`.trim()}>
           <ThreadsTable
             messages={messages}
             visibleRows={visibleRows}
@@ -1092,7 +1241,7 @@ export function App() {
               />
             </Suspense>
           ) : null}
-        </>
+        </section>
       ) : null}
 
       {showDetails ? (

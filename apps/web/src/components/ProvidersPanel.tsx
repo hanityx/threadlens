@@ -358,30 +358,30 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     return messages.providers.flowStatusPending;
   };
   const capabilityLevelLabel = (level: string) => {
-    if (level === "full") return "Full capability";
-    if (level === "read-only") return "Read-only";
-    if (level === "unavailable") return "Unavailable";
+    if (level === "full") return "전체 기능";
+    if (level === "read-only") return "읽기 전용";
+    if (level === "unavailable") return "사용 불가";
     return level;
   };
   const dataSourceLabel = (sourceKey: string) => {
     const key = sourceKey.toLowerCase();
-    if (key === "history") return "History";
-    if (key === "global_state") return "Global state";
-    if (key === "sessions") return "Sessions";
-    if (key === "archived_sessions") return "Archived sessions";
-    if (key === "codex_root") return "Codex root";
-    if (key === "chat_root") return "Chat root";
-    if (key === "claude_root") return "Claude root";
-    if (key === "claude_projects") return "Claude projects";
-    if (key === "claude_transcripts") return "Claude transcripts";
-    if (key === "gemini_root") return "Gemini root";
-    if (key === "gemini_tmp") return "Gemini temp store";
-    if (key === "gemini_history") return "Gemini history";
-    if (key === "gemini_antigravity") return "Gemini conversation store";
+    if (key === "history") return "히스토리";
+    if (key === "global_state") return "글로벌 상태";
+    if (key === "sessions") return "세션";
+    if (key === "archived_sessions") return "보관 세션";
+    if (key === "codex_root") return "Codex 루트";
+    if (key === "chat_root") return "Chat 루트";
+    if (key === "claude_root") return "Claude 루트";
+    if (key === "claude_projects") return "Claude 프로젝트";
+    if (key === "claude_transcripts") return "Claude 전사";
+    if (key === "gemini_root") return "Gemini 루트";
+    if (key === "gemini_tmp") return "Gemini 임시 저장소";
+    if (key === "gemini_history") return "Gemini 히스토리";
+    if (key === "gemini_antigravity") return "Gemini 대화 저장소";
     if (key === "copilot_vscode") return "Copilot VS Code";
     if (key === "copilot_cursor") return "Copilot Cursor";
-    if (key === "copilot_vscode_workspace") return "Copilot VS Code workspace";
-    if (key === "copilot_cursor_workspace") return "Copilot Cursor workspace";
+    if (key === "copilot_vscode_workspace") return "Copilot VS Code 워크스페이스";
+    if (key === "copilot_cursor_workspace") return "Copilot Cursor 워크스페이스";
     return sourceKey
       .replace(/_/g, " ")
       .replace(/\b[a-z]/g, (ch) => ch.toUpperCase());
@@ -413,13 +413,13 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const latestBackupCount =
     backupActionResult?.backed_up_count ?? (backupActionResult?.backup_to ? 1 : 0);
   const latestBackupPath =
-    backupActionResult?.backup_to ?? "No selective backup has been created in this session yet.";
+    backupActionResult?.backup_to ?? "이번 세션에서는 아직 선택 백업이 만들어지지 않았어.";
   const latestExportCount = recoveryBackupExportData?.exported_count ?? 0;
   const backupFlowHint =
     selectedProviderFilePaths.length > 0
-      ? `Back up the ${selectedProviderFilePaths.length} selected sessions first, then continue into archive or delete dry-runs below.`
-      : "Select source sessions first, then start with a backup.";
-  const deleteBackupModeLabel = providerDeleteBackupEnabled ? "On" : "Off";
+      ? `선택한 ${selectedProviderFilePaths.length}개 세션을 먼저 백업한 뒤, 아래에서 보관 또는 삭제 드라이런으로 이어가.`
+      : "먼저 원본 세션을 선택하고 백업부터 시작해.";
+  const deleteBackupModeLabel = providerDeleteBackupEnabled ? "켜짐" : "꺼짐";
   const canRunProviderBackup = providerView !== "all" && selectedProviderFilePaths.length > 0;
   const canApplySlowOnly = providerView === "all";
   const effectiveSlowOnly = canApplySlowOnly && slowOnly;
@@ -1100,6 +1100,12 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
               ) : null}
             </div>
 
+            <div className="provider-workspace-copy">
+              <span className="overview-note-label">source sessions workbench</span>
+              <strong>원본 세션 데이터 그리드와 detail rail을 같은 화면에서 이어서 다뤄.</strong>
+              <p>프로바이더를 고르고, 세션 파일을 필터링하고, 단건 detail과 백업/보관/삭제 드라이런을 오른쪽 rail에서 바로 검토해.</p>
+            </div>
+
             <div className="provider-workspace-summary">
               <article className="provider-summary-cell">
                 <span>{messages.providers.hubMetricSessions}</span>
@@ -1163,7 +1169,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
             ) : null}
             {backupActionResult ? (
               <div className="provider-inline-result">
-                <strong>Latest backup run</strong>
+                <strong>최근 백업 실행</strong>
                 <span>
                   {messages.providers.valid} {backupActionResult.valid_count} · {messages.providers.applied} {backupActionResult.applied_count}
                   {typeof backupActionResult.backed_up_count === "number"
@@ -1193,6 +1199,13 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
               {providerRowsSampled ? ` · ${messages.providers.sampledHint}` : ""}
             </span>
           </header>
+          <div className="provider-grid-intro">
+            <div className="provider-grid-intro-copy">
+              <span className="overview-note-label">data grid</span>
+              <strong>{providerLabel} 원본 세션 큐를 필터링하고 바로 rail로 넘겨.</strong>
+              <p>좌측은 세션 파일 그리드, 우측은 선택한 세션의 transcript와 파일 액션 rail이다.</p>
+            </div>
+          </div>
           {showProviderSessionsZeroState ? (
             <div className="info-box compact">
               <span className="sub-hint">
@@ -1300,7 +1313,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
               </button>
             ) : null}
             <details className="inline-tools-disclosure">
-              <summary>Advanced filters / export</summary>
+              <summary>고급 필터 / export</summary>
               <div className="sub-toolbar inline-tools-disclosure-body">
                 <select
                   className="filter-select"
@@ -1750,10 +1763,10 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
         <span className="sub-hint">
           {providersLastRefreshAt
             ? `${messages.providers.lastRefresh} ${formatDateTime(providersLastRefreshAt)}`
-            : "No refresh history yet."}
+            : "아직 새로고침 이력이 없어."}
         </span>
         <details className="inline-tools-disclosure">
-          <summary>Scan settings / slow diagnostics</summary>
+          <summary>스캔 설정 / 느린 진단</summary>
           <div className="sub-toolbar inline-tools-disclosure-body">
             <label className="provider-quick-switch">
               <span>{messages.providers.depthLabel}</span>
@@ -2144,8 +2157,8 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
         </>
       ) : (
         <div className="info-box compact">
-          <strong>Deep diagnostics stay optional.</strong>
-          <p>Open this only for parser failures, slow scans, or path-level debugging.</p>
+          <strong>고급 진단은 선택 사항이야.</strong>
+          <p>파서 실패, 느린 스캔, 경로 단위 디버깅이 필요할 때만 열어.</p>
         </div>
       )}
         </div>

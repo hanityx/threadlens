@@ -92,6 +92,44 @@ const COPY: Record<Locale, CopyText> = {
     actionCommand: "Command preview",
     actionDisabled: "Execution disabled",
   },
+  ko: {
+    title: "Mac 동기화 렌즈",
+    subtitle: "MacBook 과 Mac mini 사이 스레드/상태 드리프트 맵",
+    readOnly: "읽기 전용 모드: 실제 머신 수정 없이 미리보기만 제공해.",
+    statusAligned: "정렬됨",
+    statusDrifted: "드리프트",
+    statusPartial: "부분적",
+    score: "점수",
+    generatedAt: "확인 시각",
+    refreshing: "새로고침 중...",
+    refreshNow: "새로고침",
+    hostPrimary: "주 장비 (현재)",
+    hostSecondary: "보조 장비 (원격)",
+    hostReachable: "연결됨",
+    hostUnreachable: "끊김",
+    sessions: "세션 파일",
+    threadOrder: "스레드 순서",
+    dbThreads: "DB 스레드",
+    dbArchived: "DB 보관본",
+    latestRollout: "최근 rollout",
+    activeRoots: "활성 루트",
+    diffTitle: "드리프트 시각화",
+    diffThreadOrder: "스레드 순서 차이",
+    diffRollouts: "Rollout 파일 차이",
+    diffDbThreads: "DB 스레드 차이",
+    diffArchived: "보관 차이",
+    hashConfig: "설정 해시",
+    hashState: "글로벌 상태 해시",
+    equal: "같음",
+    different: "다름",
+    issuesTitle: "감지된 이슈",
+    noIssues: "현재 스냅샷에서는 드리프트 이슈를 찾지 못했어.",
+    actionsTitle: "원클릭 동기화 (미리보기)",
+    actionDirection: "방향",
+    actionRisk: "위험",
+    actionCommand: "명령 미리보기",
+    actionDisabled: "실행 비활성화",
+  },
 };
 
 function statusLabel(status: string, copy: CopyText): string {
@@ -275,7 +313,7 @@ export function SyncLensPanel({ locale }: Props) {
         </div>
 
         {query.isLoading ? <div className="skeleton-line" /> : null}
-        {query.isError ? <div className="error-box">sync-lens query failed</div> : null}
+        {query.isError ? <div className="error-box">sync-lens 조회에 실패했어</div> : null}
 
         {data ? (
           <>
@@ -318,11 +356,11 @@ export function SyncLensPanel({ locale }: Props) {
                   <strong>{data.diff.global_state_hash_equal ? copy.equal : copy.different}</strong>
                 </div>
                 <div>
-                  <span>primary hash</span>
+                  <span>기본 해시</span>
                   <strong className="mono-sub">{hashShort(data.primary.global_state_sha256)}</strong>
                 </div>
                 <div>
-                  <span>secondary hash</span>
+                  <span>보조 해시</span>
                   <strong className="mono-sub">{hashShort(data.secondary.global_state_sha256)}</strong>
                 </div>
               </div>

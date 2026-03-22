@@ -104,7 +104,7 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
           <strong>{messages.forensics.explanationTitle}</strong>
           <p>{messages.forensics.explanationImpact}</p>
           <p>{messages.forensics.explanationDryRun}</p>
-          <p>Use Sessions for raw file actions. This panel is only for Codex cleanup review.</p>
+          <p>원본 파일 액션은 세션 화면에서 처리하고, 이 패널은 Codex 정리 검토용으로만 써.</p>
         </div>
 
         <div className="thread-review-stage-list">

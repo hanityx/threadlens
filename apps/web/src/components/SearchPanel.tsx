@@ -12,6 +12,19 @@ type SearchPanelProps = {
   onOpenThread: (hit: ConversationSearchHit) => void;
 };
 
+function searchHitDedupKey(hit: ConversationSearchHit): string {
+  const transcriptKey = hit.session_id || hit.file_path;
+  const snippetKey = (hit.snippet || "").trim().toLowerCase();
+  const titleKey = (hit.display_title || hit.title || "").trim().toLowerCase();
+  return [
+    hit.provider,
+    transcriptKey,
+    hit.match_kind,
+    titleKey,
+    snippetKey,
+  ].join("::");
+}
+
 export function SearchPanel({
   messages,
   providerOptions,
@@ -39,7 +52,7 @@ export function SearchPanel({
       return apiGet<ConversationSearchEnvelope>(
         `/api/conversation-search?q=${encodeURIComponent(
           deferredQuery,
-        )}&limit=40${providerQuery}`,
+        )}&limit=120${providerQuery}`,
         { signal },
       );
     },
@@ -54,20 +67,15 @@ export function SearchPanel({
     {};
   const rawResults = searchData.results ?? [];
   const results = useMemo(() => {
+    const deduped: ConversationSearchHit[] = [];
     const seen = new Set<string>();
-    return rawResults.filter((hit) => {
-      const key = [
-        hit.provider,
-        hit.session_id,
-        hit.match_kind,
-        hit.role ?? "",
-        normalizeDisplayValue(hit.display_title) || normalizeDisplayValue(hit.title) || "",
-        normalizeDisplayValue(hit.snippet),
-      ].join("::");
-      if (seen.has(key)) return false;
+    for (const hit of rawResults) {
+      const key = searchHitDedupKey(hit);
+      if (seen.has(key)) continue;
       seen.add(key);
-      return true;
-    });
+      deduped.push(hit);
+    }
+    return deduped;
   }, [rawResults]);
   const collapsedDuplicateCount = rawResults.length - results.length;
   const resultCount = results.length;
@@ -98,19 +106,83 @@ export function SearchPanel({
         : [provider];
 
     const orderedGroups = orderedProviders
-      .map((providerId) => ({
-        id: providerId,
-        name: providerLabelById.get(providerId) ?? providerId,
-        results: groups.get(providerId) ?? [],
-      }))
-      .filter((group) => group.results.length > 0);
+      .map((providerId) => {
+        const providerResults = groups.get(providerId) ?? [];
+        const sessionMap = new Map<
+          string,
+          {
+            key: string;
+            openHit: ConversationSearchHit;
+            title: string;
+            source: string;
+            matches: ConversationSearchHit[];
+          }
+        >();
+
+        for (const hit of providerResults) {
+          const sessionKey = hit.session_id || hit.file_path;
+          const existing = sessionMap.get(sessionKey);
+          if (existing) {
+            existing.matches.push(hit);
+            continue;
+          }
+
+          sessionMap.set(sessionKey, {
+            key: sessionKey,
+            openHit: hit,
+            title:
+              normalizeDisplayValue(hit.display_title) ||
+              normalizeDisplayValue(hit.title) ||
+              hit.session_id,
+            source: normalizeDisplayValue(hit.source) || hit.file_path,
+            matches: [hit],
+          });
+        }
+
+        return {
+          id: providerId,
+          name: providerLabelById.get(providerId) ?? providerId,
+          matchCount: providerResults.length,
+          sessions: Array.from(sessionMap.values()),
+        };
+      })
+      .filter((group) => group.sessions.length > 0);
 
     for (const [providerId, providerResults] of groups.entries()) {
       if (orderedProviders.includes(providerId)) continue;
+      const sessionMap = new Map<
+        string,
+        {
+          key: string;
+          openHit: ConversationSearchHit;
+          title: string;
+          source: string;
+          matches: ConversationSearchHit[];
+        }
+      >();
+      for (const hit of providerResults) {
+        const sessionKey = hit.session_id || hit.file_path;
+        const existing = sessionMap.get(sessionKey);
+        if (existing) {
+          existing.matches.push(hit);
+          continue;
+        }
+        sessionMap.set(sessionKey, {
+          key: sessionKey,
+          openHit: hit,
+          title:
+            normalizeDisplayValue(hit.display_title) ||
+            normalizeDisplayValue(hit.title) ||
+            hit.session_id,
+          source: normalizeDisplayValue(hit.source) || hit.file_path,
+          matches: [hit],
+        });
+      }
       orderedGroups.push({
         id: providerId,
         name: providerLabelById.get(providerId) ?? providerId,
-        results: providerResults,
+        matchCount: providerResults.length,
+        sessions: Array.from(sessionMap.values()),
       });
     }
 
@@ -127,7 +199,10 @@ export function SearchPanel({
       </header>
       <div className="search-command-shell">
         <div className="search-command-head compact">
-          <strong>{messages.search.heroTitle}</strong>
+          <div className="search-command-title">
+            <span className="search-scope-label">search workbench</span>
+            <strong>{messages.search.heroTitle}</strong>
+          </div>
           <span>{messages.search.heroBody}</span>
         </div>
         <input
@@ -163,7 +238,7 @@ export function SearchPanel({
             </div>
           </div>
           <div className="search-command-meta-group">
-            <div className="search-scope-label">Try quick searches</div>
+            <div className="search-scope-label">빠른 검색 예시</div>
             <div className="search-example-chips">
               {sampleQueries.map((sample) => (
                 <button
@@ -183,7 +258,7 @@ export function SearchPanel({
       {!searchEnabled ? (
         <div className="search-idle-strip">
           <span>{messages.search.emptyIdle}</span>
-          <span className="sub-hint">{messages.search.helper}</span>
+          <span className="sub-hint">먼저 원문 세션을 좁히고, 그다음 원본 세션 또는 Codex 정리 화면으로 넘겨.</span>
         </div>
       ) : null}
 
@@ -250,69 +325,61 @@ export function SearchPanel({
             <section key={`search-group-${group.id}`} className="search-group-section">
               <div className="search-group-header">
                 <strong>{group.name}</strong>
-                <span className="status-pill status-active">{group.results.length}</span>
+                <div className="search-group-header-meta">
+                  <span className="mono-sub">{group.sessions.length} sessions</span>
+                  <span className="status-pill status-active">{group.matchCount}</span>
+                </div>
               </div>
               <div className="search-group-list">
-                {group.results.map((hit, index) => {
-                  const resultKey = `${hit.provider}:${hit.session_id}:${hit.match_kind}:${hit.role ?? "na"}:${index}`;
-                  const providerName = providerLabelById.get(hit.provider) ?? hit.provider;
-                  const resultTitle =
-                    normalizeDisplayValue(hit.display_title) ||
-                    normalizeDisplayValue(hit.title) ||
-                    hit.session_id;
-                  const resultSource = normalizeDisplayValue(hit.source) || hit.file_path;
+                {group.sessions.map((session) => {
+                  const providerName = providerLabelById.get(session.openHit.provider) ?? session.openHit.provider;
                   return (
                     <article
-                      key={resultKey}
+                      key={`${group.id}:${session.key}`}
                       className="search-result-card"
                       tabIndex={0}
                       role="button"
-                      onClick={() => onOpenSession(hit)}
+                      onClick={() => onOpenSession(session.openHit)}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
-                          onOpenSession(hit);
+                          onOpenSession(session.openHit);
                         }
                       }}
                     >
                       <div className="search-result-main">
                         <div className="search-result-title-stack">
-                          <strong className="search-result-title-link">{resultTitle}</strong>
-                          <div className="mono-sub">{hit.session_id}</div>
+                          <strong className="search-result-title-link">{session.title}</strong>
+                          <div className="mono-sub">{session.openHit.session_id}</div>
                         </div>
                         <div className="search-result-top">
                           <span className="status-pill status-active">
                             {providerName}
                           </span>
-                          <span className="search-result-kind">
-                            {hit.match_kind === "title"
-                              ? messages.search.matchTitle
-                              : messages.search.matchMessage}
-                          </span>
+                          <span className="search-result-kind">{session.matches.length}</span>
                         </div>
                       </div>
                       <div className="search-result-meta">
-                        <span>{resultSource}</span>
-                        <span>{formatDateTime(hit.mtime)}</span>
-                        {hit.role ? <span>{hit.role}</span> : null}
+                        <span>{session.source}</span>
+                        <span>{formatDateTime(session.openHit.mtime)}</span>
                         <div className="search-result-actions">
                           <button
                             type="button"
                             className="btn-link-inline"
                             onClick={(event) => {
                               event.stopPropagation();
-                              onOpenSession(hit);
+                              onOpenSession(session.openHit);
                             }}
                           >
                             {messages.search.openSession}
                           </button>
-                          {hit.thread_id ? (
+                          {session.openHit.thread_id ? (
                             <button
                               type="button"
                               className="btn-link-inline"
                               onClick={(event) => {
                                 event.stopPropagation();
-                                onOpenThread(hit);
+                                onOpenThread(session.openHit);
                               }}
                             >
                               {messages.search.openThread}
@@ -320,7 +387,21 @@ export function SearchPanel({
                           ) : null}
                         </div>
                       </div>
-                      <p className="search-result-snippet search-result-snippet-compact">{hit.snippet}</p>
+                      <div className="search-match-list">
+                        {session.matches.map((match, index) => (
+                          <div
+                            key={`${session.key}:${match.match_kind}:${match.role ?? "na"}:${index}`}
+                            className="search-match-item"
+                          >
+                            <span className="search-match-role">
+                              {match.match_kind === "title"
+                                ? messages.search.matchTitle
+                                : match.role || messages.search.matchMessage}
+                            </span>
+                            <p className="search-result-snippet search-result-snippet-compact">{match.snippet}</p>
+                          </div>
+                        ))}
+                      </div>
                     </article>
                   );
                 })}

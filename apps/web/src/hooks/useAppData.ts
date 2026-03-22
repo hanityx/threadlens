@@ -1,7 +1,7 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ApiEnvelope, BulkThreadActionResult } from "@provider-surface/shared-contracts";
-import { apiGet, apiPost } from "../api";
+import { apiGet, apiPost, apiPostJsonAllowError } from "../api";
 import { extractEnvelopeData, normalizeThreadRow, parseNum } from "../lib/helpers";
 import type {
   RuntimeEnvelope,
@@ -156,7 +156,7 @@ function formatMutationErrorMessage(raw: string): string {
     normalized.includes("networkerror") ||
     normalized.includes(RUNTIME_BACKEND_DOWN_CACHED)
   ) {
-    return "Request failed because runtime connectivity is unstable. Check `pnpm --filter @provider-surface/api dev`, then retry.";
+    return "런타임 연결이 불안정해서 요청에 실패했어. `pnpm --filter @provider-surface/api dev` 상태를 확인한 뒤 다시 시도해.";
   }
 
   if (
@@ -164,11 +164,11 @@ function formatMutationErrorMessage(raw: string): string {
     normalized.includes("no thread ids provided") ||
     normalized.includes("at least 1")
   ) {
-    return "No valid thread IDs were selected. Select one or more threads and retry.";
+    return "유효한 thread ID가 선택되지 않았어. 하나 이상 선택하고 다시 시도해.";
   }
 
   if (normalized.includes("confirm_token")) {
-    return "Confirmation token is invalid. Run dry-run again and retry with the latest token.";
+    return "확인 토큰이 유효하지 않아. 드라이런을 다시 실행한 뒤 최신 토큰으로 다시 시도해.";
   }
 
   return normalized || trimmed;
@@ -680,18 +680,50 @@ export function useAppData(options?: { providersDiagnosticsOpen?: boolean }) {
   });
 
   const providerSessionAction = useMutation({
-    mutationFn: (input: {
+    mutationFn: async (input: {
       provider: string;
       action: "backup_local" | "archive_local" | "delete_local";
       file_paths: string[];
       dry_run: boolean;
       confirm_token?: string;
       backup_before_delete?: boolean;
-    }) =>
-      apiPost<unknown>("/api/provider-session-action", {
+    }) => {
+      const requestBody = {
         ...input,
         confirm_token: input.confirm_token ?? "",
-      }),
+      };
+      const first = await apiPostJsonAllowError<ProviderSessionActionResult>(
+        "/api/provider-session-action",
+        requestBody,
+      );
+      if (first.ok) {
+        return first.data;
+      }
+
+      const firstData = first.data;
+      const expectedToken = String(firstData?.confirm_token_expected ?? "").trim();
+      const shouldReplayConfirmedAction =
+        input.action !== "backup_local" &&
+        !input.dry_run &&
+        !String(input.confirm_token ?? "").trim() &&
+        Boolean(expectedToken);
+
+      if (!shouldReplayConfirmedAction) {
+        throw new Error(String(firstData?.error || `provider-session-action status ${first.status}`));
+      }
+
+      const second = await apiPostJsonAllowError<ProviderSessionActionResult>(
+        "/api/provider-session-action",
+        {
+          ...requestBody,
+          confirm_token: expectedToken,
+        },
+      );
+      if (!second.ok) {
+        throw new Error(String(second.data?.error || `provider-session-action status ${second.status}`));
+      }
+      return second.data;
+    },
     onSuccess: (data, variables) => {
       setProviderActionRaw(data);
       const actionData = extractEnvelopeData<ProviderSessionActionResult>(data);
@@ -711,6 +743,7 @@ export function useAppData(options?: { providersDiagnosticsOpen?: boolean }) {
           return next;
         });
       }
+
       queryClient.invalidateQueries({ queryKey: ["provider-sessions"] });
       queryClient.invalidateQueries({ queryKey: ["provider-parser-health"] });
       queryClient.invalidateQueries({ queryKey: ["provider-matrix"] });
@@ -1053,7 +1086,7 @@ export function useAppData(options?: { providersDiagnosticsOpen?: boolean }) {
     return [
       {
         id: "all" as ProviderView,
-        name: "All AI",
+        name: "전체 AI",
         status: "active" as const,
         scanned: allProviderSessionRows.length,
         scan_ms: null,
@@ -1073,11 +1106,12 @@ export function useAppData(options?: { providersDiagnosticsOpen?: boolean }) {
 
   useEffect(() => {
     if (providerView === "all") return;
+    if (providerTabs.length <= 1) return;
     const exists = providerTabs.some((tab) => tab.id === providerView);
     if (!exists) setProviderView("all");
   }, [providerView, providerTabs]);
   const selectedProviderLabel =
-    providerView === "all" ? "All AI" : providerById.get(providerView)?.name ?? providerView;
+    providerView === "all" ? "전체 AI" : providerById.get(providerView)?.name ?? providerView;
   const selectedProviderFilePaths = useMemo(
     () =>
       providerSessionRows
@@ -1364,12 +1398,11 @@ export function useAppData(options?: { providersDiagnosticsOpen?: boolean }) {
       options,
     );
     const scopedToken = providerActionTokens[key] ?? "";
-    const shouldPreview = action === "backup_local" ? dryRun : !dryRun && !scopedToken;
     providerSessionAction.mutate({
       provider: providerView,
       action,
       file_paths: selectedProviderFilePaths,
-      dry_run: shouldPreview ? true : dryRun,
+      dry_run: dryRun,
       confirm_token: dryRun ? "" : scopedToken,
       backup_before_delete: options?.backup_before_delete,
     });
@@ -1387,12 +1420,11 @@ export function useAppData(options?: { providersDiagnosticsOpen?: boolean }) {
     }
     const key = providerActionSelectionKey(provider, action, [filePath], options);
     const scopedToken = providerActionTokens[key] ?? "";
-    const shouldPreview = action === "backup_local" ? dryRun : !dryRun && !scopedToken;
     providerSessionAction.mutate({
       provider,
       action,
       file_paths: [filePath],
-      dry_run: shouldPreview ? true : dryRun,
+      dry_run: dryRun,
       confirm_token: dryRun ? "" : scopedToken,
       backup_before_delete: options?.backup_before_delete,
     });

@@ -313,7 +313,7 @@ export type FilterMode = "all" | "high-risk" | "pinned";
 export type ProviderView = "all" | (string & {});
 export type ProviderDataDepth = "fast" | "balanced" | "deep";
 export type LayoutView = "overview" | "search" | "threads" | "providers";
-export type Locale = "en";
+export type Locale = "en" | "ko";
 export type UiDensity = "comfortable" | "compact";
 
 export type ExecutionGraphEnvelope = ApiEnvelope<ExecutionGraphData>;

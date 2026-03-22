@@ -1,7 +1,7 @@
 {
   "name": "@provider-surface/web",
   "version": "0.1.0",
-  "description": "React dashboard for Provider Observatory",
+  "description": "React workbench UI for Provider Observatory",
   "license": "MIT",
   "private": true,
   "type": "module",

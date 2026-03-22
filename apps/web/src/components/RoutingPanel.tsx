@@ -36,23 +36,23 @@ function providerFromSourceKey(sourceKey: string): string | null {
 }
 
 function sessionSourceLabel(source: string): string {
-  if (source === "sessions") return "Codex session logs";
-  if (source === "projects") return "Claude project logs";
-  if (source === "transcripts") return "Claude transcript store";
-  if (source === "tmp") return "Gemini tmp sessions";
-  if (source === "antigravity_conversations") return "Gemini conversation store";
-  if (source === "conversations") return "ChatGPT conversation cache";
-  if (source === "project-conversations") return "ChatGPT project conversation";
-  if (source === "vscode_global") return "VS Code global traces";
-  if (source === "cursor_workspace_chats") return "Cursor workspace chats";
-  if (source === "vscode_workspace_chats") return "VS Code workspace chats";
+  if (source === "sessions") return "Codex 세션 로그";
+  if (source === "projects") return "Claude 프로젝트 로그";
+  if (source === "transcripts") return "Claude transcript 저장소";
+  if (source === "tmp") return "Gemini tmp 세션";
+  if (source === "antigravity_conversations") return "Gemini 대화 저장소";
+  if (source === "conversations") return "ChatGPT 대화 캐시";
+  if (source === "project-conversations") return "ChatGPT 프로젝트 대화";
+  if (source === "vscode_global") return "VS Code 전역 흔적";
+  if (source === "cursor_workspace_chats") return "Cursor 워크스페이스 채팅";
+  if (source === "vscode_workspace_chats") return "VS Code 워크스페이스 채팅";
   return source;
 }
 
 function formatLabel(format: "jsonl" | "json" | "unknown"): string {
   if (format === "jsonl") return "JSONL";
   if (format === "json") return "JSON";
-  return "unknown";
+  return "알 수 없음";
 }
 
 function providerManagementProfile(provider: string): Array<{
@@ -63,119 +63,119 @@ function providerManagementProfile(provider: string): Array<{
   if (provider === "codex") {
     return [
       {
-        label: "Session model",
-        value: "thread_id + session logs + global state",
-        hint: "Codex combines raw session files with pinned state and recent workspace metadata.",
+        label: "세션 모델",
+        value: "thread_id + 세션 로그 + global state",
+        hint: "Codex는 원본 세션 파일, pinned 상태, 최근 워크스페이스 메타데이터를 함께 다뤄.",
       },
       {
-        label: "Resume / identity",
+        label: "재개 / 식별",
         value: "thread_id · pinned · global state",
-        hint: "Thread IDs connect to pinned and global state, so Codex gets a dedicated cleanup surface.",
+        hint: "thread ID가 pinned와 global state에 연결되기 때문에 Codex는 전용 정리 화면을 가져.",
       },
       {
-        label: "Cleanup scope",
-        value: "impact analysis + cleanup dry-run + state reference cleanup",
-        hint: "The cleanup model is wider than raw file actions, so review and impact analysis live alongside it.",
+        label: "정리 범위",
+        value: "영향 분석 + 정리 드라이런 + state 참조 정리",
+        hint: "정리 모델이 단순 파일 액션보다 넓어서 검토와 영향 분석이 같이 붙어 있어.",
       },
       {
-        label: "Primary surface",
-        value: "cleanup + transcripts",
-        hint: "Codex is cleanup-first, while original-session inspection is secondary.",
+        label: "주요 화면",
+        value: "정리 + 전사",
+        hint: "Codex는 정리 흐름이 우선이고, 원본 세션 확인은 그다음이야.",
       },
     ];
   }
   if (provider === "claude") {
     return [
       {
-        label: "Session model",
-        value: "session_id + raw project/transcript sessions",
-        hint: "Claude is managed around raw project logs and transcript files.",
+        label: "세션 모델",
+        value: "session_id + 원본 project/transcript 세션",
+        hint: "Claude는 원본 프로젝트 로그와 transcript 파일을 중심으로 관리돼.",
       },
       {
-        label: "Resume / identity",
-        value: "session ID / transcript files",
-        hint: "Resumable session IDs and transcript files matter more here than a cleanup-thread model.",
+        label: "재개 / 식별",
+        value: "세션 ID / transcript 파일",
+        hint: "여기선 정리용 thread 모델보다 재개 가능한 세션 ID와 transcript 파일이 더 중요해.",
       },
       {
-        label: "Cleanup scope",
-        value: "raw session-file dry-run / archive / delete",
-        hint: "Unlike Codex, cleanup here is centered on raw session files rather than pinned/global state.",
+        label: "정리 범위",
+        value: "원본 세션 파일 드라이런 / 보관 / 삭제",
+        hint: "Codex와 달리 pinned/global state보다 원본 세션 파일 정리가 중심이야.",
       },
       {
-        label: "Primary surface",
-        value: "Original Sessions",
-        hint: "This flow is best for transcript reading, session-file state, and parser/transcript coverage.",
+        label: "주요 화면",
+        value: "원본 세션",
+        hint: "전사 읽기, 세션 파일 상태, 파서/전사 커버리지 확인에 가장 맞는 흐름이야.",
       },
     ];
   }
   if (provider === "gemini") {
     return [
       {
-        label: "Session model",
-        value: "history / tmp / checkpoint session stores",
-        hint: "Gemini builds its original-session inventory by combining history, tmp, and conversation stores.",
+        label: "세션 모델",
+        value: "history / tmp / checkpoint 세션 저장소",
+        hint: "Gemini는 history, tmp, conversation 저장소를 합쳐 원본 세션 인벤토리를 만든다.",
       },
       {
-        label: "Resume / identity",
-        value: "history / tmp / conversation stores",
-        hint: "Store distribution and session-file format matter more than a thread ID here.",
+        label: "재개 / 식별",
+        value: "history / tmp / conversation 저장소",
+        hint: "여기선 thread ID보다 저장소 분포와 세션 파일 형식이 더 중요해.",
       },
       {
-        label: "Cleanup scope",
-        value: "raw session-file dry-run / archive / delete",
-        hint: "Dry-run the original session stores safely, then clean up individual files when needed.",
+        label: "정리 범위",
+        value: "원본 세션 파일 드라이런 / 보관 / 삭제",
+        hint: "원본 세션 저장소를 먼저 안전하게 드라이런하고, 필요할 때 개별 파일을 정리해.",
       },
       {
-        label: "Primary surface",
-        value: "Original Sessions",
-        hint: "Management is mostly about transcript-open coverage and session-store distribution.",
+        label: "주요 화면",
+        value: "원본 세션",
+        hint: "관리는 전사 열람 범위와 세션 저장소 분포 확인에 가깝다.",
       },
     ];
   }
   if (provider === "copilot") {
     return [
       {
-        label: "Session model",
-        value: "workspace/global chat artifacts",
-        hint: "Copilot is optional and mostly tracked through global traces and workspace chat sessions.",
+        label: "세션 모델",
+        value: "workspace/global 채팅 아티팩트",
+        hint: "Copilot은 보조 AI라서 전역 흔적과 workspace 채팅 세션 중심으로 추적해.",
       },
       {
-        label: "Resume / identity",
-        value: "workspace chat JSON",
-        hint: "The presence of workspace chat files matters more than a standalone thread model.",
+        label: "재개 / 식별",
+        value: "workspace 채팅 JSON",
+        hint: "독립 thread 모델보다 workspace 채팅 파일 존재 여부가 더 중요해.",
       },
       {
-        label: "Cleanup scope",
-        value: "raw-file dry-run",
-        hint: "This is closer to auxiliary diagnostics and raw-file inspection than a core operating path.",
+        label: "정리 범위",
+        value: "원본 파일 드라이런",
+        hint: "핵심 운영 경로라기보다 보조 진단과 원본 파일 점검에 가까워.",
       },
       {
-        label: "Primary surface",
-        value: "Original Sessions > optional AI",
-        hint: "Open it only when needed to inspect raw sessions and parser state.",
+        label: "주요 화면",
+        value: "원본 세션 > 보조 AI",
+        hint: "원본 세션이나 파서 상태를 볼 필요가 있을 때만 열면 돼.",
       },
     ];
   }
   return [
     {
-      label: "Session model",
-      value: "mixed cache / raw session store",
-      hint: "This is primarily a read-oriented session store, so raw-session inspection comes first.",
+      label: "세션 모델",
+      value: "혼합 캐시 / 원본 세션 저장소",
+      hint: "읽기 위주의 세션 저장소라서 원본 세션 점검이 먼저야.",
     },
     {
-      label: "Resume / identity",
-      value: "session files / cache paths",
-      hint: "Local cache and session-file presence matter before any thread-state concept.",
+      label: "재개 / 식별",
+      value: "세션 파일 / 캐시 경로",
+      hint: "thread-state 개념보다 로컬 캐시와 세션 파일 존재 여부가 먼저 중요해.",
     },
     {
-      label: "Cleanup scope",
-      value: "read-first",
-      hint: "Destructive actions are often limited or disabled.",
+      label: "정리 범위",
+      value: "읽기 우선",
+      hint: "파괴적 액션은 종종 제한되거나 비활성 상태야.",
     },
     {
-      label: "Primary surface",
-      value: "Original Sessions",
-      hint: "Use it to verify raw sessions and detection paths.",
+      label: "주요 화면",
+      value: "원본 세션",
+      hint: "원본 세션과 감지 경로를 확인할 때 써.",
     },
   ];
 }

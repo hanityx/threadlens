@@ -45,3 +45,25 @@ export async function apiPost<T>(
   if (!res.ok) throw await buildApiError(path, res);
   return res.json() as Promise<T>;
 }
+
+export async function apiPostJsonAllowError<T>(
+  path: string,
+  body: unknown,
+  init?: RequestInit,
+): Promise<{ ok: boolean; status: number; data: T }> {
+  const headers = new Headers(init?.headers ?? undefined);
+  if (!headers.has("content-type")) headers.set("content-type", "application/json");
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  const data = (await res.json()) as T;
+  return {
+    ok: res.ok,
+    status: res.status,
+    data,
+  };
+}
