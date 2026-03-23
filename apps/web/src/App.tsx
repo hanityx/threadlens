@@ -771,25 +771,25 @@ export function App() {
               <div className="hero-console-head">
                 <span className="overview-note-label">핵심 흐름</span>
                 <strong>검색. 정리. 백업.</strong>
-                <p>대화를 찾고, 정리 단계를 검토한 뒤, 원본 세션을 먼저 보호해.</p>
+                <p>찾고, 검토하고, 원본을 먼저 보존해.</p>
               </div>
               <div className="hero-console-steps">
                 <article className="hero-console-step">
                   <div>
                     <strong>검색</strong>
-                    <p>{visibleProviderSessionSummary.rows}개 세션을 바로 검색해서 맞는 작업 화면으로 이동할 수 있어.</p>
+                    <p>{visibleProviderSessionSummary.rows}개 세션 즉시 탐색</p>
                   </div>
                 </article>
                 <article className="hero-console-step">
                   <div>
                     <strong>정리</strong>
-                    <p>{highRiskCount}개의 고위험 스레드가 드라이런 검토를 기다리고 있어.</p>
+                    <p>{highRiskCount}개 고위험 검토 대기</p>
                   </div>
                 </article>
                 <article className="hero-console-step">
                   <div>
                     <strong>백업 보관함</strong>
-                    <p>{recovery.data?.summary?.backup_sets ?? 0}개의 백업 세트를 선택 백업이나 전체 export에 바로 쓸 수 있어.</p>
+                    <p>백업 세트 {recovery.data?.summary?.backup_sets ?? 0}개 준비</p>
                   </div>
                 </article>
               </div>
@@ -813,7 +813,7 @@ export function App() {
           <section className="panel overview-spotlight">
             <header>
               <h2>워크벤치 런처</h2>
-              <span>지금 필요한 작업 surface로 바로 진입해.</span>
+              <span>지금 필요한 surface로 바로 들어가.</span>
             </header>
             <div className="overview-launcher-layout">
               <div className="overview-launcher-main">
@@ -849,7 +849,7 @@ export function App() {
                   >
                     <span className="overview-note-label">검색</span>
                     <strong>원문 세션 전체에서 문구 찾기</strong>
-                    <p>{visibleProviderSessionSummary.rows}개 세션을 바로 찾고 상세로 들어갈 수 있어.</p>
+                    <p>{visibleProviderSessionSummary.rows}개 세션 즉시 검색</p>
                   </button>
                   <button
                     type="button"
@@ -858,7 +858,7 @@ export function App() {
                   >
                     <span className="overview-note-label">정리</span>
                     <strong>고위험 Codex 스레드 검토</strong>
-                    <p>{highRiskCount}개의 고위험 스레드가 드라이런 검토를 기다리고 있어.</p>
+                    <p>{highRiskCount}개 고위험 검토 대기</p>
                   </button>
                   <button
                     type="button"
@@ -869,7 +869,7 @@ export function App() {
                   >
                     <span className="overview-note-label">백업</span>
                     <strong>원본 세션부터 보호</strong>
-                    <p>{recovery.data?.summary?.backup_sets ?? 0}개의 백업 세트를 바로 쓸 수 있어.</p>
+                    <p>백업 세트 {recovery.data?.summary?.backup_sets ?? 0}개 준비</p>
                   </button>
                 </div>
               </div>
@@ -877,17 +877,17 @@ export function App() {
                 <div className="overview-operator-card">
                   <span className="overview-note-label">메인 surface</span>
                   <strong>TUI가 daily operator surface</strong>
-                  <p>GUI는 먼저 찾고 검토하는 workbench고, 반복 조작은 TUI에서 더 빠르게 처리하는 방향으로 가져가.</p>
+                  <p>반복 조작은 TUI에서 더 빠르게 처리해.</p>
                 </div>
                 <div className="overview-operator-card">
                   <span className="overview-note-label">제품 경계</span>
                   <strong>CLI는 engine, Electron은 local value</strong>
-                  <p>CLI는 자동화와 JSON entry만 유지하고, Electron은 Finder reveal, preview, multi-window 같은 로컬 기능만 붙여.</p>
+                  <p>CLI는 엔진, Electron은 로컬 기능만 맡아.</p>
                 </div>
                 <div className="overview-operator-card">
                   <span className="overview-note-label">지금 backlog</span>
                   <strong>Quartz Mono dark-first 먼저 고정</strong>
-                  <p>라이트모드는 구조 파생으로만 만들고, Search와 Sessions는 카드보다 작업 밀도를 우선해서 다듬어.</p>
+                  <p>라이트는 파생으로 두고 Search, Sessions 밀도를 우선 다듬어.</p>
                 </div>
               </aside>
             </div>

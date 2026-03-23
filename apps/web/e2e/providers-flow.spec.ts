@@ -5,6 +5,7 @@ const threadsTabLabel = /^(Threads|Cleanup|Codex Cleanup|스레드|정리|Codex 
 const providersTabLabel = /^(Providers|Sessions|Source Sessions|Session Vault|프로바이더|AI 관리|원본 세션실)$/i;
 const selectAllInTabLabel = /^(Select all in tab|Select all in current tab|현재 탭 전체 선택)$/i;
 const selectAllFilteredLabel = /^(Select all filtered|Select all in current filter|현재 필터 전체 선택)$/i;
+const deleteDryRunLabel = /^(Delete dry-run|Delete source files \(dry-run\)|원본 파일 삭제 드라이런|삭제 드라이런)$/i;
 const deleteLabel = /^(Delete|Delete source files|Delete locally|삭제|원본 파일 삭제)$/i;
 const bulkPinLabel = /^(Bulk Pin|Pin selected|일괄 고정)$/i;
 const threadDetailTitle = /^(Thread Detail|Selected Thread Detail|스레드 상세|선택한 스레드 상세)$/i;
@@ -40,7 +41,17 @@ function envelope<T>(data: T) {
 
 async function openPrimaryView(page: Page, label: "Threads" | "Providers") {
   const target = label === "Threads" ? threadsTabLabel : providersTabLabel;
-  await page.getByRole("button", { name: target }).first().click();
+  const nav = page.locator(".layout-nav");
+  const button = nav.getByRole("button", { name: target }).first();
+  await button.click();
+  await expect(button).toHaveClass(/is-active/);
+}
+
+async function selectProviderChip(page: Page, label: RegExp) {
+  const workspaceBar = page.locator(".provider-workspace-bar");
+  const button = workspaceBar.getByRole("button", { name: label }).first();
+  await button.click();
+  await expect(button).toHaveClass(/is-active/);
 }
 
 async function setupMockApi(page: Page, options: MockApiOptions = {}) {
@@ -436,7 +447,7 @@ test("backup action executes in one click for selected provider sessions", async
 
   await page.goto("/");
   await openPrimaryView(page, "Providers");
-  await page.getByRole("button", { name: /^Codex/i }).first().click();
+  await selectProviderChip(page, /^Codex/i);
   const sessionsPanel = page
     .locator("section.panel")
     .filter({ has: page.getByRole("heading", { name: originalSessionsTitle }) })
@@ -455,7 +466,7 @@ test("delete action enforces dry-run token flow", async ({ page }) => {
 
   await page.goto("/");
   await openPrimaryView(page, "Providers");
-  await page.getByRole("button", { name: /^Codex/i }).first().click();
+  await selectProviderChip(page, /^Codex/i);
   await expect(page.getByText("Token flow test thread")).toBeVisible();
   const sessionsPanel = page
     .locator("section.panel")
@@ -463,18 +474,27 @@ test("delete action enforces dry-run token flow", async ({ page }) => {
     .last();
   await sessionsPanel.locator("tbody input[type='checkbox']").first().check();
 
-  const deleteButton = sessionsPanel.locator("button").filter({ hasText: deleteLabel }).last();
-  await deleteButton.click();
+  const deleteDryRunButton = sessionsPanel.getByRole("button", { name: deleteDryRunLabel }).first();
+  const deleteButton = sessionsPanel.getByRole("button", { name: deleteLabel }).last();
+  await deleteDryRunButton.click();
   await expect.poll(() => providerActionCalls.length).toBe(1);
 
   expect(providerActionCalls[0]?.dry_run).toBe(true);
   expect(providerActionCalls[0]?.confirm_token).toBe("");
 
   await deleteButton.click();
-  await expect.poll(() => providerActionCalls.length).toBe(2);
+  await expect
+    .poll(() =>
+      providerActionCalls.some(
+        (call) => call?.dry_run === false && call?.confirm_token === "tok-1",
+      ),
+    )
+    .toBe(true);
 
-  expect(providerActionCalls[1]?.dry_run).toBe(false);
-  expect(providerActionCalls[1]?.confirm_token).toBe("tok-1");
+  const finalDeleteCall = [...providerActionCalls]
+    .reverse()
+    .find((call) => call?.dry_run === false);
+  expect(finalDeleteCall?.confirm_token).toBe("tok-1");
 });
 
 test("providers tab switches within performance budget", async ({ page }) => {

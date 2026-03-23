@@ -440,6 +440,7 @@ export function SessionDetail(props: SessionDetailProps) {
                           selectedSession.file_path,
                           "delete_local",
                           true,
+                          { backup_before_delete: providerDeleteBackupEnabled },
                         )
                       }
                       disabled={busy || !canRunSessionAction}

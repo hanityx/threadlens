@@ -1284,7 +1284,11 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
               <button
                 className="btn-outline"
                 disabled={!canRunProviderAction || busy}
-                onClick={() => runProviderAction("delete_local", true)}
+                onClick={() =>
+                  runProviderAction("delete_local", true, {
+                    backup_before_delete: providerDeleteBackupEnabled,
+                  })
+                }
               >
                 {messages.providers.deleteDryRun}
               </button>
