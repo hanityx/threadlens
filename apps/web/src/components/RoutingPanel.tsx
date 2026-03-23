@@ -65,22 +65,22 @@ function providerManagementProfile(provider: string): Array<{
       {
         label: "세션 모델",
         value: "thread_id + 세션 로그 + global state",
-        hint: "Codex는 원본 세션 파일, pinned 상태, 최근 워크스페이스 메타데이터를 함께 다뤄.",
+        hint: "thread 중심 모델.",
       },
       {
         label: "재개 / 식별",
         value: "thread_id · pinned · global state",
-        hint: "thread ID가 pinned와 global state에 연결되기 때문에 Codex는 전용 정리 화면을 가져.",
+        hint: "pinned와 state까지 같이 본다.",
       },
       {
         label: "정리 범위",
         value: "영향 분석 + 정리 드라이런 + state 참조 정리",
-        hint: "정리 모델이 단순 파일 액션보다 넓어서 검토와 영향 분석이 같이 붙어 있어.",
+        hint: "영향 분석이 먼저 붙는다.",
       },
       {
         label: "주요 화면",
         value: "정리 + 전사",
-        hint: "Codex는 정리 흐름이 우선이고, 원본 세션 확인은 그다음이야.",
+        hint: "정리 rail 우선.",
       },
     ];
   }
@@ -89,22 +89,22 @@ function providerManagementProfile(provider: string): Array<{
       {
         label: "세션 모델",
         value: "session_id + 원본 project/transcript 세션",
-        hint: "Claude는 원본 프로젝트 로그와 transcript 파일을 중심으로 관리돼.",
+        hint: "session 중심 모델.",
       },
       {
         label: "재개 / 식별",
         value: "세션 ID / transcript 파일",
-        hint: "여기선 정리용 thread 모델보다 재개 가능한 세션 ID와 transcript 파일이 더 중요해.",
+        hint: "session id와 transcript 우선.",
       },
       {
         label: "정리 범위",
         value: "원본 세션 파일 드라이런 / 보관 / 삭제",
-        hint: "Codex와 달리 pinned/global state보다 원본 세션 파일 정리가 중심이야.",
+        hint: "원본 파일 정리 중심.",
       },
       {
         label: "주요 화면",
         value: "원본 세션",
-        hint: "전사 읽기, 세션 파일 상태, 파서/전사 커버리지 확인에 가장 맞는 흐름이야.",
+        hint: "전사 확인 우선.",
       },
     ];
   }
@@ -113,22 +113,22 @@ function providerManagementProfile(provider: string): Array<{
       {
         label: "세션 모델",
         value: "history / tmp / checkpoint 세션 저장소",
-        hint: "Gemini는 history, tmp, conversation 저장소를 합쳐 원본 세션 인벤토리를 만든다.",
+        hint: "저장소 묶음 중심.",
       },
       {
         label: "재개 / 식별",
         value: "history / tmp / conversation 저장소",
-        hint: "여기선 thread ID보다 저장소 분포와 세션 파일 형식이 더 중요해.",
+        hint: "분포와 형식 우선.",
       },
       {
         label: "정리 범위",
         value: "원본 세션 파일 드라이런 / 보관 / 삭제",
-        hint: "원본 세션 저장소를 먼저 안전하게 드라이런하고, 필요할 때 개별 파일을 정리해.",
+        hint: "드라이런 뒤 개별 정리.",
       },
       {
         label: "주요 화면",
         value: "원본 세션",
-        hint: "관리는 전사 열람 범위와 세션 저장소 분포 확인에 가깝다.",
+        hint: "inventory 우선.",
       },
     ];
   }
@@ -137,22 +137,22 @@ function providerManagementProfile(provider: string): Array<{
       {
         label: "세션 모델",
         value: "workspace/global 채팅 아티팩트",
-        hint: "Copilot은 보조 AI라서 전역 흔적과 workspace 채팅 세션 중심으로 추적해.",
+        hint: "보조 진단 모델.",
       },
       {
         label: "재개 / 식별",
         value: "workspace 채팅 JSON",
-        hint: "독립 thread 모델보다 workspace 채팅 파일 존재 여부가 더 중요해.",
+        hint: "workspace 파일 위주.",
       },
       {
         label: "정리 범위",
         value: "원본 파일 드라이런",
-        hint: "핵심 운영 경로라기보다 보조 진단과 원본 파일 점검에 가까워.",
+        hint: "드라이런 위주.",
       },
       {
         label: "주요 화면",
         value: "원본 세션 > 보조 AI",
-        hint: "원본 세션이나 파서 상태를 볼 필요가 있을 때만 열면 돼.",
+        hint: "필요할 때만 연다.",
       },
     ];
   }
@@ -160,24 +160,72 @@ function providerManagementProfile(provider: string): Array<{
     {
       label: "세션 모델",
       value: "혼합 캐시 / 원본 세션 저장소",
-      hint: "읽기 위주의 세션 저장소라서 원본 세션 점검이 먼저야.",
+      hint: "읽기 우선.",
     },
     {
       label: "재개 / 식별",
       value: "세션 파일 / 캐시 경로",
-      hint: "thread-state 개념보다 로컬 캐시와 세션 파일 존재 여부가 먼저 중요해.",
+      hint: "캐시와 파일 우선.",
     },
     {
       label: "정리 범위",
       value: "읽기 우선",
-      hint: "파괴적 액션은 종종 제한되거나 비활성 상태야.",
+      hint: "파괴적 액션은 제한됨.",
     },
     {
       label: "주요 화면",
       value: "원본 세션",
-      hint: "원본 세션과 감지 경로를 확인할 때 써.",
+      hint: "원본 확인용.",
     },
   ];
+}
+
+function providerWorkbenchNote(provider: string): string {
+  if (provider === "codex") {
+    return "thread · pinned · state 중심.";
+  }
+  if (provider === "claude") {
+    return "session · transcript 중심.";
+  }
+  if (provider === "gemini") {
+    return "history · tmp · conversation 중심.";
+  }
+  if (provider === "copilot") {
+    return "보조 진단 위주.";
+  }
+  if (provider === "chatgpt") {
+    return "desktop cache 우선.";
+  }
+  return "읽기 우선 상태.";
+}
+
+function flowReasonLabel(reason: string): string {
+  if (reason === "GUI or CLI user input") return "입력 진입점.";
+  if (reason === "workspace/root plus nested overrides") return "AGENTS 범위 확인.";
+  if (reason === "system > developer > user > AGENTS.md scope") return "우선순위 지시 적용.";
+  if (reason === "Tool calls plus local file reads and writes") return "도구와 파일 IO.";
+  if (reason === "Read and write thread/session metadata") return "thread/session 메타데이터.";
+  if (reason === "Scan local sessions and logs") return "로컬 세션 스캔.";
+  if (reason === "Trusted project entry") return "신뢰된 프로젝트.";
+  if (reason === "active-workspace-roots") return "활성 workspace roots.";
+  if (reason.includes("Read-first cache model")) return providerWorkbenchNote("chatgpt");
+  if (reason.includes("Managed around session_id")) return providerWorkbenchNote("claude");
+  if (reason.includes("operations-grade model built around thread_id")) return providerWorkbenchNote("codex");
+  if (reason.includes("Auxiliary diagnostics only")) return providerWorkbenchNote("copilot");
+  if (reason.includes("Managed across history, tmp")) return providerWorkbenchNote("gemini");
+  if (reason.includes("Collect candidate session files")) return "세션 후보 수집.";
+  if (reason.includes("User focused the view")) return "scope 집중.";
+  if (reason.includes("Start scanning from this provider")) return "이 AI부터 스캔.";
+  if (reason.includes("Classify file formats")) return "형식 분류.";
+  if (reason.includes("Summarize capability coverage")) return "capability 요약.";
+  if (reason.includes("Determine what can open transcripts")) return "전사 가능 범위.";
+  if (reason.includes("Pass transcript, search, and summary")) return "parser 단계로 전달.";
+  if (reason.includes("Flow into session detail")) return "detail rail로 연결.";
+  if (reason.includes("Read Codex-specific global state")) return "global state 읽기.";
+  if (reason.includes("Recent workspace and global state")) return "workspace state 보강.";
+  if (reason.includes("Decide whether dry-run")) return "dry-run 가능 여부.";
+  if (reason.includes("limited to reading and analysis")) return "읽기/분석까지만.";
+  return reason;
 }
 
 export function RoutingPanel({
@@ -336,8 +384,7 @@ export function RoutingPanel({
       detail:
         focusedProvider.provider === "codex"
           ? data?.evidence?.codex_config_path ?? focusedProvider.notes ?? "-"
-          : focusedProvider.notes ||
-            "Diagnose this provider from its local paths, session stores, and parser coverage.",
+          : providerWorkbenchNote(focusedProvider.provider),
     };
     const providerNode = {
       id: providerNodeId,
@@ -353,14 +400,14 @@ export function RoutingPanel({
       kind: "workspace" as const,
       detail:
         focusedSessionRows.length > 0
-          ? `${focusedSessionRows.length} sessions · ${sourceSummary || "store distribution detected"}`
-          : "No session logs detected yet",
+          ? `${focusedSessionRows.length}개 세션 · ${sourceSummary || "저장소 분포 확인"}`
+          : "세션 로그가 아직 없다",
     };
     const formatNode = {
       id: `format-${focusedProvider.provider}`,
       label: `${focusedProvider.name} storage formats`,
       kind: "config" as const,
-      detail: formatSummary || "No format summary collected yet",
+      detail: formatSummary || "형식 요약이 아직 없다",
     };
     const transcriptNode = {
       id: `transcript-${focusedProvider.provider}`,
@@ -368,10 +415,10 @@ export function RoutingPanel({
       kind: "instruction" as const,
       detail:
         transcriptCapableCount > 0
-          ? `${transcriptCapableCount} can open transcripts directly${
-              transcriptBlockedCount > 0 ? ` · ${transcriptBlockedCount} are metadata or binary heavy` : ""
+          ? `${transcriptCapableCount}개 전사 직접 열기 가능${
+              transcriptBlockedCount > 0 ? ` · ${transcriptBlockedCount}개는 메타데이터/바이너리 비중 높음` : ""
             }`
-          : "No transcript-ready format is available right now",
+          : "전사를 바로 열 수 있는 형식이 아직 없다",
     };
     const parserNode = {
       id: `parser-${focusedProvider.provider}`,
@@ -380,26 +427,26 @@ export function RoutingPanel({
       detail: focusedParserReport
         ? `OK ${focusedParserReport.parse_ok}/${focusedParserReport.scanned} · score ${focusedParserReport.parse_score ?? "-"}`
         : focusedProvider.capabilities.read_sessions && focusedProvider.capabilities.analyze_context
-          ? "Transcript, search, and risk analysis are available"
-          : "More readable data or broader analysis support is needed",
+          ? "전사, 검색, 위험 분석 가능"
+          : "더 읽을 데이터나 분석 지원이 필요하다",
     };
     const reviewNode = {
       id: `review-${focusedProvider.provider}`,
       label: `${focusedProvider.name} review path`,
       kind: "runtime" as const,
       detail: focusedProvider.capabilities.analyze_context
-        ? "Connects into session detail, transcript review, and cleanup review panels"
-        : "Right now this path only reaches detection and the basic session list",
+        ? "session detail, transcript review, cleanup review로 이어진다"
+        : "지금은 감지와 기본 세션 목록까지만 열린다",
     };
     const cleanupNode = {
       id: `cleanup-${focusedProvider.provider}`,
       label: `${focusedProvider.name} cleanup stage`,
       kind: "runtime" as const,
       detail: focusedProvider.capabilities.safe_cleanup
-        ? "Ready for dry-runs and real cleanup"
+        ? "드라이런과 실제 정리 가능"
         : focusedProvider.capability_level === "read-only"
-          ? "Cleanup and delete stay locked because this provider is read-only"
-          : "Safe cleanup is not ready yet",
+          ? "읽기 전용이라 정리와 삭제가 잠겨 있다"
+          : "안전 정리가 아직 준비되지 않았다",
     };
 
     const nodes = [
@@ -520,61 +567,57 @@ export function RoutingPanel({
   }, [focusedProvider, data?.edges, data?.evidence?.global_state_path, focusedSourceNodes]);
 
   const scopedFindings = useMemo(() => {
-    if (!focusedProvider) return data?.findings ?? [];
+    if (!focusedProvider) {
+      const findings: string[] = [];
+      findings.push(`trusted projects ${data?.evidence?.trusted_projects.length ?? 0}`);
+      findings.push(`active providers ${visibleProviders.length}`);
+      findings.push(`cleanup ready ${visibleProviders.filter((provider) => provider.capabilities.safe_cleanup).length}`);
+      findings.push(`local paths ${scopedDataSources.length}`);
+      return findings;
+    }
     const findings: string[] = [];
     if (focusedProvider.status === "missing") {
-      findings.push(`No local trace has been detected for ${focusedProvider.name} yet.`);
+      findings.push(`${focusedProvider.name} 로컬 흔적이 아직 안 잡혔다.`);
     } else {
       findings.push(
-        `${focusedProvider.name} is ${providerStatusLabel(focusedProvider.status)} and currently classified as ${providerCapabilityLabel(
+        `${focusedProvider.name} · ${providerStatusLabel(focusedProvider.status)} · ${providerCapabilityLabel(
           focusedProvider.capability_level,
-        )}.`,
+        )}`,
       );
       findings.push(
-        `${focusedSessionRows.length || focusedProvider.session_log_count} session logs are available, so transcripts and session detail can open directly from this surface.`,
+        `session logs ${focusedSessionRows.length || focusedProvider.session_log_count}`,
       );
     }
     if (scopedDataSources.length > 0) {
-      findings.push(
-        `This flow is grounded in ${scopedDataSources.length} local data paths tied to ${focusedProvider.name}.`,
-      );
+      findings.push(`paths ${scopedDataSources.length}`);
     }
     if (sourceBreakdown.length > 0) {
-      findings.push(
-        `The largest session stores are ${sourceBreakdown
-          .slice(0, 3)
-          .map((item) => `${item.label} ${item.count}`)
-          .join(" · ")}.`,
-      );
+      findings.push(sourceBreakdown
+        .slice(0, 3)
+        .map((item) => `${item.label} ${item.count}`)
+        .join(" · "));
     }
     if (formatBreakdown.length > 0) {
-      findings.push(
-        `Storage formats are distributed as ${formatBreakdown
-          .map((item) => `${item.label} ${item.count}`)
-          .join(" · ")}.`,
-      );
+      findings.push(formatBreakdown
+        .map((item) => `${item.label} ${item.count}`)
+        .join(" · "));
     }
     if (transcriptBlockedCount > 0) {
-      findings.push(
-        `${transcriptBlockedCount} sessions may not open full transcripts immediately because of format or metadata limits.`,
-      );
+      findings.push(`transcript blocked ${transcriptBlockedCount}`);
     }
     if (focusedParserReport) {
-      findings.push(
-        `The parser scanned ${focusedParserReport.scanned} items: ${focusedParserReport.parse_ok} succeeded and ${focusedParserReport.parse_fail} failed.`,
-      );
+      findings.push(`parser ${focusedParserReport.parse_ok}/${focusedParserReport.scanned} · fail ${focusedParserReport.parse_fail}`);
     }
     if (focusedProvider.capabilities.safe_cleanup) {
-      findings.push(`${focusedProvider.name} supports safe-cleanup dry-runs and real apply steps.`);
+      findings.push("dry-run + apply ready");
     } else if (focusedProvider.capabilities.read_sessions) {
-      findings.push(`${focusedProvider.name} is read-and-analysis first, with destructive actions locked.`);
+      findings.push("read/analyze only");
     } else {
-      findings.push(`${focusedProvider.name} does not have enough readable session data yet.`);
+      findings.push("readable data still thin");
     }
     return findings;
   }, [
     focusedProvider,
-    data?.findings,
     focusedSessionRows.length,
     scopedDataSources.length,
     sourceBreakdown,
@@ -583,6 +626,8 @@ export function RoutingPanel({
     focusedParserReport,
     providerCapabilityLabel,
     providerStatusLabel,
+    data?.evidence?.trusted_projects.length,
+    visibleProviders,
   ]);
 
   const contextCards = useMemo(() => {
@@ -590,43 +635,42 @@ export function RoutingPanel({
     const cards = [
       {
         label: messages.routing.contextSources,
-        value: sourceSummary || "No session-store summary",
+        value: sourceSummary || "세션 저장소 요약 없음",
         hint:
           sourceSummary.length > 0
-            ? "This shows which stores the sessions are being read from."
-            : "There are not enough logs yet to build a provider-specific store distribution.",
+            ? "지금 읽는 저장소 범위."
+            : "저장소 요약이 아직 얇다.",
       },
       {
         label: messages.routing.contextFormats,
-        value: formatSummary || "No format summary",
+        value: formatSummary || "형식 요약 없음",
         hint:
           transcriptBlockedCount > 0
-            ? `${transcriptCapableCount} can open transcripts directly, while ${transcriptBlockedCount} are mostly metadata or binary.`
+            ? `전사 ${transcriptCapableCount} · 제한 ${transcriptBlockedCount}`
             : transcriptCapableCount > 0
-              ? "The currently visible sessions use transcript-friendly formats."
-              : "There is no directly readable transcript format yet.",
+              ? "전사 우선 형식."
+              : "직접 읽을 전사가 아직 없다.",
       },
       {
         label: messages.routing.contextParser,
         value: focusedParserReport
           ? `${focusedParserReport.parse_ok}/${focusedParserReport.scanned} (score ${focusedParserReport.parse_score ?? "-"})`
-          : "No parser report",
+          : "파서 보고 없음",
         hint: focusedParserReport
           ? focusedParserReport.parse_fail > 0
-            ? `${focusedParserReport.parse_fail} parse failures are still present.`
-            : "No parser failures are present in the current sample window."
-          : "There is no parser summary report yet.",
+            ? `실패 ${focusedParserReport.parse_fail}개 남음`
+            : "지금 구간은 안정적."
+          : "파서 보고 대기.",
       },
       {
         label: messages.routing.contextLimits,
         value: focusedProvider.capabilities.safe_cleanup
-          ? "Dry-run + cleanup available"
+          ? "드라이런 + 정리 가능"
           : focusedProvider.capabilities.read_sessions
-            ? "Read and analysis only"
-            : "Detection first",
+            ? "읽기와 분석 우선"
+            : "감지 우선",
         hint:
-          focusedProvider.notes ||
-          "The screen is built from currently detected session formats and capability coverage.",
+          providerWorkbenchNote(focusedProvider.provider),
       },
     ];
     if (focusedProvider.provider === "codex") {
@@ -658,10 +702,10 @@ export function RoutingPanel({
   const providerDetailRows = useMemo(() => {
     if (!focusedProvider) return [];
     const nextStep = focusedProvider.capabilities.safe_cleanup
-      ? "Start in session detail, confirm the dry-run, then decide whether cleanup should happen."
+      ? "세션 rail에서 dry-run부터 본다."
       : focusedProvider.capabilities.read_sessions
-        ? "Transcripts and session state are visible, but cleanup controls stay locked."
-        : "More install traces or session logs need to be detected first.";
+        ? "전사 확인 우선. 정리는 잠겨 있다."
+        : "흔적이나 세션 로그를 더 찾는다.";
     return [
       {
         label: "Session logs",
@@ -673,23 +717,23 @@ export function RoutingPanel({
               : "None",
         hint:
           focusedSessionRows.length > 0
-            ? "You can jump straight into session detail and transcript review."
-            : "There are no session logs yet, so the detail surface may stay empty.",
+            ? "바로 rail로 연다."
+            : "아직 rail이 비어 있을 수 있다.",
       },
       {
         label: "Local evidence",
         value: scopedDataSources.length > 0 ? `${scopedDataSources.length} detected` : "Not enough source paths",
         hint:
           scopedDataSources.length > 0
-            ? "These paths are the evidence behind the flow graph and session scan."
-            : "More root paths or cache activity are needed before diagnostics become richer.",
+            ? "현재 flow와 스캔 근거."
+            : "근거 경로가 더 필요하다.",
       },
       {
         label: "Read / analyze",
         value: focusedProvider.capabilities.analyze_context ? "Ready" : "Limited",
         hint: focusedProvider.capabilities.analyze_context
-          ? "Transcript search, risk scoring, and cleanup review are all available."
-          : "Readable logs are still limited, or analysis coverage is weak.",
+          ? "검색과 분석 가능."
+          : "읽기나 분석 범위가 좁다.",
       },
       {
         label: "Recommended next step",
@@ -723,16 +767,16 @@ export function RoutingPanel({
         label: messages.providers.flowStageDetect,
         status: stageStatus(detectReady),
         detail: detectReady
-          ? `${scopedDataSources.length || focusedProvider.roots.length} evidence paths confirmed`
-          : "Local traces are still too thin",
+          ? `${scopedDataSources.length || focusedProvider.roots.length} paths ready`
+          : "흔적이 아직 얇다",
       },
       {
         key: "sessions",
         label: messages.providers.flowStageSessions,
         status: stageStatus(sessionsReady, !detectReady),
         detail: sessionsReady
-          ? `${focusedSessionRows.length || focusedProvider.session_log_count} session logs detected`
-          : "No session logs detected yet",
+          ? `${focusedSessionRows.length || focusedProvider.session_log_count} logs ready`
+          : "세션 로그 없음",
       },
       {
         key: "parser",
@@ -741,8 +785,8 @@ export function RoutingPanel({
         detail: parserReady
           ? focusedParserReport
             ? `OK ${focusedParserReport.parse_ok}/${focusedParserReport.scanned}`
-            : "Transcript and analysis ready"
-          : "More readable data is needed",
+            : "전사와 분석 준비"
+          : "더 읽을 데이터 필요",
       },
       {
         key: "cleanup",
@@ -753,10 +797,10 @@ export function RoutingPanel({
             focusedProvider.status === "missing",
         ),
         detail: cleanupReady
-          ? "Dry-run + apply available"
+          ? "dry-run + apply ready"
           : focusedProvider.capability_level === "read-only"
-            ? "Cleanup stays locked because this provider is read-only"
-            : "Cleanup is not ready yet",
+            ? "read-only라 잠김"
+            : "정리 준비 전",
       },
     ];
   }, [
@@ -777,16 +821,55 @@ export function RoutingPanel({
   );
 
   return (
-    <section className="panel">
+    <section className="panel routing-workbench-panel">
       <header>
         <h2>{messages.routing.title}</h2>
         <span>{formatDateTime(data?.generated_at)}</span>
       </header>
       <div className="impact-body">
-        <div className="info-box">
-          <strong>{messages.routing.title}</strong>
-          <p>{messages.routing.subtitle}</p>
-        </div>
+        <section className="routing-stage-shell">
+          <div className="routing-stage-copy">
+            <span className="overview-note-label">history and provenance workbench</span>
+            <strong>{messages.routing.title}</strong>
+            <p>paths / flow / findings</p>
+          </div>
+          <div className="routing-stage-pills">
+            <span className="routing-stage-pill">
+              scope · {focusedProvider?.name ?? messages.common.allAi}
+            </span>
+            <span className="routing-stage-pill">
+              providers · {visibleProviders.length}
+            </span>
+            <span className="routing-stage-pill">
+              paths · {scopedDataSources.length}
+            </span>
+            <span className="routing-stage-pill">
+              findings · {(scopedFindings ?? []).length}
+            </span>
+          </div>
+          <div className="routing-stage-summary">
+            <article className="routing-stage-summary-card">
+              <span>{messages.routing.providerSummary}</span>
+              <strong>{visibleProviders.length}</strong>
+              <p>providers</p>
+            </article>
+            <article className="routing-stage-summary-card">
+              <span>{messages.routing.dataSources}</span>
+              <strong>{scopedDataSources.length}</strong>
+              <p>paths</p>
+            </article>
+            <article className="routing-stage-summary-card">
+              <span>{messages.routing.flowMap}</span>
+              <strong>{(scopedNodes ?? []).length}</strong>
+              <p>nodes</p>
+            </article>
+            <article className="routing-stage-summary-card">
+              <span>{messages.routing.findings}</span>
+              <strong>{(scopedFindings ?? []).length}</strong>
+              <p>open</p>
+            </article>
+          </div>
+        </section>
         {loading ? <div className="skeleton-line" /> : null}
 
         <div className="impact-kv">
@@ -797,7 +880,7 @@ export function RoutingPanel({
         {!focusedProvider ? (
           <div className="info-box">
             <strong>{messages.routing.pickProviderTitle}</strong>
-            <p>{messages.routing.pickProviderBody}</p>
+            <p>하나 고르면 rail이 좁혀진다.</p>
           </div>
         ) : null}
 
@@ -836,7 +919,7 @@ export function RoutingPanel({
                           : messages.routing.readinessUnavailable}
                     </strong>
                   </div>
-                  {provider.notes ? <p className="sub-hint">{provider.notes}</p> : null}
+                  <p className="sub-hint">{providerWorkbenchNote(provider.provider)}</p>
                   <div className="routing-source-list">
                     <span>{messages.routing.roots}</span>
                     {provider.roots.length === 0 ? (
@@ -1029,7 +1112,7 @@ export function RoutingPanel({
                 <strong className="mono-sub">{data.evidence.notify_hook}</strong>
               </div>
             ) : null}
-            {data?.evidence?.developer_instructions_excerpt ? (
+            {focusedProvider?.provider === "codex" && data?.evidence?.developer_instructions_excerpt ? (
               <p className="sub-hint">{data.evidence.developer_instructions_excerpt}</p>
             ) : null}
           </>
@@ -1053,7 +1136,7 @@ export function RoutingPanel({
                     <span className="routing-kind-chip">{kindLabel(node.kind)}</span>
                   </div>
                   <div className="routing-node-meta mono-sub">{node.id}</div>
-                  {node.detail ? <p className="sub-hint">{node.detail}</p> : null}
+                  {node.detail ? <p className="sub-hint">{flowReasonLabel(node.detail)}</p> : null}
                 </article>
               ))}
             </div>
@@ -1073,7 +1156,7 @@ export function RoutingPanel({
                     <span className="routing-arrow">→</span>
                     <strong>{scopedNodeLabel.get(edge.to) ?? edge.to}</strong>
                   </div>
-                  <span>{edge.reason}</span>
+                  <span>{flowReasonLabel(edge.reason)}</span>
                 </li>
               ))}
             </ul>

@@ -56,13 +56,19 @@ export function ThreadDetail(props: ThreadDetailProps) {
   const fallbackContext =
     searchContext?.thread_id && searchContext.thread_id === selectedThreadId ? searchContext : null;
   const hasSelection = Boolean(selectedThreadId);
+  const compactThreadId = selectedThreadId
+    ? `${selectedThreadId.slice(0, 8)}…${selectedThreadId.slice(-4)}`
+    : "";
+  const fallbackThreadTitle = selectedThreadId
+    ? `thread ${selectedThreadId.slice(0, 8)}`
+    : messages.threadDetail.unknownTitle;
   const resolvedTitle =
     normalizeDisplayValue(selectedThread?.title) ||
     normalizeDisplayValue(selectedThreadDetail?.title) ||
     normalizeDisplayValue(fallbackContext?.display_title) ||
     normalizeDisplayValue(fallbackContext?.title) ||
     normalizeDisplayValue(fallbackContext?.session_id) ||
-    messages.threadDetail.unknownTitle;
+    fallbackThreadTitle;
   const resolvedSource =
     normalizeDisplayValue(selectedThread?.source) ||
     normalizeDisplayValue(selectedThread?.project_bucket) ||
@@ -88,17 +94,36 @@ export function ThreadDetail(props: ThreadDetailProps) {
       : "";
 
   return (
-    <section className="panel">
+    <section className="panel thread-review-panel">
       <header>
         <h2>{messages.threadDetail.title}</h2>
         <span>{selectedThreadId ? messages.common.selected : messages.common.none}</span>
       </header>
       <div className="impact-body">
         {!hasSelection ? (
-          <p className="sub-hint">{messages.threadDetail.clickHint}</p>
+          <div className="thread-detail-empty-state">
+            <span className="overview-note-label">cleanup review rail</span>
+            <strong>스레드를 고르면 열린다.</strong>
+            <p>리스크와 전사만 본다.</p>
+          </div>
         ) : (
           <>
-            <details className="detail-section" open>
+            <section className="detail-hero detail-hero-thread">
+              <div className="detail-hero-copy">
+                <span className="overview-note-label">cleanup review rail</span>
+                <strong>{resolvedTitle || "-"}</strong>
+                <p>리스크와 전사만 본다.</p>
+              </div>
+              <div className="detail-hero-pills" aria-label="thread detail summary">
+                {compactThreadId ? <span className="detail-hero-pill mono-sub">{compactThreadId}</span> : null}
+                <span className="detail-hero-pill">
+                  {resolvedRiskScore}
+                  {resolvedRiskLevel ? ` · ${resolvedRiskLevel}` : ""}
+                </span>
+                {resolvedSource ? <span className="detail-hero-pill">{resolvedSource}</span> : null}
+              </div>
+            </section>
+            <details className="detail-section">
               <summary>{messages.threadDetail.sectionOverview}</summary>
               <div className="detail-section-body">
                 {fallbackNotice ? (
@@ -134,7 +159,7 @@ export function ThreadDetail(props: ThreadDetailProps) {
                 ) : null}
               </div>
             </details>
-            <details className="detail-section" open>
+            <details className="detail-section">
               <summary>{messages.threadDetail.sectionActions}</summary>
               <div className="detail-section-body">
                 <div className="chat-toolbar detail-action-bar">
@@ -187,7 +212,7 @@ export function ThreadDetail(props: ThreadDetailProps) {
                 {threadActionsDisabled ? <p className="sub-hint">{messages.threadDetail.backendDownHint}</p> : null}
               </div>
             </details>
-            <details className="detail-section" open>
+            <details className="detail-section">
               <summary>{messages.threadDetail.sectionForensics}</summary>
               <div className="detail-section-body">
                 {threadDetailLoading ? <div className="skeleton-line" /> : null}

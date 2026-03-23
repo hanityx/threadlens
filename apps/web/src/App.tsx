@@ -439,6 +439,17 @@ export function App() {
     !showRuntimeBackendDegraded &&
     Boolean(cleanupErrorKey) &&
     acknowledgedForensicsErrorKeys.cleanup !== cleanupErrorKey;
+  const hasGlobalErrorStack =
+    runtime.isError ||
+    smokeStatus.isError ||
+    recovery.isError ||
+    providerMatrix.isError ||
+    providerSessions.isError ||
+    providerParserHealth.isError ||
+    Boolean(showGlobalAnalyzeDeleteError) ||
+    Boolean(showGlobalCleanupDryRunError) ||
+    Boolean(providerSessionActionError) ||
+    Boolean(bulkActionError && !showRuntimeBackendDegraded);
 
   useEffect(() => {
     if (desktopRouteAppliedRef.current) return;
@@ -679,20 +690,34 @@ export function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [layoutView]);
 
+  const currentSurfaceLabel =
+    layoutView === "overview"
+      ? "Operator Workbench"
+      : layoutView === "search"
+        ? "Search Stage"
+        : layoutView === "threads"
+          ? "Cleanup Review"
+          : "Original Sessions";
+
   return (
-    <main className="page">
-      <section className="top-actions">
-        <div className="layout-nav">
+    <div className="app-shell">
+      <aside className="shell-rail" aria-label="workspace navigation">
+        <div className="shell-rail-brand">
+          <span className="shell-rail-kicker">provider observatory</span>
+          <strong>Operator Workbench</strong>
+          <span>sessions / cleanup / backup</span>
+        </div>
+        <nav className="shell-rail-nav">
           <button
             type="button"
-            className={`view-btn ${layoutView === "overview" ? "is-active" : ""}`}
+            className={`view-btn shell-rail-btn ${layoutView === "overview" ? "is-active" : ""}`}
             onClick={() => changeLayoutView("overview")}
           >
             {messages.nav.overview}
           </button>
           <button
             type="button"
-            className={`view-btn ${layoutView === "search" ? "is-active" : ""}`}
+            className={`view-btn shell-rail-btn ${layoutView === "search" ? "is-active" : ""}`}
             onClick={() => changeLayoutView("search")}
             onMouseEnter={handleSearchIntent}
             onFocus={handleSearchIntent}
@@ -701,14 +726,14 @@ export function App() {
           </button>
           <button
             type="button"
-            className={`view-btn ${layoutView === "threads" ? "is-active" : ""}`}
+            className={`view-btn shell-rail-btn ${layoutView === "threads" ? "is-active" : ""}`}
             onClick={() => changeLayoutView("threads")}
           >
             {messages.nav.threads}
           </button>
           <button
             type="button"
-            className={`view-btn ${layoutView === "providers" ? "is-active" : ""}`}
+            className={`view-btn shell-rail-btn ${layoutView === "providers" ? "is-active" : ""}`}
             onClick={() => changeLayoutView("providers")}
             onMouseEnter={handleProvidersIntent}
             onFocus={handleProvidersIntent}
@@ -716,87 +741,97 @@ export function App() {
           >
             {messages.nav.providers}
           </button>
+        </nav>
+        <div className="shell-rail-status">
+          <div className="shell-rail-status-card">
+            <span className="overview-note-label">active</span>
+            <strong>
+              {visibleProviderSummary.active}/{visibleProviderSummary.total}
+            </strong>
+            <span>providers</span>
+          </div>
+          <div className="shell-rail-status-card">
+            <span className="overview-note-label">review</span>
+            <strong>{highRiskCount}</strong>
+            <span>high risk</span>
+          </div>
         </div>
-        <div className="top-controls">
-          <button
-            type="button"
-            className="btn-outline"
-            onClick={() => {
-              void refreshAllData();
-            }}
-            disabled={busy || refreshingAllData}
-            title={messages.nav.syncHint}
-          >
-            {refreshingAllData ? messages.nav.syncing : messages.nav.syncNow}
-          </button>
-          <button
-            type="button"
-            className="btn-outline"
-            onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
-            title={theme === "dark" ? messages.nav.switchToLight : messages.nav.switchToDark}
-          >
-            {theme === "dark" ? messages.nav.light : messages.nav.dark}
-          </button>
-        </div>
-      </section>
+      </aside>
 
-      {showOverviewChrome ? (
-        <section className="hero">
-          <div className="hero-shell">
-            <div className="hero-copy">
-              <div className="hero-top">
-                <h1>{messages.hero.title}</h1>
-                <span className="hero-badge">{messages.hero.badge}</span>
-              </div>
-              <p>{messages.hero.description}</p>
-              <div className="hero-meta">
-                <span className="meta-chip">
-                  {messages.hero.active} {visibleProviderSummary.active}/{visibleProviderSummary.total}
-                </span>
-                <span className="meta-chip">
-                  {messages.hero.safeCleanup} {cleanupReadyCount}
-                </span>
-                <span className="meta-chip">
-                  {messages.hero.readOnly} {readOnlyCount}
-                </span>
-                <span className="meta-chip">
-                  {messages.hero.threads} {rows.length}
-                </span>
-                <span className="meta-chip">
-                  {messages.hero.highRisk} {highRiskCount}
-                </span>
-              </div>
-            </div>
-            <aside className="hero-console">
-              <div className="hero-console-head">
-                <span className="overview-note-label">핵심 흐름</span>
-                <strong>검색. 정리. 백업.</strong>
-                <p>찾고, 검토하고, 원본을 먼저 보존해.</p>
-              </div>
-              <div className="hero-console-steps">
-                <article className="hero-console-step">
-                  <div>
-                    <strong>검색</strong>
-                    <p>{visibleProviderSessionSummary.rows}개 세션 즉시 탐색</p>
-                  </div>
-                </article>
-                <article className="hero-console-step">
-                  <div>
-                    <strong>정리</strong>
-                    <p>{highRiskCount}개 고위험 검토 대기</p>
-                  </div>
-                </article>
-                <article className="hero-console-step">
-                  <div>
-                    <strong>백업 보관함</strong>
-                    <p>백업 세트 {recovery.data?.summary?.backup_sets ?? 0}개 준비</p>
-                  </div>
-                </article>
-              </div>
-            </aside>
+      <main className="page page-shell-main">
+        <section className="top-actions">
+          <div className="top-actions-copy">
+            <span className="top-actions-label">surface</span>
+            <strong>{currentSurfaceLabel}</strong>
+          </div>
+          <div className="top-controls">
+            <button
+              type="button"
+              className="btn-outline"
+              onClick={() => {
+                void refreshAllData();
+              }}
+              disabled={busy || refreshingAllData}
+              title={messages.nav.syncHint}
+            >
+              {refreshingAllData ? messages.nav.syncing : messages.nav.syncNow}
+            </button>
+            <button
+              type="button"
+              className="btn-outline"
+              onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+              title={theme === "dark" ? messages.nav.switchToLight : messages.nav.switchToDark}
+            >
+              {theme === "dark" ? messages.nav.light : messages.nav.dark}
+            </button>
           </div>
         </section>
-      ) : null}
+
+        {showOverviewChrome ? (
+          <section className="hero">
+            <div className="hero-shell">
+              <div className="hero-copy">
+                <div className="hero-top">
+                  <h1>{messages.hero.title}</h1>
+                  <span className="hero-badge">{messages.hero.badge}</span>
+                </div>
+                <p>원문 검색, 정리 검토, 백업 보호.</p>
+                <div className="hero-meta">
+                  <span className="meta-chip">
+                    {messages.hero.active} {visibleProviderSummary.active}/{visibleProviderSummary.total}
+                  </span>
+                  <span className="meta-chip">
+                    {messages.hero.safeCleanup} {cleanupReadyCount}
+                  </span>
+                  <span className="meta-chip">
+                    {messages.hero.readOnly} {readOnlyCount}
+                  </span>
+                  <span className="meta-chip">
+                    {messages.hero.highRisk} {highRiskCount}
+                  </span>
+                </div>
+                <div className="hero-actions">
+                  <button
+                    type="button"
+                    className="overview-header-btn is-primary"
+                    onClick={() => changeLayoutView("search")}
+                    onMouseEnter={handleSearchIntent}
+                    onFocus={handleSearchIntent}
+                  >
+                    원문 세션 열기
+                  </button>
+                  <button
+                    type="button"
+                    className="overview-header-btn"
+                    onClick={() => changeLayoutView("threads")}
+                  >
+                    정리 검토 열기
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : null}
 
       {showRuntimeBackendDegraded ? (
         <section className="degraded-banner" role="status" aria-live="polite">
@@ -808,139 +843,182 @@ export function App() {
         </section>
       ) : null}
 
-      {layoutView === "overview" ? (
-        <section className="overview-grid">
-          <section className="panel overview-spotlight">
-            <header>
-              <h2>워크벤치 런처</h2>
-              <span>지금 필요한 surface로 바로 들어가.</span>
-            </header>
-            <div className="overview-launcher-layout">
-              <div className="overview-launcher-main">
-                <div className="overview-status-strip">
-                  <span>
-                    런타임{" "}
-                    {runtimeLoading
-                      ? "..."
-                      : runtime.data?.data?.runtime_backend.reachable
-                        ? `${messages.kpi.reachable} · ${runtime.data?.data?.runtime_backend.latency_ms ?? "-"} ms`
-                        : messages.kpi.down}
-                  </span>
-                  <span>
-                    정리{" "}
-                    {threadsLoading
-                      ? "..."
-                      : `${highRiskCount} 고위험 · ${messages.kpi.pinned} ${pinnedCount}/${rows.length}`}
-                  </span>
-                  <span>
-                    복구{" "}
-                    {recoveryLoading
-                      ? "..."
-                      : `${recovery.data?.summary?.checklist_done ?? 0}/${recovery.data?.summary?.checklist_total ?? 0} ready · ${messages.kpi.backupSets} ${recovery.data?.summary?.backup_sets ?? 0}`}
-                  </span>
+        {layoutView === "overview" ? (
+          <section className="overview-grid">
+            <section className="panel overview-stage">
+              <div className="overview-stage-header">
+                <div className="overview-stage-title">
+                  <span className="overview-note-label">main stage</span>
+                  <h2>Session Workbench</h2>
+                  <p>핵심 surface를 바로 연다.</p>
                 </div>
-                <div className="overview-resume-grid">
+                <div className="overview-header-actions">
                   <button
                     type="button"
-                    className="overview-resume-card"
+                    className="overview-header-btn"
+                    onClick={() => setSetupGuideOpen((prev) => !prev)}
+                  >
+                    {setupGuideOpen ? "설정 닫기" : "새 세션 설정"}
+                  </button>
+                  <button
+                    type="button"
+                    className="overview-header-btn is-primary"
                     onClick={() => changeLayoutView("search")}
                     onMouseEnter={handleSearchIntent}
                     onFocus={handleSearchIntent}
                   >
-                    <span className="overview-note-label">검색</span>
-                    <strong>원문 세션 전체에서 문구 찾기</strong>
-                    <p>{visibleProviderSessionSummary.rows}개 세션 즉시 검색</p>
-                  </button>
-                  <button
-                    type="button"
-                    className="overview-resume-card"
-                    onClick={() => changeLayoutView("threads")}
-                  >
-                    <span className="overview-note-label">정리</span>
-                    <strong>고위험 Codex 스레드 검토</strong>
-                    <p>{highRiskCount}개 고위험 검토 대기</p>
-                  </button>
-                  <button
-                    type="button"
-                    className="overview-resume-card"
-                    onClick={() => changeLayoutView("providers")}
-                    onMouseEnter={handleProvidersIntent}
-                    onFocus={handleProvidersIntent}
-                  >
-                    <span className="overview-note-label">백업</span>
-                    <strong>원본 세션부터 보호</strong>
-                    <p>백업 세트 {recovery.data?.summary?.backup_sets ?? 0}개 준비</p>
+                    원문 세션 열기
                   </button>
                 </div>
               </div>
-              <aside className="overview-operator-rail" aria-label="operator guide">
-                <div className="overview-operator-card">
-                  <span className="overview-note-label">메인 surface</span>
-                  <strong>TUI가 daily operator surface</strong>
-                  <p>반복 조작은 TUI에서 더 빠르게 처리해.</p>
-                </div>
-                <div className="overview-operator-card">
-                  <span className="overview-note-label">제품 경계</span>
-                  <strong>CLI는 engine, Electron은 local value</strong>
-                  <p>CLI는 엔진, Electron은 로컬 기능만 맡아.</p>
-                </div>
-                <div className="overview-operator-card">
-                  <span className="overview-note-label">지금 backlog</span>
-                  <strong>Quartz Mono dark-first 먼저 고정</strong>
-                  <p>라이트는 파생으로 두고 Search, Sessions 밀도를 우선 다듬어.</p>
-                </div>
-              </aside>
-            </div>
-          </section>
 
-          <details
-            className="overview-secondary-panel"
-            open={setupGuideOpen}
-            onToggle={(event) => {
-              setSetupGuideOpen((event.currentTarget as HTMLDetailsElement).open);
-            }}
-          >
-            <summary>{setupGuideOpen ? "설정 도우미 숨기기" : "선택 설정 도우미"}</summary>
-            <div className="overview-secondary-body">
-              {setupGuideOpen ? (
-                <Suspense
-                  fallback={
-                    <div className="info-box compact">
-                      <strong>{messages.common.loading}</strong>
-                      <p>설정 도우미 불러오는 중.</p>
+              <div className="overview-stage-layout">
+                <div className="overview-stage-main">
+                  <section className="overview-command-shell" aria-label="workbench command shell">
+                    <div className="overview-window-dots" aria-hidden="true">
+                      <span />
+                      <span />
+                      <span />
                     </div>
-                  }
-                >
-                  <SetupWizard
-                    providers={visibleProviders}
-                    dataSourceRows={visibleDataSourceRows}
-                    providerSessionRows={visibleProviderSessionRows}
-                    parserReports={visibleParserReports}
-                    providersRefreshing={providersRefreshing}
-                    providersLastRefreshAt={providersLastRefreshAt}
-                    onRefresh={refreshProvidersData}
-                    onOpenProviders={(providerId) => {
-                      if (providerId && visibleProviderIdSet.has(providerId)) {
-                        changeProviderView(providerId as ProviderView);
-                      } else {
-                        changeProviderView("all");
-                      }
-                      changeLayoutView("providers");
-                    }}
-                    onOpenDiagnostics={() => changeLayoutView("providers")}
-                  />
-                </Suspense>
-              ) : (
-                <div className="info-box compact">
-                  <strong>워크스페이스를 이미 알면 건너뛰어도 돼.</strong>
-                  <p>검색, 정리, 세션으로 바로 가고, 프로바이더 감지나 경로를 다시 확인할 때만 열어.</p>
+                    <div className="overview-command-meta">
+                      <span className="overview-command-path">obs-node / sessions / active</span>
+                      <span className="overview-command-runtime">
+                        {runtimeLoading
+                          ? "runtime syncing"
+                          : runtime.data?.data?.runtime_backend.reachable
+                            ? `runtime online · ${runtime.data?.data?.runtime_backend.latency_ms ?? "-"} ms`
+                            : "runtime down"}
+                      </span>
+                    </div>
+                    <div className="overview-command-pills">
+                      <span className="overview-command-pill is-solid">obs inspect --scope original</span>
+                      <span className="overview-command-pill">search {visibleProviderSessionSummary.rows}</span>
+                      <span className="overview-command-pill">review {highRiskCount}</span>
+                      <span className="overview-command-pill">backup {recovery.data?.summary?.backup_sets ?? 0}</span>
+                    </div>
+                  </section>
+
+                  <section className="overview-editorial">
+                    <div className="overview-editorial-head">
+                      <div>
+                        <span className="overview-note-label">open next</span>
+                        <h3>바로 들어갈 surface</h3>
+                        <p>지금 필요한 작업만 남겼다.</p>
+                      </div>
+                      <div className="overview-editorial-badges">
+                        <span className="overview-editorial-badge">
+                          providers {visibleProviderSummary.active}/{visibleProviderSummary.total}
+                        </span>
+                        <span className="overview-editorial-badge">threads {rows.length}</span>
+                      </div>
+                    </div>
+
+                    <p className="overview-editorial-lead">
+                      검색 {visibleProviderSessionSummary.rows} · 고위험 {highRiskCount} · 백업 세트{" "}
+                      {recovery.data?.summary?.backup_sets ?? 0}
+                    </p>
+
+                    <div className="overview-primary-actions">
+                      <button
+                        type="button"
+                        className="overview-primary-card"
+                        onClick={() => changeLayoutView("search")}
+                        onMouseEnter={handleSearchIntent}
+                        onFocus={handleSearchIntent}
+                      >
+                        <span className="overview-note-label">검색</span>
+                        <strong>원문 세션</strong>
+                        <p>{visibleProviderSessionSummary.rows}개 세션 검색</p>
+                      </button>
+                      <button
+                        type="button"
+                        className="overview-primary-card"
+                        onClick={() => changeLayoutView("threads")}
+                      >
+                        <span className="overview-note-label">정리</span>
+                        <strong>Cleanup Review</strong>
+                        <p>{highRiskCount}개 고위험 검토</p>
+                      </button>
+                      <button
+                        type="button"
+                        className="overview-primary-card"
+                        onClick={() => changeLayoutView("providers")}
+                        onMouseEnter={handleProvidersIntent}
+                        onFocus={handleProvidersIntent}
+                      >
+                        <span className="overview-note-label">백업</span>
+                        <strong>Original Sessions</strong>
+                        <p>백업 세트 {recovery.data?.summary?.backup_sets ?? 0}</p>
+                      </button>
+                    </div>
+
+                    <div className="overview-metric-grid">
+                      <article className="overview-metric-card">
+                        <span className="overview-note-label">cleanup load</span>
+                        <strong>{highRiskCount}</strong>
+                        <p>pinned {pinnedCount}/{rows.length}</p>
+                      </article>
+                      <article className="overview-metric-card">
+                        <span className="overview-note-label">backup vault</span>
+                        <strong>{recovery.data?.summary?.backup_sets ?? 0}</strong>
+                        <p>
+                          checklist {recovery.data?.summary?.checklist_done ?? 0}/
+                          {recovery.data?.summary?.checklist_total ?? 0}
+                        </p>
+                      </article>
+                    </div>
+                  </section>
                 </div>
-              )}
-            </div>
-          </details>
-          <p className="overview-secondary-note">프로바이더 경로나 감지가 이상할 때만 이 도우미를 열어.</p>
-        </section>
-      ) : null}
+              </div>
+            </section>
+
+            <details
+              className="overview-secondary-panel"
+              open={setupGuideOpen}
+              onToggle={(event) => {
+                setSetupGuideOpen((event.currentTarget as HTMLDetailsElement).open);
+              }}
+            >
+              <summary>{setupGuideOpen ? "설정 닫기" : "새 세션 설정 열기"}</summary>
+              <div className="overview-secondary-body">
+                {setupGuideOpen ? (
+                  <Suspense
+                    fallback={
+                      <div className="info-box compact">
+                        <strong>{messages.common.loading}</strong>
+                        <p>설정 stage 불러오는 중.</p>
+                      </div>
+                    }
+                  >
+                    <SetupWizard
+                      providers={visibleProviders}
+                      dataSourceRows={visibleDataSourceRows}
+                      providerSessionRows={visibleProviderSessionRows}
+                      parserReports={visibleParserReports}
+                      providersRefreshing={providersRefreshing}
+                      providersLastRefreshAt={providersLastRefreshAt}
+                      onRefresh={refreshProvidersData}
+                      onOpenProviders={(providerId) => {
+                        if (providerId && visibleProviderIdSet.has(providerId)) {
+                          changeProviderView(providerId as ProviderView);
+                        } else {
+                          changeProviderView("all");
+                        }
+                        changeLayoutView("providers");
+                      }}
+                      onOpenDiagnostics={() => changeLayoutView("providers")}
+                    />
+                  </Suspense>
+                ) : (
+                  <div className="info-box compact">
+                    <strong>설정 stage는 필요할 때만 연다.</strong>
+                    <p>기본 flow엔 숨겨 둔다.</p>
+                  </div>
+                )}
+              </div>
+            </details>
+          </section>
+        ) : null}
 
       {showSearch ? (
         <Suspense
@@ -1121,29 +1199,29 @@ export function App() {
         <section className="panel cleanup-command-shell">
           <header>
             <h2>Cleanup review queue</h2>
-            <span>선택, 영향 분석, 드라이런 순서로 검토해.</span>
+            <span>impact와 dry-run을 먼저 본다.</span>
           </header>
           <div className="cleanup-command-body">
             <div className="thread-workflow-copy">
-              <span className="overview-note-label">cleanup workbench</span>
-              <strong>고위험 Codex 스레드를 list + review rail로 다뤄.</strong>
-              <p>먼저 queue를 좁히고, 영향 분석과 드라이런 토큰을 확인한 뒤 실제 정리 여부를 결정하는 흐름으로 가져가.</p>
+              <span className="overview-note-label">cleanup review workbench</span>
+              <strong>정리 후보를 좁히고 바로 review rail에서 판단한다.</strong>
+              <p>queue, impact, dry-run을 한 흐름으로 둔다.</p>
             </div>
             <div className="thread-status-grid">
               <article className="thread-status-card">
                 <span>queue</span>
                 <strong>{visibleRows.length}/{filteredRows.length}</strong>
-                <p>현재 렌더링된 스레드 / 필터 결과</p>
+                <p>visible / filtered</p>
               </article>
               <article className={`thread-status-card ${selectedIds.length > 0 ? "is-accent" : ""}`.trim()}>
                 <span>selected</span>
                 <strong>{selectedIds.length}</strong>
-                <p>현재 review 대상에 올린 스레드 수</p>
+                <p>review rail 대상</p>
               </article>
               <article className={`thread-status-card ${cleanupData?.confirm_token_expected ? "is-ready" : ""}`.trim()}>
                 <span>dry-run</span>
                 <strong>{cleanupData?.confirm_token_expected ? "ready" : "pending"}</strong>
-                <p>{selectedImpactRows.length > 0 ? `${selectedImpactRows.length} impact rows ready` : "영향 분석부터 먼저 실행"}</p>
+                <p>{selectedImpactRows.length > 0 ? `${selectedImpactRows.length} impact rows` : "impact 먼저"}</p>
               </article>
             </div>
             <section className="toolbar cleanup-toolbar">
@@ -1169,13 +1247,12 @@ export function App() {
                 <option value="pinned">{messages.toolbar.pinned}</option>
               </select>
               <span className="sub-hint">
-                {messages.toolbar.threadsFetchMs} {threadsFetchMs !== null ? `${threadsFetchMs}ms` : "-"}
+                fetch {threadsFetchMs !== null ? `${threadsFetchMs}ms` : "-"}
               </span>
               {threadsFastBooting ? (
-                <span className="sub-hint">{messages.toolbar.threadsBootMode}</span>
+                <span className="sub-hint">fast boot</span>
               ) : null}
-              <span className="sub-hint">{messages.toolbar.shortcuts}</span>
-              <span className="sub-hint">{messages.toolbar.detailHint}</span>
+              <span className="sub-hint">review rail</span>
             </section>
           </div>
         </section>
@@ -1317,37 +1394,48 @@ export function App() {
         </section>
       ) : null}
 
-      {runtime.isError ? <div className="error-box">{messages.errors.runtime}</div> : null}
-      {smokeStatus.isError ? <div className="error-box">{messages.errors.smokeStatus}</div> : null}
-      {recovery.isError ? <div className="error-box">{messages.errors.recovery}</div> : null}
-      {providerMatrix.isError ? <div className="error-box">{messages.errors.providerMatrix}</div> : null}
-      {providerSessions.isError ? <div className="error-box">{messages.errors.providerSessions}</div> : null}
-      {providerParserHealth.isError ? <div className="error-box">{messages.errors.parserHealth}</div> : null}
-      {showGlobalAnalyzeDeleteError ? (
-        <div className="error-box">
-          <div>{messages.errors.impactAnalysis}</div>
-          {analyzeDeleteErrorMessage ? <div className="mono-sub">{analyzeDeleteErrorMessage}</div> : null}
-        </div>
+        {hasGlobalErrorStack ? (
+          <section className="error-stack" aria-live="polite">
+            <div className="error-stack-head">
+              <span className="overview-note-label">runtime issues</span>
+            <strong>일부 runtime action이 막혀 있다.</strong>
+            </div>
+          <div className="error-stack-list">
+            {runtime.isError ? <div className="error-box">{messages.errors.runtime}</div> : null}
+            {smokeStatus.isError ? <div className="error-box">{messages.errors.smokeStatus}</div> : null}
+            {recovery.isError ? <div className="error-box">{messages.errors.recovery}</div> : null}
+            {providerMatrix.isError ? <div className="error-box">{messages.errors.providerMatrix}</div> : null}
+            {providerSessions.isError ? <div className="error-box">{messages.errors.providerSessions}</div> : null}
+            {providerParserHealth.isError ? <div className="error-box">{messages.errors.parserHealth}</div> : null}
+            {showGlobalAnalyzeDeleteError ? (
+              <div className="error-box">
+                <div>{messages.errors.impactAnalysis}</div>
+                {analyzeDeleteErrorMessage ? <div className="mono-sub">{analyzeDeleteErrorMessage}</div> : null}
+              </div>
+            ) : null}
+            {showGlobalCleanupDryRunError ? (
+              <div className="error-box">
+                <div>{messages.errors.cleanupDryRun}</div>
+                {cleanupDryRunErrorMessage ? <div className="mono-sub">{cleanupDryRunErrorMessage}</div> : null}
+              </div>
+            ) : null}
+            {providerSessionActionError ? (
+              <div className="error-box">
+                <div>{messages.errors.providerAction}</div>
+                {providerSessionActionErrorMessage ? <div className="mono-sub">{providerSessionActionErrorMessage}</div> : null}
+              </div>
+            ) : null}
+            {bulkActionError && !showRuntimeBackendDegraded ? (
+              <div className="error-box">
+                <div>{messages.errors.threadAction}</div>
+                {bulkActionErrorMessage ? <div className="mono-sub">{bulkActionErrorMessage}</div> : null}
+              </div>
+            ) : null}
+          </div>
+        </section>
       ) : null}
-      {showGlobalCleanupDryRunError ? (
-        <div className="error-box">
-          <div>{messages.errors.cleanupDryRun}</div>
-          {cleanupDryRunErrorMessage ? <div className="mono-sub">{cleanupDryRunErrorMessage}</div> : null}
-        </div>
-      ) : null}
-      {providerSessionActionError ? (
-        <div className="error-box">
-          <div>{messages.errors.providerAction}</div>
-          {providerSessionActionErrorMessage ? <div className="mono-sub">{providerSessionActionErrorMessage}</div> : null}
-        </div>
-      ) : null}
-      {bulkActionError && !showRuntimeBackendDegraded ? (
-        <div className="error-box">
-          <div>{messages.errors.threadAction}</div>
-          {bulkActionErrorMessage ? <div className="mono-sub">{bulkActionErrorMessage}</div> : null}
-        </div>
-      ) : null}
-      {busy ? <div className="busy-indicator">{messages.busy}</div> : null}
-    </main>
+        {busy ? <div className="busy-indicator">{messages.busy}</div> : null}
+      </main>
+    </div>
   );
 }

@@ -155,19 +155,33 @@ export function SessionDetail(props: SessionDetailProps) {
   const sessionModelHint = (() => {
     if (!selectedSession) return "";
     if (selectedSession.provider === "codex") {
-      return "Codex에는 스레드용 별도 정리 모델도 있지만, 이 패널은 지금 선택한 원본 세션 파일에만 집중해.";
+      return "Codex 원본 세션 rail.";
     }
     if (selectedSession.provider === "claude") {
-      return "Claude는 프로젝트 로그와 transcript 저장소에 남은 원본 세션 파일을 중심으로 관리돼. 여기선 세션 ID와 파일 경로가 핵심 기준점이야.";
+      return "Claude 원본 세션 rail.";
     }
     if (selectedSession.provider === "gemini") {
-      return "Gemini는 history, tmp, checkpoint형 세션 저장소를 기준으로 원문 대화를 점검하는 흐름이야.";
+      return "Gemini 원본 세션 rail.";
     }
     if (selectedSession.provider === "copilot") {
-      return "Copilot은 workspace/global 채팅 아티팩트를 읽기 때문에 이 패널이 원본 세션 파일 점검기처럼 동작해.";
+      return "Copilot 원본 세션 rail.";
     }
-    return "이 패널은 선택한 AI의 원본 세션 파일을 열고 파일 단위 드라이런, 보관, 삭제를 처리해.";
+    return "선택한 세션 rail.";
   })();
+  const compactToken = (value: string) =>
+    value && value.length > 12 ? `${value.slice(0, 8)}…${value.slice(-4)}` : value;
+  const derivedSessionToken =
+    selectedSession?.file_path.match(/[0-9a-f]{8}-[0-9a-f-]{9,}/i)?.[0] ?? "";
+  const fallbackSessionTitle = derivedSessionToken
+    ? `session ${derivedSessionToken.slice(0, 8)}`
+    : messages.threadDetail.unknownTitle;
+  const sessionDisplayTitle =
+    normalizeDisplayValue(selectedSession?.display_title) ||
+    normalizeDisplayValue(selectedSession?.probe.detected_title) ||
+    fallbackSessionTitle;
+  const sessionProbeLabel = selectedSession
+    ? `${selectedSession.probe.format} / ${selectedSession.probe.ok ? messages.common.ok : messages.common.fail}`
+    : "";
 
   return (
     <section className="panel session-detail-panel">
@@ -180,24 +194,24 @@ export function SessionDetail(props: SessionDetailProps) {
           <div className="session-detail-empty-state">
             <div className="session-detail-empty-copy">
               <span className="overview-note-label">{messages.sessionDetail.title}</span>
-              <strong>원본 세션을 선택해</strong>
-              <p>{messages.sessionDetail.clickHint}</p>
-            </div>
-            <div className="session-detail-empty-grid">
-              <article className="session-detail-empty-card">
-                <span className="overview-note-label">전사</span>
-                <strong>원본 대화 본문 열기</strong>
-                <p>원본 세션실을 벗어나지 않고 여기서 바로 선택한 세션 본문을 확인해.</p>
-              </article>
-              <article className="session-detail-empty-card">
-                <span className="overview-note-label">백업</span>
-                <strong>삭제 전에 먼저 보호</strong>
-                <p>실제 파일 액션 전에 단건 백업이나 삭제 전 자동 백업을 먼저 써.</p>
-              </article>
+              <strong>세션을 고르면 열린다.</strong>
+              <p>전사와 보호 액션을 여기서 본다.</p>
             </div>
           </div>
         ) : (
           <>
+            <section className="detail-hero detail-hero-session">
+              <div className="detail-hero-copy">
+                <span className="overview-note-label">original session rail</span>
+                <strong>{sessionDisplayTitle}</strong>
+                <p>{sessionModelHint}</p>
+              </div>
+              <div className="detail-hero-pills" aria-label="session detail summary">
+                <span className="detail-hero-pill">{selectedSession.provider}</span>
+                {derivedSessionToken ? <span className="detail-hero-pill mono-sub">{compactToken(derivedSessionToken)}</span> : null}
+                <span className="detail-hero-pill">{sessionProbeLabel}</span>
+              </div>
+            </section>
             {isElectronRuntime ? (
               <section className="detail-section detail-section-desktop-quick-actions detail-section-static">
                 <div className="detail-section-static-head">{messages.sessionDetail.desktopQuickActions}</div>
@@ -250,16 +264,14 @@ export function SessionDetail(props: SessionDetailProps) {
               <details className="detail-section">
                 <summary>{messages.sessionDetail.sectionOverview}</summary>
                 <div className="detail-section-body">
-                  <div className="info-box compact">
-                    <strong>{messages.sessionDetail.modelTitle}</strong>
-                    <p>{sessionModelHint}</p>
-                  </div>
+                <div className="info-box compact">
+                  <strong>{messages.sessionDetail.modelTitle}</strong>
+                  <p>{selectedSession.provider}</p>
+                </div>
                   <div className="impact-kv">
                     <span>{messages.sessionDetail.fieldTitle}</span>
                     <strong className="title-main">
-                      {normalizeDisplayValue(selectedSession.display_title) ||
-                        normalizeDisplayValue(selectedSession.probe.detected_title) ||
-                        "-"}
+                      {sessionDisplayTitle || "-"}
                     </strong>
                   </div>
                   <div className="impact-kv">
@@ -426,10 +438,10 @@ export function SessionDetail(props: SessionDetailProps) {
                   </div>
                 </div>
                 <div className="danger-zone">
-                  <div className="danger-zone-head">
-                    <span className="overview-note-label">위험 구역</span>
-                    <strong>백업이나 드라이런을 먼저 확인한 뒤에만 원본 파일을 삭제해.</strong>
-                  </div>
+                <div className="danger-zone-head">
+                  <span className="overview-note-label">위험 구역</span>
+                  <strong>삭제는 마지막.</strong>
+                </div>
                   <div className="chat-toolbar detail-action-bar detail-action-bar-danger">
                     <button
                       type="button"

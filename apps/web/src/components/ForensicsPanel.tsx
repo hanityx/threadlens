@@ -61,9 +61,34 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
     <section className="panel impact-panel thread-review-panel">
       <header>
         <h2>{messages.forensics.title}</h2>
-        <span>{messages.forensics.subtitle}</span>
+        <span>cleanup token / impact</span>
       </header>
       <div className="impact-body">
+        <section className="detail-hero detail-hero-forensics">
+          <div className="detail-hero-copy">
+            <span className="overview-note-label">cleanup review workbench</span>
+            <strong>
+              {cleanupReady
+                ? messages.forensics.cleanupTokenReady
+                : impactReady
+                  ? messages.forensics.nextStepImpactReady
+                  : messages.forensics.nextStepPending}
+            </strong>
+            <p>impact / dry-run / token</p>
+          </div>
+          <div className="detail-hero-pills" aria-label="forensics summary">
+            <span className="detail-hero-pill">
+              {messages.forensics.selectedThreads} · {selectedIds.length}
+            </span>
+            <span className="detail-hero-pill">
+              {messages.forensics.includesHighRisk} · {highRiskCount}
+            </span>
+            <span className="detail-hero-pill">
+              {messages.forensics.cleanupToken} · {cleanupData?.confirm_token_expected ?? "-"}
+            </span>
+          </div>
+        </section>
+
         <div className="thread-review-grid">
           <article className="thread-review-card thread-review-card-emphasis">
             <span>{messages.forensics.nextStepLabel}</span>
@@ -74,22 +99,22 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
                   ? messages.forensics.nextStepImpactReady
                   : messages.forensics.nextStepPending}
             </strong>
-            <p>{cleanupReady ? messages.forensics.cleanupTokenReadyBody : messages.forensics.explanationImpact}</p>
+            <p>{cleanupReady ? "token ready" : "impact pending"}</p>
           </article>
           <article className="thread-review-card">
             <span>{messages.forensics.selectedThreads}</span>
             <strong>{selectedIds.length}</strong>
-            <p>{messages.forensics.stageSelectBody}</p>
+            <p>selected</p>
           </article>
           <article className="thread-review-card">
             <span>{messages.forensics.includesHighRisk}</span>
             <strong>{highRiskCount}</strong>
-            <p>{messages.forensics.stageImpactBody}</p>
+            <p>high risk</p>
           </article>
           <article className={`thread-review-card ${cleanupReady ? "is-ready" : ""}`.trim()}>
             <span>{messages.forensics.cleanupToken}</span>
             <strong>{cleanupData?.confirm_token_expected ?? "-"}</strong>
-            <p>{cleanupReady ? messages.forensics.cleanupTokenReadyBody : messages.forensics.cleanupTokenHint}</p>
+            <p>{cleanupReady ? "copy ready" : "after dry-run"}</p>
             {cleanupReady ? (
               <div className="sub-toolbar action-toolbar">
                 <button type="button" className="btn-outline" onClick={handleCopyToken}>
@@ -98,13 +123,6 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
               </div>
             ) : null}
           </article>
-        </div>
-
-        <div className="info-box compact">
-          <strong>{messages.forensics.explanationTitle}</strong>
-          <p>{messages.forensics.explanationImpact}</p>
-          <p>{messages.forensics.explanationDryRun}</p>
-          <p>원본 파일 액션은 세션 화면에서 처리하고, 이 패널은 Codex 정리 검토용으로만 써.</p>
         </div>
 
         <div className="thread-review-stage-list">
@@ -188,7 +206,7 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
 
         {analysisRaw || cleanupRaw ? (
           <details className="detail-section">
-            <summary>{messages.forensics.explanationTitle} / JSON</summary>
+            <summary>payload</summary>
             <div className="detail-section-body">
               {analysisRaw ? (
                 <details open>

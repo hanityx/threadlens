@@ -137,6 +137,20 @@ function formatFetchMs(value: number | null): string {
   return `${Math.max(0, Math.round(value))}ms`;
 }
 
+function compactSessionTitle(title?: string | null, sessionId?: string | null): string {
+  const normalized = String(title || "").trim();
+  if (!normalized || normalized === "none") {
+    return sessionId ? `session ${sessionId.slice(0, 8)}` : "session";
+  }
+  return normalized;
+}
+
+function compactSessionId(sessionId?: string | null): string {
+  if (!sessionId) return "session";
+  if (sessionId.length <= 18) return sessionId;
+  return `${sessionId.slice(0, 8)}…${sessionId.slice(-4)}`;
+}
+
 function readCsvColumnPrefs(): Record<CsvColumnKey, boolean> {
   if (typeof window === "undefined") return DEFAULT_CSV_COLUMNS;
   try {
@@ -1056,7 +1070,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
 
   return (
     <>
-      <section className="panel provider-workspace-bar">
+      <section className="panel provider-workspace-bar provider-archive-stage">
         <header>
           <h2>{messages.providers.hubTitle}</h2>
           <span>{providerLabel}</span>
@@ -1101,9 +1115,9 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
             </div>
 
             <div className="provider-workspace-copy">
-              <span className="overview-note-label">source sessions workbench</span>
-              <strong>원본 세션 데이터 그리드와 detail rail을 같은 화면에서 이어서 다뤄.</strong>
-              <p>프로바이더를 고르고, 세션 파일을 필터링하고, 단건 detail과 백업/보관/삭제 드라이런을 오른쪽 rail에서 바로 검토해.</p>
+              <span className="overview-note-label">original sessions</span>
+              <strong>{providerLabel} 원본 세션을 고르고 바로 rail에서 읽는다.</strong>
+              <p>archive와 transcript를 같은 board에서 이어 본다.</p>
             </div>
 
             <div className="provider-workspace-summary">
@@ -1130,7 +1144,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
             <div className="provider-workspace-actions-head">
               <strong>{messages.providers.backupHubTitle}</strong>
               <span className="sub-hint">
-                {messages.providers.backupHubSelected} {selectedProviderFilePaths.length} · {messages.providers.backupHubLatest} {latestBackupCount}
+                {messages.providers.backupHubSelected} {selectedProviderFilePaths.length} · latest {latestBackupCount}
               </span>
             </div>
             <div className="provider-action-toolbar-inline">
@@ -1188,7 +1202,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
       </section>
 
       <section className="provider-ops-layout">
-        <section className="panel" ref={providerSessionsSectionRef}>
+        <section className="panel provider-session-stage" ref={providerSessionsSectionRef}>
           <header>
             <h2>{messages.providers.sessionsTitle}</h2>
             <span>
@@ -1201,9 +1215,9 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
           </header>
           <div className="provider-grid-intro">
             <div className="provider-grid-intro-copy">
-              <span className="overview-note-label">data grid</span>
-              <strong>{providerLabel} 원본 세션 큐를 필터링하고 바로 rail로 넘겨.</strong>
-              <p>좌측은 세션 파일 그리드, 우측은 선택한 세션의 transcript와 파일 액션 rail이다.</p>
+              <span className="overview-note-label">session board</span>
+              <strong>{providerLabel} 세션 board</strong>
+              <p>고르고 바로 transcript rail로 넘긴다.</p>
             </div>
           </div>
           {showProviderSessionsZeroState ? (
@@ -1245,9 +1259,9 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
             </select>
             <div className="sessions-control-meta">
               <span className="sub-hint">
-                {messages.providers.filteredRows} {sortedProviderSessionRows.length}/{providerSessionRows.length}
+                rows {sortedProviderSessionRows.length}/{providerSessionRows.length}
                 {sortedProviderSessionRows.length > renderedProviderSessionRows.length
-                  ? ` · ${messages.providers.renderingWindow} ${renderedProviderSessionRows.length}/${sortedProviderSessionRows.length}`
+                  ? ` · window ${renderedProviderSessionRows.length}/${sortedProviderSessionRows.length}`
                   : ""}
               </span>
               <label className="check-inline">
@@ -1261,7 +1275,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
                 {messages.providers.selectAllInTab}
               </label>
               <span className="sub-hint">
-                {providerLabel} · {messages.providers.selected} {selectedProviderFilePaths.length}
+                {providerLabel} · selected {selectedProviderFilePaths.length}
               </span>
             </div>
           </div>
@@ -1468,8 +1482,18 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
                           setParserDetailProvider(row.provider);
                         }}
                       >
-                        <div className="title-main">{row.display_title || row.probe.detected_title || row.session_id}</div>
-                        <div className="mono-sub">{row.session_id}</div>
+                        <div
+                          className="title-main provider-session-title"
+                          title={row.display_title || row.probe.detected_title || row.session_id}
+                        >
+                          {compactSessionTitle(
+                            row.display_title || row.probe.detected_title,
+                            row.session_id,
+                          )}
+                        </div>
+                        <div className="mono-sub provider-session-id" title={row.session_id}>
+                          {compactSessionId(row.session_id)}
+                        </div>
                       </button>
                     </td>
                     <td className="col-source">{row.source}</td>

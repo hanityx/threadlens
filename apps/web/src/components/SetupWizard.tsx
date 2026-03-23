@@ -186,6 +186,7 @@ export function SetupWizard({
   const selectedCards = providerCards.filter((card) => selectedProviderIds.includes(card.providerId));
   const primaryProviderId = selectedCards[0]?.providerId;
   const currentStepState = completedAt ? 3 : currentStep;
+  const activeProviderCount = providerCards.filter((card) => card.status === "active").length;
 
   const toggleProvider = (providerId: string) => {
     setSelectedProviderIds((current) => {
@@ -223,27 +224,58 @@ export function SetupWizard({
   return (
     <section className="panel setup-wizard-panel">
       <header>
-        <h2>프로바이더 설정 도우미</h2>
-        <span>로컬 흔적을 감지하고, 집중할 프로바이더를 고른 뒤, 깔끔한 시작 상태를 저장해.</span>
+        <h2>새 세션 설정</h2>
+        <span>detect / focus / ready</span>
       </header>
 
       <div className="setup-wizard-shell">
+        <section className="setup-wizard-stage">
+          <div className="setup-wizard-stage-copy">
+            <span className="overview-note-label">new session configuration</span>
+            <strong>detect하고 focus를 저장한다.</strong>
+            <p>detect / select / ready</p>
+          </div>
+          <div className="setup-wizard-stage-pills" aria-label="setup wizard summary">
+            <span className="setup-wizard-stage-pill">active · {activeProviderCount}</span>
+            <span className="setup-wizard-stage-pill">detected · {detectedSourceCount}</span>
+            <span className="setup-wizard-stage-pill">recommended · {recommendedProviderIds.length}</span>
+            <span className="setup-wizard-stage-pill">selected · {selectedCards.length || selectedProviderIds.length}</span>
+          </div>
+          <div className="setup-wizard-stage-summary">
+            <article className="setup-wizard-stage-card">
+              <span>detect</span>
+              <strong>{detectedSourceCount}</strong>
+              <p>local traces</p>
+            </article>
+            <article className="setup-wizard-stage-card">
+              <span>focus</span>
+              <strong>{selectedCards.length || selectedProviderIds.length}</strong>
+              <p>selected</p>
+            </article>
+            <article className="setup-wizard-stage-card">
+              <span>ready</span>
+              <strong>{completedAt ? "saved" : `step ${currentStepState}`}</strong>
+              <p>status</p>
+            </article>
+          </div>
+        </section>
+
         <ol className="setup-wizard-steps" aria-label="프로바이더 설정 단계">
           {[
             {
               step: 1 as WizardStep,
               title: "로컬 흔적 감지",
-              body: "무엇에 집중할지 고르기 전에 로컬 루트와 캐시 활동을 새로고침해.",
+              body: "로컬 흔적을 새로 읽는다.",
             },
             {
               step: 2 as WizardStep,
               title: "집중 프로바이더 선택",
-              body: "이 대시보드가 우선으로 다룰 프로바이더를 골라.",
+              body: "먼저 볼 AI만 고른다.",
             },
             {
               step: 3 as WizardStep,
               title: "준비 상태 검토",
-              body: "소스 커버리지, 세션 수, 안전 정리 가능 여부를 확인해.",
+              body: "ready만 보고 저장한다.",
             },
           ].map((item) => {
             const state = stepState(currentStepState, item.step, Boolean(completedAt));
@@ -268,22 +300,20 @@ export function SetupWizard({
         {completedAt && !expandedAfterComplete ? (
           <div className="setup-wizard-complete setup-wizard-complete-compact">
             <div className="setup-wizard-complete-copy">
-              <strong>초기 설정이 끝났어</strong>
-              <p>
-                이 도우미를 계속 열어둘 필요는 없어. 필요할 때만 다시 열고, 평소엔 바로 작업이나 검색으로 가면 돼.
-              </p>
+              <strong>focus 저장됨</strong>
+              <p>바로 sessions로 간다.</p>
             </div>
             <div className="setup-wizard-metric-row">
               <article className="setup-wizard-metric">
-                <span>집중 AI</span>
+                <span>focus</span>
                 <strong>{selectedCards.length || selectedProviderIds.length || providerCards.length}</strong>
               </article>
               <article className="setup-wizard-metric">
-                <span>감지된 흔적</span>
+                <span>traces</span>
                 <strong>{detectedSourceCount}</strong>
               </article>
               <article className="setup-wizard-metric">
-                <span>마지막 저장</span>
+                <span>saved</span>
                 <strong>{formatTimestamp(completedAt)}</strong>
               </article>
             </div>
@@ -299,10 +329,8 @@ export function SetupWizard({
         ) : completedAt ? (
           <div className="setup-wizard-complete">
             <div className="setup-wizard-complete-copy">
-              <strong>설정을 저장했어</strong>
-              <p>
-                {selectedCards.length || selectedProviderIds.length || providerCards.length}개 프로바이더 기준의 집중 화면을 저장했어.
-              </p>
+              <strong>focus 저장됨</strong>
+              <p>{selectedCards.length || selectedProviderIds.length || providerCards.length}개 provider ready</p>
             </div>
             <div className="setup-wizard-metric-row">
               <article className="setup-wizard-metric">
@@ -338,10 +366,8 @@ export function SetupWizard({
             {currentStep === 1 ? (
               <>
                 <div className="setup-wizard-copy">
-                  <strong>1단계: 로컬 프로바이더 흔적 감지</strong>
-                  <p>
-                    도우미가 실제 설치되어 있고 이미 세션 로그를 만들고 있는 프로바이더를 추천할 수 있게 먼저 로컬 데이터 소스를 새로고침해.
-                  </p>
+                  <strong>1단계: detect</strong>
+                  <p>로컬 소스를 다시 읽는다.</p>
                 </div>
                 <div className="setup-wizard-metric-row">
                   <article className="setup-wizard-metric">
@@ -379,16 +405,11 @@ export function SetupWizard({
             {currentStep === 2 ? (
               <>
                 <div className="setup-wizard-copy">
-                  <strong>2단계: 집중 프로바이더 선택</strong>
-                  <p>
-                    지금 중요하게 볼 프로바이더를 골라. 여기서 삭제는 일어나지 않고, 어떤 프로바이더를 먼저 강조할지만 저장해.
-                  </p>
-                  <p>
-                    추천 프로바이더는 참고용으로만 보여줘. 자동 선택은 없고, 네가 직접 고른 것만 저장돼.
-                  </p>
+                  <strong>2단계: focus</strong>
+                  <p>먼저 볼 AI만 고른다.</p>
                 </div>
                 <div className="info-box">
-                  <strong>추천 대상</strong>
+                  <strong>추천 focus</strong>
                   <p>
                     {recommendedProviderIds.length > 0
                       ? recommendedProviderIds
@@ -458,10 +479,8 @@ export function SetupWizard({
             {currentStep === 3 ? (
               <>
                 <div className="setup-wizard-copy">
-                  <strong>3단계: 준비 상태 검토</strong>
-                  <p>
-                    이 시작 상태를 저장하기 전에, 선택한 프로바이더에 흔적, 세션 이력, 파서 커버리지, 안전 정리 지원이 있는지 확인해.
-                  </p>
+                  <strong>3단계: ready</strong>
+                  <p>저장 전 상태만 본다.</p>
                 </div>
                 {selectedCards.length > 0 ? (
                   <div className="setup-wizard-summary-grid">
@@ -491,8 +510,8 @@ export function SetupWizard({
                   </div>
                 ) : (
                   <article className="setup-wizard-empty">
-                    <strong>아직 선택된 프로바이더가 없어</strong>
-                    <p>한 단계 뒤로 가서 적어도 하나의 프로바이더를 고른 뒤 마무리해.</p>
+                    <strong>선택된 AI가 없다.</strong>
+                    <p>하나 이상 고른 뒤 저장한다.</p>
                   </article>
                 )}
                 <div className="setup-wizard-actions">

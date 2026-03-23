@@ -30,6 +30,19 @@ export interface ThreadsTableProps {
   cleanupDryRun: (ids: string[]) => void;
 }
 
+function compactThreadTitle(row: ThreadRow): string {
+  const normalized = normalizeDisplayValue(row.title);
+  if (!normalized || normalized === row.thread_id) {
+    return `thread ${row.thread_id.slice(0, 8)}`;
+  }
+  return normalized;
+}
+
+function compactThreadId(threadId: string): string {
+  if (threadId.length <= 18) return threadId;
+  return `${threadId.slice(0, 8)}…${threadId.slice(-4)}`;
+}
+
 export function ThreadsTable(props: ThreadsTableProps) {
   const {
     messages,
@@ -230,15 +243,20 @@ export function ThreadsTable(props: ThreadsTableProps) {
                     />
                   </td>
                   <td className="title-col">
-                    <div className="title-main">
-                      {normalizeDisplayValue(row.title) || row.thread_id}
+                    <div
+                      className="title-main thread-table-title"
+                      title={normalizeDisplayValue(row.title) || row.thread_id}
+                    >
+                      {compactThreadTitle(row)}
                       {selectedThreadId === row.thread_id ? (
                         <span className="status-pill status-active" style={{ marginLeft: 8 }}>
                           {messages.threadsTable.currentSelection}
                         </span>
                       ) : null}
                     </div>
-                    <div className="mono-sub">{row.thread_id}</div>
+                    <div className="mono-sub thread-table-id" title={row.thread_id}>
+                      {compactThreadId(row.thread_id)}
+                    </div>
                   </td>
                   <td>{row.risk_score ?? 0}</td>
                   <td>{row.is_pinned ? messages.common.yes : messages.common.no}</td>
