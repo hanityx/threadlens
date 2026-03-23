@@ -139,10 +139,21 @@ function formatFetchMs(value: number | null): string {
 
 function compactSessionTitle(title?: string | null, sessionId?: string | null): string {
   const normalized = String(title || "").trim();
+  const fallbackId = String(sessionId || "").trim();
+  const fallbackLabel = fallbackId
+    ? `session ${/^\d{4}-\d{2}-/.test(fallbackId) ? fallbackId.slice(-8) : fallbackId.slice(0, 8)}`
+    : "session";
   if (!normalized || normalized === "none") {
-    return sessionId ? `session ${sessionId.slice(0, 8)}` : "session";
+    return fallbackLabel;
   }
-  return normalized;
+  const lower = normalized.toLowerCase();
+  const looksGenerated =
+    lower.startsWith("rollout-") ||
+    normalized.includes("AGENTS.md") ||
+    normalized.includes("<INSTRUCTIONS>") ||
+    normalized.includes("/user-root/") ||
+    normalized.length > 72;
+  return looksGenerated ? fallbackLabel : normalized;
 }
 
 function compactSessionId(sessionId?: string | null): string {
@@ -185,6 +196,7 @@ function readSlowOnlyPref(): boolean {
 export interface ProvidersPanelProps {
   messages: Messages;
   sessionDetailSlot?: React.ReactNode;
+  diagnosticsSlot?: React.ReactNode;
 
   providers: ProviderMatrixProvider[];
   providerSummary?: { total: number; active: number; detected: number } | undefined;
@@ -288,6 +300,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const {
     messages,
     sessionDetailSlot,
+    diagnosticsSlot,
     providers,
     providerSummary,
     providerMatrixLoading,
@@ -372,30 +385,30 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     return messages.providers.flowStatusPending;
   };
   const capabilityLevelLabel = (level: string) => {
-    if (level === "full") return "전체 기능";
-    if (level === "read-only") return "읽기 전용";
-    if (level === "unavailable") return "사용 불가";
+    if (level === "full") return "Full access";
+    if (level === "read-only") return "Read only";
+    if (level === "unavailable") return "Unavailable";
     return level;
   };
   const dataSourceLabel = (sourceKey: string) => {
     const key = sourceKey.toLowerCase();
-    if (key === "history") return "히스토리";
-    if (key === "global_state") return "글로벌 상태";
-    if (key === "sessions") return "세션";
-    if (key === "archived_sessions") return "보관 세션";
-    if (key === "codex_root") return "Codex 루트";
-    if (key === "chat_root") return "Chat 루트";
-    if (key === "claude_root") return "Claude 루트";
-    if (key === "claude_projects") return "Claude 프로젝트";
-    if (key === "claude_transcripts") return "Claude 전사";
-    if (key === "gemini_root") return "Gemini 루트";
-    if (key === "gemini_tmp") return "Gemini 임시 저장소";
-    if (key === "gemini_history") return "Gemini 히스토리";
-    if (key === "gemini_antigravity") return "Gemini 대화 저장소";
+    if (key === "history") return "History";
+    if (key === "global_state") return "Global state";
+    if (key === "sessions") return "Sessions";
+    if (key === "archived_sessions") return "Archived sessions";
+    if (key === "codex_root") return "Codex root";
+    if (key === "chat_root") return "Chat root";
+    if (key === "claude_root") return "Claude root";
+    if (key === "claude_projects") return "Claude projects";
+    if (key === "claude_transcripts") return "Claude transcripts";
+    if (key === "gemini_root") return "Gemini root";
+    if (key === "gemini_tmp") return "Gemini temp";
+    if (key === "gemini_history") return "Gemini history";
+    if (key === "gemini_antigravity") return "Gemini conversations";
     if (key === "copilot_vscode") return "Copilot VS Code";
     if (key === "copilot_cursor") return "Copilot Cursor";
-    if (key === "copilot_vscode_workspace") return "Copilot VS Code 워크스페이스";
-    if (key === "copilot_cursor_workspace") return "Copilot Cursor 워크스페이스";
+    if (key === "copilot_vscode_workspace") return "Copilot VS Code workspace";
+    if (key === "copilot_cursor_workspace") return "Copilot Cursor workspace";
     return sourceKey
       .replace(/_/g, " ")
       .replace(/\b[a-z]/g, (ch) => ch.toUpperCase());
@@ -427,13 +440,13 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const latestBackupCount =
     backupActionResult?.backed_up_count ?? (backupActionResult?.backup_to ? 1 : 0);
   const latestBackupPath =
-    backupActionResult?.backup_to ?? "이번 세션에서는 아직 선택 백업이 만들어지지 않았어.";
+    backupActionResult?.backup_to ?? "No selected backup created in this session yet.";
   const latestExportCount = recoveryBackupExportData?.exported_count ?? 0;
   const backupFlowHint =
     selectedProviderFilePaths.length > 0
-      ? `선택한 ${selectedProviderFilePaths.length}개 세션을 먼저 백업한 뒤, 아래에서 보관 또는 삭제 드라이런으로 이어가.`
-      : "먼저 원본 세션을 선택하고 백업부터 시작해.";
-  const deleteBackupModeLabel = providerDeleteBackupEnabled ? "켜짐" : "꺼짐";
+      ? `Back up ${selectedProviderFilePaths.length} selected sessions first, then run archive or delete dry-runs below.`
+      : "Pick sessions first, then start with backup.";
+  const deleteBackupModeLabel = providerDeleteBackupEnabled ? "On" : "Off";
   const canRunProviderBackup = providerView !== "all" && selectedProviderFilePaths.length > 0;
   const canApplySlowOnly = providerView === "all";
   const effectiveSlowOnly = canApplySlowOnly && slowOnly;
@@ -594,6 +607,10 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const renderedProviderSessionRows = useMemo(
     () => sortedProviderSessionRows.slice(0, renderLimit),
     [sortedProviderSessionRows, renderLimit],
+  );
+  const providerWorkspaceRecentRows = useMemo(
+    () => sortedProviderSessionRows.slice(0, 3),
+    [sortedProviderSessionRows],
   );
   useEffect(() => {
     setRenderLimit(120);
@@ -1116,8 +1133,8 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
 
             <div className="provider-workspace-copy">
               <span className="overview-note-label">original sessions</span>
-              <strong>{providerLabel} 원본 세션을 고르고 바로 rail에서 읽는다.</strong>
-              <p>archive와 transcript를 같은 board에서 이어 본다.</p>
+              <strong>{providerLabel} sessions</strong>
+              <p>archive / transcript</p>
             </div>
 
             <div className="provider-workspace-summary">
@@ -1138,6 +1155,41 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
                 <strong>{selectedManagementCard ? selectedManagementCard.parseFail : parserSummary.parse_fail ?? 0}</strong>
               </article>
             </div>
+
+            {providerWorkspaceRecentRows.length > 0 ? (
+              <div className="provider-workspace-recent">
+                <div className="provider-workspace-recent-head">
+                  <span className="overview-note-label">recent rows</span>
+                  <span className="sub-hint">
+                    {providerWorkspaceRecentRows.length} shown
+                  </span>
+                </div>
+                <div className="provider-workspace-recent-list">
+                  {providerWorkspaceRecentRows.map((row) => (
+                    <button
+                      key={`workspace-recent-${row.file_path}`}
+                      type="button"
+                      className={`provider-workspace-recent-item ${selectedSessionPath === row.file_path ? "is-active" : ""}`.trim()}
+                      onClick={() => {
+                        setSelectedSessionPath(row.file_path);
+                        setParserDetailProvider(row.provider);
+                      }}
+                    >
+                      <strong>
+                        {compactSessionTitle(
+                          row.display_title || row.probe.detected_title,
+                          row.session_id,
+                        )}
+                      </strong>
+                      <span className="sub-hint">
+                        {providerView === "all" ? `${row.provider} · ` : ""}
+                        {formatDateTime(row.mtime)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className="provider-workspace-actions">
@@ -1146,6 +1198,20 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
               <span className="sub-hint">
                 {messages.providers.backupHubSelected} {selectedProviderFilePaths.length} · latest {latestBackupCount}
               </span>
+            </div>
+            <div className="provider-workspace-backup-overview" aria-label="backup overview">
+              <article className="provider-summary-cell">
+                <span>{messages.providers.backupHubSelected}</span>
+                <strong>{selectedProviderFilePaths.length}</strong>
+              </article>
+              <article className="provider-summary-cell">
+                <span>{messages.providers.backupHubLatest}</span>
+                <strong>{latestBackupCount}</strong>
+              </article>
+              <article className="provider-summary-cell">
+                <span>{messages.providers.backupHubExported}</span>
+                <strong>{latestExportCount}</strong>
+              </article>
             </div>
             <div className="provider-action-toolbar-inline">
               <label className="check-inline">
@@ -1173,9 +1239,26 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
                 {messages.providers.exportAllBackups}
               </button>
             </div>
+            <div className="provider-inline-result is-static">
+              <strong>
+                {latestBackupCount > 0 ? messages.providers.backupHubLatest : messages.providers.deleteWithBackup}
+              </strong>
+              <span>{latestBackupCount > 0 ? latestBackupPath : backupFlowHint}</span>
+            </div>
+            <div className="provider-workspace-backup-meta" aria-label="backup mode">
+              <span>
+                {messages.providers.deleteWithBackup} {deleteBackupModeLabel}
+              </span>
+              <span>{messages.providers.deleteWithBackupHint}</span>
+            </div>
             {selectedSessionPreview ? (
               <div className="provider-selection-preview">
-                <strong>{selectedSessionPreview.display_title || selectedSessionPreview.probe.detected_title || selectedSessionPreview.session_id}</strong>
+                <strong>
+                  {compactSessionTitle(
+                    selectedSessionPreview.display_title || selectedSessionPreview.probe.detected_title,
+                    selectedSessionPreview.session_id,
+                  )}
+                </strong>
                 <span className="sub-hint">
                   {selectedSessionPreview.session_id} · {selectedSessionPreview.provider} · {selectedSessionPreview.probe.format}
                 </span>
@@ -1183,7 +1266,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
             ) : null}
             {backupActionResult ? (
               <div className="provider-inline-result">
-                <strong>최근 백업 실행</strong>
+                <strong>Latest backup run</strong>
                 <span>
                   {messages.providers.valid} {backupActionResult.valid_count} · {messages.providers.applied} {backupActionResult.applied_count}
                   {typeof backupActionResult.backed_up_count === "number"
@@ -1215,9 +1298,9 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
           </header>
           <div className="provider-grid-intro">
             <div className="provider-grid-intro-copy">
-              <span className="overview-note-label">session board</span>
-              <strong>{providerLabel} 세션 board</strong>
-              <p>고르고 바로 transcript rail로 넘긴다.</p>
+              <span className="overview-note-label">session archive</span>
+              <strong>{providerLabel} session archive</strong>
+              <p>pick / transcript</p>
             </div>
           </div>
           {showProviderSessionsZeroState ? (
@@ -1331,7 +1414,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
               </button>
             ) : null}
             <details className="inline-tools-disclosure">
-              <summary>고급 필터 / export</summary>
+              <summary>Filters / export</summary>
               <div className="sub-toolbar inline-tools-disclosure-body">
                 <select
                   className="filter-select"
@@ -1763,20 +1846,21 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
         </section>
       </section>
 
-      <details
-        className="panel panel-disclosure provider-advanced-shell"
-        open={advancedOpen}
-        onToggle={(event) => {
-          setAdvancedOpen((event.currentTarget as HTMLDetailsElement).open);
-        }}
-      >
-        <summary>
-          {messages.providers.advancedTitle}
-          <span className="panel-summary-subcopy"> · {messages.providers.advancedSubtitle}</span>
-        </summary>
-        <div className="panel-disclosure-body provider-advanced-stack">
-      {advancedOpen ? (
-        <>
+      <div className="provider-routing-tools-row">
+        <details
+          className="panel panel-disclosure provider-advanced-shell"
+          open={advancedOpen}
+          onToggle={(event) => {
+            setAdvancedOpen((event.currentTarget as HTMLDetailsElement).open);
+          }}
+        >
+          <summary>
+            {messages.providers.advancedTitle}
+            <span className="panel-summary-subcopy"> · {messages.providers.advancedSubtitle}</span>
+          </summary>
+          <div className="panel-disclosure-body provider-advanced-stack">
+        {advancedOpen ? (
+          <>
       <section className="toolbar provider-diagnostics-toolbar">
         <button
           className="btn-outline"
@@ -1791,10 +1875,10 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
         <span className="sub-hint">
           {providersLastRefreshAt
             ? `${messages.providers.lastRefresh} ${formatDateTime(providersLastRefreshAt)}`
-            : "아직 새로고침 이력이 없어."}
+            : "No refresh yet."}
         </span>
         <details className="inline-tools-disclosure">
-          <summary>스캔 설정 / 느린 진단</summary>
+          <summary>Scan settings / slow checks</summary>
           <div className="sub-toolbar inline-tools-disclosure-body">
             <label className="provider-quick-switch">
               <span>{messages.providers.depthLabel}</span>
@@ -2185,12 +2269,14 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
         </>
       ) : (
         <div className="info-box compact">
-          <strong>고급 진단은 선택 사항이야.</strong>
-          <p>파서 실패, 느린 스캔, 경로 단위 디버깅이 필요할 때만 열어.</p>
+          <strong>Open only when needed.</strong>
+          <p>parser / slow scan / paths</p>
         </div>
       )}
-        </div>
-      </details>
+          </div>
+        </details>
+        {diagnosticsSlot ? <div className="provider-routing-tools-main">{diagnosticsSlot}</div> : null}
+      </div>
     </>
   );
 }

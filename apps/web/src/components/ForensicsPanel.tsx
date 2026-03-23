@@ -45,6 +45,22 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
   const highRiskCount = selectedIds.filter((id) => (rows.find((r) => r.thread_id === id)?.risk_score ?? 0) >= 70).length;
   const impactReady = selectedImpactRows.length > 0;
   const cleanupReady = Boolean(cleanupData?.confirm_token_expected);
+  const topImpactRow = selectedImpactRows[0];
+  const topImpactLabel = topImpactRow?.title || (topImpactRow?.id ? `row ${topImpactRow.id.slice(0, 8)}` : "");
+  const heroTitle = cleanupReady
+    ? `${selectedIds.length} rows ready for dry-run`
+    : impactReady
+      ? `${selectedImpactRows.length} impact summaries ready`
+      : selectedIds.length > 0
+        ? `${selectedIds.length} rows selected`
+        : messages.forensics.nextStepPending;
+  const heroBody = cleanupReady
+    ? "Copy the token only when the review looks safe."
+    : impactReady
+      ? `${topImpactLabel} · ${topImpactRow?.risk_level ?? "risk"} / ${topImpactRow?.risk_score ?? 0}`
+      : selectedIds.length > 0
+        ? `${highRiskCount} flagged · run impact next`
+        : "pick rows first";
   const handleCopyToken = async () => {
     const token = cleanupData?.confirm_token_expected;
     if (!token || !navigator.clipboard) return;
@@ -58,63 +74,36 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
   };
 
   return (
-    <section className="panel impact-panel thread-review-panel">
+    <section
+      className={`panel impact-panel thread-review-panel ${selectedIds.length === 0 ? "is-empty-state" : ""}`.trim()}
+    >
       <header>
         <h2>{messages.forensics.title}</h2>
-        <span>cleanup token / impact</span>
+        <span>focus / risk / cleanup</span>
       </header>
       <div className="impact-body">
         <section className="detail-hero detail-hero-forensics">
           <div className="detail-hero-copy">
-            <span className="overview-note-label">cleanup review workbench</span>
-            <strong>
-              {cleanupReady
-                ? messages.forensics.cleanupTokenReady
-                : impactReady
-                  ? messages.forensics.nextStepImpactReady
-                  : messages.forensics.nextStepPending}
-            </strong>
-            <p>impact / dry-run / token</p>
-          </div>
-          <div className="detail-hero-pills" aria-label="forensics summary">
-            <span className="detail-hero-pill">
-              {messages.forensics.selectedThreads} · {selectedIds.length}
-            </span>
-            <span className="detail-hero-pill">
-              {messages.forensics.includesHighRisk} · {highRiskCount}
-            </span>
-            <span className="detail-hero-pill">
-              {messages.forensics.cleanupToken} · {cleanupData?.confirm_token_expected ?? "-"}
-            </span>
+            <strong>{heroTitle}</strong>
+            <p>{heroBody}</p>
           </div>
         </section>
 
         <div className="thread-review-grid">
-          <article className="thread-review-card thread-review-card-emphasis">
-            <span>{messages.forensics.nextStepLabel}</span>
-            <strong>
-              {cleanupReady
-                ? messages.forensics.nextStepDryRunReady
-                : impactReady
-                  ? messages.forensics.nextStepImpactReady
-                  : messages.forensics.nextStepPending}
-            </strong>
-            <p>{cleanupReady ? "token ready" : "impact pending"}</p>
-          </article>
-          <article className="thread-review-card">
+          <article className={`thread-review-card ${selectedIds.length > 0 ? "thread-review-card-emphasis" : ""}`.trim()}>
             <span>{messages.forensics.selectedThreads}</span>
             <strong>{selectedIds.length}</strong>
-            <p>selected</p>
+            <p>rows</p>
           </article>
-          <article className="thread-review-card">
+          <article className={`thread-review-card ${highRiskCount > 0 ? "thread-review-card-emphasis" : ""}`.trim()}>
             <span>{messages.forensics.includesHighRisk}</span>
             <strong>{highRiskCount}</strong>
-            <p>high risk</p>
+            <p>flagged</p>
           </article>
           <article className={`thread-review-card ${cleanupReady ? "is-ready" : ""}`.trim()}>
             <span>{messages.forensics.cleanupToken}</span>
             <strong>{cleanupData?.confirm_token_expected ?? "-"}</strong>
-            <p>{cleanupReady ? "copy ready" : "after dry-run"}</p>
+            <p>{cleanupReady ? "copy ready" : "run first"}</p>
             {cleanupReady ? (
               <div className="sub-toolbar action-toolbar">
                 <button type="button" className="btn-outline" onClick={handleCopyToken}>
@@ -125,42 +114,28 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
           </article>
         </div>
 
-        <div className="thread-review-stage-list">
-          <article className="thread-review-stage">
-            <div>
-              <strong>{messages.forensics.stageSelect}</strong>
-              <p>{messages.forensics.stageSelectBody}</p>
-            </div>
-            <span className={`status-pill ${selectedIds.length > 0 ? "status-active" : "status-missing"}`}>
-              {selectedIds.length > 0 ? messages.forensics.stageDone : messages.forensics.stagePending}
-            </span>
-          </article>
-          <article className="thread-review-stage">
-            <div>
-              <strong>{messages.forensics.stageImpact}</strong>
-              <p>{messages.forensics.stageImpactBody}</p>
-            </div>
-            <span className={`status-pill ${impactReady ? "status-detected" : "status-preview"}`}>
-              {impactReady ? messages.forensics.stageDone : messages.forensics.stagePending}
-            </span>
-          </article>
-          <article className="thread-review-stage">
-            <div>
-              <strong>{messages.forensics.stageDryRun}</strong>
-              <p>{messages.forensics.stageDryRunBody}</p>
-            </div>
-            <span className={`status-pill ${cleanupReady ? "status-active" : "status-preview"}`}>
-              {cleanupReady ? messages.forensics.stageReady : messages.forensics.stagePending}
-            </span>
-          </article>
-        </div>
-
         {threadActionsDisabled ? <p className="sub-hint">{messages.forensics.backendDownHint}</p> : null}
 
         <div className="impact-list">
-          <h3>{messages.forensics.selectedImpactSummary}</h3>
+          <h3>{impactReady ? "Top rows" : messages.forensics.selectedImpactSummary}</h3>
           {!impactReady ? (
-            <p className="sub-hint">{messages.forensics.impactEmpty}</p>
+            <div className="thread-review-empty-guide">
+              <article>
+                <span>1</span>
+                <strong>select rows</strong>
+                <p>use visible, flagged, or pinned.</p>
+              </article>
+              <article>
+                <span>2</span>
+                <strong>run impact</strong>
+                <p>inspect risk and cleanup scope first.</p>
+              </article>
+              <article>
+                <span>3</span>
+                <strong>confirm dry-run</strong>
+                <p>copy the token only after review.</p>
+              </article>
+            </div>
           ) : (
             <ul>
               {selectedImpactRows.slice(0, 12).map((row) => (

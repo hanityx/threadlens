@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import type { ExecutionGraphData } from "@provider-surface/shared-contracts";
 import type { Messages } from "../i18n";
-import { formatDateTime } from "../lib/helpers";
+import { compactPath, formatDateTime } from "../lib/helpers";
 import type {
   ProviderParserHealthReport,
   ProviderSessionRow,
@@ -36,23 +36,23 @@ function providerFromSourceKey(sourceKey: string): string | null {
 }
 
 function sessionSourceLabel(source: string): string {
-  if (source === "sessions") return "Codex 세션 로그";
-  if (source === "projects") return "Claude 프로젝트 로그";
-  if (source === "transcripts") return "Claude transcript 저장소";
-  if (source === "tmp") return "Gemini tmp 세션";
-  if (source === "antigravity_conversations") return "Gemini 대화 저장소";
-  if (source === "conversations") return "ChatGPT 대화 캐시";
-  if (source === "project-conversations") return "ChatGPT 프로젝트 대화";
-  if (source === "vscode_global") return "VS Code 전역 흔적";
-  if (source === "cursor_workspace_chats") return "Cursor 워크스페이스 채팅";
-  if (source === "vscode_workspace_chats") return "VS Code 워크스페이스 채팅";
+  if (source === "sessions") return "Codex session logs";
+  if (source === "projects") return "Claude project logs";
+  if (source === "transcripts") return "Claude transcript store";
+  if (source === "tmp") return "Gemini temp sessions";
+  if (source === "antigravity_conversations") return "Gemini conversation store";
+  if (source === "conversations") return "ChatGPT conversation cache";
+  if (source === "project-conversations") return "ChatGPT project conversations";
+  if (source === "vscode_global") return "VS Code global traces";
+  if (source === "cursor_workspace_chats") return "Cursor workspace chats";
+  if (source === "vscode_workspace_chats") return "VS Code workspace chats";
   return source;
 }
 
 function formatLabel(format: "jsonl" | "json" | "unknown"): string {
   if (format === "jsonl") return "JSONL";
   if (format === "json") return "JSON";
-  return "알 수 없음";
+  return "Unknown";
 }
 
 function providerManagementProfile(provider: string): Array<{
@@ -63,169 +63,192 @@ function providerManagementProfile(provider: string): Array<{
   if (provider === "codex") {
     return [
       {
-        label: "세션 모델",
-        value: "thread_id + 세션 로그 + global state",
-        hint: "thread 중심 모델.",
+        label: "Session model",
+        value: "thread_id + session logs + global state",
+        hint: "Thread-first model.",
       },
       {
-        label: "재개 / 식별",
+        label: "Resume / identify",
         value: "thread_id · pinned · global state",
-        hint: "pinned와 state까지 같이 본다.",
+        hint: "Includes pinned and state.",
       },
       {
-        label: "정리 범위",
-        value: "영향 분석 + 정리 드라이런 + state 참조 정리",
-        hint: "영향 분석이 먼저 붙는다.",
+        label: "Cleanup scope",
+        value: "impact + dry-run + state references",
+        hint: "Impact comes first.",
       },
       {
-        label: "주요 화면",
-        value: "정리 + 전사",
-        hint: "정리 rail 우선.",
+        label: "Primary surface",
+        value: "review + transcript",
+        hint: "Review rail first.",
       },
     ];
   }
   if (provider === "claude") {
     return [
       {
-        label: "세션 모델",
-        value: "session_id + 원본 project/transcript 세션",
-        hint: "session 중심 모델.",
+        label: "Session model",
+        value: "session_id + raw project/transcript sessions",
+        hint: "Session-first model.",
       },
       {
-        label: "재개 / 식별",
-        value: "세션 ID / transcript 파일",
-        hint: "session id와 transcript 우선.",
+        label: "Resume / identify",
+        value: "session id / transcript file",
+        hint: "Session id and transcript first.",
       },
       {
-        label: "정리 범위",
-        value: "원본 세션 파일 드라이런 / 보관 / 삭제",
-        hint: "원본 파일 정리 중심.",
+        label: "Cleanup scope",
+        value: "raw session file dry-run / archive / delete",
+        hint: "Raw-file cleanup first.",
       },
       {
-        label: "주요 화면",
-        value: "원본 세션",
-        hint: "전사 확인 우선.",
+        label: "Primary surface",
+        value: "session archive",
+        hint: "Transcript first.",
       },
     ];
   }
   if (provider === "gemini") {
     return [
       {
-        label: "세션 모델",
-        value: "history / tmp / checkpoint 세션 저장소",
-        hint: "저장소 묶음 중심.",
+        label: "Session model",
+        value: "history / temp / checkpoint stores",
+        hint: "Store bundle first.",
       },
       {
-        label: "재개 / 식별",
-        value: "history / tmp / conversation 저장소",
-        hint: "분포와 형식 우선.",
+        label: "Resume / identify",
+        value: "history / temp / conversation stores",
+        hint: "Distribution and format first.",
       },
       {
-        label: "정리 범위",
-        value: "원본 세션 파일 드라이런 / 보관 / 삭제",
-        hint: "드라이런 뒤 개별 정리.",
+        label: "Cleanup scope",
+        value: "raw session file dry-run / archive / delete",
+        hint: "Dry-run before cleanup.",
       },
       {
-        label: "주요 화면",
-        value: "원본 세션",
-        hint: "inventory 우선.",
+        label: "Primary surface",
+        value: "session archive",
+        hint: "Inventory first.",
       },
     ];
   }
   if (provider === "copilot") {
     return [
       {
-        label: "세션 모델",
-        value: "workspace/global 채팅 아티팩트",
-        hint: "보조 진단 모델.",
+        label: "Session model",
+        value: "workspace/global chat artifacts",
+        hint: "Diagnostics only.",
       },
       {
-        label: "재개 / 식별",
-        value: "workspace 채팅 JSON",
-        hint: "workspace 파일 위주.",
+        label: "Resume / identify",
+        value: "workspace chat JSON",
+        hint: "Workspace files first.",
       },
       {
-        label: "정리 범위",
-        value: "원본 파일 드라이런",
-        hint: "드라이런 위주.",
+        label: "Cleanup scope",
+        value: "raw file dry-run",
+        hint: "Dry-run only.",
       },
       {
-        label: "주요 화면",
-        value: "원본 세션 > 보조 AI",
-        hint: "필요할 때만 연다.",
+        label: "Primary surface",
+        value: "session archive > optional ai",
+        hint: "Open only when needed.",
       },
     ];
   }
   return [
     {
-      label: "세션 모델",
-      value: "혼합 캐시 / 원본 세션 저장소",
-      hint: "읽기 우선.",
+      label: "Session model",
+      value: "mixed cache / raw session stores",
+      hint: "Read first.",
     },
     {
-      label: "재개 / 식별",
-      value: "세션 파일 / 캐시 경로",
-      hint: "캐시와 파일 우선.",
+      label: "Resume / identify",
+      value: "session files / cache paths",
+      hint: "Cache and files first.",
     },
     {
-      label: "정리 범위",
-      value: "읽기 우선",
-      hint: "파괴적 액션은 제한됨.",
+      label: "Cleanup scope",
+      value: "read first",
+      hint: "Destructive actions limited.",
     },
     {
-      label: "주요 화면",
-      value: "원본 세션",
-      hint: "원본 확인용.",
+      label: "Primary surface",
+      value: "session archive",
+      hint: "Raw verification only.",
     },
   ];
 }
 
 function providerWorkbenchNote(provider: string): string {
   if (provider === "codex") {
-    return "thread · pinned · state 중심.";
+    return "thread / state";
   }
   if (provider === "claude") {
-    return "session · transcript 중심.";
+    return "session / transcript";
   }
   if (provider === "gemini") {
-    return "history · tmp · conversation 중심.";
+    return "history / tmp";
   }
   if (provider === "copilot") {
-    return "보조 진단 위주.";
+    return "support only";
   }
   if (provider === "chatgpt") {
-    return "desktop cache 우선.";
+    return "cache first";
   }
-  return "읽기 우선 상태.";
+  return "read first";
 }
 
 function flowReasonLabel(reason: string): string {
-  if (reason === "GUI or CLI user input") return "입력 진입점.";
-  if (reason === "workspace/root plus nested overrides") return "AGENTS 범위 확인.";
-  if (reason === "system > developer > user > AGENTS.md scope") return "우선순위 지시 적용.";
-  if (reason === "Tool calls plus local file reads and writes") return "도구와 파일 IO.";
-  if (reason === "Read and write thread/session metadata") return "thread/session 메타데이터.";
-  if (reason === "Scan local sessions and logs") return "로컬 세션 스캔.";
-  if (reason === "Trusted project entry") return "신뢰된 프로젝트.";
-  if (reason === "active-workspace-roots") return "활성 workspace roots.";
+  if (reason === "GUI or CLI user input") return "entry";
+  if (reason === "Receive prompt") return "prompt";
+  if (reason === "workspace/root plus nested overrides") return "agents scope";
+  if (reason === "Resolve AGENTS.md scope") return "agents scope";
+  if (reason === "system > developer > user > AGENTS.md scope") return "priority";
+  if (reason === "Priority chain applied.") return "priority";
+  if (reason === "Tool calls plus local file reads and writes") return "tool io";
+  if (reason === "developer_instructions / features / hooks") return "config";
+  if (reason === "Read and write thread/session metadata") return "thread meta";
+  if (reason === "Thread and session metadata.") return "thread meta";
+  if (reason === "Scan local sessions and logs") return "session scan";
+  if (reason === "Local session scan.") return "session scan";
+  if (reason === "Trusted project entry") return "trusted root";
+  if (reason === "Trusted project.") return "trusted root";
+  if (reason === "active-workspace-roots") return "active roots";
+  if (reason === "Active workspace roots.") return "active roots";
+  if (reason === "Apply execution constraints") return "runtime";
   if (reason.includes("Read-first cache model")) return providerWorkbenchNote("chatgpt");
   if (reason.includes("Managed around session_id")) return providerWorkbenchNote("claude");
   if (reason.includes("operations-grade model built around thread_id")) return providerWorkbenchNote("codex");
   if (reason.includes("Auxiliary diagnostics only")) return providerWorkbenchNote("copilot");
   if (reason.includes("Managed across history, tmp")) return providerWorkbenchNote("gemini");
-  if (reason.includes("Collect candidate session files")) return "세션 후보 수집.";
-  if (reason.includes("User focused the view")) return "scope 집중.";
-  if (reason.includes("Start scanning from this provider")) return "이 AI부터 스캔.";
-  if (reason.includes("Classify file formats")) return "형식 분류.";
-  if (reason.includes("Summarize capability coverage")) return "capability 요약.";
-  if (reason.includes("Determine what can open transcripts")) return "전사 가능 범위.";
-  if (reason.includes("Pass transcript, search, and summary")) return "parser 단계로 전달.";
-  if (reason.includes("Flow into session detail")) return "detail rail로 연결.";
-  if (reason.includes("Read Codex-specific global state")) return "global state 읽기.";
-  if (reason.includes("Recent workspace and global state")) return "workspace state 보강.";
-  if (reason.includes("Decide whether dry-run")) return "dry-run 가능 여부.";
-  if (reason.includes("limited to reading and analysis")) return "읽기/분석까지만.";
+  if (reason.includes("Collect candidate session files")) return "candidate scan";
+  if (reason.includes("User focused the view")) return "scope focus";
+  if (reason.includes("Start scanning from this provider")) return "provider scan";
+  if (reason.includes("Classify file formats")) return "formats";
+  if (reason.includes("Summarize capability coverage")) return "coverage";
+  if (reason.includes("Determine what can open transcripts")) return "transcript";
+  if (reason.includes("Pass transcript, search, and summary")) return "parser handoff";
+  if (reason.includes("Flow into session detail")) return "detail rail";
+  if (reason.includes("Read Codex-specific global state")) return "global state";
+  if (reason.includes("Recent workspace and global state")) return "workspace state";
+  if (reason.includes("Decide whether dry-run")) return "dry-run";
+  if (reason.includes("limited to reading and analysis")) return "read only";
   return reason;
+}
+
+function summarizeRoots(roots: string[]): string {
+  if (roots.length === 0) return "No paths";
+  const preview = roots.slice(0, 2).map((root) => compactPath(root, 16)).join(" · ");
+  if (roots.length <= 2) return preview;
+  return `${preview} · +${roots.length - 2}`;
+}
+
+function compactFootprint(fileCount?: number | null, dirCount?: number | null): string {
+  const files = fileCount ?? 0;
+  const dirs = dirCount ?? 0;
+  if (!files && !dirs) return "";
+  return `${files}f / ${dirs}d`;
 }
 
 export function RoutingPanel({
@@ -400,14 +423,14 @@ export function RoutingPanel({
       kind: "workspace" as const,
       detail:
         focusedSessionRows.length > 0
-          ? `${focusedSessionRows.length}개 세션 · ${sourceSummary || "저장소 분포 확인"}`
-          : "세션 로그가 아직 없다",
+          ? `${focusedSessionRows.length} logs · ${sourceSummary || "storage map"}`
+          : "No session logs yet",
     };
     const formatNode = {
       id: `format-${focusedProvider.provider}`,
       label: `${focusedProvider.name} storage formats`,
       kind: "config" as const,
-      detail: formatSummary || "형식 요약이 아직 없다",
+      detail: formatSummary || "No format summary yet",
     };
     const transcriptNode = {
       id: `transcript-${focusedProvider.provider}`,
@@ -415,10 +438,10 @@ export function RoutingPanel({
       kind: "instruction" as const,
       detail:
         transcriptCapableCount > 0
-          ? `${transcriptCapableCount}개 전사 직접 열기 가능${
-              transcriptBlockedCount > 0 ? ` · ${transcriptBlockedCount}개는 메타데이터/바이너리 비중 높음` : ""
+          ? `${transcriptCapableCount} transcript-ready${
+              transcriptBlockedCount > 0 ? ` · ${transcriptBlockedCount} blocked` : ""
             }`
-          : "전사를 바로 열 수 있는 형식이 아직 없다",
+          : "No transcript-ready format yet",
     };
     const parserNode = {
       id: `parser-${focusedProvider.provider}`,
@@ -427,26 +450,26 @@ export function RoutingPanel({
       detail: focusedParserReport
         ? `OK ${focusedParserReport.parse_ok}/${focusedParserReport.scanned} · score ${focusedParserReport.parse_score ?? "-"}`
         : focusedProvider.capabilities.read_sessions && focusedProvider.capabilities.analyze_context
-          ? "전사, 검색, 위험 분석 가능"
-          : "더 읽을 데이터나 분석 지원이 필요하다",
+          ? "Transcript, search, and risk are ready"
+          : "More readable data required",
     };
     const reviewNode = {
       id: `review-${focusedProvider.provider}`,
       label: `${focusedProvider.name} review path`,
       kind: "runtime" as const,
       detail: focusedProvider.capabilities.analyze_context
-        ? "session detail, transcript review, cleanup review로 이어진다"
-        : "지금은 감지와 기본 세션 목록까지만 열린다",
+        ? "Session rail, transcript, and review rail"
+        : "Detect and session list only",
     };
     const cleanupNode = {
       id: `cleanup-${focusedProvider.provider}`,
       label: `${focusedProvider.name} cleanup stage`,
       kind: "runtime" as const,
       detail: focusedProvider.capabilities.safe_cleanup
-        ? "드라이런과 실제 정리 가능"
+        ? "Dry-run and apply ready"
         : focusedProvider.capability_level === "read-only"
-          ? "읽기 전용이라 정리와 삭제가 잠겨 있다"
-          : "안전 정리가 아직 준비되지 않았다",
+          ? "Read-only, cleanup locked"
+          : "Safe cleanup not ready",
     };
 
     const nodes = [
@@ -577,7 +600,7 @@ export function RoutingPanel({
     }
     const findings: string[] = [];
     if (focusedProvider.status === "missing") {
-      findings.push(`${focusedProvider.name} 로컬 흔적이 아직 안 잡혔다.`);
+      findings.push(`${focusedProvider.name} local traces not found yet.`);
     } else {
       findings.push(
         `${focusedProvider.name} · ${providerStatusLabel(focusedProvider.status)} · ${providerCapabilityLabel(
@@ -635,40 +658,40 @@ export function RoutingPanel({
     const cards = [
       {
         label: messages.routing.contextSources,
-        value: sourceSummary || "세션 저장소 요약 없음",
+        value: sourceSummary || "No storage summary",
         hint:
           sourceSummary.length > 0
-            ? "지금 읽는 저장소 범위."
-            : "저장소 요약이 아직 얇다.",
+            ? "Current storage scope."
+            : "Storage summary is still thin.",
       },
       {
         label: messages.routing.contextFormats,
-        value: formatSummary || "형식 요약 없음",
+        value: formatSummary || "No format summary",
         hint:
           transcriptBlockedCount > 0
-            ? `전사 ${transcriptCapableCount} · 제한 ${transcriptBlockedCount}`
+            ? `Transcript ${transcriptCapableCount} · blocked ${transcriptBlockedCount}`
             : transcriptCapableCount > 0
-              ? "전사 우선 형식."
-              : "직접 읽을 전사가 아직 없다.",
+              ? "Transcript-first format."
+              : "No direct transcript yet.",
       },
       {
         label: messages.routing.contextParser,
         value: focusedParserReport
           ? `${focusedParserReport.parse_ok}/${focusedParserReport.scanned} (score ${focusedParserReport.parse_score ?? "-"})`
-          : "파서 보고 없음",
+          : "No parser report",
         hint: focusedParserReport
           ? focusedParserReport.parse_fail > 0
-            ? `실패 ${focusedParserReport.parse_fail}개 남음`
-            : "지금 구간은 안정적."
-          : "파서 보고 대기.",
+            ? `${focusedParserReport.parse_fail} fails remain`
+            : "Current range is stable."
+          : "Parser report pending.",
       },
       {
         label: messages.routing.contextLimits,
         value: focusedProvider.capabilities.safe_cleanup
-          ? "드라이런 + 정리 가능"
+          ? "Dry-run + apply"
           : focusedProvider.capabilities.read_sessions
-            ? "읽기와 분석 우선"
-            : "감지 우선",
+            ? "Read + analyze first"
+            : "Detect first",
         hint:
           providerWorkbenchNote(focusedProvider.provider),
       },
@@ -702,10 +725,10 @@ export function RoutingPanel({
   const providerDetailRows = useMemo(() => {
     if (!focusedProvider) return [];
     const nextStep = focusedProvider.capabilities.safe_cleanup
-      ? "세션 rail에서 dry-run부터 본다."
+      ? "Run dry-run from the session rail."
       : focusedProvider.capabilities.read_sessions
-        ? "전사 확인 우선. 정리는 잠겨 있다."
-        : "흔적이나 세션 로그를 더 찾는다.";
+        ? "Read transcript first. Cleanup stays locked."
+        : "Collect more traces or session logs.";
     return [
       {
         label: "Session logs",
@@ -717,23 +740,23 @@ export function RoutingPanel({
               : "None",
         hint:
           focusedSessionRows.length > 0
-            ? "바로 rail로 연다."
-            : "아직 rail이 비어 있을 수 있다.",
+            ? "Open in the rail."
+            : "The rail may stay empty.",
       },
       {
         label: "Local evidence",
         value: scopedDataSources.length > 0 ? `${scopedDataSources.length} detected` : "Not enough source paths",
         hint:
           scopedDataSources.length > 0
-            ? "현재 flow와 스캔 근거."
-            : "근거 경로가 더 필요하다.",
+            ? "Current flow and scan evidence."
+            : "More evidence paths required.",
       },
       {
         label: "Read / analyze",
         value: focusedProvider.capabilities.analyze_context ? "Ready" : "Limited",
         hint: focusedProvider.capabilities.analyze_context
-          ? "검색과 분석 가능."
-          : "읽기나 분석 범위가 좁다.",
+          ? "Search and analysis ready."
+          : "Read or analysis scope is limited.",
       },
       {
         label: "Recommended next step",
@@ -768,7 +791,7 @@ export function RoutingPanel({
         status: stageStatus(detectReady),
         detail: detectReady
           ? `${scopedDataSources.length || focusedProvider.roots.length} paths ready`
-          : "흔적이 아직 얇다",
+          : "Traces still thin",
       },
       {
         key: "sessions",
@@ -776,7 +799,7 @@ export function RoutingPanel({
         status: stageStatus(sessionsReady, !detectReady),
         detail: sessionsReady
           ? `${focusedSessionRows.length || focusedProvider.session_log_count} logs ready`
-          : "세션 로그 없음",
+          : "No session logs",
       },
       {
         key: "parser",
@@ -785,8 +808,8 @@ export function RoutingPanel({
         detail: parserReady
           ? focusedParserReport
             ? `OK ${focusedParserReport.parse_ok}/${focusedParserReport.scanned}`
-            : "전사와 분석 준비"
-          : "더 읽을 데이터 필요",
+            : "Transcript and analysis ready"
+          : "More readable data needed",
       },
       {
         key: "cleanup",
@@ -799,8 +822,8 @@ export function RoutingPanel({
         detail: cleanupReady
           ? "dry-run + apply ready"
           : focusedProvider.capability_level === "read-only"
-            ? "read-only라 잠김"
-            : "정리 준비 전",
+            ? "Read-only, locked"
+            : "Cleanup not ready",
       },
     ];
   }, [
@@ -823,48 +846,34 @@ export function RoutingPanel({
   return (
     <section className="panel routing-workbench-panel">
       <header>
-        <h2>{messages.routing.title}</h2>
+        <h2>Diagnostics map</h2>
         <span>{formatDateTime(data?.generated_at)}</span>
       </header>
       <div className="impact-body">
         <section className="routing-stage-shell">
           <div className="routing-stage-copy">
-            <span className="overview-note-label">history and provenance workbench</span>
-            <strong>{messages.routing.title}</strong>
-            <p>paths / flow / findings</p>
-          </div>
-          <div className="routing-stage-pills">
-            <span className="routing-stage-pill">
-              scope · {focusedProvider?.name ?? messages.common.allAi}
-            </span>
-            <span className="routing-stage-pill">
-              providers · {visibleProviders.length}
-            </span>
-            <span className="routing-stage-pill">
-              paths · {scopedDataSources.length}
-            </span>
-            <span className="routing-stage-pill">
-              findings · {(scopedFindings ?? []).length}
-            </span>
+            <span className="overview-note-label">routing stage</span>
+            <strong>Providers / flow</strong>
+            <p>paths / state</p>
           </div>
           <div className="routing-stage-summary">
             <article className="routing-stage-summary-card">
-              <span>{messages.routing.providerSummary}</span>
+              <span>providers</span>
               <strong>{visibleProviders.length}</strong>
               <p>providers</p>
             </article>
             <article className="routing-stage-summary-card">
-              <span>{messages.routing.dataSources}</span>
+              <span>paths</span>
               <strong>{scopedDataSources.length}</strong>
               <p>paths</p>
             </article>
             <article className="routing-stage-summary-card">
-              <span>{messages.routing.flowMap}</span>
+              <span>flow</span>
               <strong>{(scopedNodes ?? []).length}</strong>
               <p>nodes</p>
             </article>
             <article className="routing-stage-summary-card">
-              <span>{messages.routing.findings}</span>
+              <span>findings</span>
               <strong>{(scopedFindings ?? []).length}</strong>
               <p>open</p>
             </article>
@@ -872,24 +881,23 @@ export function RoutingPanel({
         </section>
         {loading ? <div className="skeleton-line" /> : null}
 
-        <div className="impact-kv">
-          <span>{messages.routing.scope}</span>
-          <strong>{focusedProvider?.name ?? messages.common.allAi}</strong>
-        </div>
-
         {!focusedProvider ? (
-          <div className="info-box">
+          <div className="info-box compact info-box-utility info-box-inline">
             <strong>{messages.routing.pickProviderTitle}</strong>
-            <p>하나 고르면 rail이 좁혀진다.</p>
+            <p>
+              {visibleProviders.length > 0
+                ? visibleProviders.map((provider) => provider.name).join(" · ")
+                : "pick one"}
+            </p>
           </div>
         ) : null}
 
         <div className="impact-list">
-          <h3>{messages.routing.providerSummary}</h3>
+          <h3>providers</h3>
           {visibleProviders.length === 0 ? (
             <p className="sub-hint">{messages.routing.noProviders}</p>
           ) : (
-            <div className="routing-node-grid">
+            <div className="routing-node-grid routing-node-grid-provider">
               {visibleProviders.map((provider) => (
                 <article
                   key={provider.provider}
@@ -901,38 +909,35 @@ export function RoutingPanel({
                       {providerStatusLabel(provider.status)}
                     </span>
                   </div>
-                  <div className="routing-provider-meta">
-                    <span>{messages.routing.capability}</span>
-                    <strong>{providerCapabilityLabel(provider.capability_level)}</strong>
-                  </div>
-                  <div className="routing-provider-meta">
-                    <span>{messages.routing.logs}</span>
-                    <strong>{provider.session_log_count}</strong>
-                  </div>
-                  <div className="routing-provider-meta">
-                    <span>{messages.routing.readiness}</span>
-                    <strong>
-                      {provider.capabilities.safe_cleanup
-                        ? messages.routing.readinessCleanup
-                        : provider.capabilities.read_sessions
-                          ? messages.routing.readinessRead
-                          : messages.routing.readinessUnavailable}
-                    </strong>
+                  <div className="routing-provider-meta-grid">
+                    <div className="routing-provider-meta">
+                      <span>{messages.routing.capability}</span>
+                      <strong>{providerCapabilityLabel(provider.capability_level)}</strong>
+                    </div>
+                    <div className="routing-provider-meta">
+                      <span>{messages.routing.logs}</span>
+                      <strong>{provider.session_log_count}</strong>
+                    </div>
+                    <div className="routing-provider-meta">
+                      <span>{messages.routing.readiness}</span>
+                      <strong>
+                        {provider.capabilities.safe_cleanup
+                          ? messages.routing.readinessCleanup
+                          : provider.capabilities.read_sessions
+                            ? messages.routing.readinessRead
+                            : messages.routing.readinessUnavailable}
+                      </strong>
+                    </div>
+                    <div className="routing-provider-meta">
+                      <span>{messages.routing.roots}</span>
+                      <strong>{provider.roots.length || 0}</strong>
+                    </div>
                   </div>
                   <p className="sub-hint">{providerWorkbenchNote(provider.provider)}</p>
-                  <div className="routing-source-list">
-                    <span>{messages.routing.roots}</span>
-                    {provider.roots.length === 0 ? (
-                      <p className="sub-hint">{messages.providers.rootsNone}</p>
-                    ) : (
-                      <ul>
-                        {provider.roots.map((root) => (
-                          <li key={`${provider.provider}-${root}`} className="mono-sub">
-                            {root}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                  <div className="routing-source-summary mono-sub">
+                    {provider.roots.length === 0
+                      ? messages.providers.rootsNone
+                      : summarizeRoots(provider.roots)}
                   </div>
                 </article>
               ))}
@@ -1018,7 +1023,7 @@ export function RoutingPanel({
         ) : null}
 
         {focusedProvider ? (
-          <div className="impact-list">
+          <div className="impact-list compact-list">
             <h3>{messages.routing.sourceBreakdownTitle}</h3>
             {sourceBreakdown.length === 0 ? (
               <p className="sub-hint">{messages.routing.noSources}</p>
@@ -1043,7 +1048,7 @@ export function RoutingPanel({
         ) : null}
 
         {focusedProvider ? (
-          <div className="impact-list">
+          <div className="impact-list compact-list">
             <h3>{messages.routing.formatBreakdownTitle}</h3>
             {formatBreakdown.length === 0 ? (
               <p className="sub-hint">{messages.routing.noFormats}</p>
@@ -1071,8 +1076,8 @@ export function RoutingPanel({
           </div>
         ) : null}
 
-        <div className="impact-list">
-          <h3>{messages.routing.dataSources}</h3>
+        <div className="impact-list impact-list-grid compact-list">
+          <h3>paths</h3>
           {scopedDataSources.length === 0 ? (
             <p className="sub-hint">{messages.routing.noSources}</p>
           ) : (
@@ -1085,9 +1090,9 @@ export function RoutingPanel({
                     <strong>{messages.common.ok}</strong>
                   </div>
                   <span className="mono-sub">
-                    {source.path}
-                    {source.file_count || source.dir_count
-                      ? ` · ${source.file_count ?? 0}${messages.routing.fileSuffix} / ${source.dir_count ?? 0}${messages.routing.dirSuffix}`
+                    {compactPath(source.path, 22)}
+                    {compactFootprint(source.file_count, source.dir_count)
+                      ? ` · ${compactFootprint(source.file_count, source.dir_count)}`
                       : ""}
                   </span>
                 </li>
@@ -1100,16 +1105,16 @@ export function RoutingPanel({
           <>
             <div className="impact-kv">
               <span>{messages.routing.config}</span>
-              <strong className="mono-sub">{data?.evidence?.codex_config_path ?? "-"}</strong>
+              <strong className="mono-sub">{compactPath(data?.evidence?.codex_config_path, 22)}</strong>
             </div>
             <div className="impact-kv">
               <span>{messages.routing.globalState}</span>
-              <strong className="mono-sub">{data?.evidence?.global_state_path ?? "-"}</strong>
+              <strong className="mono-sub">{compactPath(data?.evidence?.global_state_path, 22)}</strong>
             </div>
             {data?.evidence?.notify_hook ? (
               <div className="impact-kv">
                 <span>{messages.routing.notifyHook}</span>
-                <strong className="mono-sub">{data.evidence.notify_hook}</strong>
+                <strong className="mono-sub">{compactPath(data.evidence.notify_hook, 22)}</strong>
               </div>
             ) : null}
             {focusedProvider?.provider === "codex" && data?.evidence?.developer_instructions_excerpt ? (
@@ -1123,19 +1128,18 @@ export function RoutingPanel({
           </div>
         ) : null}
 
-        <div className="impact-list">
-          <h3>{messages.routing.flowMap}</h3>
+        <div className="impact-list compact-list">
+          <h3>flow</h3>
           {(scopedNodes ?? []).length === 0 ? (
             <p className="sub-hint">{messages.routing.noNodes}</p>
           ) : (
-            <div className="routing-node-grid">
+            <div className="routing-node-grid routing-node-grid-flow">
               {scopedNodes.map((node) => (
                 <article key={node.id} className={`routing-node-card kind-${node.kind}`}>
                   <div className="routing-node-top">
                     <strong>{node.label}</strong>
                     <span className="routing-kind-chip">{kindLabel(node.kind)}</span>
                   </div>
-                  <div className="routing-node-meta mono-sub">{node.id}</div>
                   {node.detail ? <p className="sub-hint">{flowReasonLabel(node.detail)}</p> : null}
                 </article>
               ))}
@@ -1143,8 +1147,8 @@ export function RoutingPanel({
           )}
         </div>
 
-        <div className="impact-list">
-          <h3>{messages.routing.flowEdges}</h3>
+        <div className="impact-list impact-list-grid compact-list plain-note-list">
+          <h3>edges</h3>
           {(scopedEdges ?? []).length === 0 ? (
             <p className="sub-hint">{messages.routing.noEdges}</p>
           ) : (
@@ -1163,8 +1167,8 @@ export function RoutingPanel({
           )}
         </div>
 
-        <div className="impact-list">
-          <h3>{messages.routing.findings}</h3>
+        <div className="impact-list impact-list-grid compact-list plain-note-list">
+          <h3>findings</h3>
           {(scopedFindings ?? []).length === 0 ? (
             <p className="sub-hint">{messages.routing.noFindings}</p>
           ) : (

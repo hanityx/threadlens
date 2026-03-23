@@ -7,6 +7,10 @@ import { TranscriptLog } from "./TranscriptLog";
 export interface SessionDetailProps {
   messages: Messages;
   selectedSession: ProviderSessionRow | null;
+  emptyScopeLabel?: string;
+  emptyScopeRows?: number;
+  emptyScopeReady?: number;
+  emptyNextSessionTitle?: string;
   sessionTranscriptData: TranscriptPayload | null;
   sessionTranscriptLoading: boolean;
   sessionTranscriptLimit: number;
@@ -28,6 +32,10 @@ export function SessionDetail(props: SessionDetailProps) {
   const {
     messages,
     selectedSession,
+    emptyScopeLabel = "All ai",
+    emptyScopeRows = 0,
+    emptyScopeReady = 0,
+    emptyNextSessionTitle = "",
     sessionTranscriptData,
     sessionTranscriptLoading,
     sessionTranscriptLimit,
@@ -135,38 +143,22 @@ export function SessionDetail(props: SessionDetailProps) {
   const emptyTranscriptLabel = (() => {
     if (!selectedSession) return messages.sessionDetail.emptyTranscript;
     if ((sessionTranscriptData?.message_count ?? 0) === 0 && selectedSession.provider === "chatgpt") {
-      return "이 ChatGPT Desktop 파일은 바이너리나 메타데이터 캐시라서 전사를 직접 펼칠 수 없어. 감지와 기본 세션 정보까지만 확인할 수 있고 전체 대화 본문은 열리지 않아.";
+      return "ChatGPT desktop cache does not open transcript directly.";
     }
     if (
       (sessionTranscriptData?.message_count ?? 0) === 0 &&
       selectedSession.provider === "copilot" &&
       selectedSession.probe.format === "json"
     ) {
-      return "이 Copilot 세션 JSON은 구조상으로는 파싱됐지만 실제 대화 메시지가 비어 있어. 전체 전사를 보려면 다른 workspace chat 행을 열어봐.";
+      return "This Copilot JSON is empty. Open another workspace chat row.";
     }
     if (selectedSession.probe.format === "unknown") {
-      return "이 파일 형식은 아직 직접 전사를 열 수 없어. 로컬 캐시나 바이너리 메타데이터만 감지됐어.";
+      return "This format does not open transcript directly yet.";
     }
     if (selectedSession.file_path.endsWith(".metadata.json")) {
-      return "이 행은 세션 메타데이터야. 전사를 열려면 아래의 실제 chatSessions JSON 행을 골라.";
+      return "This is metadata. Pick the real chatSessions JSON row.";
     }
     return messages.sessionDetail.emptyTranscript;
-  })();
-  const sessionModelHint = (() => {
-    if (!selectedSession) return "";
-    if (selectedSession.provider === "codex") {
-      return "Codex 원본 세션 rail.";
-    }
-    if (selectedSession.provider === "claude") {
-      return "Claude 원본 세션 rail.";
-    }
-    if (selectedSession.provider === "gemini") {
-      return "Gemini 원본 세션 rail.";
-    }
-    if (selectedSession.provider === "copilot") {
-      return "Copilot 원본 세션 rail.";
-    }
-    return "선택한 세션 rail.";
   })();
   const compactToken = (value: string) =>
     value && value.length > 12 ? `${value.slice(0, 8)}…${value.slice(-4)}` : value;
@@ -182,29 +174,55 @@ export function SessionDetail(props: SessionDetailProps) {
   const sessionProbeLabel = selectedSession
     ? `${selectedSession.probe.format} / ${selectedSession.probe.ok ? messages.common.ok : messages.common.fail}`
     : "";
+  const sessionHeaderMeta = selectedSession
+    ? normalizeDisplayValue(selectedSession.source) || selectedSession.provider
+    : emptyScopeLabel;
+  const sessionCompactMeta = selectedSession
+    ? `${normalizeDisplayValue(selectedSession.source) || selectedSession.provider} · ${formatDateTime(selectedSession.mtime)}`
+    : "";
 
   return (
-    <section className="panel session-detail-panel">
+    <section className={`panel session-detail-panel ${!selectedSession ? "is-empty" : ""}`.trim()}>
       <header>
         <h2>{messages.sessionDetail.title}</h2>
-        <span>{selectedSession ? selectedSession.provider : messages.common.none}</span>
+        <span>{sessionHeaderMeta}</span>
       </header>
       <div ref={bodyRef} className="impact-body">
         {!selectedSession ? (
           <div className="session-detail-empty-state">
             <div className="session-detail-empty-copy">
               <span className="overview-note-label">{messages.sessionDetail.title}</span>
-              <strong>세션을 고르면 열린다.</strong>
-              <p>전사와 보호 액션을 여기서 본다.</p>
+              <strong>Select next.</strong>
+              <p>transcript / actions</p>
             </div>
+            <div className="session-detail-empty-summary" aria-label="session detail scope">
+              <article>
+                <span>scope</span>
+                <strong>{emptyScopeLabel}</strong>
+              </article>
+              <article>
+                <span>rows</span>
+                <strong>{formatInteger(emptyScopeRows)}</strong>
+              </article>
+              <article>
+                <span>ready</span>
+                <strong>{formatInteger(emptyScopeReady)}</strong>
+              </article>
+            </div>
+            {emptyNextSessionTitle ? (
+              <div className="session-detail-empty-next">
+                <span className="overview-note-label">next session</span>
+                <strong>{emptyNextSessionTitle}</strong>
+                <p>open from recent rows or archive</p>
+              </div>
+            ) : null}
           </div>
         ) : (
           <>
-            <section className="detail-hero detail-hero-session">
+            <section className="detail-hero detail-hero-session detail-hero-session-compact">
               <div className="detail-hero-copy">
-                <span className="overview-note-label">original session rail</span>
                 <strong>{sessionDisplayTitle}</strong>
-                <p>{sessionModelHint}</p>
+                <p>{sessionCompactMeta}</p>
               </div>
               <div className="detail-hero-pills" aria-label="session detail summary">
                 <span className="detail-hero-pill">{selectedSession.provider}</span>
@@ -439,8 +457,8 @@ export function SessionDetail(props: SessionDetailProps) {
                 </div>
                 <div className="danger-zone">
                 <div className="danger-zone-head">
-                  <span className="overview-note-label">위험 구역</span>
-                  <strong>삭제는 마지막.</strong>
+                  <span className="overview-note-label">danger zone</span>
+                  <strong>Delete last.</strong>
                 </div>
                   <div className="chat-toolbar detail-action-bar detail-action-bar-danger">
                     <button

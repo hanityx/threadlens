@@ -3,7 +3,7 @@ import { useAppData } from "./hooks/useAppData";
 import { KpiCard } from "./components/KpiCard";
 import { ThreadsTable } from "./components/ThreadsTable";
 import { getMessages } from "./i18n";
-import { formatDateTime } from "./lib/helpers";
+import { compactPath, formatDateTime } from "./lib/helpers";
 import type { ConversationSearchHit, LayoutView, ProviderView } from "./types";
 
 const SetupWizard = lazy(async () => {
@@ -96,6 +96,79 @@ const normalizeDesktopRouteFilePath = (filePath: string): string => {
   return trimmed;
 };
 
+const compactWorkbenchId = (value?: string | null, prefix = "item"): string => {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return prefix;
+  const normalized = trimmed.toLowerCase().startsWith(`${prefix.toLowerCase()}-`)
+    ? trimmed.slice(prefix.length + 1)
+    : trimmed;
+  const useTail = /^\d{4}-\d{2}-/.test(normalized);
+  if (normalized.length <= 18) return `${prefix} ${normalized}`;
+  return `${prefix} ${useTail ? normalized.slice(-8) : normalized.slice(0, 8)}`;
+};
+
+const normalizeWorkbenchTitle = (value?: string | null, fallback?: string | null): string => {
+  const trimmed = String(value || "").trim();
+  const fallbackText = String(fallback || "").trim();
+  if (!trimmed || trimmed.toLowerCase() === "none") {
+    return fallbackText;
+  }
+  const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed);
+  if (uuidLike && fallbackText) {
+    return fallbackText;
+  }
+  return trimmed;
+};
+
+const normalizeWorkbenchSessionTitle = (value?: string | null, fallback?: string | null): string => {
+  const normalized = normalizeWorkbenchTitle(value, fallback);
+  const fallbackText = String(fallback || "").trim();
+  const lower = normalized.toLowerCase();
+  const looksGenerated =
+    lower.startsWith("rollout-") ||
+    normalized.includes("AGENTS.md") ||
+    normalized.includes("<INSTRUCTIONS>") ||
+    normalized.includes("/user-root/") ||
+    normalized.length > 72;
+  return looksGenerated && fallbackText ? fallbackText : normalized;
+};
+
+const formatWorkbenchRailDay = (value?: string | null): string => {
+  if (!value) return "Recent";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Recent";
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfTarget = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays = Math.round((startOfToday.getTime() - startOfTarget.getTime()) / 86_400_000);
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(date);
+};
+
+const formatWorkbenchRailTime = (value?: string | null): string => {
+  if (!value) return "--:--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "--:--";
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+};
+
+const formatWorkbenchGroupLabel = (value?: string | null): string => {
+  if (!value) return "Recent";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Recent";
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfTarget = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays = Math.round((startOfToday.getTime() - startOfTarget.getTime()) / 86_400_000);
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(date).toUpperCase();
+};
+
 type DesktopRouteState = {
   view: LayoutView | "";
   provider: ProviderView | "";
@@ -117,6 +190,8 @@ export function App() {
   const [searchThreadContext, setSearchThreadContext] = useState<ConversationSearchHit | null>(null);
   const [providersDiagnosticsOpen, setProvidersDiagnosticsOpen] = useState(false);
   const [setupGuideOpen, setSetupGuideOpen] = useState(false);
+  const [headerSearchDraft, setHeaderSearchDraft] = useState("");
+  const [headerSearchSeed, setHeaderSearchSeed] = useState("");
   const {
     theme,
     setTheme,
@@ -254,7 +329,6 @@ export function App() {
   };
 
   const messages = getMessages("ko");
-  const showOverviewChrome = layoutView === "overview";
   const runtimeBackend = runtime.data?.data?.runtime_backend;
   const smokeStatusValue =
     smokeStatusLoading
@@ -374,6 +448,91 @@ export function App() {
       parse_fail: visibleProviderSessionRows.length - parseOk,
     };
   }, [providerView, visibleProviderSessionRows, visibleProviders.length]);
+  const overviewCountsLoading =
+    runtimeLoading ||
+    recoveryLoading ||
+    threadsLoading ||
+    dataSourcesLoading ||
+    providerMatrixLoading ||
+    providerSessionsLoading ||
+    parserLoading ||
+    threadsFastBooting ||
+    providersRefreshing ||
+    refreshingAllData;
+  const overviewBooting =
+    overviewCountsLoading &&
+    visibleProviderSessionRows.length === 0 &&
+    visibleProviderSummary.total === 0 &&
+    visibleProviderSessionSummary.rows === 0;
+  const activeSummaryText =
+    visibleProviderSummary.total > 0
+      ? `active ${visibleProviderSummary.active}/${visibleProviderSummary.total}`
+      : overviewBooting
+        ? "syncing"
+        : overviewCountsLoading
+          ? "active ..."
+        : "active 0/0";
+  const reviewSummaryText =
+    highRiskCount > 0 ? `review ${highRiskCount}` : overviewCountsLoading ? "review ..." : "review 0";
+  const backupSummaryText =
+    (recovery.data?.summary?.backup_sets ?? 0) > 0
+      ? `backup ${recovery.data?.summary?.backup_sets ?? 0}`
+      : overviewCountsLoading
+        ? "backup ..."
+        : "backup 0";
+  const searchRowsText =
+    visibleProviderSessionSummary.rows > 0
+      ? `${visibleProviderSessionSummary.rows} rows`
+      : overviewCountsLoading
+        ? "... rows"
+        : "0 rows";
+  const reviewRowsText =
+    highRiskCount > 0 ? `${highRiskCount} flagged` : overviewCountsLoading ? "... flagged" : "0 flagged";
+  const syncStatusText = refreshingAllData
+    ? "Syncing now"
+    : providersRefreshing
+      ? "Refreshing providers"
+      : providersLastRefreshAt
+        ? `Updated ${formatDateTime(providersLastRefreshAt)}`
+        : "Idle";
+  const recentSessionPreview = useMemo(
+    () =>
+      [...visibleProviderSessionRows]
+        .sort((left, right) => Date.parse(right.mtime || "") - Date.parse(left.mtime || ""))
+        .slice(0, 4),
+    [visibleProviderSessionRows],
+  );
+  const focusSession = recentSessionPreview[0] ?? null;
+  const focusSessionTitle = focusSession
+    ? normalizeWorkbenchSessionTitle(
+        focusSession.display_title,
+        compactWorkbenchId(focusSession.session_id, "session"),
+      )
+    : overviewBooting
+      ? "Syncing sessions"
+      : "Live archive ready";
+  const focusSessionMeta = focusSession
+    ? `${focusSession.provider} / ${formatWorkbenchRailTime(focusSession.mtime)} / ready`
+    : overviewBooting
+      ? "providers / parser / runtime"
+      : "archive / live / ready";
+  const focusSessionCommandId = focusSession
+    ? compactWorkbenchId(focusSession.session_id, "session")
+    : overviewBooting
+      ? "session sync"
+      : "session live";
+  const focusSessionStatus = focusSession
+    ? `${focusSession.provider} active · ${formatWorkbenchRailTime(focusSession.mtime)}`
+    : overviewBooting
+      ? "hydrating providers"
+      : "archive ready";
+  const emptySessionScopeLabel = providerView === "all" ? messages.common.allAi : selectedProviderLabel;
+  const emptySessionNextTitle = focusSession
+    ? normalizeWorkbenchSessionTitle(
+        focusSession.display_title,
+        compactWorkbenchId(focusSession.session_id, "session"),
+      )
+    : "";
   const visibleParserReports = useMemo(
     () => parserReports.filter((report) => visibleProviderIdSet.has(report.provider)),
     [parserReports, visibleProviderIdSet],
@@ -403,6 +562,100 @@ export function App() {
       parse_score: scanned ? Number(((parseOk / scanned) * 100).toFixed(1)) : null,
     };
   }, [visibleParserReports]);
+  const flaggedThreadPreview = useMemo(
+    () =>
+      [...visibleRows]
+        .sort((left, right) => {
+          const riskDiff = Number(right.risk_score || 0) - Number(left.risk_score || 0);
+          if (riskDiff !== 0) return riskDiff;
+          return Date.parse(right.timestamp || "") - Date.parse(left.timestamp || "");
+        })
+        .slice(0, 4),
+    [visibleRows],
+  );
+  const focusReviewThread = flaggedThreadPreview[0] ?? null;
+  const focusReviewTitle = focusReviewThread
+    ? normalizeWorkbenchTitle(
+        focusReviewThread.title,
+        compactWorkbenchId(focusReviewThread.thread_id, "thread"),
+      )
+    : "Review queue idle";
+  const focusReviewMeta = focusReviewThread
+    ? `${focusReviewThread.source || "thread"} / ${focusReviewThread.risk_level || "review"} / ${formatWorkbenchRailDay(focusReviewThread.timestamp)}`
+    : "review / quiet / recent";
+  const secondaryFlaggedPreview = flaggedThreadPreview.slice(1, 3);
+  const recentThreadPreview = useMemo(
+    () =>
+      [...visibleRows]
+        .sort((left, right) => Date.parse(right.timestamp || "") - Date.parse(left.timestamp || ""))
+        .slice(0, 4),
+    [visibleRows],
+  );
+  const recentThreadSummary = (row: (typeof recentThreadPreview)[number]): string => {
+    const tags = new Set(row.risk_tags ?? []);
+    const noWorkspace = tags.has("no-cwd");
+    const orphanCandidate = tags.has("orphan-candidate");
+    const contextHigh = tags.has("ctx-high");
+    const contextMedium = tags.has("ctx-medium");
+    const activity = row.activity_status || "recent";
+
+    if (activity === "running" && contextHigh) {
+      return "High-context session with active review work.";
+    }
+    if (row.risk_level === "high" && noWorkspace) {
+      return "No cwd found. Check archive safety before cleanup.";
+    }
+    if (row.risk_level === "medium" && orphanCandidate) {
+      return "Older session trail with weak workspace links.";
+    }
+    if (row.is_pinned) {
+      return "Pinned for follow-up before archive or cleanup.";
+    }
+    if (contextMedium) {
+      return "Workspace context drifted, but the thread still resolves.";
+    }
+    if (row.source === "sessions") {
+      return "Session archive trace with local review context.";
+    }
+    return "Recent review trail from the local archive.";
+  };
+  const recentThreadTitle = (row: (typeof recentThreadPreview)[number]): string => {
+    const normalized = normalizeWorkbenchTitle(row.title, "");
+    if (normalized) return normalized;
+    const tags = new Set(row.risk_tags ?? []);
+    if (row.activity_status === "running" && tags.has("ctx-high")) return "Running Review Session";
+    if (row.risk_level === "high" && tags.has("no-cwd")) return "No-Workspace Review";
+    if (row.is_pinned && row.risk_level === "high") return "Pinned Risk Thread";
+    if (tags.has("orphan-candidate")) return "Archive Candidate";
+    if (tags.has("ctx-medium")) return "Context Drift Note";
+    if (row.risk_level === "high") return "Flagged Session Trace";
+    if (row.risk_level === "medium") return "Review Candidate";
+    return compactWorkbenchId(row.thread_id, "thread");
+  };
+  const recentThreadGroups = useMemo(() => {
+    const groups: Array<{ label: string; rows: typeof recentThreadPreview }> = [];
+    for (const row of recentThreadPreview) {
+      const label = formatWorkbenchGroupLabel(row.timestamp);
+      const last = groups[groups.length - 1];
+      if (last && last.label === label) {
+        last.rows.push(row);
+      } else {
+        groups.push({ label, rows: [row] });
+      }
+    }
+    return groups;
+  }, [recentThreadPreview]);
+  const activeProviderPreview = useMemo(
+    () => visibleProviders.filter((provider) => provider.status === "active").slice(0, 4),
+    [visibleProviders],
+  );
+  const activeProviderSummaryLine = activeProviderPreview.length
+    ? activeProviderPreview.map((provider) => provider.name).join(" · ")
+    : visibleProviderSummary.active > 0
+      ? `${visibleProviderSummary.active} active providers`
+      : overviewBooting
+        ? "Loading provider status."
+        : "Waiting for live providers.";
   const visibleDataSourceRows = useMemo(
     () =>
       dataSourceRows.filter((row) => {
@@ -450,6 +703,21 @@ export function App() {
     Boolean(showGlobalCleanupDryRunError) ||
     Boolean(providerSessionActionError) ||
     Boolean(bulkActionError && !showRuntimeBackendDegraded);
+  const parserScoreText = overviewBooting
+    ? "syncing"
+    : overviewCountsLoading
+      ? "syncing"
+    : visibleParserSummary.parse_score != null
+      ? `${visibleParserSummary.parse_score}%`
+      : "n/a";
+  const runtimeLatencyText = overviewBooting
+    ? "sync"
+    : overviewCountsLoading
+      ? "sync"
+    : runtime.data?.data?.runtime_backend.reachable
+      ? `${runtime.data?.data?.runtime_backend.latency_ms ?? "-"} ms`
+      : "down";
+  const backupSetsCount = recovery.data?.summary?.backup_sets ?? 0;
 
   useEffect(() => {
     if (desktopRouteAppliedRef.current) return;
@@ -690,148 +958,103 @@ export function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [layoutView]);
 
-  const currentSurfaceLabel =
-    layoutView === "overview"
-      ? "Operator Workbench"
-      : layoutView === "search"
-        ? "Search Stage"
-        : layoutView === "threads"
-          ? "Cleanup Review"
-          : "Original Sessions";
-
   return (
     <div className="app-shell">
-      <aside className="shell-rail" aria-label="workspace navigation">
-        <div className="shell-rail-brand">
-          <span className="shell-rail-kicker">provider observatory</span>
-          <strong>Operator Workbench</strong>
-          <span>sessions / cleanup / backup</span>
-        </div>
-        <nav className="shell-rail-nav">
-          <button
-            type="button"
-            className={`view-btn shell-rail-btn ${layoutView === "overview" ? "is-active" : ""}`}
-            onClick={() => changeLayoutView("overview")}
-          >
-            {messages.nav.overview}
-          </button>
-          <button
-            type="button"
-            className={`view-btn shell-rail-btn ${layoutView === "search" ? "is-active" : ""}`}
-            onClick={() => changeLayoutView("search")}
-            onMouseEnter={handleSearchIntent}
-            onFocus={handleSearchIntent}
-          >
-            {messages.nav.search}
-          </button>
-          <button
-            type="button"
-            className={`view-btn shell-rail-btn ${layoutView === "threads" ? "is-active" : ""}`}
-            onClick={() => changeLayoutView("threads")}
-          >
-            {messages.nav.threads}
-          </button>
-          <button
-            type="button"
-            className={`view-btn shell-rail-btn ${layoutView === "providers" ? "is-active" : ""}`}
-            onClick={() => changeLayoutView("providers")}
-            onMouseEnter={handleProvidersIntent}
-            onFocus={handleProvidersIntent}
-            onTouchStart={handleProvidersIntent}
-          >
-            {messages.nav.providers}
-          </button>
-        </nav>
-        <div className="shell-rail-status">
-          <div className="shell-rail-status-card">
-            <span className="overview-note-label">active</span>
-            <strong>
-              {visibleProviderSummary.active}/{visibleProviderSummary.total}
-            </strong>
-            <span>providers</span>
-          </div>
-          <div className="shell-rail-status-card">
-            <span className="overview-note-label">review</span>
-            <strong>{highRiskCount}</strong>
-            <span>high risk</span>
-          </div>
-        </div>
-      </aside>
-
       <main className="page page-shell-main">
         <section className="top-actions">
-          <div className="top-actions-copy">
-            <span className="top-actions-label">surface</span>
-            <strong>{currentSurfaceLabel}</strong>
+          <div className="top-actions-main">
+            <div className="top-actions-copy">
+              <span className="top-actions-label">observatory ai</span>
+              <strong>Provider Observatory</strong>
+            </div>
+            <nav className="top-surface-nav" aria-label="surface tabs">
+              <button
+                type="button"
+                className={`top-surface-btn ${layoutView === "overview" ? "is-active" : ""}`}
+                onClick={() => changeLayoutView("overview")}
+              >
+                {messages.nav.overview}
+              </button>
+              <button
+                type="button"
+                className={`top-surface-btn ${layoutView === "search" ? "is-active" : ""}`}
+                onClick={() => changeLayoutView("search")}
+                onMouseEnter={handleSearchIntent}
+                onFocus={handleSearchIntent}
+              >
+                {messages.nav.search}
+              </button>
+              <button
+                type="button"
+                className={`top-surface-btn ${layoutView === "threads" ? "is-active" : ""}`}
+                onClick={() => changeLayoutView("threads")}
+              >
+                {messages.nav.threads}
+              </button>
+              <button
+                type="button"
+                className={`top-surface-btn ${layoutView === "providers" ? "is-active" : ""}`}
+                onClick={() => changeLayoutView("providers")}
+                onMouseEnter={handleProvidersIntent}
+                onFocus={handleProvidersIntent}
+              >
+                {messages.nav.providers}
+              </button>
+            </nav>
           </div>
-          <div className="top-controls">
-            <button
-              type="button"
-              className="btn-outline"
-              onClick={() => {
-                void refreshAllData();
+          <div className="top-actions-tools">
+            <form
+              className="top-search-shell"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const nextQuery = headerSearchDraft.trim();
+                if (!nextQuery) return;
+                setHeaderSearchSeed(nextQuery);
+                startTransition(() => changeLayoutView("search"));
+                window.setTimeout(() => {
+                  const input = document.querySelector(".search-panel .search-input") as HTMLInputElement | null;
+                  input?.focus();
+                  input?.select();
+                }, 120);
               }}
-              disabled={busy || refreshingAllData}
-              title={messages.nav.syncHint}
             >
-              {refreshingAllData ? messages.nav.syncing : messages.nav.syncNow}
-            </button>
-            <button
-              type="button"
-              className="btn-outline"
-              onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
-              title={theme === "dark" ? messages.nav.switchToLight : messages.nav.switchToDark}
-            >
-              {theme === "dark" ? messages.nav.light : messages.nav.dark}
-            </button>
+              <span className="top-search-icon" aria-hidden="true">
+                ⌕
+              </span>
+              <input
+                type="search"
+                className="top-search-input"
+                placeholder="Jump to sessions, threads, keywords..."
+                value={headerSearchDraft}
+                onChange={(event) => setHeaderSearchDraft(event.target.value)}
+              />
+            </form>
+            <div className="top-controls">
+              <span className="top-sync-status" aria-live="polite">
+                {syncStatusText}
+              </span>
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+                title={theme === "dark" ? messages.nav.switchToLight : messages.nav.switchToDark}
+              >
+                {theme === "dark" ? messages.nav.light : messages.nav.dark}
+              </button>
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => {
+                  void refreshAllData();
+                }}
+                disabled={busy || refreshingAllData}
+                title={messages.nav.syncHint}
+              >
+                {refreshingAllData ? "Syncing" : "Sync"}
+              </button>
+            </div>
           </div>
         </section>
-
-        {showOverviewChrome ? (
-          <section className="hero">
-            <div className="hero-shell">
-              <div className="hero-copy">
-                <div className="hero-top">
-                  <h1>{messages.hero.title}</h1>
-                  <span className="hero-badge">{messages.hero.badge}</span>
-                </div>
-                <p>원문 검색, 정리 검토, 백업 보호.</p>
-                <div className="hero-meta">
-                  <span className="meta-chip">
-                    {messages.hero.active} {visibleProviderSummary.active}/{visibleProviderSummary.total}
-                  </span>
-                  <span className="meta-chip">
-                    {messages.hero.safeCleanup} {cleanupReadyCount}
-                  </span>
-                  <span className="meta-chip">
-                    {messages.hero.readOnly} {readOnlyCount}
-                  </span>
-                  <span className="meta-chip">
-                    {messages.hero.highRisk} {highRiskCount}
-                  </span>
-                </div>
-                <div className="hero-actions">
-                  <button
-                    type="button"
-                    className="overview-header-btn is-primary"
-                    onClick={() => changeLayoutView("search")}
-                    onMouseEnter={handleSearchIntent}
-                    onFocus={handleSearchIntent}
-                  >
-                    원문 세션 열기
-                  </button>
-                  <button
-                    type="button"
-                    className="overview-header-btn"
-                    onClick={() => changeLayoutView("threads")}
-                  >
-                    정리 검토 열기
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-        ) : null}
 
       {showRuntimeBackendDegraded ? (
         <section className="degraded-banner" role="status" aria-live="polite">
@@ -844,149 +1067,318 @@ export function App() {
       ) : null}
 
         {layoutView === "overview" ? (
-          <section className="overview-grid">
-            <section className="panel overview-stage">
-              <div className="overview-stage-header">
-                <div className="overview-stage-title">
-                  <span className="overview-note-label">main stage</span>
-                  <h2>Session Workbench</h2>
-                  <p>핵심 surface를 바로 연다.</p>
+          <section className="overview-workbench">
+            {!setupGuideOpen ? (
+              <div className="overview-workbench-grid">
+              <section className="panel overview-stage overview-main-canvas">
+                <div className="overview-stage-header overview-main-head">
+                  <div className="overview-stage-title overview-main-title">
+                    <span className="overview-note-label">session workbench</span>
+                    <h1>Provider Observatory</h1>
+                    <p>Sessions, review, archive.</p>
+                  </div>
+                  <div className="overview-header-actions">
+                    <button
+                      type="button"
+                      className="overview-header-btn is-quiet"
+                      onClick={() => setSetupGuideOpen((prev) => !prev)}
+                    >
+                      {setupGuideOpen ? "Close setup" : "Setup"}
+                    </button>
+                    <button
+                      type="button"
+                      className="overview-header-btn"
+                      onClick={() => changeLayoutView("threads")}
+                    >
+                      Review
+                    </button>
+                    <button
+                      type="button"
+                      className="overview-header-btn is-primary"
+                      onClick={() => changeLayoutView("providers")}
+                      onMouseEnter={handleProvidersIntent}
+                      onFocus={handleProvidersIntent}
+                    >
+                      Sessions
+                    </button>
+                  </div>
                 </div>
-                <div className="overview-header-actions">
-                  <button
-                    type="button"
-                    className="overview-header-btn"
-                    onClick={() => setSetupGuideOpen((prev) => !prev)}
-                  >
-                    {setupGuideOpen ? "설정 닫기" : "새 세션 설정"}
-                  </button>
-                  <button
-                    type="button"
-                    className="overview-header-btn is-primary"
-                    onClick={() => changeLayoutView("search")}
-                    onMouseEnter={handleSearchIntent}
-                    onFocus={handleSearchIntent}
-                  >
-                    원문 세션 열기
-                  </button>
-                </div>
-              </div>
 
-              <div className="overview-stage-layout">
-                <div className="overview-stage-main">
+                <div className="overview-stage-layout overview-stage-layout-workbench">
                   <section className="overview-command-shell" aria-label="workbench command shell">
                     <div className="overview-window-dots" aria-hidden="true">
                       <span />
                       <span />
                       <span />
                     </div>
-                    <div className="overview-command-meta">
-                      <span className="overview-command-path">obs-node / sessions / active</span>
-                      <span className="overview-command-runtime">
-                        {runtimeLoading
-                          ? "runtime syncing"
-                          : runtime.data?.data?.runtime_backend.reachable
-                            ? `runtime online · ${runtime.data?.data?.runtime_backend.latency_ms ?? "-"} ms`
-                            : "runtime down"}
-                      </span>
+                    <div className="overview-command-breadcrumb">
+                      <span className="overview-command-path is-brand">obs-node</span>
+                      <span className="overview-command-slash">/</span>
+                      <span className="overview-command-path">sessions</span>
+                      <span className="overview-command-slash">/</span>
+                      <span className="overview-command-path is-active">active</span>
+                      <span className="overview-command-runtime">{runtimeLatencyText}</span>
                     </div>
-                    <div className="overview-command-pills">
-                      <span className="overview-command-pill is-solid">obs inspect --scope original</span>
-                      <span className="overview-command-pill">search {visibleProviderSessionSummary.rows}</span>
-                      <span className="overview-command-pill">review {highRiskCount}</span>
-                      <span className="overview-command-pill">backup {recovery.data?.summary?.backup_sets ?? 0}</span>
-                    </div>
-                  </section>
-
-                  <section className="overview-editorial">
-                    <div className="overview-editorial-head">
-                      <div>
-                        <span className="overview-note-label">open next</span>
-                        <h3>바로 들어갈 surface</h3>
-                        <p>지금 필요한 작업만 남겼다.</p>
+                    <div className="overview-command-strip">
+                      <div className="overview-command-summary">
+                        <strong>{focusSessionCommandId}</strong>
+                        <span>{focusSessionStatus}</span>
                       </div>
-                      <div className="overview-editorial-badges">
-                        <span className="overview-editorial-badge">
-                          providers {visibleProviderSummary.active}/{visibleProviderSummary.total}
+                      <div className="overview-command-metrics" aria-label="workbench status">
+                        <span>
+                          <strong>{visibleProviderSessionSummary.parse_ok}</strong> ready
                         </span>
-                        <span className="overview-editorial-badge">threads {rows.length}</span>
+                        <span>
+                          <strong>{highRiskCount}</strong> flagged
+                        </span>
+                        <span>{syncStatusText}</span>
                       </div>
                     </div>
-
-                    <p className="overview-editorial-lead">
-                      검색 {visibleProviderSessionSummary.rows} · 고위험 {highRiskCount} · 백업 세트{" "}
-                      {recovery.data?.summary?.backup_sets ?? 0}
-                    </p>
-
-                    <div className="overview-primary-actions">
-                      <button
-                        type="button"
-                        className="overview-primary-card"
-                        onClick={() => changeLayoutView("search")}
-                        onMouseEnter={handleSearchIntent}
-                        onFocus={handleSearchIntent}
-                      >
-                        <span className="overview-note-label">검색</span>
-                        <strong>원문 세션</strong>
-                        <p>{visibleProviderSessionSummary.rows}개 세션 검색</p>
-                      </button>
-                      <button
-                        type="button"
-                        className="overview-primary-card"
-                        onClick={() => changeLayoutView("threads")}
-                      >
-                        <span className="overview-note-label">정리</span>
-                        <strong>Cleanup Review</strong>
-                        <p>{highRiskCount}개 고위험 검토</p>
-                      </button>
-                      <button
-                        type="button"
-                        className="overview-primary-card"
-                        onClick={() => changeLayoutView("providers")}
-                        onMouseEnter={handleProvidersIntent}
-                        onFocus={handleProvidersIntent}
-                      >
-                        <span className="overview-note-label">백업</span>
-                        <strong>Original Sessions</strong>
-                        <p>백업 세트 {recovery.data?.summary?.backup_sets ?? 0}</p>
-                      </button>
-                    </div>
-
-                    <div className="overview-metric-grid">
-                      <article className="overview-metric-card">
-                        <span className="overview-note-label">cleanup load</span>
-                        <strong>{highRiskCount}</strong>
-                        <p>pinned {pinnedCount}/{rows.length}</p>
-                      </article>
-                      <article className="overview-metric-card">
-                        <span className="overview-note-label">backup vault</span>
-                        <strong>{recovery.data?.summary?.backup_sets ?? 0}</strong>
-                        <p>
-                          checklist {recovery.data?.summary?.checklist_done ?? 0}/
-                          {recovery.data?.summary?.checklist_total ?? 0}
-                        </p>
-                      </article>
-                    </div>
                   </section>
-                </div>
-              </div>
-            </section>
 
-            <details
-              className="overview-secondary-panel"
-              open={setupGuideOpen}
-              onToggle={(event) => {
-                setSetupGuideOpen((event.currentTarget as HTMLDetailsElement).open);
-              }}
-            >
-              <summary>{setupGuideOpen ? "설정 닫기" : "새 세션 설정 열기"}</summary>
-              <div className="overview-secondary-body">
-                {setupGuideOpen ? (
+                  <div className="overview-insight-grid">
+                    <article className="overview-insight-card is-primary">
+                      <div className="overview-primary-panel-grid">
+                        <div className="overview-primary-copy">
+                          <span className="overview-note-label">session focus</span>
+                          <strong className="overview-primary-focus-title">{focusSessionTitle}</strong>
+                          <div className="overview-primary-focus-meta">{focusSessionMeta}</div>
+                          <p className="overview-primary-summary">
+                            {overviewBooting
+                              ? "Loading recent sessions, parser health, and active providers."
+                              : `${visibleProviderSessionSummary.parse_ok}/${visibleProviderSessionSummary.rows || "..."} ready across ${visibleProviderSummary.active || "..."} active AI. Search, review, or open the archive next.`}
+                          </p>
+                          <div className="overview-primary-focus-kpis" aria-label="focus session summary">
+                            <article>
+                              <span>rows</span>
+                              <strong>{searchRowsText}</strong>
+                            </article>
+                            <article>
+                              <span>review</span>
+                              <strong>{reviewRowsText}</strong>
+                            </article>
+                          </div>
+                          <div className="overview-card-actions" aria-label="workbench quick actions">
+                            <button
+                              type="button"
+                              className="overview-card-action is-quiet"
+                              onClick={() => changeLayoutView("search")}
+                              onMouseEnter={handleSearchIntent}
+                              onFocus={handleSearchIntent}
+                            >
+                              <span>Search</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="overview-card-action"
+                              onClick={() => changeLayoutView("threads")}
+                            >
+                              <span>Review</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="overview-card-action is-primary"
+                              onClick={() => changeLayoutView("providers")}
+                              onMouseEnter={handleProvidersIntent}
+                              onFocus={handleProvidersIntent}
+                            >
+                              <span>Sessions</span>
+                            </button>
+                          </div>
+                        </div>
+                        <div className="overview-primary-list">
+                          <span className="overview-note-label">ready now</span>
+                          <div className="overview-primary-list-items">
+                            {recentSessionPreview.length ? (
+                              recentSessionPreview.slice(0, 3).map((row) => (
+                                <button
+                                  key={`overview-primary-ready-${row.file_path}`}
+                                  type="button"
+                                  className="overview-primary-list-item"
+                                  onClick={() => {
+                                    changeProviderView(visibleProviderIdSet.has(row.provider) ? (row.provider as ProviderView) : "all");
+                                    setSelectedSessionPath(row.file_path);
+                                    changeLayoutView("providers");
+                                  }}
+                                >
+                                  <strong>
+                                    {normalizeWorkbenchSessionTitle(
+                                      row.display_title,
+                                      compactWorkbenchId(row.session_id, "session"),
+                                    )}
+                                  </strong>
+                                  <span>
+                                    {row.provider} · {formatWorkbenchRailTime(row.mtime)}
+                                  </span>
+                                </button>
+                              ))
+                            ) : (
+                              <div className="overview-primary-list-empty">
+                                {overviewBooting ? "Syncing recent rows." : "No recent sessions yet."}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                    <div className="overview-support-stack">
+                      <article className="overview-insight-card is-review">
+                        <div className="overview-review-head">
+                          <span className="overview-note-label">review queue</span>
+                          <span className="overview-review-pill">{reviewRowsText}</span>
+                        </div>
+                        <div className="overview-review-focus">
+                          <span className="overview-review-kicker">focus thread</span>
+                          <div className="overview-review-title">{focusReviewTitle}</div>
+                          <div className="overview-review-meta">{focusReviewMeta}</div>
+                        </div>
+                        {secondaryFlaggedPreview.length ? (
+                          <div className="overview-review-list">
+                            {secondaryFlaggedPreview.map((row) => (
+                              <div key={`overview-review-secondary-${row.thread_id}`} className="overview-review-list-item">
+                                <strong>
+                                  {normalizeWorkbenchTitle(
+                                    row.title,
+                                    compactWorkbenchId(row.thread_id, "thread"),
+                                  )}
+                                </strong>
+                                <span>
+                                  {row.source || "thread"} / {row.risk_level || compactWorkbenchId(row.thread_id, "thread")}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p>No additional flagged threads.</p>
+                        )}
+                      </article>
+                      <div className="overview-support-mini-grid">
+                        <article className="overview-insight-card is-mini">
+                          <span className="overview-note-label">active ai</span>
+                          <strong>{activeSummaryText}</strong>
+                          <p>{activeProviderSummaryLine}</p>
+                        </article>
+                        <article className="overview-insight-card is-mini">
+                          <span className="overview-note-label">vault health</span>
+                          <strong>{parserScoreText}</strong>
+                          <p>
+                            {overviewBooting
+                              ? "Loading parser and runtime."
+                              : `${backupSetsCount} backups · runtime ${runtimeLatencyText}`}
+                          </p>
+                        </article>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <aside className="overview-side-rail">
+                <section className="overview-side-card overview-side-card-history">
+                  <div className="overview-side-head is-history">
+                    <div className="overview-side-headline">
+                      <span className="overview-side-head-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                          <path
+                            d="M12 8v5l3 2m5-3a8 8 0 1 1-2.34-5.66M20 4v4h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </span>
+                      <strong>Recent Threads</strong>
+                    </div>
+                  </div>
+                  <div className="overview-side-list overview-side-list-history">
+                    {recentThreadGroups.length ? (
+                      recentThreadGroups.map((group) => (
+                        <section key={`overview-thread-group-${group.label}`} className="overview-side-group">
+                          <div className="overview-side-group-head">
+                            <span>{group.label}</span>
+                          </div>
+                          <div className="overview-side-group-list">
+                            {group.rows.map((row) => (
+                              <button
+                                key={`overview-thread-${row.thread_id}`}
+                                type="button"
+                                className="overview-side-item overview-side-item-history"
+                                onClick={() => {
+                                  setSelectedThreadId(row.thread_id);
+                                  changeLayoutView("threads");
+                                }}
+                              >
+                                <div className="overview-side-item-meta">
+                                  <span>{formatWorkbenchRailTime(row.timestamp)}</span>
+                                </div>
+                                <div className="overview-side-item-copy">
+                                  <strong>
+                                    {recentThreadTitle(row)}
+                                  </strong>
+                                  <p>{recentThreadSummary(row)}</p>
+                                </div>
+                                <div className="overview-side-item-dots" aria-hidden="true">
+                                  <span className={row.risk_level === "high" ? "is-active" : ""} />
+                                  <span className={row.is_pinned ? "is-active" : ""} />
+                                  <span className={row.activity_status === "active" ? "is-active" : ""} />
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </section>
+                      ))
+                    ) : (
+                      <div className="overview-side-empty">Waiting for threads.</div>
+                    )}
+                  </div>
+                </section>
+
+                <section className="overview-side-card overview-side-card-status">
+                  <div className="overview-side-head">
+                    <span className="overview-note-label">system</span>
+                    <strong>{syncStatusText}</strong>
+                  </div>
+                  <div className="overview-side-status-list">
+                    <article className="overview-side-status-item">
+                      <span>runtime</span>
+                      <strong>{runtimeLatencyText}</strong>
+                    </article>
+                    <article className="overview-side-status-item">
+                      <span>parser</span>
+                      <strong>{parserScoreText}</strong>
+                    </article>
+                    <article className="overview-side-status-item">
+                      <span>backups</span>
+                      <strong>{backupSetsCount}</strong>
+                    </article>
+                    <article className="overview-side-status-item">
+                      <span>ready rows</span>
+                      <strong>{visibleProviderSessionSummary.parse_ok}</strong>
+                    </article>
+                  </div>
+                </section>
+              </aside>
+              </div>
+            ) : (
+              <section className="overview-secondary-panel overview-setup-stage" aria-label="setup stage">
+                <div className="overview-secondary-head">
+                  <span className="overview-note-label">setup stage</span>
+                  <button
+                    type="button"
+                    className="overview-secondary-close"
+                    onClick={() => setSetupGuideOpen(false)}
+                  >
+                    Close
+                  </button>
+                </div>
+                <div className="overview-secondary-body">
                   <Suspense
                     fallback={
                       <div className="info-box compact">
                         <strong>{messages.common.loading}</strong>
-                        <p>설정 stage 불러오는 중.</p>
+                        <p>Loading setup stage.</p>
                       </div>
                     }
                   >
@@ -1009,14 +1401,9 @@ export function App() {
                       onOpenDiagnostics={() => changeLayoutView("providers")}
                     />
                   </Suspense>
-                ) : (
-                  <div className="info-box compact">
-                    <strong>설정 stage는 필요할 때만 연다.</strong>
-                    <p>기본 flow엔 숨겨 둔다.</p>
-                  </div>
-                )}
-              </div>
-            </details>
+                </div>
+              </section>
+            )}
           </section>
         ) : null}
 
@@ -1037,6 +1424,7 @@ export function App() {
           <SearchPanel
             messages={messages}
             providerOptions={searchProviderOptions}
+            initialQuery={headerSearchSeed}
             onOpenSession={(hit: ConversationSearchHit) => {
               if (visibleProviderIdSet.has(hit.provider)) {
                 changeProviderView(hit.provider as ProviderView);
@@ -1095,6 +1483,10 @@ export function App() {
                     key={selectedSession?.file_path ?? "empty-session-detail"}
                     messages={messages}
                     selectedSession={selectedSession}
+                    emptyScopeLabel={emptySessionScopeLabel}
+                    emptyScopeRows={visibleProviderSessionSummary.rows}
+                    emptyScopeReady={visibleProviderSessionSummary.parse_ok}
+                    emptyNextSessionTitle={emptySessionNextTitle}
                     sessionTranscriptData={sessionTranscriptData}
                     sessionTranscriptLoading={sessionTranscriptLoading}
                     sessionTranscriptLimit={sessionTranscriptLimit}
@@ -1106,6 +1498,54 @@ export function App() {
                     runSingleProviderAction={runSingleProviderAction}
                   />
                 </Suspense>
+              }
+              diagnosticsSlot={
+                <details
+                  className="panel panel-disclosure session-routing-disclosure"
+                  open={providersDiagnosticsOpen}
+                  onToggle={(event) => {
+                    const nextOpen = (event.currentTarget as HTMLDetailsElement).open;
+                    setProvidersDiagnosticsOpen(nextOpen);
+                    if (nextOpen) handleDiagnosticsIntent();
+                  }}
+                >
+                  <summary>
+                    <span className="session-routing-disclosure-copy">
+                      <strong>{messages.nav.routing}</strong>
+                      <span>{providersDiagnosticsOpen ? "paths / findings" : "scan / flow"}</span>
+                    </span>
+                    <span className="session-routing-disclosure-state">
+                      {providersDiagnosticsOpen ? "Hide" : "Open"}
+                    </span>
+                  </summary>
+                  <div className="panel-disclosure-body">
+                    {showRouting ? (
+                      <Suspense
+                        fallback={
+                          <section className="panel">
+                            <header>
+                              <h2>{messages.nav.routing}</h2>
+                              <span>{messages.common.loading}</span>
+                            </header>
+                            <div className="sub-toolbar">
+                              <div className="skeleton-line" />
+                            </div>
+                          </section>
+                        }
+                      >
+                        <RoutingPanel
+                          messages={messages}
+                          data={executionGraphData}
+                          loading={executionGraphLoading}
+                          providerView={providerView}
+                          providerSessionRows={visibleProviderSessionRows}
+                          parserReports={visibleParserReports}
+                          visibleProviderIds={visibleProviderIds}
+                        />
+                      </Suspense>
+                    ) : null}
+                  </div>
+                </details>
               }
               providers={visibleProviders}
               providerSummary={visibleProviderSummary}
@@ -1152,45 +1592,6 @@ export function App() {
               refreshProvidersData={refreshProvidersData}
             />
           </Suspense>
-
-          <details
-            className="panel panel-disclosure"
-            open={providersDiagnosticsOpen}
-            onToggle={(event) => {
-              const nextOpen = (event.currentTarget as HTMLDetailsElement).open;
-              setProvidersDiagnosticsOpen(nextOpen);
-              if (nextOpen) handleDiagnosticsIntent();
-            }}
-          >
-            <summary>{providersDiagnosticsOpen ? "고급 진단 숨기기" : "고급 진단 열기"}</summary>
-            <div className="panel-disclosure-body">
-              {showRouting ? (
-                <Suspense
-                  fallback={
-                    <section className="panel">
-                      <header>
-                        <h2>{messages.nav.routing}</h2>
-                        <span>{messages.common.loading}</span>
-                      </header>
-                      <div className="sub-toolbar">
-                        <div className="skeleton-line" />
-                      </div>
-                    </section>
-                  }
-                >
-                  <RoutingPanel
-                    messages={messages}
-                    data={executionGraphData}
-                    loading={executionGraphLoading}
-                    providerView={providerView}
-                    providerSessionRows={visibleProviderSessionRows}
-                    parserReports={visibleParserReports}
-                    visibleProviderIds={visibleProviderIds}
-                  />
-                </Suspense>
-              ) : null}
-            </div>
-          </details>
           </section>
         </>
       ) : null}
@@ -1198,30 +1599,30 @@ export function App() {
       {showThreadsTable ? (
         <section className="panel cleanup-command-shell">
           <header>
-            <h2>Cleanup review queue</h2>
-            <span>impact와 dry-run을 먼저 본다.</span>
+            <h2>Review</h2>
+            <span>impact / dry-run</span>
           </header>
           <div className="cleanup-command-body">
             <div className="thread-workflow-copy">
-              <span className="overview-note-label">cleanup review workbench</span>
-              <strong>정리 후보를 좁히고 바로 review rail에서 판단한다.</strong>
-              <p>queue, impact, dry-run을 한 흐름으로 둔다.</p>
+              <span className="overview-note-label">review workbench</span>
+              <strong>pick threads and review</strong>
+              <p>impact / dry-run / rail</p>
             </div>
             <div className="thread-status-grid">
               <article className="thread-status-card">
-                <span>queue</span>
+                <span>visible</span>
                 <strong>{visibleRows.length}/{filteredRows.length}</strong>
-                <p>visible / filtered</p>
+                <p>rows</p>
               </article>
               <article className={`thread-status-card ${selectedIds.length > 0 ? "is-accent" : ""}`.trim()}>
                 <span>selected</span>
                 <strong>{selectedIds.length}</strong>
-                <p>review rail 대상</p>
+                <p>review rail</p>
               </article>
               <article className={`thread-status-card ${cleanupData?.confirm_token_expected ? "is-ready" : ""}`.trim()}>
                 <span>dry-run</span>
                 <strong>{cleanupData?.confirm_token_expected ? "ready" : "pending"}</strong>
-                <p>{selectedImpactRows.length > 0 ? `${selectedImpactRows.length} impact rows` : "impact 먼저"}</p>
+                <p>{selectedImpactRows.length > 0 ? `${selectedImpactRows.length} impact` : "impact first"}</p>
               </article>
             </div>
             <section className="toolbar cleanup-toolbar">
@@ -1344,6 +1745,14 @@ export function App() {
                 messages={messages}
                 selectedThread={selectedThread}
                 selectedThreadId={selectedThreadId}
+                visibleThreadCount={visibleRows.length}
+                filteredThreadCount={filteredRows.length}
+                highRiskCount={highRiskCount}
+                nextThreadTitle={normalizeWorkbenchTitle(
+                  visibleRows[0]?.title,
+                  visibleRows[0]?.thread_id ? `thread ${visibleRows[0].thread_id.slice(0, 8)}` : "",
+                )}
+                nextThreadSource={visibleRows[0]?.source || "open from threads or recent review rows"}
                 searchContext={searchThreadContext}
                 threadDetailLoading={threadDetailLoading}
                 selectedThreadDetail={selectedThreadDetail}
@@ -1379,6 +1788,10 @@ export function App() {
               <SessionDetail
                 messages={messages}
                 selectedSession={selectedSession}
+                emptyScopeLabel={emptySessionScopeLabel}
+                emptyScopeRows={visibleProviderSessionSummary.rows}
+                emptyScopeReady={visibleProviderSessionSummary.parse_ok}
+                emptyNextSessionTitle={emptySessionNextTitle}
                 sessionTranscriptData={sessionTranscriptData}
                 sessionTranscriptLoading={sessionTranscriptLoading}
                 sessionTranscriptLimit={sessionTranscriptLimit}
@@ -1398,7 +1811,7 @@ export function App() {
           <section className="error-stack" aria-live="polite">
             <div className="error-stack-head">
               <span className="overview-note-label">runtime issues</span>
-            <strong>일부 runtime action이 막혀 있다.</strong>
+            <strong>Some runtime actions are blocked.</strong>
             </div>
           <div className="error-stack-list">
             {runtime.isError ? <div className="error-box">{messages.errors.runtime}</div> : null}

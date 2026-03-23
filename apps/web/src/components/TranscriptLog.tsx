@@ -96,8 +96,8 @@ export function TranscriptLog({
       </div>
       <p className="sub-hint transcript-intro-copy">
         {roleFilter === "dialog"
-          ? "기본값은 사용자와 어시스턴트 대화만 보여줘. system, tool, developer 로그까지 보고 싶으면 역할 필터를 바꿔."
-          : "지금 전사는 선택한 역할과 검색어 기준으로 필터링된 상태야."}
+          ? "Default is user and assistant only. Switch roles for system, tool, or developer logs."
+          : "Transcript is filtered by role and search."}
       </p>
       <div className="chat-toolbar transcript-controls">
         <input

@@ -7,6 +7,11 @@ export interface ThreadDetailProps {
   messages: Messages;
   selectedThread: ThreadRow | null;
   selectedThreadId: string;
+  visibleThreadCount: number;
+  filteredThreadCount: number;
+  highRiskCount: number;
+  nextThreadTitle?: string;
+  nextThreadSource?: string;
   searchContext: ConversationSearchHit | null;
   threadDetailLoading: boolean;
   selectedThreadDetail: NonNullable<ThreadForensicsEnvelope["reports"]>[0] | null;
@@ -28,6 +33,11 @@ export function ThreadDetail(props: ThreadDetailProps) {
     messages,
     selectedThread,
     selectedThreadId,
+    visibleThreadCount,
+    filteredThreadCount,
+    highRiskCount,
+    nextThreadTitle,
+    nextThreadSource,
     searchContext,
     threadDetailLoading,
     selectedThreadDetail,
@@ -97,22 +107,40 @@ export function ThreadDetail(props: ThreadDetailProps) {
     <section className="panel thread-review-panel">
       <header>
         <h2>{messages.threadDetail.title}</h2>
-        <span>{selectedThreadId ? messages.common.selected : messages.common.none}</span>
       </header>
       <div className="impact-body">
         {!hasSelection ? (
           <div className="thread-detail-empty-state">
-            <span className="overview-note-label">cleanup review rail</span>
-            <strong>스레드를 고르면 열린다.</strong>
-            <p>리스크와 전사만 본다.</p>
+            <div className="thread-detail-empty-copy">
+              <strong>Open after select.</strong>
+              <p>risk / transcript</p>
+            </div>
+            <div className="thread-detail-empty-summary" aria-label="thread detail scope">
+              <article>
+                <span>visible</span>
+                <strong>{visibleThreadCount}</strong>
+              </article>
+              <article>
+                <span>total</span>
+                <strong>{filteredThreadCount}</strong>
+              </article>
+              <article>
+                <span>flagged</span>
+                <strong>{highRiskCount}</strong>
+              </article>
+            </div>
+            <div className="thread-detail-empty-next">
+              <span className="overview-note-label">next thread</span>
+              <strong>{nextThreadTitle || "thread queue"}</strong>
+              <p>{nextThreadSource || "open from threads or recent review rows"}</p>
+            </div>
           </div>
         ) : (
           <>
             <section className="detail-hero detail-hero-thread">
               <div className="detail-hero-copy">
-                <span className="overview-note-label">cleanup review rail</span>
                 <strong>{resolvedTitle || "-"}</strong>
-                <p>리스크와 전사만 본다.</p>
+                <p>{resolvedSource || messages.threadDetail.unknownSource}</p>
               </div>
               <div className="detail-hero-pills" aria-label="thread detail summary">
                 {compactThreadId ? <span className="detail-hero-pill mono-sub">{compactThreadId}</span> : null}
@@ -133,23 +161,12 @@ export function ThreadDetail(props: ThreadDetailProps) {
                   </div>
                 ) : null}
                 <div className="impact-kv">
-                  <span>{messages.threadDetail.fieldTitle}</span>
-                  <strong className="title-main">{resolvedTitle || "-"}</strong>
-                </div>
-                <div className="impact-kv">
                   <span>{messages.threadDetail.fieldId}</span>
                   <strong className="mono-sub">{selectedThreadId}</strong>
                 </div>
                 <div className="impact-kv">
                   <span>{messages.threadDetail.fieldSource}</span>
                   <strong>{resolvedSource || "-"}</strong>
-                </div>
-                <div className="impact-kv">
-                  <span>{messages.threadDetail.fieldRisk}</span>
-                  <strong>
-                    {resolvedRiskScore}
-                    {resolvedRiskLevel ? ` (${resolvedRiskLevel})` : ""}
-                  </strong>
                 </div>
                 {resolvedCwd ? (
                   <div className="impact-kv">

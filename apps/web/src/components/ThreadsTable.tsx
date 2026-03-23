@@ -114,14 +114,14 @@ export function ThreadsTable(props: ThreadsTableProps) {
       <div className="sticky-action-stack">
         <div className="sub-toolbar sticky-action-bar cleanup-status-strip">
           <div className="cleanup-status-inline">
-            <span className={`status-pill ${selectedIds.length > 0 ? "status-active" : "status-detected"}`}>
+            <span className={`status-pill ${selectedIds.length > 0 ? "status-active" : "status-preview"}`}>
               {messages.threadsTable.workflowSelectedTitle} {selectedIds.length}
             </span>
-            <span className={`status-pill ${selectedImpactCount > 0 ? "status-active" : "status-detected"}`}>
+            <span className={`status-pill ${selectedImpactCount > 0 ? "status-active" : "status-preview"}`}>
               {messages.threadsTable.workflowImpactTitle}{" "}
               {selectedImpactCount > 0 ? selectedImpactCount : messages.forensics.stagePending}
             </span>
-            <span className={`status-pill ${cleanupData?.confirm_token_expected ? "status-active" : "status-detected"}`}>
+            <span className={`status-pill ${cleanupData?.confirm_token_expected ? "status-active" : "status-preview"}`}>
               {messages.threadsTable.workflowDryRunTitle}{" "}
               {cleanupData?.confirm_token_expected ? messages.forensics.stageReady : messages.forensics.stagePending}
             </span>

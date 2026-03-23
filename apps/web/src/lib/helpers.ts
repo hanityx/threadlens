@@ -29,7 +29,7 @@ export function formatDateTime(value: string | number | Date | null | undefined)
   if (value === null || value === undefined || value === "") return "-";
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
-  return new Intl.DateTimeFormat("ko-KR", {
+  return new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
@@ -38,7 +38,15 @@ export function formatDateTime(value: string | number | Date | null | undefined)
 export function formatInteger(value: number | null | undefined): string {
   const num = Number(value ?? 0);
   if (!Number.isFinite(num)) return "0";
-  return new Intl.NumberFormat("ko-KR").format(Math.round(num));
+  return new Intl.NumberFormat("en-US").format(Math.round(num));
+}
+
+export function compactPath(value: string | null | undefined, keep = 28): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "-";
+  if (raw.length <= keep * 2 + 3) return raw.replace(/^\/Users\/developer/, "~");
+  const normalized = raw.replace(/^\/Users\/developer/, "~");
+  return `${normalized.slice(0, keep)}…${normalized.slice(-keep)}`;
 }
 
 export function normalizeDisplayValue(value: unknown): string {

@@ -10,6 +10,7 @@ type SearchPanelProps = {
   providerOptions: Array<{ id: string; name: string }>;
   onOpenSession: (hit: ConversationSearchHit) => void;
   onOpenThread: (hit: ConversationSearchHit) => void;
+  initialQuery?: string;
 };
 
 function compactSessionId(sessionId?: string | null): string {
@@ -21,10 +22,112 @@ function compactSessionId(sessionId?: string | null): string {
 function compactSourceLabel(source?: string | null): string {
   if (!source) return "source";
   const normalized = source.replace(/\\/g, "/");
-  if (!normalized.includes("/")) return normalized;
+  if (!normalized.includes("/")) {
+    return normalized.length > 28
+      ? `${normalized.slice(0, 12)}…${normalized.slice(-8)}`
+      : normalized;
+  }
   const parts = normalized.split("/").filter(Boolean);
-  if (parts.length <= 2) return normalized;
-  return `${parts.slice(-2).join("/")}`;
+  const leaf = parts.at(-1) || normalized;
+  return leaf.length > 28 ? `${leaf.slice(0, 12)}…${leaf.slice(-8)}` : leaf;
+}
+
+function compactProviderName(provider?: string | null): string {
+  if (!provider) return "session";
+  if (provider === "claude-cli") return "Claude";
+  if (provider === "gemini-cli") return "Gemini";
+  if (provider === "copilot-chat") return "Copilot";
+  if (provider === "codex") return "Codex";
+  return provider
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
+    .join(" ");
+}
+
+function compactSearchTitle(hit: ConversationSearchHit): string {
+  const fallback =
+    hit.thread_id
+      ? `thread ${hit.thread_id.slice(0, 8)}`
+      : hit.session_id
+        ? `session ${hit.session_id.slice(0, 8)}`
+        : "session result";
+  const raw = normalizeDisplayValue(hit.display_title) || normalizeDisplayValue(hit.title);
+  if (!raw) return fallback;
+  const lower = raw.toLowerCase();
+  const looksGenerated =
+    lower === "none" ||
+    lower === "unknown" ||
+    lower.startsWith("rollout-") ||
+    raw.includes("AGENTS.md") ||
+    raw.includes("<INSTRUCTIONS>") ||
+    raw.includes("/user-root/") ||
+    raw.length > 88;
+  return looksGenerated ? fallback : raw;
+}
+
+function compactSearchSnippet(hit: ConversationSearchHit): string {
+  const raw = String(hit.snippet || "").replace(/\s+/g, " ").trim();
+  if (!raw) return "";
+  const normalized = raw
+    .replace(/^#\s*AGENTS\.md instructions for .*?<INSTRUCTIONS>\s*/i, "AGENTS instructions ")
+    .replace(/^#\s*Global AGENTS\s*/i, "Global agents ")
+    .replace(/\/Users\/[^\s)]+/g, "workspace path")
+    .trim();
+  const lower = normalized.toLowerCase();
+  const rolePrefix =
+    hit.role === "assistant"
+      ? "Assistant"
+      : hit.role === "tool"
+        ? "Tool"
+        : hit.role === "developer" || hit.role === "system"
+          ? "Policy"
+          : "User";
+  const providerLabel = compactProviderName(hit.provider);
+
+  if (lower.includes("agents instructions") || lower.includes("global agents")) {
+    return `${providerLabel} policy note on workspace rules.`;
+  }
+  if (
+    lower.includes("workspace path") ||
+    lower.includes(".jsonl") ||
+    lower.includes("rollout-")
+  ) {
+    return `${providerLabel} archive path note with workspace context.`;
+  }
+  if (
+    lower.includes("diagnostics") ||
+    lower.includes("provider") ||
+    lower.includes("parser") ||
+    lower.includes("flow")
+  ) {
+    return lower.includes("parser") || lower.includes("flow")
+      ? `${providerLabel} parser and flow diagnostics.`
+      : `${providerLabel} provider diagnostics note.`;
+  }
+  if (
+    lower.includes("review") ||
+    lower.includes("flagged") ||
+    lower.includes("impact") ||
+    lower.includes("cleanup")
+  ) {
+    if (lower.includes("cleanup")) return `${providerLabel} cleanup note from the review trail.`;
+    if (lower.includes("flagged")) return `${providerLabel} flagged review note.`;
+    return `${providerLabel} review trace with impact context.`;
+  }
+  if (
+    lower.includes("session") ||
+    lower.includes("transcript") ||
+    lower.includes("assistant") ||
+    lower.includes("user")
+  ) {
+    if (rolePrefix === "Assistant") return `${providerLabel} assistant reply from the archived session.`;
+    if (rolePrefix === "Tool") return `${providerLabel} tool output from the archived session.`;
+    if (rolePrefix === "Policy") return `${providerLabel} policy note from the archived session.`;
+    return "User prompt from the archived session.";
+  }
+
+  return normalized.length > 118 ? `${normalized.slice(0, 115)}…` : normalized;
 }
 
 function searchHitDedupKey(hit: ConversationSearchHit): string {
@@ -45,11 +148,17 @@ export function SearchPanel({
   providerOptions,
   onOpenSession,
   onOpenThread,
+  initialQuery = "",
 }: SearchPanelProps) {
   const sampleQueries = ["backup", "agent", "review", "deploy"];
   const [query, setQuery] = useState("");
   const [provider, setProvider] = useState("all");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  useEffect(() => {
+    if (!initialQuery) return;
+    setQuery((prev) => (prev === initialQuery ? prev : initialQuery));
+  }, [initialQuery]);
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setDebouncedQuery(query.trim());
@@ -145,10 +254,7 @@ export function SearchPanel({
           sessionMap.set(sessionKey, {
             key: sessionKey,
             openHit: hit,
-            title:
-              normalizeDisplayValue(hit.display_title) ||
-              normalizeDisplayValue(hit.title) ||
-              hit.session_id,
+            title: compactSearchTitle(hit),
             source: normalizeDisplayValue(hit.source) || hit.file_path,
             matches: [hit],
           });
@@ -185,10 +291,7 @@ export function SearchPanel({
         sessionMap.set(sessionKey, {
           key: sessionKey,
           openHit: hit,
-          title:
-            normalizeDisplayValue(hit.display_title) ||
-            normalizeDisplayValue(hit.title) ||
-            hit.session_id,
+          title: compactSearchTitle(hit),
           source: normalizeDisplayValue(hit.source) || hit.file_path,
           matches: [hit],
         });
@@ -212,15 +315,23 @@ export function SearchPanel({
         <div className="search-stage-title">
           <span className="search-scope-label">search stage</span>
           <h2>{messages.search.title}</h2>
-          <p>원문 세션을 바로 찾는다.</p>
-        </div>
-        <div className="search-stage-badges">
-          <span className="search-stage-badge">matches {resultCount}</span>
-          <span className="search-stage-badge">providers {providerHitCount}</span>
+          <p>Search first.</p>
         </div>
       </header>
 
       <div className="search-command-shell">
+        <div className="search-command-breadcrumb">
+          <span className="search-command-path is-brand">obs-node</span>
+          <span className="search-command-slash">/</span>
+          <span className="search-command-path">search</span>
+          <span className="search-command-slash">/</span>
+          <span className="search-command-path is-active">
+            {provider === "all" ? "all ai" : providerLabelById.get(provider) ?? provider}
+          </span>
+          <span className="search-command-runtime">
+            {searchEnabled ? `${availableSessions} rows` : "idle"}
+          </span>
+        </div>
         <div className="search-command-bar">
           <span className="search-command-prompt" aria-hidden="true">
             &gt;
@@ -228,6 +339,7 @@ export function SearchPanel({
           <input
             type="search"
             className="search-input search-input-stage"
+            aria-label="Search conversations"
             placeholder={messages.search.inputPlaceholder}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -238,13 +350,13 @@ export function SearchPanel({
           </div>
         </div>
 
-        <div className="search-command-meta search-command-meta-stage">
-          <div className="search-command-meta-group">
-            <div className="search-scope-label">{messages.search.providerFilter}</div>
+          <div className="search-command-meta search-command-meta-stage">
+            <div className="search-command-meta-group">
+              <div className="search-scope-label">{messages.search.providerFilter}</div>
             <div className="search-scope-chips" aria-label={messages.search.providerFilter}>
               <button
                 type="button"
-                className={`status-pill-button ${provider === "all" ? "status-active" : "status-detected"}`.trim()}
+                className={`status-pill-button search-pill ${provider === "all" ? "status-active" : "status-preview"}`.trim()}
                 onClick={() => setProvider("all")}
               >
                 {messages.search.allProviders}
@@ -255,7 +367,7 @@ export function SearchPanel({
                   <button
                     key={`search-chip-${item.id}`}
                     type="button"
-                    className={`status-pill-button ${provider === item.id ? "status-active" : "status-detected"}`.trim()}
+                    className={`status-pill-button search-pill ${provider === item.id ? "status-active" : "status-preview"}`.trim()}
                     onClick={() => setProvider(item.id)}
                   >
                     {item.name}
@@ -264,13 +376,13 @@ export function SearchPanel({
             </div>
           </div>
           <div className="search-command-meta-group">
-            <div className="search-scope-label">빠른 검색 예시</div>
+            <div className="search-scope-label">examples</div>
             <div className="search-example-chips">
               {sampleQueries.map((sample) => (
                 <button
                   key={`sample-query-${sample}`}
                   type="button"
-                  className="btn-outline btn-chip"
+                  className={`status-pill-button search-pill ${query.trim().toLowerCase() === sample ? "status-active" : "status-preview"}`.trim()}
                   onClick={() => setQuery(sample)}
                 >
                   {sample}
@@ -308,20 +420,19 @@ export function SearchPanel({
                 {messages.search.scannedSessionsBody}
               </span>
               <span>
-                <strong>{providerHitCount}</strong> AI · {messages.search.titleMatches} {titleMatches} · {messages.search.messageMatches}{" "}
-                {messageMatches}
+                <strong>{providerHitCount}</strong> AI · <strong>{messageMatches}</strong> {messages.search.messageMatches}
               </span>
             </div>
           ) : null}
 
           {searchEnabled && !search.isLoading && collapsedDuplicateCount > 0 ? (
-            <div className="info-box compact">
+            <div className="info-box compact search-dedupe-strip">
               <p>{messages.search.dedupedHint.replace("{count}", String(collapsedDuplicateCount))}</p>
             </div>
           ) : null}
 
           {searchEnabled && !search.isLoading && results.length === 0 ? (
-            <div className="info-box compact">
+            <div className="info-box compact search-empty-strip">
               <p>{messages.search.emptyResult}</p>
             </div>
           ) : null}
@@ -353,14 +464,14 @@ export function SearchPanel({
                   <div className="search-group-header">
                     <strong>{group.name}</strong>
                     <div className="search-group-header-meta">
-                      <span className="mono-sub">{group.sessions.length} sessions</span>
+                      <span className="mono-sub">{group.sessions.length} rows</span>
                       <span className="status-pill status-active">{group.matchCount}</span>
                     </div>
                   </div>
                   <div className="search-group-list">
                     {group.sessions.map((session) => {
                       const providerName = providerLabelById.get(session.openHit.provider) ?? session.openHit.provider;
-                      const previewMatches = session.matches.slice(0, 2);
+                      const previewMatches = session.matches.slice(0, 1);
                       const remainingMatches = session.matches.length - previewMatches.length;
                       return (
                         <article
@@ -378,10 +489,9 @@ export function SearchPanel({
                         >
                           <div className="search-result-main">
                             <div className="search-result-title-stack">
-                              <strong className="search-result-title-link">{session.title}</strong>
-                              <div className="mono-sub" title={session.openHit.session_id}>
-                                {compactSessionId(session.openHit.session_id)}
-                              </div>
+                              <strong className="search-result-title-link" title={session.openHit.session_id}>
+                                {session.title}
+                              </strong>
                             </div>
                             <div className="search-result-top">
                               <span className="status-pill status-active">{providerName}</span>
@@ -395,11 +505,10 @@ export function SearchPanel({
                             >
                               {compactSourceLabel(session.source)}
                             </span>
-                            <span>{formatDateTime(session.openHit.mtime)}</span>
                             <div className="search-result-actions">
                               <button
                                 type="button"
-                                className="btn-link-inline"
+                                className="status-pill-button search-inline-pill"
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   onOpenSession(session.openHit);
@@ -410,7 +519,7 @@ export function SearchPanel({
                               {session.openHit.thread_id ? (
                                 <button
                                   type="button"
-                                  className="btn-link-inline"
+                                  className="status-pill-button search-inline-pill"
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     onOpenThread(session.openHit);
@@ -432,12 +541,14 @@ export function SearchPanel({
                                     ? messages.search.matchTitle
                                     : match.role || messages.search.matchMessage}
                                 </span>
-                                <p className="search-result-snippet search-result-snippet-compact">{match.snippet}</p>
+                                <p className="search-result-snippet search-result-snippet-compact">
+                                  {compactSearchSnippet(match)}
+                                </p>
                               </div>
                             ))}
                             {remainingMatches > 0 ? (
                               <div className="search-match-more">
-                                +{remainingMatches} more hits in this session
+                                +{remainingMatches} more
                               </div>
                             ) : null}
                           </div>
