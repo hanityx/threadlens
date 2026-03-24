@@ -163,6 +163,8 @@ function parseJsonlTranscriptLine(
     const payload = row.payload;
     if (!payload || typeof payload !== "object") return null;
     const payloadObj = payload as Record<string, unknown>;
+    const eventType = String(payloadObj.type ?? "");
+    if (eventType === "user_message" || eventType === "agent_message") return null;
     const text = extractTranscriptText(payloadObj.message ?? payloadObj.text);
     if (!text || looksLikeIdOnly(text) || isBoilerplateTitle(text)) return null;
     return {

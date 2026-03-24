@@ -511,7 +511,8 @@ function detectSessionTitleFromHead(
         if (
           obj &&
           typeof obj === "object" &&
-          (obj as Record<string, unknown>).type === "session_meta"
+          ((obj as Record<string, unknown>).type === "session_meta" ||
+            (obj as Record<string, unknown>).type === "turn_context")
         ) {
           continue;
         }
