@@ -10,7 +10,7 @@
 .thread-review-panel {
   border: 1px solid var(--surface-stage-border);
   border-radius: var(--radius-shell-lg);
-  background: color-mix(in srgb, var(--surface-stage-bg) 90%, transparent);
+  background: var(--surface-stage-subtle);
   box-shadow: var(--surface-stage-shadow);
   position: sticky;
   top: 8px;
@@ -18,22 +18,17 @@
 
 .thread-review-panel > header {
   padding: 15px 18px 13px;
-  border-bottom: 1px solid color-mix(in srgb, var(--surface-card-border) 58%, transparent);
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--surface-card-bg-strong) 74%, transparent),
-      color-mix(in srgb, var(--surface-stage-bg) 52%, transparent)
-    );
+  border-bottom: 1px solid var(--surface-divider-faint);
+  background: var(--surface-review-panel-header);
 }
 
 .thread-review-panel > header h2 {
-  font-size: 1rem;
+  font-size: var(--text-lg);
   letter-spacing: -0.03em;
 }
 
 .thread-review-panel > header span {
-  font-size: 0.64rem;
+  font-size: var(--text-xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-secondary);
@@ -53,7 +48,7 @@
   border: 1px solid var(--surface-card-border);
   border-radius: 14px;
   padding: 12px 14px;
-  background: color-mix(in srgb, var(--surface-card-bg-strong) 72%, transparent);
+  background: var(--surface-card-strong-subtle);
   display: grid;
   gap: 4px;
   box-shadow: var(--surface-card-shadow);
@@ -61,14 +56,14 @@
 
 .thread-review-card span {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: var(--text-sm);
   font-family: var(--font-label);
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .thread-review-card strong {
-  font-size: 0.94rem;
+  font-size: var(--text-lg);
   line-height: 1.22;
   color: var(--text);
 }
@@ -76,17 +71,15 @@
 .thread-review-card p {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 0.69rem;
+  font-size: var(--text-sm);
   line-height: 1.18;
 }
 
 .thread-review-card.is-ready,
 .thread-review-card-emphasis {
-  border-color: color-mix(in srgb, var(--surface-card-border) 88%, var(--accent) 12%);
-  background: color-mix(in srgb, var(--surface-card-bg-strong) 88%, var(--accent-dim));
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--surface-card-border) 72%, var(--accent) 16%),
-    var(--surface-card-shadow);
+  border-color: var(--surface-review-card-active-border);
+  background: var(--surface-review-card-active-bg);
+  box-shadow: var(--shadow-review-card-active), var(--surface-card-shadow);
 }
 
 .impact-body {
@@ -102,25 +95,25 @@
   border: 1px solid var(--surface-card-border);
   border-radius: var(--radius-shell-md);
   padding: 0;
-  background: color-mix(in srgb, var(--surface-card-bg-strong) 82%, transparent);
+  background: var(--surface-card-strong-subtle);
   overflow: clip;
   box-shadow: var(--surface-card-shadow);
 }
 
 .detail-section[open] {
-  border-color: color-mix(in srgb, var(--surface-card-border) 86%, var(--text) 14%);
+  border-color: var(--surface-detail-section-open-border);
 }
 
 .detail-section > summary {
   list-style: none;
   cursor: pointer;
   padding: 9px 10px;
-  font-size: 0.68rem;
+  font-size: var(--text-sm);
   font-weight: 650;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
-  background: color-mix(in srgb, var(--surface-nav-bg) 76%, transparent);
+  background: var(--surface-nav-subtle);
   border-bottom: 1px solid transparent;
 }
 
@@ -129,7 +122,7 @@
 }
 
 .detail-section[open] > summary {
-  border-bottom-color: color-mix(in srgb, var(--surface-card-border) 82%, transparent);
+  border-bottom-color: var(--surface-detail-divider);
 }
 
 .detail-section > summary::-webkit-details-marker {
@@ -138,13 +131,13 @@
 
 .detail-section-static-head {
   padding: 9px 10px;
-  font-size: 0.68rem;
+  font-size: var(--text-sm);
   font-weight: 650;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
-  background: color-mix(in srgb, var(--surface-nav-bg) 76%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--surface-card-border) 82%, transparent);
+  background: var(--surface-nav-subtle);
+  border-bottom: 1px solid var(--surface-detail-divider);
 }
 
 .detail-section-body {
@@ -168,7 +161,7 @@
   padding: 9px 10px;
   border: 1px solid var(--surface-card-border);
   border-radius: var(--radius-shell-lg);
-  background: color-mix(in srgb, var(--surface-card-bg-strong) 72%, transparent);
+  background: var(--surface-card-strong-subtle);
   box-shadow: var(--surface-card-shadow);
 }
 
@@ -178,7 +171,7 @@
 }
 
 .detail-hero-copy strong {
-  font-size: 0.88rem;
+  font-size: var(--text-md);
   line-height: 1.16;
   letter-spacing: -0.02em;
 }
@@ -187,7 +180,7 @@
   margin: 0;
   color: var(--text-secondary);
   line-height: 1.18;
-  font-size: 0.68rem;
+  font-size: var(--text-sm);
 }
 
 .detail-hero-pills {
@@ -203,10 +196,10 @@
   padding: 0 8px;
   border-radius: 999px;
   border: 1px solid var(--surface-pill-border);
-  background: color-mix(in srgb, var(--surface-pill-bg) 86%, transparent);
+  background: var(--surface-pill-ghost);
   box-shadow: var(--surface-pill-shadow);
   color: var(--text);
-  font-size: 0.6rem;
+  font-size: var(--text-xs);
   font-family: var(--font-label);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -216,7 +209,7 @@
   gap: 6px;
   padding: 8px 10px;
   border-radius: var(--radius-shell-md);
-  background: color-mix(in srgb, var(--surface-card-bg-strong) 66%, transparent);
+  background: var(--surface-card-strong-ghost);
   box-shadow: none;
 }
 
@@ -225,11 +218,11 @@
 }
 
 .detail-hero-session-compact .detail-hero-copy strong {
-  font-size: 0.85rem;
+  font-size: var(--text-base);
 }
 
 .detail-hero-session-compact .detail-hero-copy p {
-  font-size: 0.64rem;
+  font-size: var(--text-xs);
   line-height: 1.16;
 }
 
@@ -240,7 +233,7 @@
 .detail-hero-session-compact .detail-hero-pill {
   min-height: 22px;
   padding: 0 7px;
-  font-size: 0.57rem;
+  font-size: var(--text-2xs);
 }
 
 .session-detail-panel {
@@ -248,7 +241,7 @@
   grid-template-rows: auto minmax(0, 1fr);
   border: 1px solid var(--surface-stage-border);
   border-radius: var(--radius-shell-lg);
-  background: color-mix(in srgb, var(--surface-stage-bg) 82%, transparent);
+  background: var(--surface-stage-subtle);
   box-shadow: var(--surface-stage-shadow);
   overflow: hidden;
 }
@@ -328,8 +321,8 @@
   align-items: center;
   gap: 6px 12px;
   padding: 8px 10px;
-  border: 1px solid color-mix(in srgb, var(--surface-card-border) 82%, transparent);
-  background: color-mix(in srgb, var(--surface-nav-bg) 72%, transparent);
+  border: 1px solid var(--surface-detail-divider);
+  background: var(--surface-nav-subtle);
 }
 
 .session-detail-panel .transcript-summary-main {
@@ -343,7 +336,7 @@
 }
 
 .session-detail-panel .transcript-summary-main strong {
-  font-size: 0.88rem;
+  font-size: var(--text-md);
   line-height: 1.2;
 }
 
@@ -352,7 +345,7 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 5px 10px;
-  font-size: 0.58rem;
+  font-size: var(--text-xs);
 }
 
 .session-detail-panel .transcript-intro-copy {
@@ -387,14 +380,14 @@
   min-height: 164px;
   height: 100%;
   flex: 1 1 auto;
-  background: color-mix(in srgb, var(--surface-card-bg) 78%, transparent);
-  border-color: color-mix(in srgb, var(--surface-card-border) 82%, transparent);
+  background: var(--surface-detail-chat-log);
+  border-color: var(--surface-detail-divider);
 }
 
 .session-detail-panel .detail-action-bar {
   position: static;
-  border: 1px solid color-mix(in srgb, var(--surface-card-border) 82%, transparent);
-  background: color-mix(in srgb, var(--surface-nav-bg) 72%, transparent);
+  border: 1px solid var(--surface-detail-divider);
+  background: var(--surface-detail-action-bar);
 }
 
 .session-detail-panel .detail-section-actions .detail-section-body {
@@ -406,7 +399,7 @@
   gap: 3px;
   padding: 7px 8px;
   border-radius: var(--radius-shell-md);
-  background: color-mix(in srgb, var(--surface-card-bg-strong) 68%, transparent);
+  background: var(--surface-card-strong-ghost);
   box-shadow: none;
 }
 
@@ -416,7 +409,7 @@
   padding: 9px 10px;
   border: 1px solid var(--surface-card-border);
   border-radius: var(--radius-shell-md);
-  background: color-mix(in srgb, var(--surface-card-bg-strong) 74%, transparent);
+  background: var(--surface-card-strong-subtle);
   box-shadow: none;
 }
 
@@ -426,14 +419,14 @@
 }
 
 .thread-detail-empty-state strong {
-  font-size: 0.86rem;
+  font-size: var(--text-md);
   line-height: 1.18;
 }
 
 .thread-detail-empty-state p {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 0.68rem;
+  font-size: var(--text-sm);
   line-height: 1.18;
 }
 
@@ -448,16 +441,16 @@
   display: grid;
   gap: 3px;
   padding: 8px 9px;
-  border: 1px solid color-mix(in srgb, var(--surface-card-border) 74%, transparent);
+  border: 1px solid var(--surface-detail-empty-border);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--surface-nav-bg) 68%, transparent);
+  background: var(--surface-nav-ghost);
   box-shadow: none;
 }
 
 .thread-detail-empty-summary span,
 .thread-detail-empty-next .overview-note-label {
   color: var(--text-secondary);
-  font-size: 0.56rem;
+  font-size: var(--text-2xs);
   font-family: var(--font-label);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -465,14 +458,14 @@
 
 .thread-detail-empty-summary strong,
 .thread-detail-empty-next strong {
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   line-height: 1.16;
 }
 
 .thread-detail-empty-next p {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 0.64rem;
+  font-size: var(--text-xs);
   line-height: 1.22;
 }
 
@@ -494,14 +487,14 @@
   padding: 9px 10px;
   border: 1px solid var(--surface-card-border);
   border-radius: var(--radius-shell-md);
-  background: color-mix(in srgb, var(--surface-card-bg-strong) 74%, transparent);
+  background: var(--surface-card-strong-subtle);
   box-shadow: none;
 }
 
 .session-detail-empty-summary span,
 .session-detail-empty-next .overview-note-label {
   color: var(--text-secondary);
-  font-size: 0.56rem;
+  font-size: var(--text-2xs);
   font-family: var(--font-label);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -509,14 +502,14 @@
 
 .session-detail-empty-summary strong,
 .session-detail-empty-next strong {
-  font-size: 0.84rem;
+  font-size: var(--text-md);
   line-height: 1.18;
 }
 
 .session-detail-empty-next p {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 0.66rem;
+  font-size: var(--text-sm);
   line-height: 1.24;
 }
 
@@ -528,7 +521,7 @@
 .thread-review-panel .detail-section > summary,
 .thread-review-panel .detail-section-static-head {
   padding: 8px 9px;
-  font-size: 0.65rem;
+  font-size: var(--text-xs);
 }
 
 .thread-review-panel .detail-section-body {
@@ -543,12 +536,12 @@
   flex-wrap: wrap;
   gap: 4px 8px;
   padding: 7px 9px;
-  border-color: color-mix(in srgb, var(--surface-card-border) 72%, transparent);
-  background: color-mix(in srgb, var(--surface-nav-bg) 64%, transparent);
+  border-color: var(--surface-border-ghost);
+  background: var(--surface-nav-ghost);
 }
 
 .thread-review-panel .transcript-summary-main strong {
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   line-height: 1.14;
 }
 
@@ -557,7 +550,7 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 2px 8px;
-  font-size: 0.64rem;
+  font-size: var(--text-xs);
 }
 
 .thread-review-panel .transcript-summary-meta .sub-hint {
@@ -586,12 +579,12 @@
 
 .thread-review-panel .detail-action-bar {
   padding: 5px 7px;
-  border-color: color-mix(in srgb, var(--surface-card-border) 72%, transparent);
-  background: color-mix(in srgb, var(--surface-nav-bg) 66%, transparent);
+  border-color: var(--surface-border-ghost);
+  background: var(--surface-detail-action-bar-ghost);
 }
 
 .thread-review-panel .impact-list h3 {
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   margin-bottom: 8px;
 }
 
@@ -614,21 +607,21 @@
   display: grid;
   gap: 4px;
   padding: 10px 11px;
-  border: 1px solid color-mix(in srgb, var(--surface-card-border) 74%, transparent);
+  border: 1px solid var(--surface-detail-empty-border);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--surface-nav-bg) 66%, transparent);
+  background: var(--surface-nav-ghost);
 }
 
 .thread-review-empty-guide span {
   color: var(--text-secondary);
-  font-size: 0.56rem;
+  font-size: var(--text-2xs);
   font-family: var(--font-label);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .thread-review-empty-guide strong {
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   line-height: 1.18;
   color: var(--text);
 }
@@ -636,15 +629,15 @@
 .thread-review-empty-guide p {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 0.66rem;
+  font-size: var(--text-sm);
   line-height: 1.24;
 }
 
 .thread-review-panel .chat-log {
   padding: 8px;
   gap: 6px;
-  border-color: color-mix(in srgb, var(--surface-card-border) 74%, transparent);
-  background: color-mix(in srgb, var(--surface-card-bg) 66%, transparent);
+  border-color: var(--surface-detail-empty-border);
+  background: var(--surface-card-bg-ghost);
 }
 
 .thread-review-panel .chat-item {
@@ -658,16 +651,16 @@
 }
 
 .thread-review-panel .chat-item header strong {
-  font-size: 0.64rem;
+  font-size: var(--text-xs);
   letter-spacing: 0.1em;
 }
 
 .thread-review-panel .chat-item header span {
-  font-size: 0.62rem;
+  font-size: var(--text-xs);
 }
 
 .thread-review-panel .chat-item p {
-  font-size: 0.72rem;
+  font-size: var(--text-sm);
   line-height: 1.38;
 }
 
@@ -697,7 +690,7 @@
 
 .impact-kv > span {
   color: var(--text-secondary);
-  font-size: 0.76rem;
+  font-size: var(--text-base);
   letter-spacing: 0.01em;
   min-width: 88px;
 }
@@ -709,7 +702,7 @@
 
 .impact-list h3 {
   margin: 10px 0 6px;
-  font-size: 0.84rem;
+  font-size: var(--text-md);
   font-weight: 650;
 }
 
@@ -728,8 +721,8 @@
   border: 1px solid var(--surface-card-border);
   border-radius: 14px;
   padding: 6px 8px;
-  font-size: 0.74rem;
-  background: color-mix(in srgb, var(--surface-card-bg) 54%, transparent);
+  font-size: var(--text-sm);
+  background: var(--surface-card-bg-ghost);
   box-shadow: var(--surface-card-shadow);
   transition: background var(--transition);
 }

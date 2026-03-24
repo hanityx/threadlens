@@ -8,7 +8,7 @@
 body {
   margin: 0;
   font-family: var(--font-body);
-  font-size: 15px;
+  font-size: var(--text-body-base);
   line-height: 1.62;
   color: var(--text);
   background: var(--page-bg);

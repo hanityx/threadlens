@@ -1,0 +1,111 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+
+const routingStyles = readFileSync(new URL("./routing.css", import.meta.url), "utf8");
+
+describe("routing token migration", () => {
+  it("uses typography tokens for routing workbench labels", () => {
+    expect(routingStyles).toMatch(/\.routing-workbench-panel > header span\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(routingStyles).toMatch(/\.routing-workbench-panel > header h2\s*{[^}]*font-size:\s*var\(--text-md\);/s);
+    expect(routingStyles).toMatch(/\.routing-stage-copy strong\s*{[^}]*font-size:\s*var\(--text-md\);/s);
+    expect(routingStyles).toMatch(/\.routing-stage-copy p\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(routingStyles).toMatch(/\.routing-stage-summary-card span\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(routingStyles).toMatch(/\.routing-stage-summary-card strong\s*{[^}]*font-size:\s*var\(--text-base\);/s);
+    expect(routingStyles).toMatch(/\.routing-stage-summary-card p\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(routingStyles).toMatch(/\.routing-node-top strong\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(routingStyles).toMatch(/\.routing-provider-meta\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(routingStyles).toMatch(/\.routing-provider-meta strong\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(routingStyles).toMatch(/\.routing-source-summary\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(routingStyles).toMatch(/\.routing-source-list > span\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
+    expect(routingStyles).toMatch(/\.routing-workbench-panel \.info-box-utility strong\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(routingStyles).toMatch(/\.routing-workbench-panel \.info-box-utility p\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(routingStyles).toMatch(/\.routing-workbench-panel \.info-box strong\s*{[^}]*font-size:\s*var\(--text-base\);/s);
+    expect(routingStyles).toMatch(/\.routing-workbench-panel \.info-box p\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(routingStyles).toMatch(/\.routing-workbench-panel \.impact-list h3\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(routingStyles).toMatch(/\.routing-workbench-panel \.impact-list li\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(routingStyles).toMatch(/\.routing-kind-chip\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
+    expect(routingStyles).toMatch(/\.routing-source-list li\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(routingStyles).toMatch(/\.routing-workbench-panel \.routing-node-card\.kind-provider \.routing-node-top strong,\s*\.routing-workbench-panel \.routing-node-grid-flow \.routing-node-top strong\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(routingStyles).toMatch(/\.routing-workbench-panel \.routing-node-card\.kind-provider \.routing-kind-chip,\s*\.routing-workbench-panel \.routing-node-grid-flow \.routing-kind-chip\s*{[^}]*font-size:\s*var\(--text-3xs\);/s);
+    expect(routingStyles).toMatch(/\.routing-workbench-panel \.routing-node-card\.kind-provider \.routing-provider-meta\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
+    expect(routingStyles).toMatch(/\.routing-workbench-panel \.routing-node-card\.kind-provider \.routing-provider-meta strong\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
+    expect(routingStyles).toMatch(/\.routing-workbench-panel \.routing-node-card\.kind-provider \.sub-hint,\s*\.routing-workbench-panel \.routing-node-grid-flow \.sub-hint\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(routingStyles).toMatch(/\.routing-workbench-panel \.routing-node-card\.kind-provider \.routing-source-summary\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
+    expect(routingStyles).toMatch(/\.routing-stage-card \.sub-hint\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(routingStyles).toMatch(/\.routing-workbench-panel \.impact-list-grid li \.mono-sub\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
+    expect(routingStyles).toMatch(/\.routing-workbench-panel \.impact-list-grid\.compact-list li > span,\s*\.routing-workbench-panel \.impact-list-grid\.compact-list li > \.mono-sub\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
+    expect(routingStyles).toMatch(/\.routing-workbench-panel \.impact-list-grid\.compact-list strong\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-subtitle\s*{[^}]*font-size:\s*var\(--text-base\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-status\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-score-label\s*{[^}]*font-size:\s*var\(--text-base\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-score-value\s*{[^}]*font-size:\s*var\(--text-2xl\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-reach\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-host-grid span\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-host-grid strong\s*{[^}]*font-size:\s*var\(--text-lg\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-host-meta\s*{[^}]*font-size:\s*var\(--text-base\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-drift-block h3,\s*\.sync-lens-issues-block h3,\s*\.sync-lens-actions-block h3\s*{[^}]*font-size:\s*var\(--text-md\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-drift-top\s*{[^}]*font-size:\s*var\(--text-base\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-hash-grid span\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-hash-grid strong\s*{[^}]*font-size:\s*var\(--text-md\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-issue-card p\s*{[^}]*font-size:\s*var\(--text-md\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-issue-severity\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-action-risk\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-action-meta span\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-action-meta code\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+  });
+
+  it("uses semantic surface tokens for routing cards and pills", () => {
+    expect(routingStyles).toMatch(/\.routing-workbench-panel\s*{[^}]*background:\s*var\(--surface-stage-subtle\);/s);
+    expect(routingStyles).toMatch(/\.routing-stage-shell\s*{[^}]*background:\s*var\(--surface-card-strong-subtle\);/s);
+    expect(routingStyles).toMatch(/\.routing-stage-summary-card\s*{[^}]*border:\s*1px solid var\(--surface-border-subtle\);[^}]*background:\s*var\(--surface-card-bg-subtle\);/s);
+    expect(routingStyles).toMatch(/\.routing-node-card\s*{[^}]*background:\s*var\(--surface-card-strong-subtle\);/s);
+    expect(routingStyles).toMatch(/\.routing-node-card\.kind-entry\s*{[^}]*border-color:\s*var\(--state-info-border-soft\);/s);
+    expect(routingStyles).toMatch(/\.routing-node-card\.kind-config\s*{[^}]*border-color:\s*var\(--state-success-border-soft\);/s);
+    expect(routingStyles).toMatch(/\.routing-node-card\.kind-instruction\s*{[^}]*border-color:\s*var\(--state-warn-border-soft\);/s);
+    expect(routingStyles).toMatch(/\.routing-node-card\.kind-workspace\s*{[^}]*border-color:\s*var\(--state-accent-border-soft\);/s);
+    expect(routingStyles).toMatch(/\.routing-node-card\.kind-provider\s*{[^}]*border-color:\s*var\(--state-success-border-soft-strong\);/s);
+    expect(routingStyles).toMatch(/\.routing-node-card\.kind-runtime\s*{[^}]*border-color:\s*var\(--state-danger-border-soft\);/s);
+    expect(routingStyles).toMatch(/\.routing-stage-card\s*{[^}]*background:\s*var\(--surface-card-strong-subtle\);/s);
+    expect(routingStyles).toMatch(/\.routing-kind-chip\s*{[^}]*background:\s*var\(--surface-pill-ghost\);/s);
+    expect(routingStyles).toMatch(/\.routing-workbench-panel \.info-box\s*{[^}]*background:\s*var\(--surface-card-bg-subtle\);/s);
+    expect(routingStyles).toMatch(/\.routing-workbench-panel \.info-box\.compact\s*{[^}]*background:\s*var\(--surface-nav-subtle\);/s);
+    expect(routingStyles).toMatch(/\.routing-workbench-panel \.impact-kv\s*{[^}]*background:\s*var\(--surface-impact-kv\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-summary\s*{[^}]*background:\s*var\(--surface-elevated-subtle-strong\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-host-card\s*{[^}]*background:\s*var\(--surface-elevated-subtle\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-host-grid div\s*{[^}]*background:\s*var\(--surface-panel-subtle-strong\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-drift-row\s*{[^}]*background:\s*var\(--surface-panel-subtle-strong\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-hash-grid div\s*{[^}]*background:\s*var\(--surface-panel-subtle\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-issue-card\s*{[^}]*background:\s*var\(--surface-panel-subtle\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-action-card\s*{[^}]*background:\s*var\(--surface-panel-subtle\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-status\.is-aligned\s*{[^}]*border-color:\s*var\(--state-success-border\);[^}]*background:\s*var\(--state-success-bg\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-status\.is-drifted\s*{[^}]*border-color:\s*var\(--state-warn-border-strong\);[^}]*background:\s*var\(--state-warn-bg\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-status\.is-partial\s*{[^}]*border-color:\s*var\(--state-info-border-weak\);[^}]*background:\s*var\(--state-info-bg\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-reach\.is-up\s*{[^}]*border-color:\s*var\(--state-success-border\);[^}]*background:\s*var\(--state-success-bg-soft\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-reach\.is-down\s*{[^}]*border-color:\s*var\(--state-warn-border\);[^}]*background:\s*var\(--state-warn-bg-soft\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-host-errors\s*{[^}]*border:\s*1px solid var\(--state-warn-border-muted\);[^}]*background:\s*var\(--state-warn-bg\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-issue-severity\.is-high\s*{[^}]*border-color:\s*var\(--state-danger-border\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-issue-severity\.is-medium\s*{[^}]*border-color:\s*var\(--state-warn-border-medium\);[^}]*background:\s*var\(--state-warn-bg-strong\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-issue-severity\.is-low\s*{[^}]*border-color:\s*var\(--state-info-border\);[^}]*background:\s*var\(--state-info-bg-strong\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-action-risk\.is-high\s*{[^}]*border-color:\s*var\(--state-danger-border\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-action-risk\.is-medium\s*{[^}]*border-color:\s*var\(--state-warn-border-soft-strong\);[^}]*background:\s*var\(--state-warn-bg-strong\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-action-risk\.is-low\s*{[^}]*border-color:\s*var\(--state-success-border\);[^}]*background:\s*var\(--state-success-bg-strong\);/s);
+  });
+
+  it("uses compact list typography tokens for the remaining routing raw literals", () => {
+    expect(routingStyles).toMatch(/\.routing-workbench-panel \.compact-list h3\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(routingStyles).toMatch(/\.routing-workbench-panel \.compact-list li\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(routingStyles).toMatch(/\.routing-workbench-panel \.compact-list li > span,\s*\.routing-workbench-panel \.compact-list li > \.mono-sub\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
+    expect(routingStyles).toMatch(/\.routing-workbench-panel \.impact-kv > span\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(routingStyles).toMatch(/\.routing-workbench-panel \.impact-kv > strong\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+  });
+
+  it("uses semantic track and fill tokens for sync lens bars", () => {
+    expect(routingStyles).toMatch(/\.sync-lens-score-track\s*{[^}]*background:\s*var\(--surface-track-muted\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-score-fill\.is-good\s*{[^}]*background:\s*var\(--state-success-fill-gradient\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-score-fill\.is-warn\s*{[^}]*background:\s*var\(--state-warn-fill-gradient\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-drift-track\s*{[^}]*background:\s*var\(--surface-track-muted-strong\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-drift-fill\.is-positive\s*{[^}]*background:\s*var\(--state-warn-fill-gradient-strong\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-drift-fill\.is-negative\s*{[^}]*background:\s*var\(--state-info-fill-gradient\);/s);
+    expect(routingStyles).toMatch(/\.sync-lens-drift-fill\.is-zero\s*{[^}]*background:\s*var\(--state-success-fill-gradient-soft\);/s);
+  });
+});

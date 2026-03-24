@@ -5,7 +5,7 @@ import type { ConversationSearchEnvelope, ConversationSearchHit } from "../types
 import type { Messages } from "../i18n";
 import { extractEnvelopeData, formatDateTime, normalizeDisplayValue } from "../lib/helpers";
 
-type SearchPanelProps = {
+export type SearchPanelProps = {
   messages: Messages;
   providerOptions: Array<{ id: string; name: string }>;
   onOpenSession: (hit: ConversationSearchHit) => void;

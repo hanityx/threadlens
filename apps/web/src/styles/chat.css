@@ -17,7 +17,7 @@
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-md);
   padding: 12px 14px;
-  background: color-mix(in srgb, var(--bg-elev) 44%, transparent);
+  background: var(--surface-transcript-summary-strip);
 }
 
 .transcript-summary-main {
@@ -26,7 +26,7 @@
 }
 
 .transcript-summary-main strong {
-  font-size: 0.95rem;
+  font-size: var(--text-lg);
   line-height: 1.3;
 }
 
@@ -63,8 +63,8 @@
   padding: 8px 10px;
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--panel) 88%, transparent);
-  backdrop-filter: blur(8px);
+  background: var(--surface-chat-action-bar);
+  backdrop-filter: blur(var(--blur-sm));
 }
 
 .detail-action-bar .btn-danger {
@@ -107,7 +107,7 @@
 
 .chat-item header strong {
   text-transform: uppercase;
-  font-size: 0.68rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   letter-spacing: 0.06em;
   color: var(--text-secondary);
@@ -115,14 +115,14 @@
 
 .chat-item header span {
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: var(--text-sm);
 }
 
 .chat-item p {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  font-size: 0.84rem;
+  font-size: var(--text-md);
   line-height: 1.55;
 }
 

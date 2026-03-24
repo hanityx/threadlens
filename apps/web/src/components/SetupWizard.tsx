@@ -12,7 +12,7 @@ const WIZARD_COMPLETED_AT_STORAGE_KEY = "po-setup-wizard-completed-at";
 
 type WizardStep = 1 | 2 | 3;
 
-type SetupWizardProps = {
+export type SetupWizardProps = {
   providers: ProviderMatrixProvider[];
   dataSourceRows: DataSourceInventoryRow[];
   providerSessionRows: ProviderSessionRow[];

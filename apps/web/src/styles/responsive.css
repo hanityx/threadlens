@@ -213,11 +213,11 @@
   }
 
   .overview-stage-title h2 {
-    font-size: 2.2rem;
+    font-size: var(--text-display-mobile-stage);
   }
 
   .search-stage-title h2 {
-    font-size: 2rem;
+    font-size: var(--text-3xl);
   }
 
   .provider-workspace-primary,
@@ -323,7 +323,7 @@
   }
 
   .hero h1 {
-    font-size: 1.3rem;
+    font-size: var(--text-display-mobile-hero);
   }
 
   .hero p {
