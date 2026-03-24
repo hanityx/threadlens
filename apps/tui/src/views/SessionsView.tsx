@@ -232,7 +232,7 @@ export function SessionsView(props: {
         });
       return;
     }
-    if (input.toLowerCase() === "a" && selected && selected.provider !== "all") {
+    if (input === "a" && selected && selected.provider !== "all") {
       setActionStatus("보관 드라이런 실행 중…");
       void runProviderAction(selected.provider, "archive_local", [selected.file_path], {
         dryRun: true,
@@ -260,7 +260,7 @@ export function SessionsView(props: {
         });
       return;
     }
-    if (input.toLowerCase() === "d" && selected && selected.provider !== "all") {
+    if (input === "d" && selected && selected.provider !== "all") {
       setActionStatus("삭제 드라이런 실행 중…");
       void runProviderAction(selected.provider, "delete_local", [selected.file_path], {
         dryRun: true,

@@ -177,7 +177,7 @@ export function CleanupView(props: {
       fetchRows();
       return;
     }
-    if (input.toLowerCase() === "a" && selectedIds.length > 0) {
+    if (input === "a" && selectedIds.length > 0) {
       setAnalysisSummary("영향 분석 중…");
       void analyzeDelete(selectedIds)
         .then((data) => {
@@ -198,7 +198,7 @@ export function CleanupView(props: {
         });
       return;
     }
-    if (input.toLowerCase() === "d" && selectedIds.length > 0) {
+    if (input === "d" && selectedIds.length > 0) {
       setAnalysisSummary("드라이런 중…");
       void cleanupDryRun(selectedIds)
         .then((data) => {
