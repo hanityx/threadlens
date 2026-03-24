@@ -1,25 +1,25 @@
 import { expect, type Page, test } from "@playwright/test";
 
 const SCHEMA_VERSION = "2026-02-27";
-const threadsTabLabel = /^(Threads|Cleanup|Codex Cleanup|스레드|정리|Codex 정리실)$/i;
+const threadsTabLabel = /^(Threads|Review|Cleanup|Codex Cleanup|스레드|리뷰|정리|Codex 정리실)$/i;
 const providersTabLabel = /^(Providers|Sessions|Source Sessions|Session Vault|프로바이더|AI 관리|원본 세션실)$/i;
-const selectAllInTabLabel = /^(Select all in tab|Select all in current tab|현재 탭 전체 선택)$/i;
-const selectAllFilteredLabel = /^(Select all filtered|Select all in current filter|현재 필터 전체 선택)$/i;
+const selectAllInTabLabel = /^(Select all in tab|Select all in current tab|Select tab|현재 탭 전체 선택)$/i;
+const selectAllFilteredLabel = /^(Select all filtered|Select all in current filter|Select filtered|현재 필터 전체 선택)$/i;
 const deleteDryRunLabel = /^(Delete dry-run|Delete source files \(dry-run\)|원본 파일 삭제 드라이런|삭제 드라이런)$/i;
 const deleteLabel = /^(Delete|Delete source files|Delete locally|삭제|원본 파일 삭제)$/i;
-const bulkPinLabel = /^(Bulk Pin|Pin selected|일괄 고정)$/i;
+const bulkPinLabel = /^(Bulk Pin|Pin selected|Pin|일괄 고정)$/i;
 const threadDetailTitle = /^(Thread Detail|Selected Thread Detail|스레드 상세|선택한 스레드 상세)$/i;
-const impactAnalysisLabel = /^(Impact Analysis|영향 분석)$/i;
-const cleanupDryRunLabel = /^(Cleanup Dry-Run|정리 드라이런)$/i;
+const impactAnalysisLabel = /^(Impact Analysis|Impact|영향 분석)$/i;
+const cleanupDryRunLabel = /^(Cleanup Dry-Run|Dry-run|정리 드라이런)$/i;
 const originalSessionsTitle = /^(Sessions|Original Sessions|Source Sessions|Session Vault|원본 세션)$/i;
-const backupSelectedLabel = /^(Backup Selected Sessions|Back up selected sessions|선택 세션 백업)$/i;
-const bundleAllBackupsLabel = /^(Bundle All Backups|Export backup bundle|Export full backup bundle|통 백업 묶기)$/i;
+const backupSelectedLabel = /^(Backup Selected Sessions|Back up selected sessions|Back up selected|선택 세션 백업)$/i;
+const bundleAllBackupsLabel = /^(Bundle All Backups|Export backup bundle|Export full backup bundle|Export bundle|통 백업 묶기)$/i;
 const searchTabLabel = /^(Search|Conversation Search|원문 검색|전체 대화 검색)$/i;
-const searchPlaceholder = /^(Search your own words, filenames, or keywords|내가 했던 말, 파일명, 키워드를 검색)/i;
+const searchPlaceholder = /^(Search your own words, filenames, or keywords|Search conversations|내가 했던 말, 파일명, 키워드를 검색)/i;
 const codexSearchResultLabel = /Fix token flow/i;
 const claudeSearchResultLabel = /Claude notes/i;
-const openThreadLabel = /^(Open Codex Cleanup|Codex 정리 열기)$/i;
-const openSessionLabel = /^(Open Source Session|원본 세션 열기)$/i;
+const openThreadLabel = /^(Open Codex Cleanup|Review|Codex 정리 열기)$/i;
+const openSessionLabel = /^(Open Source Session|Session|원본 세션 열기)$/i;
 
 type MockApiOptions = {
   providerActionCalls?: Array<Record<string, unknown>>;
@@ -41,7 +41,7 @@ function envelope<T>(data: T) {
 
 async function openPrimaryView(page: Page, label: "Threads" | "Providers") {
   const target = label === "Threads" ? threadsTabLabel : providersTabLabel;
-  const nav = page.locator(".layout-nav");
+  const nav = page.getByRole("navigation", { name: /surface tabs/i }).first();
   const button = nav.getByRole("button", { name: target }).first();
   await button.click();
   await expect(button).toHaveClass(/is-active/);
@@ -448,11 +448,7 @@ test("backup action executes in one click for selected provider sessions", async
   await page.goto("/");
   await openPrimaryView(page, "Providers");
   await selectProviderChip(page, /^Codex/i);
-  const sessionsPanel = page
-    .locator("section.panel")
-    .filter({ has: page.getByRole("heading", { name: originalSessionsTitle }) })
-    .last();
-  await sessionsPanel.locator("tbody input[type='checkbox']").first().check();
+  await page.locator("tbody input[type='checkbox']").first().check();
 
   await page.getByRole("button", { name: backupSelectedLabel }).first().click();
   await expect.poll(() => providerActionCalls.length).toBe(1);
@@ -467,15 +463,11 @@ test("delete action enforces dry-run token flow", async ({ page }) => {
   await page.goto("/");
   await openPrimaryView(page, "Providers");
   await selectProviderChip(page, /^Codex/i);
-  await expect(page.getByText("Token flow test thread")).toBeVisible();
-  const sessionsPanel = page
-    .locator("section.panel")
-    .filter({ has: page.getByRole("heading", { name: originalSessionsTitle }) })
-    .last();
-  await sessionsPanel.locator("tbody input[type='checkbox']").first().check();
+  await expect(page.getByText("Token flow test thread").first()).toBeVisible();
+  await page.locator("tbody input[type='checkbox']").first().check();
 
-  const deleteDryRunButton = sessionsPanel.getByRole("button", { name: deleteDryRunLabel }).first();
-  const deleteButton = sessionsPanel.getByRole("button", { name: deleteLabel }).last();
+  const deleteDryRunButton = page.getByRole("button", { name: deleteDryRunLabel }).first();
+  const deleteButton = page.getByRole("button", { name: deleteLabel }).last();
   await deleteDryRunButton.click();
   await expect.poll(() => providerActionCalls.length).toBe(1);
 
@@ -504,11 +496,7 @@ test("providers tab switches within performance budget", async ({ page }) => {
   await page.goto("/");
   const startedAt = Date.now();
   await openPrimaryView(page, "Providers");
-  const sessionsPanel = page
-    .locator("section.panel")
-    .filter({ has: page.getByRole("heading", { name: originalSessionsTitle }) })
-    .last();
-  await expect(sessionsPanel.getByRole("heading", { name: originalSessionsTitle }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: originalSessionsTitle }).first()).toBeVisible();
   const elapsedMs = Date.now() - startedAt;
 
   expect(elapsedMs).toBeLessThan(2500);
@@ -532,7 +520,7 @@ test("threads bulk pin action sends selected thread ids", async ({ page }) => {
 
   await page.goto("/");
   await openPrimaryView(page, "Threads");
-  await expect(page.getByText("Bulk pin test")).toBeVisible();
+  await expect(page.getByText("Bulk pin test").first()).toBeVisible();
   await page.getByRole("checkbox", { name: selectAllFilteredLabel }).check();
   await page.getByRole("button", { name: bulkPinLabel }).click();
 
@@ -561,13 +549,12 @@ test("thread detail forensics actions send selected ids", async ({ page }) => {
 
   await page.goto("/");
   await openPrimaryView(page, "Threads");
-  await expect(page.getByText("Forensics action test")).toBeVisible();
+  await expect(page.getByText("Forensics action test").first()).toBeVisible();
   await page.getByText("Forensics action test").first().click();
 
-  const threadDetailPanel = page
-    .locator("section.panel")
-    .filter({ has: page.getByRole("heading", { name: threadDetailTitle }) });
+  const threadDetailPanel = page.locator(".thread-review-panel").last();
   await expect(threadDetailPanel).toBeVisible();
+  await threadDetailPanel.locator("summary").filter({ hasText: /^Actions$/i }).click();
 
   await threadDetailPanel
     .getByRole("button", { name: impactAnalysisLabel })
@@ -624,16 +611,16 @@ test("search groups results and routes into sessions and threads", async ({ page
 
   await page.goto("/");
   await page.getByRole("button", { name: searchTabLabel }).first().click();
-  await page.getByPlaceholder(searchPlaceholder).fill("token");
+  await page.locator("input.search-input-stage").fill("token");
   await expect(page.locator(".search-result-list").getByText(codexSearchResultLabel).first()).toBeVisible();
   await expect(page.locator(".search-result-list").getByText(claudeSearchResultLabel).first()).toBeVisible();
 
-  await page.getByRole("button", { name: openThreadLabel }).first().click();
+  await page.locator(".search-result-list").getByRole("button", { name: openThreadLabel }).first().click();
   await expect(page.getByRole("heading", { name: threadDetailTitle })).toBeVisible();
 
   await page.getByRole("button", { name: searchTabLabel }).first().click();
-  await page.getByPlaceholder(searchPlaceholder).fill("token");
-  await page.getByRole("button", { name: openSessionLabel }).first().click();
+  await page.locator("input.search-input-stage").fill("token");
+  await page.locator(".search-result-list").getByRole("button", { name: openSessionLabel }).first().click();
   await expect(
     page
       .locator("section.panel")

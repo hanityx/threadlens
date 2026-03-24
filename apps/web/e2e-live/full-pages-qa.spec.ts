@@ -59,8 +59,8 @@ async function runFullPageSmoke(page: Page, suffix: string, testInfo: { outputPa
     fullPage: true,
   });
 
-  await surfaceTabs(page).getByRole("button", { name: /^review$/i }).click();
-  await expect(page.getByRole("heading", { name: /^review$/i }).first()).toBeVisible();
+  await surfaceTabs(page).getByRole("button", { name: /^(review|cleanup)$/i }).click();
+  await expect(page.getByRole("heading", { name: /review|cleanup/i }).first()).toBeVisible();
   const firstCheckbox = page.locator("tbody input[type='checkbox']").first();
   if (await firstCheckbox.count()) {
     await firstCheckbox.check();

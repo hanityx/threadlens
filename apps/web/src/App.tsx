@@ -1,8 +1,24 @@
 import { lazy, startTransition, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { normalizeDesktopRouteFilePath } from "./app-shell/desktopRoute";
+import { DetailShell } from "./app-shell/DetailShell";
+import { OverviewWorkbench } from "./app-shell/OverviewWorkbench";
+import { ProvidersWorkspace } from "./app-shell/ProvidersWorkspace";
+import { RuntimeFeedbackStack } from "./app-shell/RuntimeFeedbackStack";
+import { TopShell } from "./app-shell/TopShell";
+import { ThreadsWorkbench } from "./app-shell/ThreadsWorkbench";
+import {
+  compactWorkbenchId,
+  formatWorkbenchGroupLabel,
+  formatWorkbenchRailDay,
+  formatWorkbenchRailTime,
+  normalizeWorkbenchSessionTitle,
+  normalizeWorkbenchTitle,
+  providerFromSourceKey,
+} from "./app-shell/workbenchFormat";
 import { useAppData } from "./hooks/useAppData";
 import { KpiCard } from "./components/KpiCard";
 import { ThreadsTable } from "./components/ThreadsTable";
-import { getMessages } from "./i18n";
+import { useLocale } from "./i18n";
 import { compactPath, formatDateTime } from "./lib/helpers";
 import type { ConversationSearchHit, LayoutView, ProviderView } from "./types";
 
@@ -14,26 +30,6 @@ const SetupWizard = lazy(async () => {
 const SearchPanel = lazy(async () => {
   const mod = await import("./components/SearchPanel");
   return { default: mod.SearchPanel };
-});
-
-const ThreadDetail = lazy(async () => {
-  const mod = await import("./components/ThreadDetail");
-  return { default: mod.ThreadDetail };
-});
-
-const SessionDetail = lazy(async () => {
-  const mod = await import("./components/SessionDetail");
-  return { default: mod.SessionDetail };
-});
-
-const ProvidersPanel = lazy(async () => {
-  const mod = await import("./components/ProvidersPanel");
-  return { default: mod.ProvidersPanel };
-});
-
-const RoutingPanel = lazy(async () => {
-  const mod = await import("./components/RoutingPanel");
-  return { default: mod.RoutingPanel };
 });
 
 const ForensicsPanel = lazy(async () => {
@@ -68,106 +64,6 @@ const preloadForensicsPanel = () => {
 const HIDDEN_PROVIDER_IDS = new Set(["chatgpt"]);
 const OPTIONAL_PROVIDER_IDS = new Set(["copilot"]);
 const PROVIDER_DISPLAY_ORDER = ["all", "codex", "claude", "gemini", "copilot"];
-
-const providerFromSourceKey = (sourceKey: string): string | null => {
-  const key = sourceKey.toLowerCase();
-  if (key.startsWith("claude")) return "claude";
-  if (key.startsWith("gemini")) return "gemini";
-  if (key.startsWith("copilot")) return "copilot";
-  if (key.startsWith("chat_")) return "chatgpt";
-  if (
-    key.startsWith("codex_") ||
-    key === "sessions" ||
-    key === "archived_sessions" ||
-    key === "history" ||
-    key === "global_state"
-  ) {
-    return "codex";
-  }
-  return null;
-};
-
-const normalizeDesktopRouteFilePath = (filePath: string): string => {
-  const trimmed = String(filePath || "").trim();
-  if (!trimmed) return "";
-  if (trimmed.includes("/.codex/sessions/")) {
-    return trimmed.replace("/.codex/sessions/", "/.codex-cli/sessions/");
-  }
-  return trimmed;
-};
-
-const compactWorkbenchId = (value?: string | null, prefix = "item"): string => {
-  const trimmed = String(value || "").trim();
-  if (!trimmed) return prefix;
-  const normalized = trimmed.toLowerCase().startsWith(`${prefix.toLowerCase()}-`)
-    ? trimmed.slice(prefix.length + 1)
-    : trimmed;
-  const useTail = /^\d{4}-\d{2}-/.test(normalized);
-  if (normalized.length <= 18) return `${prefix} ${normalized}`;
-  return `${prefix} ${useTail ? normalized.slice(-8) : normalized.slice(0, 8)}`;
-};
-
-const normalizeWorkbenchTitle = (value?: string | null, fallback?: string | null): string => {
-  const trimmed = String(value || "").trim();
-  const fallbackText = String(fallback || "").trim();
-  if (!trimmed || trimmed.toLowerCase() === "none") {
-    return fallbackText;
-  }
-  const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed);
-  if (uuidLike && fallbackText) {
-    return fallbackText;
-  }
-  return trimmed;
-};
-
-const normalizeWorkbenchSessionTitle = (value?: string | null, fallback?: string | null): string => {
-  const normalized = normalizeWorkbenchTitle(value, fallback);
-  const fallbackText = String(fallback || "").trim();
-  const lower = normalized.toLowerCase();
-  const looksGenerated =
-    lower.startsWith("rollout-") ||
-    normalized.includes("AGENTS.md") ||
-    normalized.includes("<INSTRUCTIONS>") ||
-    normalized.includes("/user-root/") ||
-    normalized.length > 72;
-  return looksGenerated && fallbackText ? fallbackText : normalized;
-};
-
-const formatWorkbenchRailDay = (value?: string | null): string => {
-  if (!value) return "Recent";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Recent";
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startOfTarget = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const diffDays = Math.round((startOfToday.getTime() - startOfTarget.getTime()) / 86_400_000);
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(date);
-};
-
-const formatWorkbenchRailTime = (value?: string | null): string => {
-  if (!value) return "--:--";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "--:--";
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(date);
-};
-
-const formatWorkbenchGroupLabel = (value?: string | null): string => {
-  if (!value) return "Recent";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Recent";
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startOfTarget = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const diffDays = Math.round((startOfToday.getTime() - startOfTarget.getTime()) / 86_400_000);
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(date).toUpperCase();
-};
 
 type DesktopRouteState = {
   view: LayoutView | "";
@@ -328,7 +224,7 @@ export function App() {
     });
   };
 
-  const messages = getMessages("ko");
+  const { locale, messages, setLocale } = useLocale();
   const runtimeBackend = runtime.data?.data?.runtime_backend;
   const smokeStatusValue =
     smokeStatusLoading
@@ -958,103 +854,115 @@ export function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [layoutView]);
 
+  const handleHeaderSearchSubmit = () => {
+    const nextQuery = headerSearchDraft.trim();
+    if (!nextQuery) return;
+    setHeaderSearchSeed(nextQuery);
+    startTransition(() => changeLayoutView("search"));
+    window.setTimeout(() => {
+      const input = document.querySelector(".search-panel .search-input") as HTMLInputElement | null;
+      input?.focus();
+      input?.select();
+    }, 120);
+  };
+
+  const overviewSetupStage = (
+    <Suspense
+      fallback={
+        <div className="info-box compact">
+          <strong>{messages.common.loading}</strong>
+          <p>Loading setup stage.</p>
+        </div>
+      }
+    >
+      <SetupWizard
+        providers={visibleProviders}
+        dataSourceRows={visibleDataSourceRows}
+        providerSessionRows={visibleProviderSessionRows}
+        parserReports={visibleParserReports}
+        providersRefreshing={providersRefreshing}
+        providersLastRefreshAt={providersLastRefreshAt}
+        onRefresh={refreshProvidersData}
+        onOpenProviders={(providerId) => {
+          if (providerId && visibleProviderIdSet.has(providerId)) {
+            changeProviderView(providerId as ProviderView);
+          } else {
+            changeProviderView("all");
+          }
+          changeLayoutView("providers");
+        }}
+        onOpenDiagnostics={() => changeLayoutView("providers")}
+      />
+    </Suspense>
+  );
+
+  const threadsForensicsSlot = (
+    <Suspense
+      fallback={
+        <section className="panel">
+          <header>
+            <h2>{messages.nav.forensics}</h2>
+            <span>{messages.common.loading}</span>
+          </header>
+          <div className="sub-toolbar">
+            <div className="skeleton-line" />
+          </div>
+        </section>
+      }
+    >
+      <ForensicsPanel
+        messages={messages}
+        threadActionsDisabled={showRuntimeBackendDegraded}
+        selectedIds={selectedIds}
+        rows={rows}
+        busy={busy}
+        analyzeDelete={analyzeDelete}
+        cleanupDryRun={cleanupDryRun}
+        cleanupData={cleanupData}
+        selectedImpactRows={selectedImpactRows}
+        analysisRaw={analysisRaw}
+        cleanupRaw={cleanupRaw}
+        analyzeDeleteError={analyzeDeleteError}
+        cleanupDryRunError={cleanupDryRunError}
+        analyzeDeleteErrorMessage={analyzeDeleteErrorMessage}
+        cleanupDryRunErrorMessage={cleanupDryRunErrorMessage}
+      />
+    </Suspense>
+  );
+
   return (
     <div className="app-shell">
       <main className="page page-shell-main">
-        <section className="top-actions">
-          <div className="top-actions-main">
-            <div className="top-actions-copy">
-              <span className="top-actions-label">observatory ai</span>
-              <strong>Provider Observatory</strong>
-            </div>
-            <nav className="top-surface-nav" aria-label="surface tabs">
-              <button
-                type="button"
-                className={`top-surface-btn ${layoutView === "overview" ? "is-active" : ""}`}
-                onClick={() => changeLayoutView("overview")}
-              >
-                {messages.nav.overview}
-              </button>
-              <button
-                type="button"
-                className={`top-surface-btn ${layoutView === "search" ? "is-active" : ""}`}
-                onClick={() => changeLayoutView("search")}
-                onMouseEnter={handleSearchIntent}
-                onFocus={handleSearchIntent}
-              >
-                {messages.nav.search}
-              </button>
-              <button
-                type="button"
-                className={`top-surface-btn ${layoutView === "threads" ? "is-active" : ""}`}
-                onClick={() => changeLayoutView("threads")}
-              >
-                {messages.nav.threads}
-              </button>
-              <button
-                type="button"
-                className={`top-surface-btn ${layoutView === "providers" ? "is-active" : ""}`}
-                onClick={() => changeLayoutView("providers")}
-                onMouseEnter={handleProvidersIntent}
-                onFocus={handleProvidersIntent}
-              >
-                {messages.nav.providers}
-              </button>
-            </nav>
-          </div>
-          <div className="top-actions-tools">
-            <form
-              className="top-search-shell"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const nextQuery = headerSearchDraft.trim();
-                if (!nextQuery) return;
-                setHeaderSearchSeed(nextQuery);
-                startTransition(() => changeLayoutView("search"));
-                window.setTimeout(() => {
-                  const input = document.querySelector(".search-panel .search-input") as HTMLInputElement | null;
-                  input?.focus();
-                  input?.select();
-                }, 120);
-              }}
-            >
-              <span className="top-search-icon" aria-hidden="true">
-                ⌕
-              </span>
-              <input
-                type="search"
-                className="top-search-input"
-                placeholder="Jump to sessions, threads, keywords..."
-                value={headerSearchDraft}
-                onChange={(event) => setHeaderSearchDraft(event.target.value)}
-              />
-            </form>
-            <div className="top-controls">
-              <span className="top-sync-status" aria-live="polite">
-                {syncStatusText}
-              </span>
-              <button
-                type="button"
-                className="btn-outline"
-                onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
-                title={theme === "dark" ? messages.nav.switchToLight : messages.nav.switchToDark}
-              >
-                {theme === "dark" ? messages.nav.light : messages.nav.dark}
-              </button>
-              <button
-                type="button"
-                className="btn-outline"
-                onClick={() => {
-                  void refreshAllData();
-                }}
-                disabled={busy || refreshingAllData}
-                title={messages.nav.syncHint}
-              >
-                {refreshingAllData ? "Syncing" : "Sync"}
-              </button>
-            </div>
-          </div>
-        </section>
+        <TopShell
+          layoutView={layoutView}
+          onChangeLayoutView={changeLayoutView}
+          onSearchIntent={handleSearchIntent}
+          onProvidersIntent={handleProvidersIntent}
+          headerSearchDraft={headerSearchDraft}
+          onHeaderSearchDraftChange={setHeaderSearchDraft}
+          onHeaderSearchSubmit={handleHeaderSearchSubmit}
+          syncStatusText={syncStatusText}
+          locale={locale}
+          onToggleLocale={() => setLocale(locale === "en" ? "ko" : "en")}
+          theme={theme}
+          onToggleTheme={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+          onRefresh={() => {
+            void refreshAllData();
+          }}
+          refreshDisabled={busy || refreshingAllData}
+          refreshingAllData={refreshingAllData}
+          labels={{
+            overview: messages.nav.overview,
+            search: messages.nav.search,
+            threads: messages.nav.threads,
+            providers: messages.nav.providers,
+            light: messages.nav.light,
+            dark: messages.nav.dark,
+            switchToLight: messages.nav.switchToLight,
+            switchToDark: messages.nav.switchToDark,
+            syncHint: messages.nav.syncHint,
+          }}
+        />
 
       {showRuntimeBackendDegraded ? (
         <section className="degraded-banner" role="status" aria-live="polite">
@@ -1067,344 +975,49 @@ export function App() {
       ) : null}
 
         {layoutView === "overview" ? (
-          <section className="overview-workbench">
-            {!setupGuideOpen ? (
-              <div className="overview-workbench-grid">
-              <section className="panel overview-stage overview-main-canvas">
-                <div className="overview-stage-header overview-main-head">
-                  <div className="overview-stage-title overview-main-title">
-                    <span className="overview-note-label">session workbench</span>
-                    <h1>Provider Observatory</h1>
-                    <p>Sessions, review, archive.</p>
-                  </div>
-                  <div className="overview-header-actions">
-                    <button
-                      type="button"
-                      className="overview-header-btn is-quiet"
-                      onClick={() => setSetupGuideOpen((prev) => !prev)}
-                    >
-                      {setupGuideOpen ? "Close setup" : "Setup"}
-                    </button>
-                    <button
-                      type="button"
-                      className="overview-header-btn"
-                      onClick={() => changeLayoutView("threads")}
-                    >
-                      Review
-                    </button>
-                    <button
-                      type="button"
-                      className="overview-header-btn is-primary"
-                      onClick={() => changeLayoutView("providers")}
-                      onMouseEnter={handleProvidersIntent}
-                      onFocus={handleProvidersIntent}
-                    >
-                      Sessions
-                    </button>
-                  </div>
-                </div>
-
-                <div className="overview-stage-layout overview-stage-layout-workbench">
-                  <section className="overview-command-shell" aria-label="workbench command shell">
-                    <div className="overview-window-dots" aria-hidden="true">
-                      <span />
-                      <span />
-                      <span />
-                    </div>
-                    <div className="overview-command-breadcrumb">
-                      <span className="overview-command-path is-brand">obs-node</span>
-                      <span className="overview-command-slash">/</span>
-                      <span className="overview-command-path">sessions</span>
-                      <span className="overview-command-slash">/</span>
-                      <span className="overview-command-path is-active">active</span>
-                      <span className="overview-command-runtime">{runtimeLatencyText}</span>
-                    </div>
-                    <div className="overview-command-strip">
-                      <div className="overview-command-summary">
-                        <strong>{focusSessionCommandId}</strong>
-                        <span>{focusSessionStatus}</span>
-                      </div>
-                      <div className="overview-command-metrics" aria-label="workbench status">
-                        <span>
-                          <strong>{visibleProviderSessionSummary.parse_ok}</strong> ready
-                        </span>
-                        <span>
-                          <strong>{highRiskCount}</strong> flagged
-                        </span>
-                        <span>{syncStatusText}</span>
-                      </div>
-                    </div>
-                  </section>
-
-                  <div className="overview-insight-grid">
-                    <article className="overview-insight-card is-primary">
-                      <div className="overview-primary-panel-grid">
-                        <div className="overview-primary-copy">
-                          <span className="overview-note-label">session focus</span>
-                          <strong className="overview-primary-focus-title">{focusSessionTitle}</strong>
-                          <div className="overview-primary-focus-meta">{focusSessionMeta}</div>
-                          <p className="overview-primary-summary">
-                            {overviewBooting
-                              ? "Loading recent sessions, parser health, and active providers."
-                              : `${visibleProviderSessionSummary.parse_ok}/${visibleProviderSessionSummary.rows || "..."} ready across ${visibleProviderSummary.active || "..."} active AI. Search, review, or open the archive next.`}
-                          </p>
-                          <div className="overview-primary-focus-kpis" aria-label="focus session summary">
-                            <article>
-                              <span>rows</span>
-                              <strong>{searchRowsText}</strong>
-                            </article>
-                            <article>
-                              <span>review</span>
-                              <strong>{reviewRowsText}</strong>
-                            </article>
-                          </div>
-                          <div className="overview-card-actions" aria-label="workbench quick actions">
-                            <button
-                              type="button"
-                              className="overview-card-action is-quiet"
-                              onClick={() => changeLayoutView("search")}
-                              onMouseEnter={handleSearchIntent}
-                              onFocus={handleSearchIntent}
-                            >
-                              <span>Search</span>
-                            </button>
-                            <button
-                              type="button"
-                              className="overview-card-action"
-                              onClick={() => changeLayoutView("threads")}
-                            >
-                              <span>Review</span>
-                            </button>
-                            <button
-                              type="button"
-                              className="overview-card-action is-primary"
-                              onClick={() => changeLayoutView("providers")}
-                              onMouseEnter={handleProvidersIntent}
-                              onFocus={handleProvidersIntent}
-                            >
-                              <span>Sessions</span>
-                            </button>
-                          </div>
-                        </div>
-                        <div className="overview-primary-list">
-                          <span className="overview-note-label">ready now</span>
-                          <div className="overview-primary-list-items">
-                            {recentSessionPreview.length ? (
-                              recentSessionPreview.slice(0, 3).map((row) => (
-                                <button
-                                  key={`overview-primary-ready-${row.file_path}`}
-                                  type="button"
-                                  className="overview-primary-list-item"
-                                  onClick={() => {
-                                    changeProviderView(visibleProviderIdSet.has(row.provider) ? (row.provider as ProviderView) : "all");
-                                    setSelectedSessionPath(row.file_path);
-                                    changeLayoutView("providers");
-                                  }}
-                                >
-                                  <strong>
-                                    {normalizeWorkbenchSessionTitle(
-                                      row.display_title,
-                                      compactWorkbenchId(row.session_id, "session"),
-                                    )}
-                                  </strong>
-                                  <span>
-                                    {row.provider} · {formatWorkbenchRailTime(row.mtime)}
-                                  </span>
-                                </button>
-                              ))
-                            ) : (
-                              <div className="overview-primary-list-empty">
-                                {overviewBooting ? "Syncing recent rows." : "No recent sessions yet."}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </article>
-                    <div className="overview-support-stack">
-                      <article className="overview-insight-card is-review">
-                        <div className="overview-review-head">
-                          <span className="overview-note-label">review queue</span>
-                          <span className="overview-review-pill">{reviewRowsText}</span>
-                        </div>
-                        <div className="overview-review-focus">
-                          <span className="overview-review-kicker">focus thread</span>
-                          <div className="overview-review-title">{focusReviewTitle}</div>
-                          <div className="overview-review-meta">{focusReviewMeta}</div>
-                        </div>
-                        {secondaryFlaggedPreview.length ? (
-                          <div className="overview-review-list">
-                            {secondaryFlaggedPreview.map((row) => (
-                              <div key={`overview-review-secondary-${row.thread_id}`} className="overview-review-list-item">
-                                <strong>
-                                  {normalizeWorkbenchTitle(
-                                    row.title,
-                                    compactWorkbenchId(row.thread_id, "thread"),
-                                  )}
-                                </strong>
-                                <span>
-                                  {row.source || "thread"} / {row.risk_level || compactWorkbenchId(row.thread_id, "thread")}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p>No additional flagged threads.</p>
-                        )}
-                      </article>
-                      <div className="overview-support-mini-grid">
-                        <article className="overview-insight-card is-mini">
-                          <span className="overview-note-label">active ai</span>
-                          <strong>{activeSummaryText}</strong>
-                          <p>{activeProviderSummaryLine}</p>
-                        </article>
-                        <article className="overview-insight-card is-mini">
-                          <span className="overview-note-label">vault health</span>
-                          <strong>{parserScoreText}</strong>
-                          <p>
-                            {overviewBooting
-                              ? "Loading parser and runtime."
-                              : `${backupSetsCount} backups · runtime ${runtimeLatencyText}`}
-                          </p>
-                        </article>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <aside className="overview-side-rail">
-                <section className="overview-side-card overview-side-card-history">
-                  <div className="overview-side-head is-history">
-                    <div className="overview-side-headline">
-                      <span className="overview-side-head-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" focusable="false">
-                          <path
-                            d="M12 8v5l3 2m5-3a8 8 0 1 1-2.34-5.66M20 4v4h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </span>
-                      <strong>Recent Threads</strong>
-                    </div>
-                  </div>
-                  <div className="overview-side-list overview-side-list-history">
-                    {recentThreadGroups.length ? (
-                      recentThreadGroups.map((group) => (
-                        <section key={`overview-thread-group-${group.label}`} className="overview-side-group">
-                          <div className="overview-side-group-head">
-                            <span>{group.label}</span>
-                          </div>
-                          <div className="overview-side-group-list">
-                            {group.rows.map((row) => (
-                              <button
-                                key={`overview-thread-${row.thread_id}`}
-                                type="button"
-                                className="overview-side-item overview-side-item-history"
-                                onClick={() => {
-                                  setSelectedThreadId(row.thread_id);
-                                  changeLayoutView("threads");
-                                }}
-                              >
-                                <div className="overview-side-item-meta">
-                                  <span>{formatWorkbenchRailTime(row.timestamp)}</span>
-                                </div>
-                                <div className="overview-side-item-copy">
-                                  <strong>
-                                    {recentThreadTitle(row)}
-                                  </strong>
-                                  <p>{recentThreadSummary(row)}</p>
-                                </div>
-                                <div className="overview-side-item-dots" aria-hidden="true">
-                                  <span className={row.risk_level === "high" ? "is-active" : ""} />
-                                  <span className={row.is_pinned ? "is-active" : ""} />
-                                  <span className={row.activity_status === "active" ? "is-active" : ""} />
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        </section>
-                      ))
-                    ) : (
-                      <div className="overview-side-empty">Waiting for threads.</div>
-                    )}
-                  </div>
-                </section>
-
-                <section className="overview-side-card overview-side-card-status">
-                  <div className="overview-side-head">
-                    <span className="overview-note-label">system</span>
-                    <strong>{syncStatusText}</strong>
-                  </div>
-                  <div className="overview-side-status-list">
-                    <article className="overview-side-status-item">
-                      <span>runtime</span>
-                      <strong>{runtimeLatencyText}</strong>
-                    </article>
-                    <article className="overview-side-status-item">
-                      <span>parser</span>
-                      <strong>{parserScoreText}</strong>
-                    </article>
-                    <article className="overview-side-status-item">
-                      <span>backups</span>
-                      <strong>{backupSetsCount}</strong>
-                    </article>
-                    <article className="overview-side-status-item">
-                      <span>ready rows</span>
-                      <strong>{visibleProviderSessionSummary.parse_ok}</strong>
-                    </article>
-                  </div>
-                </section>
-              </aside>
-              </div>
-            ) : (
-              <section className="overview-secondary-panel overview-setup-stage" aria-label="setup stage">
-                <div className="overview-secondary-head">
-                  <span className="overview-note-label">setup stage</span>
-                  <button
-                    type="button"
-                    className="overview-secondary-close"
-                    onClick={() => setSetupGuideOpen(false)}
-                  >
-                    Close
-                  </button>
-                </div>
-                <div className="overview-secondary-body">
-                  <Suspense
-                    fallback={
-                      <div className="info-box compact">
-                        <strong>{messages.common.loading}</strong>
-                        <p>Loading setup stage.</p>
-                      </div>
-                    }
-                  >
-                    <SetupWizard
-                      providers={visibleProviders}
-                      dataSourceRows={visibleDataSourceRows}
-                      providerSessionRows={visibleProviderSessionRows}
-                      parserReports={visibleParserReports}
-                      providersRefreshing={providersRefreshing}
-                      providersLastRefreshAt={providersLastRefreshAt}
-                      onRefresh={refreshProvidersData}
-                      onOpenProviders={(providerId) => {
-                        if (providerId && visibleProviderIdSet.has(providerId)) {
-                          changeProviderView(providerId as ProviderView);
-                        } else {
-                          changeProviderView("all");
-                        }
-                        changeLayoutView("providers");
-                      }}
-                      onOpenDiagnostics={() => changeLayoutView("providers")}
-                    />
-                  </Suspense>
-                </div>
-              </section>
-            )}
-          </section>
+          <OverviewWorkbench
+            setupGuideOpen={setupGuideOpen}
+            onToggleSetupGuide={() => setSetupGuideOpen((prev) => !prev)}
+            onCloseSetupGuide={() => setSetupGuideOpen(false)}
+            onOpenThreads={() => changeLayoutView("threads")}
+            onOpenProviders={() => changeLayoutView("providers")}
+            onProvidersIntent={handleProvidersIntent}
+            onOpenSearch={() => changeLayoutView("search")}
+            onSearchIntent={handleSearchIntent}
+            onOpenRecentSession={(row) => {
+              changeProviderView(visibleProviderIdSet.has(row.provider) ? (row.provider as ProviderView) : "all");
+              setSelectedSessionPath(row.file_path);
+              changeLayoutView("providers");
+            }}
+            onOpenRecentThread={(threadId) => {
+              setSelectedThreadId(threadId);
+              changeLayoutView("threads");
+            }}
+            runtimeLatencyText={runtimeLatencyText}
+            focusSessionCommandId={focusSessionCommandId}
+            focusSessionStatus={focusSessionStatus}
+            visibleProviderSessionSummary={visibleProviderSessionSummary}
+            highRiskCount={highRiskCount}
+            syncStatusText={syncStatusText}
+            focusSessionTitle={focusSessionTitle}
+            focusSessionMeta={focusSessionMeta}
+            overviewBooting={overviewBooting}
+            visibleProviderSummary={visibleProviderSummary}
+            searchRowsText={searchRowsText}
+            reviewRowsText={reviewRowsText}
+            recentSessionPreview={recentSessionPreview}
+            focusReviewTitle={focusReviewTitle}
+            focusReviewMeta={focusReviewMeta}
+            secondaryFlaggedPreview={secondaryFlaggedPreview}
+            activeSummaryText={activeSummaryText}
+            activeProviderSummaryLine={activeProviderSummaryLine}
+            parserScoreText={parserScoreText}
+            backupSetsCount={backupSetsCount}
+            recentThreadGroups={recentThreadGroups}
+            getRecentThreadTitle={recentThreadTitle}
+            getRecentThreadSummary={recentThreadSummary}
+            setupStageContent={overviewSetupStage}
+          />
         ) : null}
 
       {showSearch ? (
@@ -1448,406 +1061,207 @@ export function App() {
       ) : null}
 
       {showProviders ? (
-        <>
-          <section className="provider-page-stack">
-          <Suspense
-            fallback={
-              <section className="panel">
-                <header>
-                  <h2>{messages.nav.providers}</h2>
-                  <span>{messages.common.loading}</span>
-                </header>
-                <div className="sub-toolbar">
-                  <div className="skeleton-line" />
-                </div>
-              </section>
-            }
-          >
-            <ProvidersPanel
-              messages={messages}
-              sessionDetailSlot={
-                <Suspense
-                  fallback={
-                    <section className="panel">
-                      <header>
-                        <h2>{messages.sessionDetail.title}</h2>
-                        <span>{messages.common.loading}</span>
-                      </header>
-                      <div className="sub-toolbar">
-                        <div className="skeleton-line" />
-                      </div>
-                    </section>
-                  }
-                >
-                  <SessionDetail
-                    key={selectedSession?.file_path ?? "empty-session-detail"}
-                    messages={messages}
-                    selectedSession={selectedSession}
-                    emptyScopeLabel={emptySessionScopeLabel}
-                    emptyScopeRows={visibleProviderSessionSummary.rows}
-                    emptyScopeReady={visibleProviderSessionSummary.parse_ok}
-                    emptyNextSessionTitle={emptySessionNextTitle}
-                    sessionTranscriptData={sessionTranscriptData}
-                    sessionTranscriptLoading={sessionTranscriptLoading}
-                    sessionTranscriptLimit={sessionTranscriptLimit}
-                    setSessionTranscriptLimit={setSessionTranscriptLimit}
-                    busy={busy}
-                    canRunSessionAction={canRunSelectedSessionAction}
-                    providerDeleteBackupEnabled={providerDeleteBackupEnabled}
-                    setProviderDeleteBackupEnabled={setProviderDeleteBackupEnabled}
-                    runSingleProviderAction={runSingleProviderAction}
-                  />
-                </Suspense>
-              }
-              diagnosticsSlot={
-                <details
-                  className="panel panel-disclosure session-routing-disclosure"
-                  open={providersDiagnosticsOpen}
-                  onToggle={(event) => {
-                    const nextOpen = (event.currentTarget as HTMLDetailsElement).open;
-                    setProvidersDiagnosticsOpen(nextOpen);
-                    if (nextOpen) handleDiagnosticsIntent();
-                  }}
-                >
-                  <summary>
-                    <span className="session-routing-disclosure-copy">
-                      <strong>{messages.nav.routing}</strong>
-                      <span>{providersDiagnosticsOpen ? "paths / findings" : "scan / flow"}</span>
-                    </span>
-                    <span className="session-routing-disclosure-state">
-                      {providersDiagnosticsOpen ? "Hide" : "Open"}
-                    </span>
-                  </summary>
-                  <div className="panel-disclosure-body">
-                    {showRouting ? (
-                      <Suspense
-                        fallback={
-                          <section className="panel">
-                            <header>
-                              <h2>{messages.nav.routing}</h2>
-                              <span>{messages.common.loading}</span>
-                            </header>
-                            <div className="sub-toolbar">
-                              <div className="skeleton-line" />
-                            </div>
-                          </section>
-                        }
-                      >
-                        <RoutingPanel
-                          messages={messages}
-                          data={executionGraphData}
-                          loading={executionGraphLoading}
-                          providerView={providerView}
-                          providerSessionRows={visibleProviderSessionRows}
-                          parserReports={visibleParserReports}
-                          visibleProviderIds={visibleProviderIds}
-                        />
-                      </Suspense>
-                    ) : null}
-                  </div>
-                </details>
-              }
-              providers={visibleProviders}
-              providerSummary={visibleProviderSummary}
-              providerMatrixLoading={providerMatrixLoading}
-              providerTabs={visibleProviderTabs}
-              slowProviderIds={visibleSlowProviderIds}
-              slowProviderThresholdMs={slowProviderThresholdMs}
-              setSlowProviderThresholdMs={setSlowProviderThresholdMs}
-              providerView={providerView}
-              setProviderView={setProviderView}
-              providerDataDepth={providerDataDepth}
-              setProviderDataDepth={setProviderDataDepth}
-              providerSessionRows={visibleProviderSessionRows}
-              allProviderSessionRows={allVisibleProviderSessionRows}
-              providerSessionSummary={visibleProviderSessionSummary}
-              providerSessionsLimit={providerSessionsLimit}
-              providerRowsSampled={providerRowsSampled}
-              dataSourceRows={visibleDataSourceRows}
-              dataSourcesLoading={dataSourcesLoading}
-              providerSessionsLoading={providerSessionsLoading}
-              selectedProviderFiles={selectedProviderFiles}
-              setSelectedProviderFiles={setSelectedProviderFiles}
-              allProviderRowsSelected={visibleAllProviderRowsSelected}
-              toggleSelectAllProviderRows={toggleSelectAllProviderRows}
-              selectedProviderLabel={selectedProviderLabel}
-              selectedProviderFilePaths={selectedProviderFilePaths}
-              canRunProviderAction={canRunProviderAction}
-              busy={busy}
-              providerDeleteBackupEnabled={providerDeleteBackupEnabled}
-              setProviderDeleteBackupEnabled={setProviderDeleteBackupEnabled}
-              runProviderAction={runProviderAction}
-              providerActionData={providerActionData}
-              runRecoveryBackupExport={runRecoveryBackupExport}
-              recoveryBackupExportData={recoveryBackupExportData}
-              parserReports={visibleParserReports}
-              allParserReports={allVisibleParserReports}
-              parserLoading={parserLoading}
-              parserSummary={visibleParserSummary}
-              selectedSessionPath={selectedSessionPath}
-              setSelectedSessionPath={setSelectedSessionPath}
-              providersRefreshing={providersRefreshing}
-              providersLastRefreshAt={providersLastRefreshAt}
-              providerFetchMetrics={providerFetchMetrics}
-              refreshProvidersData={refreshProvidersData}
-            />
-          </Suspense>
-          </section>
-        </>
+        <ProvidersWorkspace
+          messages={messages}
+          panelProps={{
+            messages,
+            providers: visibleProviders,
+            providerSummary: visibleProviderSummary,
+            providerMatrixLoading,
+            providerTabs: visibleProviderTabs,
+            slowProviderIds: visibleSlowProviderIds,
+            slowProviderThresholdMs,
+            setSlowProviderThresholdMs,
+            providerView,
+            setProviderView,
+            providerDataDepth,
+            setProviderDataDepth,
+            providerSessionRows: visibleProviderSessionRows,
+            allProviderSessionRows: allVisibleProviderSessionRows,
+            providerSessionSummary: visibleProviderSessionSummary,
+            providerSessionsLimit,
+            providerRowsSampled,
+            dataSourceRows: visibleDataSourceRows,
+            dataSourcesLoading,
+            providerSessionsLoading,
+            selectedProviderFiles,
+            setSelectedProviderFiles,
+            allProviderRowsSelected: visibleAllProviderRowsSelected,
+            toggleSelectAllProviderRows,
+            selectedProviderLabel,
+            selectedProviderFilePaths,
+            canRunProviderAction,
+            busy,
+            providerDeleteBackupEnabled,
+            setProviderDeleteBackupEnabled,
+            runProviderAction,
+            providerActionData,
+            runRecoveryBackupExport,
+            recoveryBackupExportData,
+            parserReports: visibleParserReports,
+            allParserReports: allVisibleParserReports,
+            parserLoading,
+            parserSummary: visibleParserSummary,
+            selectedSessionPath,
+            setSelectedSessionPath,
+            providersRefreshing,
+            providersLastRefreshAt,
+            providerFetchMetrics,
+            refreshProvidersData,
+          }}
+          sessionDetailKey={selectedSession?.file_path ?? "empty-session-detail"}
+          sessionDetailProps={{
+            messages,
+            selectedSession,
+            emptyScopeLabel: emptySessionScopeLabel,
+            emptyScopeRows: visibleProviderSessionSummary.rows,
+            emptyScopeReady: visibleProviderSessionSummary.parse_ok,
+            emptyNextSessionTitle: emptySessionNextTitle,
+            sessionTranscriptData,
+            sessionTranscriptLoading,
+            sessionTranscriptLimit,
+            setSessionTranscriptLimit,
+            busy,
+            canRunSessionAction: canRunSelectedSessionAction,
+            providerDeleteBackupEnabled,
+            setProviderDeleteBackupEnabled,
+            runSingleProviderAction,
+          }}
+          providersDiagnosticsOpen={providersDiagnosticsOpen}
+          onToggleDiagnostics={(nextOpen) => {
+            setProvidersDiagnosticsOpen(nextOpen);
+            if (nextOpen) handleDiagnosticsIntent();
+          }}
+          showRouting={showRouting}
+          routingPanelProps={{
+            messages,
+            data: executionGraphData,
+            loading: executionGraphLoading,
+            providerView,
+            providerSessionRows: visibleProviderSessionRows,
+            parserReports: visibleParserReports,
+            visibleProviderIds,
+          }}
+        />
       ) : null}
 
       {showThreadsTable ? (
-        <section className="panel cleanup-command-shell">
-          <header>
-            <h2>Review</h2>
-            <span>impact / dry-run</span>
-          </header>
-          <div className="cleanup-command-body">
-            <div className="thread-workflow-copy">
-              <span className="overview-note-label">review workbench</span>
-              <strong>pick threads and review</strong>
-              <p>impact / dry-run / rail</p>
-            </div>
-            <div className="thread-status-grid">
-              <article className="thread-status-card">
-                <span>visible</span>
-                <strong>{visibleRows.length}/{filteredRows.length}</strong>
-                <p>rows</p>
-              </article>
-              <article className={`thread-status-card ${selectedIds.length > 0 ? "is-accent" : ""}`.trim()}>
-                <span>selected</span>
-                <strong>{selectedIds.length}</strong>
-                <p>review rail</p>
-              </article>
-              <article className={`thread-status-card ${cleanupData?.confirm_token_expected ? "is-ready" : ""}`.trim()}>
-                <span>dry-run</span>
-                <strong>{cleanupData?.confirm_token_expected ? "ready" : "pending"}</strong>
-                <p>{selectedImpactRows.length > 0 ? `${selectedImpactRows.length} impact` : "impact first"}</p>
-              </article>
-            </div>
-            <section className="toolbar cleanup-toolbar">
-              <input
-                ref={threadSearchInputRef}
-                placeholder={messages.toolbar.searchThreads}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    (e.currentTarget as HTMLInputElement).blur();
-                  }
-                }}
-                className="search-input"
-              />
-              <select
-                className="filter-select"
-                value={filterMode}
-                onChange={(e) => setFilterMode(e.target.value as "all" | "high-risk" | "pinned")}
-              >
-                <option value="all">{messages.toolbar.all}</option>
-                <option value="high-risk">{messages.toolbar.highRisk}</option>
-                <option value="pinned">{messages.toolbar.pinned}</option>
-              </select>
-              <span className="sub-hint">
-                fetch {threadsFetchMs !== null ? `${threadsFetchMs}ms` : "-"}
-              </span>
-              {threadsFastBooting ? (
-                <span className="sub-hint">fast boot</span>
-              ) : null}
-              <span className="sub-hint">review rail</span>
-            </section>
-          </div>
-        </section>
+        <ThreadsWorkbench
+          messages={messages}
+          threadSearchInputRef={threadSearchInputRef}
+          query={query}
+          onQueryChange={setQuery}
+          filterMode={filterMode}
+          onFilterModeChange={setFilterMode}
+          threadsFetchMs={threadsFetchMs}
+          threadsFastBooting={threadsFastBooting}
+          visibleCount={visibleRows.length}
+          filteredCount={filteredRows.length}
+          selectedCount={selectedIds.length}
+          dryRunReady={Boolean(cleanupData?.confirm_token_expected)}
+          selectedImpactCount={selectedImpactRows.length}
+          showForensics={showForensics}
+          threadsTableProps={{
+            messages,
+            visibleRows,
+            filteredRows,
+            totalCount: threads.data?.total ?? rows.length,
+            threadsLoading,
+            threadsError: threads.isError,
+            selected,
+            setSelected,
+            selectedThreadId,
+            setSelectedThreadId,
+            allFilteredSelected,
+            toggleSelectAllFiltered,
+            selectedIds,
+            selectedImpactCount: selectedImpactRows.length,
+            cleanupData,
+            busy,
+            threadActionsDisabled: showRuntimeBackendDegraded,
+            bulkPin,
+            bulkUnpin,
+            bulkArchive,
+            analyzeDelete,
+            cleanupDryRun,
+          }}
+          forensicsSlot={threadsForensicsSlot}
+        />
       ) : null}
 
-      {showThreadsTable ? (
-        <section className={`${showForensics ? "ops-layout" : "ops-layout single"}`.trim()}>
-          <ThreadsTable
-            messages={messages}
-            visibleRows={visibleRows}
-            filteredRows={filteredRows}
-            totalCount={threads.data?.total ?? rows.length}
-            threadsLoading={threadsLoading}
-            threadsError={threads.isError}
-            selected={selected}
-            setSelected={setSelected}
-            selectedThreadId={selectedThreadId}
-            setSelectedThreadId={setSelectedThreadId}
-            allFilteredSelected={allFilteredSelected}
-            toggleSelectAllFiltered={toggleSelectAllFiltered}
-            selectedIds={selectedIds}
-            selectedImpactCount={selectedImpactRows.length}
-            cleanupData={cleanupData}
-            busy={busy}
-            threadActionsDisabled={showRuntimeBackendDegraded}
-            bulkPin={bulkPin}
-            bulkUnpin={bulkUnpin}
-            bulkArchive={bulkArchive}
-            analyzeDelete={analyzeDelete}
-            cleanupDryRun={cleanupDryRun}
-          />
+      <DetailShell
+        messages={messages}
+        detailLayoutRef={detailLayoutRef}
+        showDetails={showDetails}
+        showThreadDetail={showThreadDetail}
+        showSessionDetail={showSessionDetail}
+        showProviders={showProviders}
+        threadDetailProps={{
+          messages,
+          selectedThread,
+          selectedThreadId,
+          visibleThreadCount: visibleRows.length,
+          filteredThreadCount: filteredRows.length,
+          highRiskCount,
+          nextThreadTitle: normalizeWorkbenchTitle(
+            visibleRows[0]?.title,
+            visibleRows[0]?.thread_id ? `thread ${visibleRows[0].thread_id.slice(0, 8)}` : "",
+          ),
+          nextThreadSource: visibleRows[0]?.source || "open from threads or recent review rows",
+          searchContext: searchThreadContext,
+          threadDetailLoading,
+          selectedThreadDetail,
+          threadTranscriptData,
+          threadTranscriptLoading,
+          threadTranscriptLimit,
+          setThreadTranscriptLimit,
+          busy,
+          threadActionsDisabled: showRuntimeBackendDegraded,
+          bulkPin,
+          bulkUnpin,
+          bulkArchive,
+          analyzeDelete,
+          cleanupDryRun,
+        }}
+        sessionDetailProps={{
+          messages,
+          selectedSession,
+          emptyScopeLabel: emptySessionScopeLabel,
+          emptyScopeRows: visibleProviderSessionSummary.rows,
+          emptyScopeReady: visibleProviderSessionSummary.parse_ok,
+          emptyNextSessionTitle: emptySessionNextTitle,
+          sessionTranscriptData,
+          sessionTranscriptLoading,
+          sessionTranscriptLimit,
+          setSessionTranscriptLimit,
+          busy,
+          canRunSessionAction: canRunSelectedSessionAction,
+          providerDeleteBackupEnabled,
+          setProviderDeleteBackupEnabled,
+          runSingleProviderAction,
+        }}
+      />
 
-          {showForensics ? (
-            <Suspense
-              fallback={
-                <section className="panel">
-                  <header>
-                    <h2>{messages.nav.forensics}</h2>
-                    <span>{messages.common.loading}</span>
-                  </header>
-                  <div className="sub-toolbar">
-                    <div className="skeleton-line" />
-                  </div>
-                </section>
-              }
-            >
-              <ForensicsPanel
-                messages={messages}
-                threadActionsDisabled={showRuntimeBackendDegraded}
-                selectedIds={selectedIds}
-                rows={rows}
-                busy={busy}
-                analyzeDelete={analyzeDelete}
-                cleanupDryRun={cleanupDryRun}
-                cleanupData={cleanupData}
-                selectedImpactRows={selectedImpactRows}
-                analysisRaw={analysisRaw}
-                cleanupRaw={cleanupRaw}
-                analyzeDeleteError={analyzeDeleteError}
-                cleanupDryRunError={cleanupDryRunError}
-                analyzeDeleteErrorMessage={analyzeDeleteErrorMessage}
-                cleanupDryRunErrorMessage={cleanupDryRunErrorMessage}
-              />
-            </Suspense>
-          ) : null}
-        </section>
-      ) : null}
-
-      {showDetails ? (
-        <section
-          ref={detailLayoutRef}
-          className={`detail-layout ${showThreadDetail && showSessionDetail ? "" : "single"}`.trim()}
-        >
-          {showThreadDetail ? (
-            <Suspense
-              fallback={
-                <section className="panel">
-                  <header>
-                    <h2>{messages.threadDetail.title}</h2>
-                    <span>{messages.common.loading}</span>
-                  </header>
-                  <div className="sub-toolbar">
-                    <div className="skeleton-line" />
-                  </div>
-                </section>
-              }
-            >
-              <ThreadDetail
-                messages={messages}
-                selectedThread={selectedThread}
-                selectedThreadId={selectedThreadId}
-                visibleThreadCount={visibleRows.length}
-                filteredThreadCount={filteredRows.length}
-                highRiskCount={highRiskCount}
-                nextThreadTitle={normalizeWorkbenchTitle(
-                  visibleRows[0]?.title,
-                  visibleRows[0]?.thread_id ? `thread ${visibleRows[0].thread_id.slice(0, 8)}` : "",
-                )}
-                nextThreadSource={visibleRows[0]?.source || "open from threads or recent review rows"}
-                searchContext={searchThreadContext}
-                threadDetailLoading={threadDetailLoading}
-                selectedThreadDetail={selectedThreadDetail}
-                threadTranscriptData={threadTranscriptData}
-                threadTranscriptLoading={threadTranscriptLoading}
-                threadTranscriptLimit={threadTranscriptLimit}
-                setThreadTranscriptLimit={setThreadTranscriptLimit}
-                busy={busy}
-                threadActionsDisabled={showRuntimeBackendDegraded}
-                bulkPin={bulkPin}
-                bulkUnpin={bulkUnpin}
-                bulkArchive={bulkArchive}
-                analyzeDelete={analyzeDelete}
-                cleanupDryRun={cleanupDryRun}
-              />
-            </Suspense>
-          ) : null}
-
-          {showSessionDetail && !showProviders ? (
-            <Suspense
-              fallback={
-                <section className="panel">
-                  <header>
-                    <h2>{messages.sessionDetail.title}</h2>
-                    <span>{messages.common.loading}</span>
-                  </header>
-                  <div className="sub-toolbar">
-                    <div className="skeleton-line" />
-                  </div>
-                </section>
-              }
-            >
-              <SessionDetail
-                messages={messages}
-                selectedSession={selectedSession}
-                emptyScopeLabel={emptySessionScopeLabel}
-                emptyScopeRows={visibleProviderSessionSummary.rows}
-                emptyScopeReady={visibleProviderSessionSummary.parse_ok}
-                emptyNextSessionTitle={emptySessionNextTitle}
-                sessionTranscriptData={sessionTranscriptData}
-                sessionTranscriptLoading={sessionTranscriptLoading}
-                sessionTranscriptLimit={sessionTranscriptLimit}
-                setSessionTranscriptLimit={setSessionTranscriptLimit}
-                busy={busy}
-                canRunSessionAction={canRunSelectedSessionAction}
-                providerDeleteBackupEnabled={providerDeleteBackupEnabled}
-                setProviderDeleteBackupEnabled={setProviderDeleteBackupEnabled}
-                runSingleProviderAction={runSingleProviderAction}
-              />
-            </Suspense>
-          ) : null}
-        </section>
-      ) : null}
-
-        {hasGlobalErrorStack ? (
-          <section className="error-stack" aria-live="polite">
-            <div className="error-stack-head">
-              <span className="overview-note-label">runtime issues</span>
-            <strong>Some runtime actions are blocked.</strong>
-            </div>
-          <div className="error-stack-list">
-            {runtime.isError ? <div className="error-box">{messages.errors.runtime}</div> : null}
-            {smokeStatus.isError ? <div className="error-box">{messages.errors.smokeStatus}</div> : null}
-            {recovery.isError ? <div className="error-box">{messages.errors.recovery}</div> : null}
-            {providerMatrix.isError ? <div className="error-box">{messages.errors.providerMatrix}</div> : null}
-            {providerSessions.isError ? <div className="error-box">{messages.errors.providerSessions}</div> : null}
-            {providerParserHealth.isError ? <div className="error-box">{messages.errors.parserHealth}</div> : null}
-            {showGlobalAnalyzeDeleteError ? (
-              <div className="error-box">
-                <div>{messages.errors.impactAnalysis}</div>
-                {analyzeDeleteErrorMessage ? <div className="mono-sub">{analyzeDeleteErrorMessage}</div> : null}
-              </div>
-            ) : null}
-            {showGlobalCleanupDryRunError ? (
-              <div className="error-box">
-                <div>{messages.errors.cleanupDryRun}</div>
-                {cleanupDryRunErrorMessage ? <div className="mono-sub">{cleanupDryRunErrorMessage}</div> : null}
-              </div>
-            ) : null}
-            {providerSessionActionError ? (
-              <div className="error-box">
-                <div>{messages.errors.providerAction}</div>
-                {providerSessionActionErrorMessage ? <div className="mono-sub">{providerSessionActionErrorMessage}</div> : null}
-              </div>
-            ) : null}
-            {bulkActionError && !showRuntimeBackendDegraded ? (
-              <div className="error-box">
-                <div>{messages.errors.threadAction}</div>
-                {bulkActionErrorMessage ? <div className="mono-sub">{bulkActionErrorMessage}</div> : null}
-              </div>
-            ) : null}
-          </div>
-        </section>
-      ) : null}
-        {busy ? <div className="busy-indicator">{messages.busy}</div> : null}
+      <RuntimeFeedbackStack
+        messages={messages}
+        hasGlobalErrorStack={hasGlobalErrorStack}
+        runtimeError={runtime.isError}
+        smokeStatusError={smokeStatus.isError}
+        recoveryError={recovery.isError}
+        providerMatrixError={providerMatrix.isError}
+        providerSessionsError={providerSessions.isError}
+        providerParserHealthError={providerParserHealth.isError}
+        showGlobalAnalyzeDeleteError={showGlobalAnalyzeDeleteError}
+        analyzeDeleteErrorMessage={analyzeDeleteErrorMessage}
+        showGlobalCleanupDryRunError={showGlobalCleanupDryRunError}
+        cleanupDryRunErrorMessage={cleanupDryRunErrorMessage}
+        providerSessionActionError={Boolean(providerSessionActionError)}
+        providerSessionActionErrorMessage={providerSessionActionErrorMessage}
+        bulkActionError={Boolean(bulkActionError)}
+        bulkActionErrorMessage={bulkActionErrorMessage}
+        showRuntimeBackendDegraded={showRuntimeBackendDegraded}
+        busy={busy}
+      />
       </main>
     </div>
   );

@@ -1,0 +1,308 @@
+/* ══════════════════════════════════════════════════════════
+   Provider Observatory — Quartz Mono
+   Cold graphite base with restrained quartz highlights
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Design Tokens (Dark — Quartz Mono) ───────────────── */
+:root {
+  --font-sans: "Manrope", sans-serif;
+  --font-heading: var(--font-sans);
+  --font-body: var(--font-sans);
+  --font-label: var(--font-sans);
+  --font-mono: var(--font-sans);
+
+  --bg: #0b0c0d;
+  --bg-elev: #121416;
+  --panel: #17191b;
+  --panel-glass: rgba(23, 25, 27, 0.6);
+  --line: #303438;
+  --line-soft: #24282c;
+
+  --text: #f2f2ef;
+  --text-secondary: #b5bab5;
+  --muted: #7f867f;
+
+  --accent: #b5c2ca;
+  --accent-strong: #e2ebef;
+  --accent-dim: rgba(181, 194, 202, 0.14);
+  --accent-glow: rgba(181, 194, 202, 0.24);
+  --gradient-accent: linear-gradient(135deg, #edf1f3 0%, #c7d1d8 46%, #7a858c 100%);
+  --gradient-accent-subtle: linear-gradient(135deg, rgba(226, 235, 239, 0.08) 0%, rgba(181, 194, 202, 0.04) 100%);
+
+  --success: #7ea38d;
+  --success-dim: rgba(126, 163, 141, 0.12);
+  --warn: #a07a68;
+  --warn-dim: rgba(160, 122, 104, 0.10);
+  --info: #8fa8bc;
+  --info-dim: rgba(143, 168, 188, 0.10);
+
+  --hover: rgba(181, 194, 202, 0.09);
+  --active: rgba(181, 194, 202, 0.18);
+
+  --hero-bg: linear-gradient(155deg, #181b1d 0%, #131517 50%, #0f1112 100%);
+  --chip-bg: rgba(181, 194, 202, 0.06);
+  --tab-bg: #141618;
+  --tab-active-bg: rgba(181, 194, 202, 0.12);
+  --table-head-bg: rgba(18, 20, 22, 0.94);
+  --btn-bg: rgba(22, 26, 30, 0.9);
+  --btn-base-bg: rgba(31, 39, 46, 0.96);
+  --btn-accent-bg: linear-gradient(180deg, rgba(143, 168, 188, 0.18), rgba(82, 103, 121, 0.9));
+  --chat-log-bg: #0f1112;
+
+  --assistant-bg: rgba(149, 174, 187, 0.05);
+  --assistant-border: rgba(149, 174, 187, 0.18);
+  --user-bg: rgba(181, 194, 202, 0.05);
+  --user-border: rgba(181, 194, 202, 0.18);
+
+  --focus-ring: rgba(181, 194, 202, 0.24);
+  --badge-bg: rgba(226, 235, 239, 0.08);
+  --badge-text: #dde5e8;
+
+  --error-border: rgba(231, 150, 150, 0.34);
+  --error-bg: rgba(231, 150, 150, 0.10);
+  --error-text: #efc0c0;
+  --busy-border: rgba(206, 177, 128, 0.34);
+  --busy-bg: rgba(206, 177, 128, 0.10);
+  --busy-text: #ead7b3;
+
+  --glass-low: rgba(255, 255, 255, 0.06);
+  --glass-mid: rgba(255, 255, 255, 0.11);
+  --glass-high: rgba(255, 255, 255, 0.18);
+
+  --shadow-sm: 0 1px 0 rgba(255, 255, 255, 0.08), 0 12px 28px rgba(0, 0, 0, 0.24);
+  --shadow-md: 0 1px 0 rgba(255, 255, 255, 0.1), 0 20px 44px rgba(0, 0, 0, 0.28);
+  --shadow-lg: 0 1px 0 rgba(255, 255, 255, 0.12), 0 32px 72px rgba(0, 0, 0, 0.34);
+  --shadow-glow: 0 18px 42px rgba(120, 138, 150, 0.14);
+  --text-3xs: 0.49rem;
+  --text-2xs: 0.55rem;
+  --text-xs: 0.6rem;
+  --text-sm: 0.68rem;
+  --text-base: 0.78rem;
+  --text-md: 0.88rem;
+  --text-lg: 1rem;
+  --text-xl: 1.2rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 2rem;
+  --text-4xl: clamp(2.5rem, 4vw, 4rem);
+  --blur-sm: 8px;
+  --blur-md: 18px;
+  --blur-lg: 28px;
+  --blur-xl: 38px;
+  --surface-card-bg-ghost: color-mix(in srgb, var(--surface-card-bg) 58%, transparent);
+  --surface-card-bg-subtle: color-mix(in srgb, var(--surface-card-bg) 78%, transparent);
+  --surface-card-strong-ghost: color-mix(in srgb, var(--surface-card-bg-strong) 66%, transparent);
+  --surface-card-strong-subtle: color-mix(in srgb, var(--surface-card-bg-strong) 84%, transparent);
+  --surface-stage-ghost: color-mix(in srgb, var(--surface-stage-bg) 46%, transparent);
+  --surface-stage-subtle: color-mix(in srgb, var(--surface-stage-bg) 82%, transparent);
+  --surface-nav-ghost: color-mix(in srgb, var(--surface-nav-bg) 64%, transparent);
+  --surface-nav-subtle: color-mix(in srgb, var(--surface-nav-bg) 84%, transparent);
+  --surface-pill-ghost: color-mix(in srgb, var(--surface-pill-bg) 84%, transparent);
+  --surface-border-ghost: color-mix(in srgb, var(--surface-card-border) 72%, transparent);
+  --surface-border-subtle: color-mix(in srgb, var(--surface-card-border) 88%, transparent);
+  --page-bg: #080b12;
+  --page-haze: linear-gradient(180deg, rgba(33, 41, 49, 0.4), rgba(8, 11, 18, 0.08));
+  --surface-shell-bg: rgba(11, 14, 18, 0.9);
+  --surface-shell-border: rgba(198, 214, 226, 0.12);
+  --surface-shell-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(181, 194, 202, 0.04), 0 22px 52px rgba(0, 0, 0, 0.42);
+  --surface-nav-bg: rgba(14, 17, 21, 0.92);
+  --surface-nav-border: rgba(198, 214, 226, 0.1);
+  --surface-nav-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(181, 194, 202, 0.04), 0 14px 30px rgba(0, 0, 0, 0.32);
+  --surface-stage-bg: rgba(14, 18, 23, 0.94);
+  --surface-stage-border: rgba(198, 214, 226, 0.11);
+  --surface-stage-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(181, 194, 202, 0.04), 0 30px 68px rgba(0, 0, 0, 0.42);
+  --surface-card-bg: rgba(18, 23, 28, 0.92);
+  --surface-card-bg-strong: rgba(21, 27, 33, 0.96);
+  --surface-card-border: rgba(188, 207, 220, 0.11);
+  --surface-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 18px 34px rgba(0, 0, 0, 0.3);
+  --surface-pill-bg: rgba(191, 208, 221, 0.06);
+  --surface-pill-border: rgba(203, 220, 232, 0.11);
+  --surface-pill-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --surface-active-bg: #708796;
+  --surface-active-text: #f4f8ff;
+  --surface-active-shadow: 0 16px 30px rgba(61, 78, 89, 0.28);
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-shell-md: 24px;
+  --radius-shell-lg: 28px;
+  --radius-shell-xl: 32px;
+  --radius-pill: 999px;
+  --transition: 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Light theme ──────────────────────────────────────── */
+:root[data-theme="light"] {
+  --bg: #f8f9fb;
+  --bg-elev: #f1f4f7;
+  --panel: #ffffff;
+  --panel-glass: rgba(248, 249, 251, 0.84);
+  --line: #aab3b9;
+  --line-soft: #dbe4ea;
+  --text: #2b3438;
+  --text-secondary: #586065;
+  --muted: #737c81;
+  --accent: #496177;
+  --accent-strong: #294256;
+  --accent-dim: rgba(73, 97, 119, 0.08);
+  --accent-glow: rgba(73, 97, 119, 0.12);
+  --gradient-accent: linear-gradient(135deg, #496177 0%, #6e8599 100%);
+  --gradient-accent-subtle: linear-gradient(135deg, rgba(73, 97, 119, 0.08) 0%, rgba(204, 229, 255, 0.38) 100%);
+  --success: #587163;
+  --success-dim: rgba(88, 113, 99, 0.08);
+  --warn: #845f4c;
+  --warn-dim: rgba(132, 95, 76, 0.08);
+  --info: #576d82;
+  --info-dim: rgba(87, 109, 130, 0.08);
+  --hover: rgba(73, 97, 119, 0.05);
+  --active: rgba(73, 97, 119, 0.1);
+  --hero-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.74) 0%, rgba(241, 244, 247, 0.44) 100%);
+  --chip-bg: rgba(241, 244, 247, 0.9);
+  --tab-bg: #f1f4f7;
+  --tab-active-bg: rgba(73, 97, 119, 0.1);
+  --table-head-bg: rgba(241, 244, 247, 0.96);
+  --btn-bg: rgba(243, 246, 249, 0.98);
+  --btn-base-bg: rgba(231, 237, 242, 0.98);
+  --btn-accent-bg: linear-gradient(180deg, rgba(73, 97, 119, 0.92), rgba(61, 82, 99, 0.98));
+  --chat-log-bg: #f8f9fb;
+  --assistant-bg: rgba(73, 97, 119, 0.05);
+  --assistant-border: rgba(73, 97, 119, 0.14);
+  --user-bg: rgba(84, 96, 110, 0.05);
+  --user-border: rgba(84, 96, 110, 0.12);
+  --focus-ring: rgba(73, 97, 119, 0.18);
+  --badge-bg: rgba(73, 97, 119, 0.08);
+  --badge-text: #3c546a;
+  --error-border: rgba(159, 64, 61, 0.24);
+  --error-bg: rgba(159, 64, 61, 0.08);
+  --error-text: #752121;
+  --busy-border: rgba(138, 112, 76, 0.24);
+  --busy-bg: rgba(138, 112, 76, 0.08);
+  --busy-text: #6b5637;
+  --glass-low: rgba(255, 255, 255, 0.58);
+  --glass-mid: rgba(255, 255, 255, 0.72);
+  --glass-high: rgba(255, 255, 255, 0.84);
+  --shadow-sm: inset 0 1px 0 rgba(255, 255, 255, 0.82), 0 8px 18px rgba(43, 52, 56, 0.04);
+  --shadow-md: inset 0 1px 0 rgba(255, 255, 255, 0.82), 0 16px 34px rgba(43, 52, 56, 0.06);
+  --shadow-lg: inset 0 0 20px rgba(255, 255, 255, 0.75), 0 40px 100px rgba(43, 52, 56, 0.08);
+  --shadow-glow: 0 18px 36px rgba(43, 52, 56, 0.06);
+  --page-bg: #f8f9fb;
+  --page-haze: linear-gradient(180deg, rgba(255, 255, 255, 0.008), rgba(255, 255, 255, 0));
+  --surface-shell-bg: rgba(248, 249, 251, 0.965);
+  --surface-shell-border: rgba(160, 170, 178, 0.28);
+  --surface-shell-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 10px 24px rgba(43, 52, 56, 0.048);
+  --surface-nav-bg: rgba(248, 249, 251, 0.955);
+  --surface-nav-border: rgba(160, 170, 178, 0.24);
+  --surface-nav-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 8px 20px rgba(43, 52, 56, 0.038);
+  --surface-stage-bg: linear-gradient(135deg, rgba(250, 251, 252, 0.95) 0%, rgba(240, 243, 246, 0.9) 100%);
+  --surface-stage-border: rgba(160, 170, 178, 0.26);
+  --surface-stage-shadow: inset 0 0 10px rgba(255, 255, 255, 0.58), 0 16px 36px rgba(43, 52, 56, 0.048);
+  --surface-card-bg: rgba(251, 252, 253, 0.92);
+  --surface-card-bg-strong: rgba(252, 253, 255, 0.96);
+  --surface-card-border: rgba(160, 170, 178, 0.26);
+  --surface-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88), 0 10px 22px rgba(43, 52, 56, 0.04);
+  --surface-pill-bg: rgba(241, 244, 247, 0.9);
+  --surface-pill-border: rgba(170, 179, 185, 0.16);
+  --surface-pill-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  --surface-active-bg: #496177;
+  --surface-active-text: #f4f8ff;
+  --surface-active-shadow: 0 16px 30px rgba(73, 97, 119, 0.16);
+}
+
+:root:not([data-theme="light"]) .overview-command-shell,
+:root:not([data-theme="light"]) .search-command-shell,
+:root:not([data-theme="light"]) .provider-archive-stage,
+:root:not([data-theme="light"]) .threads-table-panel {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(181, 194, 202, 0.04),
+    0 22px 52px rgba(0, 0, 0, 0.36);
+}
+
+:root:not([data-theme="light"]) .overview-insight-card.is-primary,
+:root:not([data-theme="light"]) .overview-insight-card.is-review,
+:root:not([data-theme="light"]) .overview-side-card,
+:root:not([data-theme="light"]) .provider-workspace-primary,
+:root:not([data-theme="light"]) .provider-workspace-actions {
+  border-color: rgba(188, 207, 220, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(181, 194, 202, 0.03),
+    0 16px 34px rgba(0, 0, 0, 0.28);
+}
+
+:root:not([data-theme="light"]) .overview-insight-card.is-primary {
+  background: rgba(21, 27, 33, 0.97);
+}
+
+:root:not([data-theme="light"]) .overview-insight-card.is-review {
+  background: rgba(19, 25, 31, 0.95);
+}
+
+:root:not([data-theme="light"]) .overview-insight-card.is-primary strong,
+:root:not([data-theme="light"]) .overview-insight-card.is-review strong,
+:root:not([data-theme="light"]) .overview-side-head strong,
+:root:not([data-theme="light"]) .search-stage-title h2,
+:root:not([data-theme="light"]) .provider-archive-stage > header h2,
+:root:not([data-theme="light"]) .threads-table-panel > header h2 {
+  color: var(--accent-strong);
+}
+
+:root[data-theme="light"] .overview-command-shell,
+:root[data-theme="light"] .search-command-shell,
+:root[data-theme="light"] .provider-archive-stage,
+:root[data-theme="light"] .threads-table-panel,
+:root[data-theme="light"] .thread-review-panel,
+:root[data-theme="light"] .session-detail-panel,
+:root[data-theme="light"] .routing-workbench-panel {
+  border-color: rgba(164, 173, 180, 0.24);
+  background: color-mix(in srgb, var(--surface-stage-bg) 88%, rgb(238, 242, 246) 12%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.88),
+    0 12px 28px rgba(43, 52, 56, 0.05);
+  backdrop-filter: blur(14px);
+}
+
+:root[data-theme="light"] .overview-insight-card.is-primary,
+:root[data-theme="light"] .overview-insight-card.is-review,
+:root[data-theme="light"] .overview-side-card,
+:root[data-theme="light"] .search-result-card-stage,
+:root[data-theme="light"] .provider-advanced-shell,
+:root[data-theme="light"] .routing-stage-shell,
+:root[data-theme="light"] .routing-node-card,
+:root[data-theme="light"] .thread-review-card {
+  border-color: rgba(164, 173, 180, 0.24);
+  background: color-mix(in srgb, var(--surface-card-bg-strong) 90%, rgb(238, 242, 246) 10%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.88),
+    0 10px 24px rgba(43, 52, 56, 0.042);
+}
+
+:root[data-theme="light"] .overview-insight-card.is-primary,
+:root[data-theme="light"] .overview-insight-card.is-review,
+:root[data-theme="light"] .overview-side-card,
+:root[data-theme="light"] .search-result-card-stage {
+  background: color-mix(in srgb, var(--surface-card-bg-strong) 92%, rgb(238, 242, 246) 8%);
+}
+
+:root[data-theme="light"] .overview-command-shell,
+:root[data-theme="light"] .search-command-shell {
+  background: color-mix(in srgb, var(--surface-card-bg-strong) 92%, rgb(236, 240, 244) 8%);
+}
+
+:root[data-theme="light"] .provider-archive-stage,
+:root[data-theme="light"] .routing-workbench-panel {
+  background: color-mix(in srgb, var(--surface-stage-bg) 82%, rgb(234, 239, 243) 18%);
+}
+
+:root[data-theme="light"] .provider-workspace-primary,
+:root[data-theme="light"] .provider-workspace-actions,
+:root[data-theme="light"] .provider-summary-cell,
+:root[data-theme="light"] .provider-selection-preview,
+:root[data-theme="light"] .provider-inline-result,
+:root[data-theme="light"] .routing-stage-shell,
+:root[data-theme="light"] .routing-stage-summary-card,
+:root[data-theme="light"] .routing-node-card {
+  background: color-mix(in srgb, var(--surface-card-bg-strong) 84%, rgb(234, 239, 243) 16%);
+}
