@@ -42,6 +42,24 @@ describe("workbench helpers", () => {
       normalizeWorkbenchTitle("550e8400-e29b-41d4-a716-446655440000", "Fallback"),
     ).toBe("Fallback");
     expect(normalizeWorkbenchTitle("Actual title", "Fallback")).toBe("Actual title");
+    expect(
+      normalizeWorkbenchTitle(
+        "Continue from `/user-root/developer/workspace-root/local-root/worktree-cache/provider-surface-workspace-surface-20260320`",
+        "Fallback",
+      ),
+    ).toBe("Continue from local workspace");
+    expect(
+      normalizeWorkbenchTitle(
+        "local workspace workspace-surface-20260320/docs/HANDOFF_INDEX_2026-03-20.md",
+        "Fallback",
+      ),
+    ).toBe("local workspace");
+    expect(
+      normalizeWorkbenchTitle(
+        "/user-root/developer/workspace-root/local-root/threadlens/docs/HANDOFF_INDEX_2026-03-20.md",
+        "Fallback",
+      ),
+    ).toBe("local workspace");
   });
 
   it("formats workbench day and time labels", () => {

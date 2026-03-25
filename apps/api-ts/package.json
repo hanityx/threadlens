@@ -9,7 +9,7 @@
     "build": "pnpm --filter @threadlens/shared-contracts build && tsc -p tsconfig.json",
     "bundle:desktop": "pnpm --filter @threadlens/shared-contracts build && rm -rf dist-electron && esbuild src/cli.ts --bundle --platform=node --format=cjs --target=node20 --define:import.meta.url='\"file:///threadlens/api-cli.mjs\"' --outfile=dist-electron/server.cjs",
     "start": "node dist/cli.js",
-    "test": "vitest run",
+    "test": "pnpm --filter @threadlens/shared-contracts build && vitest run",
     "lint": "pnpm --filter @threadlens/shared-contracts build && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

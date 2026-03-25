@@ -44,7 +44,11 @@ async function openPrimaryView(page: Page, label: "Threads" | "Providers") {
   const nav = page.getByRole("navigation", { name: /surface tabs/i }).first();
   const button = nav.getByRole("button", { name: target }).first();
   await button.click();
-  await expect(button).toHaveClass(/is-active/);
+  if (label === "Threads") {
+    await expect(page.getByRole("button", { name: bulkPinLabel }).first()).toBeVisible();
+    return;
+  }
+  await expect(page.getByRole("heading", { name: originalSessionsTitle }).first()).toBeVisible();
 }
 
 async function selectProviderChip(page: Page, label: RegExp) {
@@ -436,6 +440,11 @@ test("providers workspace surfaces backup-first controls", async ({ page }, test
     .filter({ has: page.getByRole("heading", { name: originalSessionsTitle }) })
     .last();
   await expect(sessionsPanel.getByRole("heading", { name: originalSessionsTitle }).first()).toBeVisible();
+  await page
+    .locator(".provider-side-stack details")
+    .filter({ hasText: /Backup & export/i })
+    .locator("summary")
+    .click();
   await expect(page.getByRole("button", { name: backupSelectedLabel }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: bundleAllBackupsLabel })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("providers-flow-en.png"), fullPage: true });
@@ -449,6 +458,11 @@ test("backup action executes in one click for selected provider sessions", async
   await openPrimaryView(page, "Providers");
   await selectProviderChip(page, /^Codex/i);
   await page.locator("tbody input[type='checkbox']").first().check();
+  await page
+    .locator(".provider-side-stack details")
+    .filter({ hasText: /Backup & export/i })
+    .locator("summary")
+    .click();
 
   await page.getByRole("button", { name: backupSelectedLabel }).first().click();
   await expect.poll(() => providerActionCalls.length).toBe(1);

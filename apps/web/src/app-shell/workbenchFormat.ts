@@ -3,6 +3,7 @@ const railDayFormatter = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
 });
 const HOME_PATH_MARKER = `/${"Users"}/`;
+const WORKTREE_MARKER = "worktree-cache/";
 
 const railTimeFormatter = new Intl.DateTimeFormat("en-US", {
   hour: "numeric",
@@ -49,7 +50,22 @@ export const normalizeWorkbenchTitle = (value?: string | null, fallback?: string
   if (uuidLike && fallbackText) {
     return fallbackText;
   }
-  return trimmed;
+  const sanitized = trimmed.replace(
+    /`?(?:\/Users\/[^\s`]+|~\/[^\s`]+|Labs\/[^\s`]+)`?/g,
+    (rawPath) => {
+      const cleaned = rawPath.replace(/[`]/g, "").replace(/\/$/, "");
+      const parts = cleaned.split("/").filter(Boolean);
+      const tail = parts.slice(-2).join("/");
+      if (!tail || cleaned.includes(WORKTREE_MARKER) || cleaned.includes(HOME_PATH_MARKER)) {
+        return "local workspace";
+      }
+      return tail;
+    },
+  );
+  return sanitized
+    .replace(/\b(?:provider-surface|workspace-surface|quartz-\d{8}|history-clean-\d{8})[^\s`]*/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 };
 
 export const normalizeWorkbenchSessionTitle = (
