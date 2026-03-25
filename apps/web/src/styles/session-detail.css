@@ -14,6 +14,10 @@
   box-shadow: var(--surface-stage-shadow);
   position: sticky;
   top: 8px;
+  overflow: hidden;
+  max-height: calc(100vh - 16px);
+  display: flex;
+  flex-direction: column;
 }
 
 .thread-review-panel > header {
@@ -290,7 +294,7 @@
   min-height: 320px;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  flex: 1 1 320px;
+  flex: 1 1 480px;
   order: 2;
 }
 
@@ -311,7 +315,7 @@
 
 .session-detail-panel .transcript-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 132px;
+  grid-template-columns: minmax(0, 1fr) 172px;
   gap: 6px;
   align-items: start;
 }
@@ -570,7 +574,7 @@
 }
 
 .thread-review-panel .transcript-role-filter {
-  min-width: 132px;
+  min-width: 160px;
 }
 
 .thread-review-panel .transcript-actions-row {

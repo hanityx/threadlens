@@ -876,7 +876,11 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
             />
           }
         />
-        {diagnosticsSlot ? <div className="provider-routing-tools-main">{diagnosticsSlot}</div> : null}
+        {diagnosticsSlot ? (
+          <div className="provider-routing-tools-main provider-routing-diagnostics-block">
+            {diagnosticsSlot}
+          </div>
+        ) : null}
       </div>
     </>
   );

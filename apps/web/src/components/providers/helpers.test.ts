@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   compactSessionId,
   compactSessionTitle,
@@ -7,6 +7,7 @@ import {
   formatBytes,
   formatFetchMs,
   providerFromDataSource,
+  suppressMouseFocus,
 } from "./helpers";
 
 describe("provider helpers", () => {
@@ -42,5 +43,15 @@ describe("provider helpers", () => {
     expect(dataSourceLabel("global_state")).toBe("Global state");
     expect(dataSourceLabel("copilot_cursor_workspace")).toBe("Copilot Cursor workspace");
     expect(dataSourceLabel("custom_source_key")).toBe("Custom Source Key");
+  });
+
+  it("suppresses mouse focus without blocking keyboard-triggered activation", () => {
+    const mousePreventDefault = vi.fn();
+    suppressMouseFocus({ detail: 1, preventDefault: mousePreventDefault });
+    expect(mousePreventDefault).toHaveBeenCalledTimes(1);
+
+    const keyboardPreventDefault = vi.fn();
+    suppressMouseFocus({ detail: 0, preventDefault: keyboardPreventDefault });
+    expect(keyboardPreventDefault).not.toHaveBeenCalled();
   });
 });

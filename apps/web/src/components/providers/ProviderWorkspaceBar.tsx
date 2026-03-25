@@ -1,7 +1,7 @@
 import type { Messages } from "../../i18n";
 import { formatDateTime } from "../../lib/helpers";
 import type { ProviderSessionRow, ProviderView } from "../../types";
-import { compactSessionTitle } from "./helpers";
+import { compactSessionTitle, suppressMouseFocus } from "./helpers";
 
 type ProviderChipTab = {
   id: ProviderView;
@@ -86,9 +86,9 @@ export function ProviderWorkspaceBar({
           </div>
 
           <div className="provider-workspace-copy">
-            <span className="overview-note-label">original sessions</span>
+            <span className="overview-note-label">sessions</span>
             <strong>{providerLabel} sessions</strong>
-            <p>archive / transcript</p>
+            <p>Browse, back up, and export.</p>
           </div>
 
           <div className="provider-workspace-summary">
@@ -122,6 +122,7 @@ export function ProviderWorkspaceBar({
                     key={`workspace-recent-${row.file_path}`}
                     type="button"
                     className={`provider-workspace-recent-item ${selectedSessionPath === row.file_path ? "is-active" : ""}`.trim()}
+                    onMouseDown={suppressMouseFocus}
                     onClick={() => onSelectRecentRow(row)}
                   >
                     <strong>

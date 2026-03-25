@@ -1,25 +1,25 @@
 import { expect, type Page, test } from "@playwright/test";
 
 const SCHEMA_VERSION = "2026-02-27";
-const threadsTabLabel = /^(Threads|Review|Cleanup|Codex Cleanup|스레드|리뷰|정리|Codex 정리실)$/i;
-const providersTabLabel = /^(Providers|Sessions|Source Sessions|Session Vault|프로바이더|AI 관리|원본 세션실)$/i;
-const selectAllInTabLabel = /^(Select all in tab|Select all in current tab|Select tab|현재 탭 전체 선택)$/i;
-const selectAllFilteredLabel = /^(Select all filtered|Select all in current filter|Select filtered|현재 필터 전체 선택)$/i;
-const deleteDryRunLabel = /^(Delete dry-run|Delete source files \(dry-run\)|원본 파일 삭제 드라이런|삭제 드라이런)$/i;
-const deleteLabel = /^(Delete|Delete source files|Delete locally|삭제|원본 파일 삭제)$/i;
-const bulkPinLabel = /^(Bulk Pin|Pin selected|Pin|일괄 고정)$/i;
-const threadDetailTitle = /^(Thread Detail|Selected Thread Detail|스레드 상세|선택한 스레드 상세)$/i;
-const impactAnalysisLabel = /^(Impact Analysis|Impact|영향 분석)$/i;
-const cleanupDryRunLabel = /^(Cleanup Dry-Run|Dry-run|정리 드라이런)$/i;
-const originalSessionsTitle = /^(Sessions|Original Sessions|Source Sessions|Session Vault|원본 세션)$/i;
-const backupSelectedLabel = /^(Backup Selected Sessions|Back up selected sessions|Back up selected|선택 세션 백업)$/i;
-const bundleAllBackupsLabel = /^(Bundle All Backups|Export backup bundle|Export full backup bundle|Export bundle|통 백업 묶기)$/i;
-const searchTabLabel = /^(Search|Conversation Search|원문 검색|전체 대화 검색)$/i;
-const searchPlaceholder = /^(Search your own words, filenames, or keywords|Search conversations|내가 했던 말, 파일명, 키워드를 검색)/i;
+const threadsTabLabel = /^(Threads|Review|Cleanup|Codex Cleanup)$/i;
+const providersTabLabel = /^(Providers|Sessions|Source Sessions|Session Vault)$/i;
+const selectAllInTabLabel = /^(Select all in tab|Select all in current tab|Select tab)$/i;
+const selectAllFilteredLabel = /^(Select all filtered|Select all in current filter|Select filtered)$/i;
+const deleteDryRunLabel = /^(Delete dry-run|Delete source files \(dry-run\))$/i;
+const deleteLabel = /^(Delete|Delete source files|Delete locally)$/i;
+const bulkPinLabel = /^(Bulk Pin|Pin selected|Pin)$/i;
+const threadDetailTitle = /^(Thread Detail|Selected Thread Detail)$/i;
+const impactAnalysisLabel = /^(Impact Analysis|Impact)$/i;
+const cleanupDryRunLabel = /^(Cleanup Dry-Run|Dry-run)$/i;
+const originalSessionsTitle = /^(Sessions|Original Sessions|Source Sessions|Session Vault)$/i;
+const backupSelectedLabel = /^(Backup Selected Sessions|Back up selected sessions|Back up selected)$/i;
+const bundleAllBackupsLabel = /^(Bundle All Backups|Export backup bundle|Export full backup bundle|Export bundle)$/i;
+const searchTabLabel = /^(Search|Conversation Search)$/i;
+const searchPlaceholder = /^(Search your own words, filenames, or keywords|Search conversations)$/i;
 const codexSearchResultLabel = /Fix token flow/i;
 const claudeSearchResultLabel = /Claude notes/i;
-const openThreadLabel = /^(Open Codex Cleanup|Review|Codex 정리 열기)$/i;
-const openSessionLabel = /^(Open Source Session|Session|원본 세션 열기)$/i;
+const openThreadLabel = /^(Open Codex Cleanup|Review)$/i;
+const openSessionLabel = /^(Open Source Session|Session)$/i;
 
 type MockApiOptions = {
   providerActionCalls?: Array<Record<string, unknown>>;

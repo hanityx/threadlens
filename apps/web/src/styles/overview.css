@@ -494,6 +494,10 @@
   font-family: var(--font-heading);
   font-weight: 700;
   max-width: 13ch;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .overview-review-meta {
@@ -528,6 +532,10 @@
   letter-spacing: -0.03em;
   font-family: var(--font-heading);
   font-weight: 700;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .overview-review-list-item span {

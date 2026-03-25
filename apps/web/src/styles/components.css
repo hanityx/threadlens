@@ -194,7 +194,7 @@ button {
   align-items: center;
   justify-content: center;
   min-height: 40px;
-  border: 1px solid var(--line);
+  border: 0;
   background: var(--btn-bg);
   color: var(--text);
   border-radius: var(--radius-md);
@@ -208,7 +208,6 @@ button {
 }
 
 button:hover {
-  border-color: var(--accent-glow);
   background: var(--hover);
 }
 
@@ -224,60 +223,52 @@ button:disabled {
 
 .btn-base {
   background: var(--btn-base-bg);
-  border-color: var(--surface-btn-base-border);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: none;
 }
 
 .btn-accent {
-  border-color: var(--surface-btn-accent-border);
   background: var(--btn-accent-bg);
   color: var(--surface-active-text);
   font-weight: 600;
-  box-shadow: 0 12px 26px -18px var(--accent-glow);
+  box-shadow: none;
 }
 
 .btn-accent:hover {
-  border-color: var(--surface-btn-accent-hover-border);
-  filter: saturate(1.02) brightness(1.02);
+  background: var(--btn-accent-hover-bg);
+  filter: none;
 }
 
 .btn-danger {
-  border-color: rgba(248, 113, 113, 0.58);
-  background: linear-gradient(135deg, rgba(127, 29, 29, 0.82), rgba(69, 10, 10, 0.94));
+  background: var(--btn-danger-bg);
   color: #ffe4e6;
   font-weight: 700;
-  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.14), 0 12px 32px rgba(127, 29, 29, 0.22);
+  box-shadow: none;
 }
 
 .btn-danger:hover {
-  border-color: rgba(252, 165, 165, 0.68);
-  background: linear-gradient(135deg, rgba(153, 27, 27, 0.9), rgba(69, 10, 10, 0.98));
-  box-shadow: 0 0 0 1px rgba(252, 165, 165, 0.16), 0 14px 36px rgba(127, 29, 29, 0.28);
+  background: var(--btn-danger-hover-bg);
+  box-shadow: none;
 }
 
 .btn-danger {
-  border-color: rgba(248, 113, 113, 0.58);
-  background: linear-gradient(135deg, rgba(127, 29, 29, 0.82), rgba(69, 10, 10, 0.94));
+  background: var(--btn-danger-bg);
   color: #ffe4e6;
   font-weight: 700;
-  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.14), 0 12px 32px rgba(127, 29, 29, 0.22);
+  box-shadow: none;
 }
 
 .btn-danger:hover {
-  border-color: rgba(252, 165, 165, 0.68);
-  background: linear-gradient(135deg, rgba(153, 27, 27, 0.9), rgba(69, 10, 10, 0.98));
-  box-shadow: 0 0 0 1px rgba(252, 165, 165, 0.16), 0 14px 36px rgba(127, 29, 29, 0.28);
+  background: var(--btn-danger-hover-bg);
+  box-shadow: none;
 }
 
 .btn-outline {
   background: var(--surface-btn-outline);
-  border-color: var(--surface-pill-border);
   color: var(--text);
-  box-shadow: var(--surface-pill-shadow);
+  box-shadow: none;
 }
 
 .btn-outline:hover {
-  border-color: var(--accent);
   background: var(--surface-btn-outline-hover);
 }
 
@@ -303,7 +294,7 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   border-radius: var(--radius-pill);
-  border: 1px solid transparent;
+  border: 0;
   min-height: 28px;
   padding: 0 10px;
   font-size: var(--text-sm);
@@ -327,17 +318,14 @@ button:disabled {
 
 .status-pill-button.status-active:hover {
   background: var(--success-dim);
-  border-color: rgba(52, 211, 153, 0.30);
 }
 
 .status-pill-button.status-detected:hover {
   background: var(--warn-dim);
-  border-color: rgba(251, 191, 36, 0.30);
 }
 
 .status-pill-button.status-preview:hover {
   background: var(--info-dim);
-  border-color: var(--surface-status-preview-hover-border);
 }
 
 .status-pill-button:focus-visible {
@@ -354,26 +342,22 @@ button:disabled {
 
 .status-active {
   background: var(--success-dim);
-  border-color: rgba(52, 211, 153, 0.30);
   color: var(--success);
 }
 
 .status-detected {
   background: var(--warn-dim);
-  border-color: rgba(251, 191, 36, 0.30);
   color: var(--warn);
 }
 
 .status-missing {
   background: rgba(100, 116, 139, 0.10);
-  border-color: rgba(100, 116, 139, 0.25);
   color: var(--muted);
 }
 
 :root[data-theme="light"] .status-active {
   color: #065f46;
   background: rgba(52, 211, 153, 0.10);
-  border-color: rgba(52, 211, 153, 0.25);
 }
 
 :root[data-theme="light"] .status-detected {

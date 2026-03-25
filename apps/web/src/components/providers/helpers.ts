@@ -147,6 +147,12 @@ export function compactSessionId(sessionId?: string | null): string {
   return `${sessionId.slice(0, 8)}…${sessionId.slice(-4)}`;
 }
 
+export function suppressMouseFocus(event: { detail: number; preventDefault: () => void }): void {
+  if (event.detail > 0) {
+    event.preventDefault();
+  }
+}
+
 export function readCsvColumnPrefs(): Record<CsvColumnKey, boolean> {
   if (typeof window === "undefined") return DEFAULT_CSV_COLUMNS;
   try {

@@ -31,9 +31,10 @@ describe("components token migration", () => {
     expect(componentStyles).toMatch(/\.kpi-card:nth-child\(4\)\s*{[^}]*background:\s*var\(--surface-kpi-warn\);/s);
     expect(componentStyles).toMatch(/\.kpi-card:nth-child\(5\)\s*{[^}]*background:\s*var\(--surface-kpi-success\);/s);
     expect(componentStyles).toMatch(/\.search-input,\s*\.filter-select\s*{[^}]*border:\s*1px solid var\(--surface-form-field-border\);[^}]*background:\s*var\(--surface-form-field-bg\);/s);
-    expect(componentStyles).toMatch(/\.btn-base\s*{[^}]*border-color:\s*var\(--surface-btn-base-border\);/s);
-    expect(componentStyles).toMatch(/\.btn-accent\s*{[^}]*border-color:\s*var\(--surface-btn-accent-border\);/s);
-    expect(componentStyles).toMatch(/\.btn-accent:hover\s*{[^}]*border-color:\s*var\(--surface-btn-accent-hover-border\);/s);
+    expect(componentStyles).toMatch(/button\s*{[^}]*border:\s*0;/s);
+    expect(componentStyles).toMatch(/\.btn-base\s*{[^}]*background:\s*var\(--btn-base-bg\);/s);
+    expect(componentStyles).toMatch(/\.btn-accent\s*{[^}]*background:\s*var\(--btn-accent-bg\);/s);
+    expect(componentStyles).toMatch(/\.btn-accent:hover\s*{[^}]*background:\s*var\(--btn-accent-hover-bg\);/s);
     expect(componentStyles).toMatch(/\.btn-outline\s*{[^}]*background:\s*var\(--surface-btn-outline\);/s);
     expect(componentStyles).toMatch(/\.btn-outline:hover\s*{[^}]*background:\s*var\(--surface-btn-outline-hover\);/s);
     expect(componentStyles).toMatch(/\.panel\s*{[^}]*background:\s*var\(--surface-panel-frosted\);[^}]*border:\s*1px solid var\(--surface-panel-border\);[^}]*box-shadow:\s*var\(--shadow-md\), inset 0 1px 0 var\(--surface-panel-sheen\);/s);
@@ -43,7 +44,7 @@ describe("components token migration", () => {
     expect(componentStyles).toMatch(/\.error-box\s*{[^}]*backdrop-filter:\s*blur\(var\(--blur-md\)\) saturate\(140%\);/s);
     expect(componentStyles).toMatch(/\.error-stack\s*{[^}]*backdrop-filter:\s*blur\(var\(--blur-md\)\) saturate\(140%\);/s);
     expect(componentStyles).toMatch(/\.busy-indicator\s*{[^}]*backdrop-filter:\s*blur\(var\(--blur-md\)\) saturate\(140%\);/s);
-    expect(componentStyles).toMatch(/\.status-pill-button\.status-preview:hover\s*{[^}]*border-color:\s*var\(--surface-status-preview-hover-border\);/s);
+    expect(componentStyles).toMatch(/\.status-pill\s*{[^}]*border:\s*0;/s);
     expect(componentStyles).toMatch(/\.provider-slow-badge\s*{[^}]*background:\s*var\(--surface-provider-slow-badge\);/s);
     expect(componentStyles).toMatch(/\.provider-slow-row td\s*{[^}]*background:\s*var\(--surface-provider-slow-row\);/s);
     expect(componentStyles).toMatch(/\.provider-slow-row:hover td\s*{[^}]*background:\s*var\(--surface-provider-slow-row-hover\);/s);

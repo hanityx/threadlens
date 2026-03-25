@@ -1,16 +1,16 @@
 import { expect, test } from "@playwright/test";
 
-const providersTabLabel = /^(Providers|Sessions|Source Sessions|Session Vault|프로바이더|AI 관리|원본 세션실)$/i;
-const threadsTabLabel = /^(Threads|Cleanup|Codex Cleanup|스레드|정리|Codex 정리실)$/i;
-const providersHubTitle = /^(Sessions|Original Sessions|Source Sessions|Session Vault|AI 운영실|원본 세션|원본 세션실)$/i;
-const openDiagnosticsLabel = /^(Open Advanced Diagnostics|AI Diagnostics|고급 진단 보기|고급 진단 열기)$/i;
-const routingTitle = /^(AI Diagnostics|AI Diagnostics \/ Execution Flow|Execution Routing Graph|AI 진단 \/ 실행 흐름|고급 진단 \/ 실행 흐름)$/i;
-const bulkImpactLabel = /^(Bulk Impact Analysis|Run impact analysis|일괄 영향 분석)$/i;
-const bulkCleanupDryRunLabel = /^(Bulk Cleanup Dry-Run|Run cleanup dry-run|일괄 정리 드라이런)$/i;
-const selectAllFilteredLabel = /^(Select all filtered|현재 필터 전체 선택)$/i;
-const selectedThreadsLabel = /^(Selected Threads|선택한 스레드)$/i;
-const forensicsErrorLabel = /^(Analysis\/dry-run request failed|분석\/드라이런 요청 실패)$/i;
-const threadsHeading = /^(Cleanup|Threads|Codex Cleanup|스레드|정리 대상 스레드|Codex 정리 스레드|Codex 정리실)$/i;
+const providersTabLabel = /^(Providers|Sessions|Source Sessions|Session Vault)$/i;
+const threadsTabLabel = /^(Threads|Cleanup|Codex Cleanup)$/i;
+const providersHubTitle = /^(Sessions|Original Sessions|Source Sessions|Session Vault)$/i;
+const openDiagnosticsLabel = /^(Open Advanced Diagnostics|AI Diagnostics)/i;
+const routingTitle = /^(AI Diagnostics|AI Diagnostics \/ Execution Flow|Execution Routing Graph|Diagnostics map)$/i;
+const bulkImpactLabel = /^(Bulk Impact Analysis|Run impact analysis)$/i;
+const bulkCleanupDryRunLabel = /^(Bulk Cleanup Dry-Run|Run cleanup dry-run)$/i;
+const selectAllFilteredLabel = /^(Select all filtered)$/i;
+const selectedThreadsLabel = /^(Selected Threads)$/i;
+const forensicsErrorLabel = /^(Analysis\/dry-run request failed)$/i;
+const threadsHeading = /^(Cleanup|Threads|Codex Cleanup)$/i;
 
 test("live stack renders providers and routing views", async ({ page }, testInfo) => {
   await page.goto("/");

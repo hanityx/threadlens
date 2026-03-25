@@ -239,7 +239,7 @@ function flowReasonLabel(reason: string): string {
 
 function summarizeRoots(roots: string[]): string {
   if (roots.length === 0) return "No paths";
-  const preview = roots.slice(0, 2).map((root) => compactPath(root, 16)).join(" · ");
+  const preview = roots.slice(0, 2).map((root) => compactPath(root, 24)).join(" · ");
   if (roots.length <= 2) return preview;
   return `${preview} · +${roots.length - 2}`;
 }
@@ -852,28 +852,28 @@ export function RoutingPanel({
       <div className="impact-body">
         <section className="routing-stage-shell">
           <div className="routing-stage-copy">
-            <span className="overview-note-label">routing stage</span>
-            <strong>Providers / flow</strong>
-            <p>paths / state</p>
+            <span className="overview-note-label">Routing stage</span>
+            <strong>Current map</strong>
+            <p>Paths, readiness, and findings at a glance.</p>
           </div>
           <div className="routing-stage-summary">
             <article className="routing-stage-summary-card">
-              <span>providers</span>
+              <span>Providers</span>
               <strong>{visibleProviders.length}</strong>
-              <p>providers</p>
+              <p>in scope</p>
             </article>
             <article className="routing-stage-summary-card">
-              <span>paths</span>
+              <span>Paths</span>
               <strong>{scopedDataSources.length}</strong>
-              <p>paths</p>
+              <p>detected</p>
             </article>
             <article className="routing-stage-summary-card">
-              <span>flow</span>
+              <span>Flow</span>
               <strong>{(scopedNodes ?? []).length}</strong>
               <p>nodes</p>
             </article>
             <article className="routing-stage-summary-card">
-              <span>findings</span>
+              <span>Findings</span>
               <strong>{(scopedFindings ?? []).length}</strong>
               <p>open</p>
             </article>
@@ -893,7 +893,7 @@ export function RoutingPanel({
         ) : null}
 
         <div className="impact-list">
-          <h3>providers</h3>
+          <h3>Providers</h3>
           {visibleProviders.length === 0 ? (
             <p className="sub-hint">{messages.routing.noProviders}</p>
           ) : (
@@ -1076,45 +1076,75 @@ export function RoutingPanel({
           </div>
         ) : null}
 
-        <div className="impact-list impact-list-grid compact-list">
-          <h3>paths</h3>
-          {scopedDataSources.length === 0 ? (
-            <p className="sub-hint">{messages.routing.noSources}</p>
-          ) : (
-            <ul>
-              {scopedDataSources.map((source) => (
-                <li key={source.source_key}>
-                  <div className="routing-edge-flow">
-                    <strong>{source.source_key}</strong>
-                    <span className="routing-arrow">·</span>
-                    <strong>{messages.common.ok}</strong>
-                  </div>
-                  <span className="mono-sub">
-                    {compactPath(source.path, 22)}
-                    {compactFootprint(source.file_count, source.dir_count)
-                      ? ` · ${compactFootprint(source.file_count, source.dir_count)}`
-                      : ""}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+        <div className="routing-signal-grid">
+          <section className="routing-list-card is-primary">
+            <div className="routing-list-card-head">
+              <span>Storage map</span>
+              <strong>Paths / storage</strong>
+            </div>
+            <div className="impact-list impact-list-grid compact-list">
+              <h3>Paths</h3>
+              {scopedDataSources.length === 0 ? (
+                <p className="sub-hint">{messages.routing.noSources}</p>
+              ) : (
+                <ul>
+                  {scopedDataSources.map((source) => (
+                    <li key={source.source_key}>
+                      <div className="routing-edge-flow">
+                        <strong>{source.source_key}</strong>
+                        <span className="routing-arrow">·</span>
+                        <strong>{messages.common.ok}</strong>
+                      </div>
+                      <span className="mono-sub">
+                        {compactPath(source.path, 30)}
+                        {compactFootprint(source.file_count, source.dir_count)
+                          ? ` · ${compactFootprint(source.file_count, source.dir_count)}`
+                          : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
+
+          <section className="routing-list-card is-primary">
+            <div className="routing-list-card-head">
+              <span>What stands out</span>
+              <strong>Findings / state</strong>
+            </div>
+            <div className="impact-list impact-list-grid compact-list plain-note-list">
+              <h3>Findings</h3>
+              {(scopedFindings ?? []).length === 0 ? (
+                <p className="sub-hint">{messages.routing.noFindings}</p>
+              ) : (
+                <ul>
+                  {scopedFindings.map((finding) => (
+                    <li key={finding}>
+                      <strong>•</strong>
+                      <span>{finding}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
         </div>
 
         {showCodexContext ? (
           <>
             <div className="impact-kv">
               <span>{messages.routing.config}</span>
-              <strong className="mono-sub">{compactPath(data?.evidence?.codex_config_path, 22)}</strong>
+              <strong className="mono-sub">{compactPath(data?.evidence?.codex_config_path, 30)}</strong>
             </div>
             <div className="impact-kv">
               <span>{messages.routing.globalState}</span>
-              <strong className="mono-sub">{compactPath(data?.evidence?.global_state_path, 22)}</strong>
+              <strong className="mono-sub">{compactPath(data?.evidence?.global_state_path, 30)}</strong>
             </div>
             {data?.evidence?.notify_hook ? (
               <div className="impact-kv">
                 <span>{messages.routing.notifyHook}</span>
-                <strong className="mono-sub">{compactPath(data.evidence.notify_hook, 22)}</strong>
+                <strong className="mono-sub">{compactPath(data.evidence.notify_hook, 30)}</strong>
               </div>
             ) : null}
             {focusedProvider?.provider === "codex" && data?.evidence?.developer_instructions_excerpt ? (
@@ -1128,59 +1158,59 @@ export function RoutingPanel({
           </div>
         ) : null}
 
-        <div className="impact-list compact-list">
-          <h3>flow</h3>
-          {(scopedNodes ?? []).length === 0 ? (
-            <p className="sub-hint">{messages.routing.noNodes}</p>
-          ) : (
-            <div className="routing-node-grid routing-node-grid-flow">
-              {scopedNodes.map((node) => (
-                <article key={node.id} className={`routing-node-card kind-${node.kind}`}>
-                  <div className="routing-node-top">
-                    <strong>{node.label}</strong>
-                    <span className="routing-kind-chip">{kindLabel(node.kind)}</span>
-                  </div>
-                  {node.detail ? <p className="sub-hint">{flowReasonLabel(node.detail)}</p> : null}
-                </article>
-              ))}
+        <div className="routing-signal-grid">
+          <section className="routing-list-card">
+            <div className="routing-list-card-head">
+              <span>Execution path</span>
+              <strong>Flow / nodes</strong>
             </div>
-          )}
-        </div>
+            <div className="impact-list compact-list">
+              <h3>Flow</h3>
+              {(scopedNodes ?? []).length === 0 ? (
+                <p className="sub-hint">{messages.routing.noNodes}</p>
+              ) : (
+                <div className="routing-node-grid routing-node-grid-flow">
+                  {scopedNodes.map((node) => (
+                    <article key={node.id} className={`routing-node-card kind-${node.kind}`}>
+                      <div className="routing-node-top">
+                        <strong>{node.label}</strong>
+                        <span className="routing-kind-chip">{kindLabel(node.kind)}</span>
+                      </div>
+                      {node.detail ? (
+                        <p className="sub-hint">{flowReasonLabel(node.detail)}</p>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
 
-        <div className="impact-list impact-list-grid compact-list plain-note-list">
-          <h3>edges</h3>
-          {(scopedEdges ?? []).length === 0 ? (
-            <p className="sub-hint">{messages.routing.noEdges}</p>
-          ) : (
-            <ul>
-              {scopedEdges.map((edge) => (
-                <li key={`${edge.from}-${edge.to}-${edge.reason}`}>
-                  <div className="routing-edge-flow">
-                    <strong>{scopedNodeLabel.get(edge.from) ?? edge.from}</strong>
-                    <span className="routing-arrow">→</span>
-                    <strong>{scopedNodeLabel.get(edge.to) ?? edge.to}</strong>
-                  </div>
-                  <span>{flowReasonLabel(edge.reason)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="impact-list impact-list-grid compact-list plain-note-list">
-          <h3>findings</h3>
-          {(scopedFindings ?? []).length === 0 ? (
-            <p className="sub-hint">{messages.routing.noFindings}</p>
-          ) : (
-            <ul>
-              {scopedFindings.map((finding) => (
-                <li key={finding}>
-                  <strong>•</strong>
-                  <span>{finding}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <section className="routing-list-card">
+            <div className="routing-list-card-head">
+              <span>Transitions</span>
+              <strong>Edges / handoff</strong>
+            </div>
+            <div className="impact-list impact-list-grid compact-list plain-note-list">
+              <h3>Edges</h3>
+              {(scopedEdges ?? []).length === 0 ? (
+                <p className="sub-hint">{messages.routing.noEdges}</p>
+              ) : (
+                <ul>
+                  {scopedEdges.map((edge) => (
+                    <li key={`${edge.from}-${edge.to}-${edge.reason}`}>
+                      <div className="routing-edge-flow">
+                        <strong>{scopedNodeLabel.get(edge.from) ?? edge.from}</strong>
+                        <span className="routing-arrow">→</span>
+                        <strong>{scopedNodeLabel.get(edge.to) ?? edge.to}</strong>
+                      </div>
+                      <span>{flowReasonLabel(edge.reason)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
         </div>
       </div>
     </section>

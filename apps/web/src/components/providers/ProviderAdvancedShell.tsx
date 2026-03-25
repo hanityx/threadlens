@@ -61,9 +61,21 @@ export function ProviderAdvancedShell({
         onAdvancedOpenChange((event.currentTarget as HTMLDetailsElement).open);
       }}
     >
-      <summary>
-        {messages.providers.advancedTitle}
-        <span className="panel-summary-subcopy"> · {messages.providers.advancedSubtitle}</span>
+      <summary className="provider-advanced-summary">
+        <span className="provider-advanced-summary-copy">
+          <span className="provider-advanced-summary-kicker">
+            {messages.providers.advancedTitle}
+          </span>
+          <strong>Refresh / scan</strong>
+          <span className="provider-advanced-summary-body">
+            {providersLastRefreshAt
+              ? `${messages.providers.lastRefresh} ${formatDateTime(providersLastRefreshAt)}`
+              : "Open scan settings, latency checks, and forced refresh."}
+          </span>
+        </span>
+        <span className="provider-advanced-summary-pill">
+          {advancedOpen ? "Hide" : "Open"}
+        </span>
       </summary>
       <div className="panel-disclosure-body provider-advanced-stack">
         {advancedOpen ? (

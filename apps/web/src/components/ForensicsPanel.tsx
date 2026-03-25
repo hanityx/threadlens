@@ -79,7 +79,7 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
     >
       <header>
         <h2>{messages.forensics.title}</h2>
-        <span>focus / risk / cleanup</span>
+        <span>review · next steps</span>
       </header>
       <div className="impact-body">
         <section className="detail-hero detail-hero-forensics">

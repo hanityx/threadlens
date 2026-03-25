@@ -9,8 +9,6 @@ type TopShellProps = {
   onHeaderSearchDraftChange: (value: string) => void;
   onHeaderSearchSubmit: () => void;
   syncStatusText: string;
-  locale: "en" | "ko";
-  onToggleLocale: () => void;
   theme: string;
   onToggleTheme: () => void;
   onRefresh: () => void;
@@ -39,8 +37,6 @@ export function TopShell(props: TopShellProps) {
     onHeaderSearchDraftChange,
     onHeaderSearchSubmit,
     syncStatusText,
-    locale,
-    onToggleLocale,
     theme,
     onToggleTheme,
     onRefresh,
@@ -53,13 +49,13 @@ export function TopShell(props: TopShellProps) {
     <section className="top-actions">
       <div className="top-actions-main">
         <div className="top-actions-copy">
-          <span className="top-actions-label">observatory ai</span>
-          <strong>Provider Observatory</strong>
+          <strong>ThreadLens</strong>
         </div>
         <nav className="top-surface-nav" aria-label="surface tabs">
           <button
             type="button"
             className={`top-surface-btn ${layoutView === "overview" ? "is-active" : ""}`}
+            onMouseDown={(event) => event.preventDefault()}
             onClick={() => onChangeLayoutView("overview")}
           >
             {labels.overview}
@@ -67,6 +63,7 @@ export function TopShell(props: TopShellProps) {
           <button
             type="button"
             className={`top-surface-btn ${layoutView === "search" ? "is-active" : ""}`}
+            onMouseDown={(event) => event.preventDefault()}
             onClick={() => onChangeLayoutView("search")}
             onMouseEnter={onSearchIntent}
             onFocus={onSearchIntent}
@@ -76,6 +73,7 @@ export function TopShell(props: TopShellProps) {
           <button
             type="button"
             className={`top-surface-btn ${layoutView === "threads" ? "is-active" : ""}`}
+            onMouseDown={(event) => event.preventDefault()}
             onClick={() => onChangeLayoutView("threads")}
           >
             {labels.threads}
@@ -83,6 +81,7 @@ export function TopShell(props: TopShellProps) {
           <button
             type="button"
             className={`top-surface-btn ${layoutView === "providers" ? "is-active" : ""}`}
+            onMouseDown={(event) => event.preventDefault()}
             onClick={() => onChangeLayoutView("providers")}
             onMouseEnter={onProvidersIntent}
             onFocus={onProvidersIntent}
@@ -114,14 +113,6 @@ export function TopShell(props: TopShellProps) {
           <span className="top-sync-status" aria-live="polite">
             {syncStatusText}
           </span>
-          <button
-            type="button"
-            className="btn-outline"
-            onClick={onToggleLocale}
-            title={locale === "en" ? "한국어로 전환" : "Switch to English"}
-          >
-            {locale === "en" ? "KO" : "EN"}
-          </button>
           <button
             type="button"
             className="btn-outline"

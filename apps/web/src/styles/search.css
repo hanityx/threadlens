@@ -7,6 +7,18 @@
   gap: 14px;
 }
 
+.panel.search-panel header {
+  border-bottom: 0;
+  background: transparent;
+}
+
+.panel.search-panel header span {
+  font-size: var(--text-sm);
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
 .search-stage-head {
   display: flex;
   justify-content: flex-start;
@@ -51,9 +63,9 @@
   min-height: 34px;
   padding: 0 12px;
   border-radius: 999px;
-  border: 1px solid rgba(188, 199, 219, 0.12);
-  background: rgba(29, 31, 38, 0.72);
-  color: rgba(188, 199, 219, 0.8);
+  border: 1px solid var(--surface-card-border);
+  background: var(--surface-card-bg);
+  color: var(--text-secondary);
   font-size: var(--text-sm);
   font-weight: 700;
   text-transform: uppercase;
@@ -139,10 +151,16 @@
   font-size: var(--text-md);
   letter-spacing: -0.02em;
   color: var(--text);
+  outline: none;
 }
 
 .search-input-stage::placeholder {
   color: var(--text-search-muted);
+}
+
+.search-command-bar:focus-within {
+  border-color: var(--surface-form-field-border);
+  box-shadow: 0 0 0 3px var(--focus-ring), var(--surface-card-shadow);
 }
 
 .search-command-shortcut {
@@ -181,12 +199,12 @@
 .search-command-head strong {
   font-size: var(--text-lg);
   letter-spacing: -0.02em;
-  color: rgba(228, 232, 240, 0.96);
+  color: var(--text);
 }
 
 .search-command-head span:last-child {
   margin: 0;
-  color: rgba(173, 180, 192, 0.72);
+  color: var(--text-secondary);
   font-size: var(--text-base);
   line-height: 1.42;
   text-align: right;
@@ -330,22 +348,20 @@
 }
 
 .search-pill {
-  border-color: var(--surface-pill-border);
+  border: 0;
   background: var(--surface-pill-ghost);
   color: var(--text-secondary);
-  box-shadow: var(--surface-pill-shadow);
+  box-shadow: none;
 }
 
 .search-pill.status-active,
 .search-pill:hover {
-  border-color: rgba(96, 124, 150, 0.28);
   background: rgba(96, 124, 150, 0.14);
   color: var(--text-search-inline-hover);
-  box-shadow: 0 10px 24px rgba(66, 90, 116, 0.12);
+  box-shadow: none;
 }
 
 .search-pill.status-preview:hover {
-  border-color: rgba(96, 124, 150, 0.22);
   background: rgba(96, 124, 150, 0.08);
   color: var(--text);
 }
@@ -355,12 +371,9 @@
 }
 
 .search-pill:focus-visible {
-  border-color: var(--surface-pill-border);
   background: var(--surface-pill-ghost);
   color: var(--text-secondary);
-  box-shadow:
-    var(--surface-pill-shadow),
-    0 0 0 3px var(--focus-ring);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .search-result-card-stage:hover,

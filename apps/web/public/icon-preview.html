@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ThreadLens Icon Preview</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #11151b;
+        --panel: #161c24;
+        --line: rgba(255, 255, 255, 0.09);
+        --text: #f5f7fb;
+        --muted: #97a3b6;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at top, rgba(255, 255, 255, 0.05), transparent 36%),
+          linear-gradient(180deg, #161b22 0%, #0f1318 100%);
+        color: var(--text);
+        font-family: "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+      }
+
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 40px 24px 64px;
+      }
+
+      h1 {
+        margin: 0 0 10px;
+        font-size: 32px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+      }
+
+      p {
+        margin: 0 0 28px;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.5;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 18px;
+      }
+
+      .card {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        padding: 22px;
+        box-shadow: 0 22px 50px rgba(0, 0, 0, 0.28);
+      }
+
+      .meta {
+        margin-bottom: 18px;
+      }
+
+      .label {
+        display: inline-block;
+        margin-bottom: 8px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h2 {
+        margin: 0 0 6px;
+        font-size: 22px;
+        font-weight: 650;
+        letter-spacing: -0.02em;
+      }
+
+      .sub {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .stage {
+        display: grid;
+        place-items: center;
+        min-height: 180px;
+        margin-bottom: 18px;
+        border-radius: 22px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015));
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      .icon-lg {
+        width: 128px;
+        height: 128px;
+      }
+
+      .sizes {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .sizes img {
+        display: block;
+      }
+
+      .size-64 { width: 64px; height: 64px; }
+      .size-32 { width: 32px; height: 32px; }
+      .size-16 { width: 16px; height: 16px; }
+
+      .notes {
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>ThreadLens Icon Options</h1>
+      <p>A is lens plus thread, B is conversation bubble plus focus, and C is terminal plus lens. All three use a restrained monochrome direction with small-size legibility first.</p>
+
+      <section class="grid">
+        <article class="card">
+          <div class="meta">
+            <span class="label">Option A</span>
+            <h2>Thread + Lens</h2>
+            <p class="sub">Name-aligned</p>
+          </div>
+          <div class="stage">
+            <img class="icon-lg" src="/icons/threadlens-thread.svg" alt="ThreadLens option A" />
+          </div>
+          <div class="sizes">
+            <img class="size-64" src="/icons/threadlens-thread.svg" alt="" />
+            <img class="size-32" src="/icons/threadlens-thread.svg" alt="" />
+            <img class="size-16" src="/icons/threadlens-thread.svg" alt="" />
+          </div>
+          <div class="notes">The most direct option. It connects the product name to the function immediately, and the lens plus line motif survives at smaller sizes.</div>
+        </article>
+
+        <article class="card">
+          <div class="meta">
+            <span class="label">Option B</span>
+            <h2>Bubble + Focus</h2>
+            <p class="sub">Conversation-first</p>
+          </div>
+          <div class="stage">
+            <img class="icon-lg" src="/icons/threadlens-bubble.svg" alt="ThreadLens option B" />
+          </div>
+          <div class="sizes">
+            <img class="size-64" src="/icons/threadlens-bubble.svg" alt="" />
+            <img class="size-32" src="/icons/threadlens-bubble.svg" alt="" />
+            <img class="size-16" src="/icons/threadlens-bubble.svg" alt="" />
+          </div>
+          <div class="notes">Reads the fastest as an AI conversation tool. The tradeoff is that it leans a bit more toward a chat app than a session or forensics workbench.</div>
+        </article>
+
+        <article class="card">
+          <div class="meta">
+            <span class="label">Option C</span>
+            <h2>Terminal + Lens</h2>
+            <p class="sub">Developer-tool</p>
+          </div>
+          <div class="stage">
+            <img class="icon-lg" src="/icons/threadlens-terminal.svg" alt="ThreadLens option C" />
+          </div>
+          <div class="sizes">
+            <img class="size-64" src="/icons/threadlens-terminal.svg" alt="" />
+            <img class="size-32" src="/icons/threadlens-terminal.svg" alt="" />
+            <img class="size-16" src="/icons/threadlens-terminal.svg" alt="" />
+          </div>
+          <div class="notes">Feels the most like a developer tool. The tradeoff is that general users may read it as CLI-oriented before they read search or session management.</div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

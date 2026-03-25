@@ -52,6 +52,11 @@
     grid-template-rows: auto;
   }
 
+  .provider-routing-tools-row,
+  .routing-signal-grid {
+    grid-template-columns: 1fr;
+  }
+
   .ai-management-grid {
     grid-template-columns: 1fr;
   }

@@ -57,9 +57,11 @@
 }
 
 .thread-workflow-copy strong {
-  font-size: var(--text-lg);
-  line-height: 1.18;
-  letter-spacing: -0.02em;
+  font-size: var(--text-display-search-stage);
+  line-height: 0.92;
+  letter-spacing: -0.065em;
+  font-family: var(--font-heading);
+  font-weight: 800;
 }
 
 .thread-workflow-copy p {
@@ -70,40 +72,35 @@
 }
 
 .cleanup-command-shell {
-  overflow: hidden;
-  border: 1px solid var(--surface-stage-border);
-  border-radius: var(--radius-shell-lg);
-  background: var(--surface-stage-subtle);
-  box-shadow: var(--surface-stage-shadow);
-  backdrop-filter: blur(var(--blur-md)) saturate(130%);
+  overflow: visible;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .cleanup-command-shell > header {
-  padding: 10px 14px 9px;
-  background: var(--surface-cleanup-header);
-}
-
-.cleanup-command-shell > header h2 {
-  font-size: var(--text-sm);
-  font-family: var(--font-label);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.cleanup-command-shell > header span {
-  font-size: var(--text-sm);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  display: none;
 }
 
 .cleanup-command-body {
-  padding: 12px 14px 13px;
+  padding: 16px 0 0;
   display: grid;
-  gap: 8px;
+  gap: 14px;
 }
 
 .cleanup-toolbar {
-  padding-top: 0;
+  border: 1px solid var(--surface-card-border);
+  border-radius: var(--radius-shell-lg);
+  background: var(--surface-search-command-shell);
+  padding: 10px 14px;
+  gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  box-shadow: var(--surface-card-shadow);
+  backdrop-filter: blur(var(--blur-lg));
 }
 
 .thread-status-grid {
@@ -283,15 +280,13 @@
 }
 
 .info-box {
-  border: 1px solid rgba(188, 199, 219, 0.1);
-  background: rgba(20, 24, 30, 0.84);
+  border: 1px solid var(--surface-card-border);
+  background: var(--surface-card-bg-strong);
   border-radius: 22px;
   padding: 14px 16px;
   display: grid;
   gap: 8px;
-  box-shadow:
-    0 16px 30px rgba(0, 0, 0, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: var(--surface-card-shadow);
 }
 
 .info-box.compact {
@@ -304,7 +299,7 @@
 
 .info-box p {
   margin: 0;
-  color: rgba(205, 211, 223, 0.72);
+  color: var(--text-secondary);
   font-size: var(--text-md);
   line-height: 1.5;
 }

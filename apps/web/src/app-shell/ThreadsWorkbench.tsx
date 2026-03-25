@@ -46,13 +46,13 @@ export function ThreadsWorkbench(props: ThreadsWorkbenchProps) {
       <section className="panel cleanup-command-shell">
         <header>
           <h2>Review</h2>
-          <span>impact / dry-run</span>
+          <span>analyze · clean up</span>
         </header>
         <div className="cleanup-command-body">
           <div className="thread-workflow-copy">
-            <span className="overview-note-label">review workbench</span>
-            <strong>pick threads and review</strong>
-            <p>impact / dry-run / rail</p>
+            <span className="overview-note-label">cleanup</span>
+            <strong>Review &amp; archive</strong>
+            <p>Select, analyze, clean up.</p>
           </div>
           <div className="thread-status-grid">
             <article className="thread-status-card">
@@ -63,7 +63,7 @@ export function ThreadsWorkbench(props: ThreadsWorkbenchProps) {
             <article className={`thread-status-card ${selectedCount > 0 ? "is-accent" : ""}`.trim()}>
               <span>selected</span>
               <strong>{selectedCount}</strong>
-              <p>review rail</p>
+              <p>selected</p>
             </article>
             <article className={`thread-status-card ${dryRunReady ? "is-ready" : ""}`.trim()}>
               <span>dry-run</span>
@@ -99,7 +99,7 @@ export function ThreadsWorkbench(props: ThreadsWorkbenchProps) {
             {threadsFastBooting ? (
               <span className="sub-hint">fast boot</span>
             ) : null}
-            <span className="sub-hint">review rail</span>
+            <span className="sub-hint">selected</span>
           </section>
         </div>
       </section>

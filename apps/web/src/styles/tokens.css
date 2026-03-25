@@ -46,7 +46,10 @@
   --table-head-bg: rgba(18, 20, 22, 0.94);
   --btn-bg: rgba(22, 26, 30, 0.9);
   --btn-base-bg: rgba(31, 39, 46, 0.96);
-  --btn-accent-bg: linear-gradient(180deg, rgba(143, 168, 188, 0.18), rgba(82, 103, 121, 0.9));
+  --btn-accent-bg: rgba(82, 103, 121, 0.9);
+  --btn-accent-hover-bg: rgba(98, 118, 136, 0.96);
+  --btn-danger-bg: rgba(98, 35, 35, 0.94);
+  --btn-danger-hover-bg: rgba(122, 43, 43, 0.98);
   --chat-log-bg: #0f1112;
 
   --assistant-bg: rgba(149, 174, 187, 0.05);
@@ -140,9 +143,6 @@
   --surface-kpi-success: linear-gradient(180deg, color-mix(in srgb, var(--success) 10%, transparent), transparent 60%), var(--surface-card-bg-subtle);
   --surface-form-field-border: color-mix(in srgb, var(--line) 70%, var(--accent) 18%);
   --surface-form-field-bg: linear-gradient(180deg, color-mix(in srgb, var(--bg-elev) 96%, var(--glass-mid)), color-mix(in srgb, var(--panel) 94%, transparent)), linear-gradient(135deg, transparent 0 52%, color-mix(in srgb, var(--accent) 12%, transparent) 52% 100%);
-  --surface-btn-base-border: color-mix(in srgb, var(--accent) 22%, var(--line));
-  --surface-btn-accent-border: color-mix(in srgb, var(--accent) 70%, var(--line));
-  --surface-btn-accent-hover-border: color-mix(in srgb, var(--accent-strong) 60%, var(--line));
   --surface-btn-outline: color-mix(in srgb, var(--surface-pill-bg) 90%, transparent);
   --surface-btn-outline-hover: color-mix(in srgb, var(--hover) 88%, var(--surface-pill-bg));
   --surface-panel-frosted: linear-gradient(180deg, color-mix(in srgb, var(--panel-glass) 74%, var(--glass-high)), color-mix(in srgb, var(--panel) 78%, transparent)), color-mix(in srgb, var(--panel-glass) 74%, transparent);
@@ -346,7 +346,10 @@
   --table-head-bg: rgba(241, 244, 247, 0.96);
   --btn-bg: rgba(243, 246, 249, 0.98);
   --btn-base-bg: rgba(231, 237, 242, 0.98);
-  --btn-accent-bg: linear-gradient(180deg, rgba(73, 97, 119, 0.92), rgba(61, 82, 99, 0.98));
+  --btn-accent-bg: rgba(73, 97, 119, 0.94);
+  --btn-accent-hover-bg: rgba(61, 82, 99, 0.98);
+  --btn-danger-bg: rgba(147, 53, 53, 0.94);
+  --btn-danger-hover-bg: rgba(124, 36, 36, 0.98);
   --chat-log-bg: #f8f9fb;
   --assistant-bg: rgba(73, 97, 119, 0.05);
   --assistant-border: rgba(73, 97, 119, 0.14);

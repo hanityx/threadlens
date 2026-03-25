@@ -94,8 +94,8 @@ export function OverviewWorkbench(props: OverviewWorkbenchProps) {
           <section className="panel overview-stage overview-main-canvas">
             <div className="overview-stage-header overview-main-head">
               <div className="overview-stage-title overview-main-title">
-                <span className="overview-note-label">session workbench</span>
-                <h1>Provider Observatory</h1>
+                <span className="overview-note-label">overview</span>
+                <h1>ThreadLens</h1>
                 <p>Sessions, review, archive.</p>
               </div>
               <div className="overview-header-actions">
@@ -133,7 +133,7 @@ export function OverviewWorkbench(props: OverviewWorkbenchProps) {
                   <span />
                 </div>
                 <div className="overview-command-breadcrumb">
-                  <span className="overview-command-path is-brand">obs-node</span>
+                  <span className="overview-command-path is-brand">threadlens</span>
                   <span className="overview-command-slash">/</span>
                   <span className="overview-command-path">sessions</span>
                   <span className="overview-command-slash">/</span>
@@ -161,7 +161,7 @@ export function OverviewWorkbench(props: OverviewWorkbenchProps) {
                 <article className="overview-insight-card is-primary">
                   <div className="overview-primary-panel-grid">
                     <div className="overview-primary-copy">
-                      <span className="overview-note-label">session focus</span>
+                      <span className="overview-note-label">active session</span>
                       <strong className="overview-primary-focus-title">{focusSessionTitle}</strong>
                       <div className="overview-primary-focus-meta">{focusSessionMeta}</div>
                       <p className="overview-primary-summary">
@@ -245,7 +245,7 @@ export function OverviewWorkbench(props: OverviewWorkbenchProps) {
                       <span className="overview-review-pill">{reviewRowsText}</span>
                     </div>
                     <div className="overview-review-focus">
-                      <span className="overview-review-kicker">focus thread</span>
+                      <span className="overview-review-kicker">top thread</span>
                       <div className="overview-review-title">{focusReviewTitle}</div>
                       <div className="overview-review-meta">{focusReviewMeta}</div>
                     </div>
@@ -271,12 +271,12 @@ export function OverviewWorkbench(props: OverviewWorkbenchProps) {
                   </article>
                   <div className="overview-support-mini-grid">
                     <article className="overview-insight-card is-mini">
-                      <span className="overview-note-label">active ai</span>
+                      <span className="overview-note-label">providers</span>
                       <strong>{activeSummaryText}</strong>
                       <p>{activeProviderSummaryLine}</p>
                     </article>
                     <article className="overview-insight-card is-mini">
-                      <span className="overview-note-label">vault health</span>
+                      <span className="overview-note-label">sync</span>
                       <strong>{parserScoreText}</strong>
                       <p>
                         {overviewBooting

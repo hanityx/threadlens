@@ -3,7 +3,7 @@ import type { Messages } from "../../i18n";
 import type { ProviderSessionActionResult, ProviderSessionRow } from "../../types";
 import { SKELETON_ROWS } from "../../types";
 import { formatDateTime, formatInteger } from "../../lib/helpers";
-import { compactSessionId, compactSessionTitle } from "./helpers";
+import { compactSessionId, compactSessionTitle, suppressMouseFocus } from "./helpers";
 
 export interface SessionTableProps {
   messages: Messages;
@@ -142,9 +142,9 @@ export function SessionTable(props: SessionTableProps) {
       </header>
       <div className="provider-grid-intro">
         <div className="provider-grid-intro-copy">
-          <span className="overview-note-label">session archive</span>
+          <span className="overview-note-label">archive</span>
           <strong>{providerLabel} session archive</strong>
-          <p>pick / transcript</p>
+          <p>Select sessions to view or delete.</p>
         </div>
       </div>
       {showProviderSessionsZeroState ? (
@@ -352,6 +352,7 @@ export function SessionTable(props: SessionTableProps) {
                   <button
                     type="button"
                     className="table-link-button"
+                    onMouseDown={suppressMouseFocus}
                     onClick={(event) => {
                       event.stopPropagation();
                       onSelectSessionPath(row.file_path);

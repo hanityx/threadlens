@@ -313,15 +313,15 @@ export function SearchPanel({
     <section className="panel search-panel search-stage">
       <header className="search-stage-head">
         <div className="search-stage-title">
-          <span className="search-scope-label">search stage</span>
+          <span className="overview-note-label">search</span>
           <h2>{messages.search.title}</h2>
-          <p>Search first.</p>
+          <p>Threads, sessions, keywords.</p>
         </div>
       </header>
 
       <div className="search-command-shell">
         <div className="search-command-breadcrumb">
-          <span className="search-command-path is-brand">obs-node</span>
+          <span className="search-command-path is-brand">threadlens</span>
           <span className="search-command-slash">/</span>
           <span className="search-command-path">search</span>
           <span className="search-command-slash">/</span>

@@ -76,7 +76,7 @@ export function BackupHub(props: BackupHubProps) {
           disabled={!canRunProviderBackup || busy}
           onClick={onRunBackupSelected}
         >
-          {messages.providers.backupSelected}
+          {busy ? messages.busy : messages.providers.backupSelected}
         </button>
         <button
           className="btn-outline"

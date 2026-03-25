@@ -1,11 +1,11 @@
-import { startTransition, useRef, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 import { DetailShell } from "./app-shell/DetailShell";
 import { OverviewSetupStage } from "./app-shell/OverviewSetupStage";
 import { OverviewWorkbench } from "./app-shell/OverviewWorkbench";
 import { ProvidersWorkspace } from "./app-shell/ProvidersWorkspace";
 import { RuntimeFeedbackStack } from "./app-shell/RuntimeFeedbackStack";
 import { SearchRoute } from "./app-shell/SearchRoute";
-import { ThreadsForensicsSlot } from "./app-shell/ThreadsForensicsSlot";
+import { ThreadDetailSlot } from "./app-shell/ThreadDetailSlot";
 import { ThreadsWorkbench } from "./app-shell/ThreadsWorkbench";
 import { TopShell } from "./app-shell/TopShell";
 import { useAppShellBehavior, type DesktopRouteState } from "./app-shell/appShellBehavior";
@@ -25,6 +25,7 @@ export function App() {
   });
   const threadSearchInputRef = useRef<HTMLInputElement | null>(null);
   const detailLayoutRef = useRef<HTMLElement | null>(null);
+  const pendingLayoutScrollRestoreRef = useRef<number | null>(null);
   const [searchThreadContext, setSearchThreadContext] = useState<ConversationSearchHit | null>(null);
   const [providersDiagnosticsOpen, setProvidersDiagnosticsOpen] = useState(false);
   const [setupGuideOpen, setSetupGuideOpen] = useState(false);
@@ -155,10 +156,44 @@ export function App() {
   } = useAppData({ providersDiagnosticsOpen });
 
   const changeLayoutView = (nextView: LayoutView) => {
+    if (typeof window !== "undefined" && nextView !== layoutView) {
+      pendingLayoutScrollRestoreRef.current = window.scrollY;
+    }
     startTransition(() => {
       setLayoutView(nextView);
     });
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (pendingLayoutScrollRestoreRef.current === null) return;
+
+    const targetY = pendingLayoutScrollRestoreRef.current;
+    pendingLayoutScrollRestoreRef.current = null;
+
+    const restore = () => {
+      const maxScrollY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      window.scrollTo(0, Math.min(targetY, maxScrollY));
+    };
+
+    let rafTwo = 0;
+    let timeoutOne = 0;
+    let timeoutTwo = 0;
+    const rafOne = window.requestAnimationFrame(() => {
+      rafTwo = window.requestAnimationFrame(() => {
+        restore();
+        timeoutOne = window.setTimeout(restore, 80);
+        timeoutTwo = window.setTimeout(restore, 240);
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(rafOne);
+      if (rafTwo) window.cancelAnimationFrame(rafTwo);
+      if (timeoutOne) window.clearTimeout(timeoutOne);
+      if (timeoutTwo) window.clearTimeout(timeoutTwo);
+    };
+  }, [layoutView]);
 
   const changeProviderView = (nextView: ProviderView) => {
     startTransition(() => {
@@ -576,22 +611,31 @@ export function App() {
               cleanupDryRun,
             }}
             forensicsSlot={
-              <ThreadsForensicsSlot
+              <ThreadDetailSlot
                 messages={messages}
-                threadActionsDisabled={showRuntimeBackendDegraded}
-                selectedIds={selectedIds}
-                rows={rows}
+                selectedThread={selectedThread}
+                selectedThreadId={selectedThreadId}
+                visibleThreadCount={visibleRows.length}
+                filteredThreadCount={filteredRows.length}
+                highRiskCount={highRiskCount}
+                nextThreadTitle={selectedThreadId
+                  ? recentThreadTitle(visibleRows[0] ?? { thread_id: selectedThreadId, title: "", risk_score: 0, is_pinned: false, source: "" })
+                  : recentThreadTitle(visibleRows[0] ?? { thread_id: "", title: "", risk_score: 0, is_pinned: false, source: "" })}
+                nextThreadSource={visibleRows[0]?.source || "open from threads or recent review rows"}
+                searchContext={searchThreadContext}
+                threadDetailLoading={threadDetailLoading}
+                selectedThreadDetail={selectedThreadDetail}
+                threadTranscriptData={threadTranscriptData}
+                threadTranscriptLoading={threadTranscriptLoading}
+                threadTranscriptLimit={threadTranscriptLimit}
+                setThreadTranscriptLimit={setThreadTranscriptLimit}
                 busy={busy}
+                threadActionsDisabled={showRuntimeBackendDegraded}
+                bulkPin={bulkPin}
+                bulkUnpin={bulkUnpin}
+                bulkArchive={bulkArchive}
                 analyzeDelete={analyzeDelete}
                 cleanupDryRun={cleanupDryRun}
-                cleanupData={cleanupData}
-                selectedImpactRows={selectedImpactRows}
-                analysisRaw={analysisRaw}
-                cleanupRaw={cleanupRaw}
-                analyzeDeleteError={analyzeDeleteError}
-                cleanupDryRunError={cleanupDryRunError}
-                analyzeDeleteErrorMessage={analyzeDeleteErrorMessage}
-                cleanupDryRunErrorMessage={cleanupDryRunErrorMessage}
               />
             }
           />
@@ -600,8 +644,8 @@ export function App() {
         <DetailShell
           messages={messages}
           detailLayoutRef={detailLayoutRef}
-          showDetails={showDetails}
-          showThreadDetail={showThreadDetail}
+          showDetails={showDetails && !showForensics}
+          showThreadDetail={showThreadDetail && !showForensics}
           showSessionDetail={showSessionDetail}
           showProviders={showProviders}
           threadDetailProps={{

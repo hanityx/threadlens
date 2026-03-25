@@ -3,6 +3,7 @@ import type { ProviderView } from "../types";
 import {
   getFallbackProviderView,
   parseDesktopRouteSearch,
+  shouldAutoScrollDetailIntoView,
 } from "./appShellBehavior";
 
 const providerTabs: Array<{
@@ -43,5 +44,31 @@ describe("appShellBehavior", () => {
     expect(getFallbackProviderView("claude", providerTabs, new Set())).toBe("claude");
     expect(getFallbackProviderView("copilot", providerTabs, new Set(["gemini"]))).toBe("claude");
     expect(getFallbackProviderView("all", providerTabs, new Set(["gemini"]))).toBeNull();
+  });
+
+  it("only auto-scrolls detail layout when the selected item actually changes", () => {
+    expect(
+      shouldAutoScrollDetailIntoView({
+        detailVisible: true,
+        previousSelection: "",
+        nextSelection: "thread-1",
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldAutoScrollDetailIntoView({
+        detailVisible: true,
+        previousSelection: "thread-1",
+        nextSelection: "thread-1",
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldAutoScrollDetailIntoView({
+        detailVisible: false,
+        previousSelection: "thread-1",
+        nextSelection: "thread-2",
+      }),
+    ).toBe(false);
   });
 });

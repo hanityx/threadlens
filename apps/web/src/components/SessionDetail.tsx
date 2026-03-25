@@ -193,7 +193,7 @@ export function SessionDetail(props: SessionDetailProps) {
             <div className="session-detail-empty-copy">
               <span className="overview-note-label">{messages.sessionDetail.title}</span>
               <strong>Select next.</strong>
-              <p>transcript / actions</p>
+              <p>View transcript and manage session.</p>
             </div>
             <div className="session-detail-empty-summary" aria-label="session detail scope">
               <article>

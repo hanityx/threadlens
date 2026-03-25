@@ -42,9 +42,11 @@ describe("tokens surface migration", () => {
     expect(tokensStyles).toMatch(/--surface-kpi-success:\s*linear-gradient\(180deg, color-mix\(in srgb, var\(--success\) 10%, transparent\), transparent 60%\),\s*var\(--surface-card-bg-subtle\);/);
     expect(tokensStyles).toMatch(/--surface-form-field-border:\s*color-mix\(in srgb, var\(--line\) 70%, var\(--accent\) 18%\);/);
     expect(tokensStyles).toMatch(/--surface-form-field-bg:\s*linear-gradient\(180deg, color-mix\(in srgb, var\(--bg-elev\) 96%, var\(--glass-mid\)\), color-mix\(in srgb, var\(--panel\) 94%, transparent\)\),\s*linear-gradient\(135deg, transparent 0 52%, color-mix\(in srgb, var\(--accent\) 12%, transparent\) 52% 100%\);/);
-    expect(tokensStyles).toMatch(/--surface-btn-base-border:\s*color-mix\(in srgb, var\(--accent\) 22%, var\(--line\)\);/);
-    expect(tokensStyles).toMatch(/--surface-btn-accent-border:\s*color-mix\(in srgb, var\(--accent\) 70%, var\(--line\)\);/);
-    expect(tokensStyles).toMatch(/--surface-btn-accent-hover-border:\s*color-mix\(in srgb, var\(--accent-strong\) 60%, var\(--line\)\);/);
+    expect(tokensStyles).toMatch(/--btn-base-bg:\s*rgba\(31, 39, 46, 0\.96\);/);
+    expect(tokensStyles).toMatch(/--btn-accent-bg:\s*rgba\(82, 103, 121, 0\.9\);/);
+    expect(tokensStyles).toMatch(/--btn-accent-hover-bg:\s*rgba\(98, 118, 136, 0\.96\);/);
+    expect(tokensStyles).toMatch(/--btn-danger-bg:\s*rgba\(98, 35, 35, 0\.94\);/);
+    expect(tokensStyles).toMatch(/--btn-danger-hover-bg:\s*rgba\(122, 43, 43, 0\.98\);/);
     expect(tokensStyles).toMatch(/--surface-btn-outline:\s*color-mix\(in srgb, var\(--surface-pill-bg\) 90%, transparent\);/);
     expect(tokensStyles).toMatch(/--surface-btn-outline-hover:\s*color-mix\(in srgb, var\(--hover\) 88%, var\(--surface-pill-bg\)\);/);
     expect(tokensStyles).toMatch(/--surface-panel-frosted:\s*linear-gradient\(180deg, color-mix\(in srgb, var\(--panel-glass\) 74%, var\(--glass-high\)\), color-mix\(in srgb, var\(--panel\) 78%, transparent\)\),\s*color-mix\(in srgb, var\(--panel-glass\) 74%, transparent\);/);

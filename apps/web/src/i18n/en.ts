@@ -565,7 +565,7 @@ export const en = {
     "roleUnknown": "Unknown"
   },
   "search": {
-    "title": "Search",
+    "title": "Conversations",
     "subtitle": "Find the exact conversation first.",
     "heroTitle": "Search first",
     "heroBody": "Start here when you remember the words, not the workflow.",

@@ -99,10 +99,17 @@ export function ProvidersWorkspace(props: ProvidersWorkspaceProps) {
             >
               <summary>
                 <span className="session-routing-disclosure-copy">
-                  <strong>{messages.nav.routing}</strong>
-                  <span>{providersDiagnosticsOpen ? "paths / findings" : "scan / flow"}</span>
+                  <span className="session-routing-disclosure-kicker">Session surface</span>
+                  <span className="session-routing-disclosure-summary">
+                    <strong>{messages.nav.routing}</strong>
+                    <span className="session-routing-disclosure-bodycopy">
+                      {providersDiagnosticsOpen
+                        ? "Paths, findings, and execution flow for the current AI."
+                        : "Open paths, findings, and execution flow without leaving Sessions."}
+                    </span>
+                  </span>
                 </span>
-                <span className="session-routing-disclosure-state">
+                <span className="session-routing-disclosure-pill">
                   {providersDiagnosticsOpen ? "Hide" : "Open"}
                 </span>
               </summary>

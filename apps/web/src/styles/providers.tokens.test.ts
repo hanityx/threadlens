@@ -22,9 +22,7 @@ describe("providers token migration", () => {
     expect(providerStyles).toMatch(/\.ai-section-head strong\s*{[^}]*font-size:\s*var\(--text-md\);/s);
     expect(providerStyles).toMatch(/\.ai-section-head span\s*{[^}]*font-size:\s*var\(--text-base\);/s);
     expect(providerStyles).toMatch(/\.ai-provider-metrics\s*{[^}]*font-size:\s*var\(--text-base\);/s);
-    expect(providerStyles).toMatch(/\.provider-archive-stage > header span\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
-    expect(providerStyles).toMatch(/\.provider-archive-stage > header h2\s*{[^}]*font-size:\s*var\(--text-lg\);/s);
-    expect(providerStyles).toMatch(/\.provider-workspace-copy strong\s*{[^}]*font-size:\s*var\(--text-lg\);/s);
+    expect(providerStyles).toMatch(/\.provider-workspace-copy strong\s*{[^}]*font-size:\s*var\(--text-display-search-stage\);/s);
     expect(providerStyles).toMatch(/\.provider-workspace-copy p\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
     expect(providerStyles).toMatch(/\.provider-summary-cell span\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
     expect(providerStyles).toMatch(/\.ai-management-copy strong\s*{[^}]*font-size:\s*var\(--text-md\);/s);
@@ -33,7 +31,7 @@ describe("providers token migration", () => {
     expect(providerStyles).toMatch(/\.provider-grid-intro-copy p\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
     expect(providerStyles).toMatch(/\.provider-advanced-shell summary\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
     expect(providerStyles).toMatch(/\.provider-advanced-shell \.panel-summary-subcopy\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
-    expect(providerStyles).toMatch(/\.session-routing-disclosure-state\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
+    expect(providerStyles).toMatch(/\.session-routing-disclosure-state\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
     expect(providerStyles).toMatch(/\.provider-session-table \.mono-sub\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
     expect(providerStyles).toMatch(/\.capability-chip\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
     expect(providerStyles).toMatch(/\.provider-tab-title\s*{[^}]*font-size:\s*var\(--text-md\);/s);
@@ -49,8 +47,8 @@ describe("providers token migration", () => {
     expect(providerStyles).toMatch(/\.provider-workspace-backup-meta\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
     expect(providerStyles).toMatch(/\.provider-selection-preview strong,\s*\.provider-inline-result strong\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
     expect(providerStyles).toMatch(/\.provider-grid-intro-copy strong\s*{[^}]*font-size:\s*var\(--text-lg\);/s);
-    expect(providerStyles).toMatch(/\.session-routing-disclosure-copy strong\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
-    expect(providerStyles).toMatch(/\.session-routing-disclosure-copy span\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
+    expect(providerStyles).toMatch(/\.session-routing-disclosure-copy strong\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(providerStyles).toMatch(/\.session-routing-disclosure-copy span\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
     expect(providerStyles).toMatch(/\.ai-hub-metrics span\s*{[^}]*font-size:\s*var\(--text-base\);/s);
     expect(providerStyles).toMatch(/\.ai-focus-metric span\s*{[^}]*font-size:\s*var\(--text-base\);/s);
     expect(providerStyles).toMatch(/\.ai-focus-metric strong\s*{[^}]*font-size:\s*var\(--text-lg\);/s);
@@ -85,7 +83,8 @@ describe("providers token migration", () => {
 
   it("uses semantic surface tokens for shared provider cards and pills", () => {
     expect(providerStyles).toMatch(/\.provider-routing-tools-row\s*{[^}]*border:\s*1px solid var\(--surface-stage-border-subtle\);/s);
-    expect(providerStyles).toMatch(/\.provider-routing-tools-main::before\s*{[^}]*background:\s*var\(--surface-text-muted-dot\);/s);
+    expect(providerStyles).toMatch(/\.provider-routing-tools-row\s*{[^}]*grid-template-columns:\s*1fr;/s);
+    expect(providerStyles).toMatch(/\.provider-routing-diagnostics-block\s*{[^}]*border-top:\s*1px solid var\(--surface-divider-subtle\);/s);
     expect(providerStyles).toMatch(/\.provider-workspace-recent-item\.is-active\s*{[^}]*border-color:\s*var\(--surface-workspace-active-border\);[^}]*background:\s*var\(--surface-workspace-active-bg\);/s);
     expect(providerStyles).toMatch(/\.provider-workspace-primary,\s*\.provider-workspace-actions\s*{[^}]*background:\s*var\(--surface-card-bg-subtle\);/s);
     expect(providerStyles).toMatch(/\.provider-workspace-actions\s*{[^}]*background:\s*var\(--surface-card-strong-subtle\);/s);
@@ -97,9 +96,11 @@ describe("providers token migration", () => {
     expect(providerStyles).toMatch(/\.provider-result-card-selected\s*{[^}]*border-color:\s*var\(--surface-card-accent-border-muted\);[^}]*var\(--surface-panel-subtle\);/s);
     expect(providerStyles).toMatch(/\.provider-action-toolbar-emphasis\s*{[^}]*border:\s*1px solid var\(--surface-card-accent-border\);[^}]*var\(--surface-panel-subtle-strong\);/s);
     expect(providerStyles).toMatch(/\.provider-chip\s*{[^}]*background:\s*var\(--surface-pill-ghost\);/s);
-    expect(providerStyles).toMatch(/\.provider-chip\.is-active\s*{[^}]*border-color:\s*var\(--surface-active-chip-border\);[^}]*background:\s*var\(--surface-active-chip-bg\);/s);
-    expect(providerStyles).toMatch(/\.session-routing-disclosure summary\s*{[^}]*background:\s*var\(--surface-stage-subtle\);/s);
-    expect(providerStyles).toMatch(/\.session-routing-disclosure summary\s*{[^}]*border:\s*1px solid var\(--surface-stage-border-soft\);/s);
+    expect(providerStyles).toMatch(/\.provider-chip\.is-active\s*{[^}]*background:\s*var\(--surface-active-chip-bg\);/s);
+    expect(providerStyles).toMatch(/\.provider-routing-tools-main \.session-routing-disclosure\s*{[^}]*border:\s*1px solid var\(--surface-stage-border-soft\);[^}]*background:\s*var\(--surface-card-bg-subtle\);/s);
+    expect(providerStyles).toMatch(/\.provider-routing-tools-main \.session-routing-disclosure summary\s*{[^}]*padding:\s*16px 18px;[^}]*background:\s*transparent;/s);
+    expect(providerStyles).toMatch(/\.session-routing-disclosure-summary\s*{[^}]*display:\s*grid;[^}]*gap:\s*6px;/s);
+    expect(providerStyles).toMatch(/\.session-routing-disclosure-pill\s*{[^}]*background:\s*var\(--surface-pill-ghost\);/s);
     expect(providerStyles).toMatch(/\.inline-tools-disclosure\s*{[^}]*background:\s*var\(--surface-panel-subtle-soft\)\s*!important;/s);
     expect(providerStyles).toMatch(/\.ai-hub-card\s*{[^}]*background:\s*var\(--surface-ai-hub-card\);/s);
     expect(providerStyles).toMatch(/\.ai-hub-card\.is-warning\s*{[^}]*border-color:\s*var\(--state-warn-border\);/s);
@@ -144,6 +145,14 @@ describe("providers token migration", () => {
     expect(providerStyles).toMatch(/tr:hover td\s*{[^}]*background:\s*var\(--surface-table-row-hover\);/s);
     expect(providerStyles).toMatch(/\.threads-table-panel tbody tr:nth-child\(even\) td\s*{[^}]*background:\s*var\(--surface-table-row-alt\);/s);
     expect(providerStyles).toMatch(/\.threads-table-panel tbody tr:hover td\s*{[^}]*background:\s*var\(--surface-table-row-hover-strong\);/s);
-    expect(providerStyles).toMatch(/\.status-pill-button\.status-preview:hover\s*{[^}]*border-color:\s*var\(--surface-status-preview-hover-border\);/s);
+    expect(providerStyles).toMatch(/\.status-pill-button\.status-preview:hover\s*{[^}]*background:\s*var\(--info-dim\);/s);
+  });
+
+  it("uses calmer title-case copy for tools and diagnostics summaries", () => {
+    expect(providerStyles).toMatch(/\.provider-advanced-summary-copy strong\s*{[^}]*text-transform:\s*none;/s);
+    expect(providerStyles).toMatch(/\.provider-advanced-summary-pill\s*{[^}]*text-transform:\s*none;/s);
+    expect(providerStyles).toMatch(/\.session-routing-disclosure-copy strong\s*{[^}]*text-transform:\s*none;/s);
+    expect(providerStyles).toMatch(/\.session-routing-disclosure-copy span\s*{[^}]*text-transform:\s*none;/s);
+    expect(providerStyles).toMatch(/\.session-routing-disclosure-pill\s*{[^}]*text-transform:\s*none;/s);
   });
 });

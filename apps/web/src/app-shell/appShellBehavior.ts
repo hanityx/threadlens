@@ -69,6 +69,18 @@ export function getFallbackProviderView(
   );
 }
 
+export function shouldAutoScrollDetailIntoView(options: {
+  detailVisible: boolean;
+  previousSelection: string;
+  nextSelection: string;
+}): boolean {
+  return Boolean(
+    options.detailVisible &&
+      options.nextSelection &&
+      options.nextSelection !== options.previousSelection,
+  );
+}
+
 export function useAppShellBehavior(options: {
   layoutView: LayoutView;
   providerView: ProviderView;
@@ -220,16 +232,6 @@ export function useAppShellBehavior(options: {
       };
     });
   }, [options.cleanupErrorKey, options.setAcknowledgedForensicsErrorKeys]);
-
-  useEffect(() => {
-    if (!options.showThreadDetail || !options.selectedThreadId) return;
-    options.detailLayoutRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [options.detailLayoutRef, options.selectedThreadId, options.showThreadDetail]);
-
-  useEffect(() => {
-    if (!options.showSessionDetail || !options.selectedSessionPath) return;
-    options.detailLayoutRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [options.detailLayoutRef, options.selectedSessionPath, options.showSessionDetail]);
 
   useEffect(() => {
     if (!options.searchThreadContext) return;

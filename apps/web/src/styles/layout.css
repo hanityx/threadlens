@@ -262,7 +262,7 @@
 .top-surface-btn.is-active {
   background: var(--surface-active-bg);
   color: var(--surface-active-text);
-  box-shadow: var(--surface-active-shadow);
+  box-shadow: none;
 }
 
 .top-controls {
@@ -295,10 +295,9 @@
 .top-controls .btn-outline {
   min-width: 72px;
   border-radius: 999px;
-  border-color: var(--surface-pill-border);
   background: var(--surface-pill-bg);
   color: var(--text);
-  box-shadow: var(--surface-pill-shadow);
+  box-shadow: none;
 }
 
 .provider-quick-switch {
