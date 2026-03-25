@@ -172,8 +172,9 @@ function sanitizeRelatedToolConfig(raw: unknown): RelatedToolConfig | null {
 }
 
 function loadRelatedToolConfigs(): RelatedToolConfig[] {
-  // Legacy THREADLENS_ prefix is kept for backward-compatible local automation.
-  const raw = String(process.env.THREADLENS_RELATED_TOOLS_JSON ?? "").trim();
+  const raw = String(process.env.THREADLENS_RELATED_TOOLS_JSON ?? "").trim() ||
+    // Legacy THREADLENS_ prefix is kept for backward-compatible local automation.
+    String(process.env.THREADLENS_RELATED_TOOLS_JSON ?? "").trim();
   if (!raw) return [];
   const parsed = safeJsonParse(raw);
   if (!Array.isArray(parsed)) return [];

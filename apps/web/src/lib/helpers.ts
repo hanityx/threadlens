@@ -1,5 +1,7 @@
 import type { ThreadRow } from "../types";
 
+const HOME_PREFIX_PATTERN = /^\/(?:Users|home)\/[^/]+/;
+
 /** Unwrap an ApiEnvelope or pass-through when already unwrapped */
 export function extractEnvelopeData<T>(payload: unknown): T | null {
   if (!payload || typeof payload !== "object") return null;
@@ -44,8 +46,8 @@ export function formatInteger(value: number | null | undefined): string {
 export function compactPath(value: string | null | undefined, keep = 28): string {
   const raw = String(value ?? "").trim();
   if (!raw) return "-";
-  if (raw.length <= keep * 2 + 3) return raw.replace(/^\/Users\/developer/, "~");
-  const normalized = raw.replace(/^\/Users\/developer/, "~");
+  const normalized = raw.replace(HOME_PREFIX_PATTERN, "~");
+  if (normalized.length <= keep * 2 + 3) return normalized;
   return `${normalized.slice(0, keep)}…${normalized.slice(-keep)}`;
 }
 

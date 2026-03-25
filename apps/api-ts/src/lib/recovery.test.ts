@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { exportRecoveryBackupsTs, getLatestSmokeStatusTs } from "./recovery";
 
 async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
-  const dir = await mkdtemp(path.join(os.tmpdir(), "po-smoke-"));
+  const dir = await mkdtemp(path.join(os.tmpdir(), "threadlens-smoke-"));
   try {
     return await fn(dir);
   } finally {
@@ -158,10 +158,10 @@ describe("exportRecoveryBackupsTs", () => {
       );
       await mkdir(cleanupBackup, { recursive: true });
       await mkdir(providerBackup, { recursive: true });
-      await mkdir(path.join(cleanupBackup, "Users", "developer"), { recursive: true });
-      await mkdir(path.join(providerBackup, "Users", "developer"), { recursive: true });
-      await writeFile(path.join(cleanupBackup, "Users", "developer", "a.txt"), "alpha", "utf-8");
-      await writeFile(path.join(providerBackup, "Users", "developer", "b.txt"), "beta", "utf-8");
+      await mkdir(path.join(cleanupBackup, "Users", "example"), { recursive: true });
+      await mkdir(path.join(providerBackup, "Users", "example"), { recursive: true });
+      await writeFile(path.join(cleanupBackup, "Users", "example", "a.txt"), "alpha", "utf-8");
+      await writeFile(path.join(providerBackup, "Users", "example", "b.txt"), "beta", "utf-8");
 
       const result = await exportRecoveryBackupsTs({
         roots: { backup_root: backupRoot, export_root: exportRoot },
@@ -198,10 +198,10 @@ describe("exportRecoveryBackupsTs", () => {
       );
       await mkdir(cleanupBackup, { recursive: true });
       await mkdir(providerBackup, { recursive: true });
-      await mkdir(path.join(cleanupBackup, "Users", "developer"), { recursive: true });
-      await mkdir(path.join(providerBackup, "Users", "developer"), { recursive: true });
-      await writeFile(path.join(cleanupBackup, "Users", "developer", "one.txt"), "one", "utf-8");
-      await writeFile(path.join(providerBackup, "Users", "developer", "two.txt"), "two", "utf-8");
+      await mkdir(path.join(cleanupBackup, "Users", "example"), { recursive: true });
+      await mkdir(path.join(providerBackup, "Users", "example"), { recursive: true });
+      await writeFile(path.join(cleanupBackup, "Users", "example", "one.txt"), "one", "utf-8");
+      await writeFile(path.join(providerBackup, "Users", "example", "two.txt"), "two", "utf-8");
 
       const result = await exportRecoveryBackupsTs({
         backup_ids: [

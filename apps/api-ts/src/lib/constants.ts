@@ -25,12 +25,15 @@ export const DEFAULT_PORT = Number(process.env.API_TS_PORT ?? 8788);
 export const APP_VERSION = process.env.APP_VERSION ?? "0.1.0";
 export const START_TS = Date.now();
 
+const STATE_DIR_OVERRIDE = String(
+  process.env.THREADLENS_STATE_DIR ?? process.env.THREADLENS_STATE_DIR ?? "",
+).trim();
+
 /* ── Project-level files ──────────────────────────────────────────── */
 
 export const STATE_DIR = path.resolve(
   PROJECT_ROOT,
-  // Legacy THREADLENS_ prefix is kept for backward-compatible local automation.
-  process.env.THREADLENS_STATE_DIR ?? path.join(".run", "state"),
+  STATE_DIR_OVERRIDE || path.join(".run", "state"),
 );
 export const ROADMAP_STATE_FILE = path.join(STATE_DIR, "roadmap_state.json");
 export const ROADMAP_LOG_FILE = path.join(

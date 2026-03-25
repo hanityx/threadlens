@@ -44,19 +44,19 @@ describe("workbench helpers", () => {
     expect(normalizeWorkbenchTitle("Actual title", "Fallback")).toBe("Actual title");
     expect(
       normalizeWorkbenchTitle(
-        "Continue from `/user-root/developer/workspace-root/local-root/worktree-cache/provider-surface-workspace-surface-20260320`",
+        "Continue from `/user-root/example/workspace-root/local-root/worktree-cache/local-sandbox-20260320`",
         "Fallback",
       ),
     ).toBe("Continue from local workspace");
     expect(
       normalizeWorkbenchTitle(
-        "local workspace workspace-surface-20260320/docs/HANDOFF_INDEX_2026-03-20.md",
+        "local workspace local-sandbox-20260320/docs/HANDOFF_INDEX_2026-03-20.md",
         "Fallback",
       ),
     ).toBe("local workspace");
     expect(
       normalizeWorkbenchTitle(
-        "/user-root/developer/workspace-root/local-root/threadlens/docs/HANDOFF_INDEX_2026-03-20.md",
+        "/user-root/example/workspace-root/local-root/threadlens/docs/HANDOFF_INDEX_2026-03-20.md",
         "Fallback",
       ),
     ).toBe("local workspace");
@@ -82,8 +82,8 @@ describe("workbench helpers", () => {
   });
 
   it("normalizes desktop route file paths for codex-cli mirror roots", () => {
-    const legacyRoutePath = ["/", "Users", "developer", ".codex", "sessions", "2026", "03", "thread.jsonl"].join("/");
-    const cliRoutePath = ["/", "Users", "developer", ".codex-cli", "sessions", "2026", "03", "thread.jsonl"].join("/");
+    const legacyRoutePath = ["/", "Users", "example", ".codex", "sessions", "2026", "03", "thread.jsonl"].join("/");
+    const cliRoutePath = ["/", "Users", "example", ".codex-cli", "sessions", "2026", "03", "thread.jsonl"].join("/");
     expect(normalizeDesktopRouteFilePath("")).toBe("");
     expect(normalizeDesktopRouteFilePath(legacyRoutePath)).toBe(cliRoutePath);
     expect(normalizeDesktopRouteFilePath("/tmp/session.jsonl")).toBe("/tmp/session.jsonl");

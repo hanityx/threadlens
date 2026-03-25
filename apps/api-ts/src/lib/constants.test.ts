@@ -31,6 +31,7 @@ async function loadConstants(env: Record<string, EnvValue>) {
 afterEach(() => {
   delete process.env.THREADLENS_PROJECT_ROOT;
   delete process.env.THREADLENS_STATE_DIR;
+  delete process.env.THREADLENS_STATE_DIR;
   vi.resetModules();
 });
 
@@ -38,6 +39,7 @@ describe("runtime state paths", () => {
   it("defaults runtime state under .run/state at the project root", async () => {
     const mod = await loadConstants({
       THREADLENS_PROJECT_ROOT: undefined,
+      THREADLENS_STATE_DIR: undefined,
       THREADLENS_STATE_DIR: undefined,
     });
 
@@ -72,5 +74,16 @@ describe("runtime state paths", () => {
     expect(mod.PROJECT_ROOT).toBe(customRoot);
     expect(mod.STATE_DIR).toBe(absoluteStateDir);
     expect(mod.RECOVERY_PLAN_DIR).toBe(path.join(absoluteStateDir, "recovery_plans"));
+  });
+
+  it("keeps THREADLENS_STATE_DIR as a fallback for local automation", async () => {
+    const customRoot = path.join(os.tmpdir(), "threadlens-root");
+    const mod = await loadConstants({
+      THREADLENS_PROJECT_ROOT: customRoot,
+      THREADLENS_STATE_DIR: undefined,
+      THREADLENS_STATE_DIR: path.join("legacy", "state"),
+    });
+
+    expect(mod.STATE_DIR).toBe(path.join(customRoot, "legacy", "state"));
   });
 });

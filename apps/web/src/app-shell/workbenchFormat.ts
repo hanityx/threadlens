@@ -2,8 +2,10 @@ const railDayFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
 });
-const HOME_PATH_MARKER = `/${"Users"}/`;
+const HOME_PATH_MARKER = /\/(?:Users|home)\//;
 const WORKTREE_MARKER = "worktree-cache/";
+const WORKSPACE_PATH_PATTERN = /`?(?:\/(?:Users|home)\/[^\s`]+|~\/[^\s`]+|Labs\/[^\s`]+)`?/g;
+const WORKSPACE_TAIL_PATTERN = /\blocal workspace\s+[^\s`]+(?:\/[^\s`]*)*/gi;
 
 const railTimeFormatter = new Intl.DateTimeFormat("en-US", {
   hour: "numeric",
@@ -51,19 +53,19 @@ export const normalizeWorkbenchTitle = (value?: string | null, fallback?: string
     return fallbackText;
   }
   const sanitized = trimmed.replace(
-    /`?(?:\/Users\/[^\s`]+|~\/[^\s`]+|Labs\/[^\s`]+)`?/g,
+    WORKSPACE_PATH_PATTERN,
     (rawPath) => {
       const cleaned = rawPath.replace(/[`]/g, "").replace(/\/$/, "");
       const parts = cleaned.split("/").filter(Boolean);
       const tail = parts.slice(-2).join("/");
-      if (!tail || cleaned.includes(WORKTREE_MARKER) || cleaned.includes(HOME_PATH_MARKER)) {
+      if (!tail || cleaned.includes(WORKTREE_MARKER) || HOME_PATH_MARKER.test(cleaned)) {
         return "local workspace";
       }
       return tail;
     },
   );
   return sanitized
-    .replace(/\b(?:provider-surface|workspace-surface|quartz-\d{8}|history-clean-\d{8})[^\s`]*/gi, "")
+    .replace(WORKSPACE_TAIL_PATTERN, "local workspace")
     .replace(/\s{2,}/g, " ")
     .trim();
 };
@@ -79,7 +81,7 @@ export const normalizeWorkbenchSessionTitle = (
     lower.startsWith("rollout-") ||
     normalized.includes("AGENTS.md") ||
     normalized.includes("<INSTRUCTIONS>") ||
-    normalized.includes(HOME_PATH_MARKER) ||
+    HOME_PATH_MARKER.test(normalized) ||
     normalized.length > 72;
   return looksGenerated && fallbackText ? fallbackText : normalized;
 };
