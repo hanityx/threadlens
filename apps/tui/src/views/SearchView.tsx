@@ -278,8 +278,8 @@ export function SearchView(props: {
   return (
     <Box flexDirection="column" gap={1}>
       <Box borderStyle="round" borderColor="cyan" paddingX={1} flexDirection="column">
-        <Text color="cyan">검색</Text>
-        <Text color="gray">입력 모드: 그대로 타이핑 · Enter/Ctrl+N/Tab 결과 보기 · /·Esc·Ctrl+P·i 다시 입력</Text>
+        <Text color="cyan">Search</Text>
+        <Text color="gray">Input mode: type directly · Enter/Ctrl+N/Tab show results · /·Esc·Ctrl+P·i edit again</Text>
         <Box borderStyle="round" borderColor={focusMode === "query" ? "green" : "gray"} paddingX={1}>
           {query.length > 0 ? (
             <Text color={focusMode === "query" ? "white" : "gray"}>
@@ -287,7 +287,7 @@ export function SearchView(props: {
               {focusMode === "query" ? "▌" : ""}
             </Text>
           ) : (
-            <Text color="gray">{focusMode === "query" ? "검색어 2글자 이상 입력▌" : "검색어 2글자 이상 입력"}</Text>
+            <Text color="gray">{focusMode === "query" ? "Enter at least 2 characters▌" : "Enter at least 2 characters"}</Text>
           )}
         </Box>
         <Text color="yellow">scope: {provider}</Text>
@@ -298,19 +298,19 @@ export function SearchView(props: {
           {" · "}groups {groupedResults.length} · matches {results.length}
         </Text>
         {providerSummary ? <Text color="gray">{providerSummary}</Text> : null}
-        {loading ? <Text color="yellow">검색 중…</Text> : null}
+        {loading ? <Text color="yellow">Searching...</Text> : null}
         {error ? <Text color="red">{error}</Text> : null}
-        {!loading && query.trim().length < 2 ? <Text color="gray">검색어를 2글자 이상 입력해.</Text> : null}
+        {!loading && query.trim().length < 2 ? <Text color="gray">Enter at least 2 characters.</Text> : null}
       </Box>
       <Box gap={2}>
         <Box width="58%" borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
-          <Text color="cyan">세션 결과</Text>
+          <Text color="cyan">Session results</Text>
           {groupedResults.length > 0 ? (
             <Text color="gray">
               showing {visibleGroups.start + 1}-{visibleGroups.end}/{groupedResults.length}
             </Text>
           ) : null}
-          {groupedResults.length === 0 ? <Text color="gray">검색 결과 없음</Text> : null}
+          {groupedResults.length === 0 ? <Text color="gray">No search results</Text> : null}
           {visibleGroups.items.map((group, offset) => {
             const index = visibleGroups.start + offset;
             const focused = index === selectedIndex;
@@ -330,7 +330,7 @@ export function SearchView(props: {
           })}
         </Box>
         <Box width="42%" borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
-          <Text color="cyan">선택 상세</Text>
+          <Text color="cyan">Selection detail</Text>
           {selected ? (
             <>
               <Text>{truncate(selected.title, 56)}</Text>
@@ -338,17 +338,17 @@ export function SearchView(props: {
               <Text color="gray">{truncate(selected.filePath, 56)}</Text>
               <Text color="gray">{selected.source}</Text>
               <Text color="yellow">
-                snippets {selected.snippets.length} · {selected.threadId ? "Ctrl+O 정리실 가능" : "세션만"}
+                snippets {selected.snippets.length} · {selected.threadId ? "Ctrl+O cleanup ready" : "session only"}
               </Text>
               {selected.snippets.length > 1 ? (
                 <Text color="gray">
-                  snippet {snippetIndex + 1}/{selected.snippets.length} · n/p 또는 ←/→
+                  snippet {snippetIndex + 1}/{selected.snippets.length} · n/p or ←/→
                 </Text>
               ) : null}
               <Text>{truncate(selected.snippets[snippetIndex] || "-", 120)}</Text>
             </>
           ) : (
-            <Text color="gray">검색 결과를 선택해.</Text>
+            <Text color="gray">Select a search result.</Text>
           )}
         </Box>
       </Box>

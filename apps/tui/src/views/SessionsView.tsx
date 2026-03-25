@@ -27,7 +27,7 @@ export function SessionsView(props: {
   const [filterQuery, setFilterQuery] = useState(initialFilter ?? "");
   const [focusMode, setFocusMode] = useState<"list" | "filter">("list");
   const [actionStatus, setActionStatus] = useState<string>(
-    "/·i: 필터 · b: 백업 · a: 보관미리보기 · A: 보관실행 · d: 삭제미리보기 · D: 삭제실행 · c: 토큰지움 · r: 새로고침",
+    "/·i: filter · b: backup · a: archive preview · A: archive execute · d: delete preview · D: delete execute · c: clear token · r: refresh",
   );
   const [pendingInitialPath, setPendingInitialPath] = useState<string | null>(initialFilePath);
   const [pendingAction, setPendingAction] = useState<{
@@ -209,7 +209,7 @@ export function SessionsView(props: {
       return;
     }
     if (input.toLowerCase() === "b" && selected && selected.provider !== "all") {
-      setActionStatus("백업 실행 중…");
+      setActionStatus("Running backup...");
       void backupSession(selected.provider, [selected.file_path])
         .then((data) => {
           setLastAction({
@@ -223,7 +223,7 @@ export function SessionsView(props: {
             backupCount: data.backed_up_count ?? 0,
           });
           setActionStatus(
-            `백업 완료 · applied ${data.applied_count}/${data.valid_count}` +
+            `Backup complete · applied ${data.applied_count}/${data.valid_count}` +
               (data.backup_to ? ` · ${truncate(data.backup_to, 42)}` : ""),
           );
         })
@@ -233,7 +233,7 @@ export function SessionsView(props: {
       return;
     }
     if (input === "a" && selected && selected.provider !== "all") {
-      setActionStatus("보관 드라이런 실행 중…");
+      setActionStatus("Running archive dry-run...");
       void runProviderAction(selected.provider, "archive_local", [selected.file_path], {
         dryRun: true,
       })
@@ -251,8 +251,8 @@ export function SessionsView(props: {
             backupCount: data.backed_up_count ?? 0,
           });
           setActionStatus(
-            `보관 드라이런 · token ${token || "-"} · target ${data.target_count}` +
-              (token ? " · Shift+A 실행" : ""),
+            `Archive dry-run · token ${token || "-"} · target ${data.target_count}` +
+              (token ? " · Shift+A execute" : ""),
           );
         })
         .catch((actionError) => {
@@ -261,7 +261,7 @@ export function SessionsView(props: {
       return;
     }
     if (input === "d" && selected && selected.provider !== "all") {
-      setActionStatus("삭제 드라이런 실행 중…");
+      setActionStatus("Running delete dry-run...");
       void runProviderAction(selected.provider, "delete_local", [selected.file_path], {
         dryRun: true,
         backupBeforeDelete: true,
@@ -280,8 +280,8 @@ export function SessionsView(props: {
             backupCount: data.backed_up_count ?? 0,
           });
           setActionStatus(
-            `삭제 드라이런 · token ${token || "-"} · target ${data.target_count}` +
-              (token ? " · Shift+D 실행" : ""),
+            `Delete dry-run · token ${token || "-"} · target ${data.target_count}` +
+              (token ? " · Shift+D execute" : ""),
           );
         })
         .catch((actionError) => {
@@ -291,15 +291,15 @@ export function SessionsView(props: {
     }
     if (input === "c") {
       setPendingAction(null);
-      setActionStatus("대기 토큰 지움");
+      setActionStatus("Pending token cleared");
       return;
     }
     if (input === "A" && selected && selected.provider !== "all") {
       if (!pendingAction || pendingAction.kind !== "archive_local" || pendingAction.filePath !== selected.file_path) {
-        setActionStatus("먼저 같은 파일에서 a 드라이런으로 보관 토큰을 만들어.");
+        setActionStatus("Run a dry-run with a on the same file first to create an archive token.");
         return;
       }
-      setActionStatus("보관 실행 중…");
+      setActionStatus("Running archive...");
       void runProviderAction(selected.provider, "archive_local", [selected.file_path], {
         dryRun: false,
         confirmToken: pendingAction.token,
@@ -317,7 +317,7 @@ export function SessionsView(props: {
             backupCount: data.backed_up_count ?? 0,
           });
           setActionStatus(
-            `보관 완료 · applied ${data.applied_count}/${data.valid_count}` +
+            `Archive complete · applied ${data.applied_count}/${data.valid_count}` +
               (data.archived_to ? ` · ${truncate(data.archived_to, 34)}` : ""),
           );
           fetchRows(true);
@@ -329,10 +329,10 @@ export function SessionsView(props: {
     }
     if (input === "D" && selected && selected.provider !== "all") {
       if (!pendingAction || pendingAction.kind !== "delete_local" || pendingAction.filePath !== selected.file_path) {
-        setActionStatus("먼저 같은 파일에서 d 드라이런으로 삭제 토큰을 만들어.");
+        setActionStatus("Run a dry-run with d on the same file first to create a delete token.");
         return;
       }
-      setActionStatus("삭제 실행 중…");
+      setActionStatus("Running delete...");
       void runProviderAction(selected.provider, "delete_local", [selected.file_path], {
         dryRun: false,
         confirmToken: pendingAction.token,
@@ -351,7 +351,7 @@ export function SessionsView(props: {
             backupCount: data.backed_up_count ?? 0,
           });
           setActionStatus(
-            `삭제 완료 · applied ${data.applied_count}/${data.valid_count}` +
+            `Delete complete · applied ${data.applied_count}/${data.valid_count}` +
               (data.backed_up_count ? ` · backup ${data.backed_up_count}` : ""),
           );
           fetchRows(true);
@@ -365,11 +365,11 @@ export function SessionsView(props: {
   return (
     <Box flexDirection="column" gap={1}>
       <Box borderStyle="round" borderColor="cyan" paddingX={1} flexDirection="column">
-        <Text color="cyan">세션</Text>
-        <Text color="gray">[ / ] provider · /·i 필터 · Esc·Enter 목록복귀 · ↑↓ 또는 j/k · b 백업 · a/A 보관 · d/D 삭제 · c 토큰지움 · r 새로고침</Text>
+        <Text color="cyan">Sessions</Text>
+        <Text color="gray">[ / ] provider · /·i filter · Esc·Enter back to list · ↑↓ or j/k · b backup · a/A archive · d/D delete · c clear token · r refresh</Text>
         <Text color="yellow">scope: {provider}</Text>
         <Text color={focusMode === "filter" ? "green" : "gray"}>
-          filter: {filterQuery.length > 0 ? `${filterQuery}${focusMode === "filter" ? "▌" : ""}` : focusMode === "filter" ? "입력 중▌" : "없음"}
+          filter: {filterQuery.length > 0 ? `${filterQuery}${focusMode === "filter" ? "▌" : ""}` : focusMode === "filter" ? "typing▌" : "none"}
         </Text>
         {summary ? (
           <Text color="gray">
@@ -383,19 +383,19 @@ export function SessionsView(props: {
           </Text>
         ) : null}
         <Text color="gray">{actionStatus}</Text>
-        {loading ? <Text color="yellow">세션 스캔 중…</Text> : null}
+        {loading ? <Text color="yellow">Scanning sessions...</Text> : null}
         {error ? <Text color="red">{error}</Text> : null}
       </Box>
       <Box gap={2}>
         <Box width="58%" borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
-          <Text color="cyan">목록</Text>
+          <Text color="cyan">List</Text>
           {filteredRows.length > 0 ? (
             <Text color="gray">
               showing {visibleRows.start + 1}-{visibleRows.end}/{filteredRows.length}
               {filterQuery.trim() ? ` · filtered from ${rows.length}` : ""}
             </Text>
           ) : null}
-          {filteredRows.length === 0 ? <Text color="gray">{rows.length === 0 ? "세션 없음" : "필터 결과 없음"}</Text> : null}
+          {filteredRows.length === 0 ? <Text color="gray">{rows.length === 0 ? "No sessions" : "No filtered results"}</Text> : null}
           {visibleRows.items.map((row, offset) => {
             const index = visibleRows.start + offset;
             const focused = index === selectedIndex;
@@ -412,7 +412,7 @@ export function SessionsView(props: {
           })}
         </Box>
         <Box width="42%" borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
-          <Text color="cyan">세션 상세</Text>
+          <Text color="cyan">Session detail</Text>
           {selected ? (
             <>
               <Text>{truncate(selected.display_title || selected.session_id, 54)}</Text>
@@ -421,9 +421,9 @@ export function SessionsView(props: {
                 {selected.probe.ok ? "parse ok" : "parse fail"} · {formatDateLabel(selected.mtime)}
               </Text>
               <Text color="yellow">Transcript</Text>
-              {transcriptLoading ? <Text color="yellow">불러오는 중…</Text> : null}
+              {transcriptLoading ? <Text color="yellow">Loading...</Text> : null}
               {transcript.length === 0 && !transcriptLoading ? (
-                <Text color="gray">표시할 메시지 없음</Text>
+                <Text color="gray">No messages to display</Text>
               ) : null}
               {transcript.slice(0, 8).map((message) => (
                 <Box key={`${message.idx}-${message.ts ?? "na"}`} flexDirection="column" marginTop={1}>
@@ -435,7 +435,7 @@ export function SessionsView(props: {
               ))}
               {lastAction ? (
                 <>
-                  <Text color="yellow">작업 상태</Text>
+                  <Text color="yellow">Action status</Text>
                   <Text color="gray">
                     {lastAction.kind} · {lastAction.mode} · applied {lastAction.appliedCount}/{lastAction.validCount}
                   </Text>
@@ -449,7 +449,7 @@ export function SessionsView(props: {
               ) : null}
             </>
           ) : (
-            <Text color="gray">세션을 선택해.</Text>
+            <Text color="gray">Select a session.</Text>
           )}
         </Box>
       </Box>

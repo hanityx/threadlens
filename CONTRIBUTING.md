@@ -1,6 +1,8 @@
-# Contributing to Provider Observatory
+# Contributing to ThreadLens
 
-Thank you for your interest in contributing! This document provides guidelines for contributing to the project.
+Thank you for your interest! **Please note: This project is in early development.** 
+
+We welcome all contributions! However, to avoid wasted effort, please **open an issue or start a discussion** before submitting large Pull Requests (PRs), as the architecture is still evolving.
 
 ## Getting Started
 
@@ -16,12 +18,11 @@ Thank you for your interest in contributing! This document provides guidelines f
 
 ### Before Submitting
 
-- Run API tests: `pnpm --filter @provider-surface/api test`
-- Run API build: `pnpm --filter @provider-surface/api build`
-- Run Web build: `pnpm --filter @provider-surface/web build`
-- Run OSS hygiene sweep: `pnpm oss:hygiene`
+- Run API tests: `pnpm --filter @threadlens/api test`
+- Run API build: `pnpm --filter @threadlens/api build`
+- Run Web build: `pnpm --filter @threadlens/web build`
 
-All four must pass before a PR is accepted.
+All three must pass before a PR is accepted.
 
 ### Project Structure
 
@@ -31,13 +32,13 @@ All four must pass before a PR is accepted.
 | `apps/web` | React + Vite dashboard |
 | `apps/desktop-electron` | Electron desktop shell |
 | `packages/shared-contracts` | Shared TypeScript types |
-| `legacy/server.py` | Legacy admin/offline tooling |
 
 ### Code Style
 
 - TypeScript strict mode throughout
 - Zod for request validation (API)
 - React Query for data fetching (Web)
+- Web stays on React 18 while the Ink TUI currently tracks React 19
 - No hardcoded absolute paths — use `os.homedir()` / `path.resolve()` dynamically
 
 ### Safety Rules

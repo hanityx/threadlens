@@ -1,11 +1,11 @@
 /// <reference types="vite/client" />
 
-type ProviderObservatoryDesktopActionResult = {
+type ThreadLensDesktopActionResult = {
   ok: boolean;
   error?: string;
 };
 
-type ProviderObservatoryDesktopWindowPayload = {
+type ThreadLensDesktopWindowPayload = {
   view?: "overview" | "search" | "providers" | "threads";
   provider?: string;
   filePath?: string;
@@ -13,14 +13,14 @@ type ProviderObservatoryDesktopWindowPayload = {
 };
 
 interface Window {
-  providerObservatoryDesktop?: {
+  threadLensDesktop?: {
     runtime: "electron";
-    apiBaseUrl?: string;
-    revealPath?: (filePath: string) => Promise<ProviderObservatoryDesktopActionResult>;
-    openPath?: (filePath: string) => Promise<ProviderObservatoryDesktopActionResult>;
-    previewPath?: (filePath: string) => Promise<ProviderObservatoryDesktopActionResult>;
+    getApiBaseUrl?: () => Promise<string>;
+    revealPath?: (filePath: string) => Promise<ThreadLensDesktopActionResult>;
+    openPath?: (filePath: string) => Promise<ThreadLensDesktopActionResult>;
+    previewPath?: (filePath: string) => Promise<ThreadLensDesktopActionResult>;
     openWorkbenchWindow?: (
-      payload: ProviderObservatoryDesktopWindowPayload,
-    ) => Promise<ProviderObservatoryDesktopActionResult>;
+      payload: ThreadLensDesktopWindowPayload,
+    ) => Promise<ThreadLensDesktopActionResult>;
   };
 }

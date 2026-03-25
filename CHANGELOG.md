@@ -16,9 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Two-step token-verified cleanup flow (dry-run + confirm)
 - Recovery center with drill and checklist
 - Execution graph visualization
-- Tauri v2 desktop shell with macOS bundling
+- Electron desktop shell with macOS bundling
 - Shared TypeScript contracts package
-- Python legacy backend compatibility layer with proxy fallback
 
 ### Architecture
 - `apps/api-ts/src/server.ts` — route registration (~850 lines)

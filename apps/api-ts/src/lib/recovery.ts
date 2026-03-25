@@ -172,6 +172,7 @@ function sanitizeRelatedToolConfig(raw: unknown): RelatedToolConfig | null {
 }
 
 function loadRelatedToolConfigs(): RelatedToolConfig[] {
+  // Legacy THREADLENS_ prefix is kept for backward-compatible local automation.
   const raw = String(process.env.THREADLENS_RELATED_TOOLS_JSON ?? "").trim();
   if (!raw) return [];
   const parsed = safeJsonParse(raw);
@@ -614,13 +615,13 @@ export async function getRelatedToolsStatusTs() {
   const apps = [
     ...configuredTools,
     {
-      id: "provider-surface",
-      name: "Provider Observatory",
+      id: "threadlens",
+      name: "ThreadLens",
       installed: await pathExists(PROJECT_ROOT),
       running: overviewRunning,
       location: path.join(PROJECT_ROOT, "apps", "api-ts", "src", "app", "create-server.ts"),
-      start_cmd: `tmux new-session -d -s provider-surface-api \"cd ${PROJECT_ROOT} && pnpm --filter @provider-surface/api dev\"`,
-      watch_cmd: "tmux attach -t provider-surface-api",
+      start_cmd: `tmux new-session -d -s threadlens-api \"cd ${PROJECT_ROOT} && pnpm --filter @threadlens/api dev\"`,
+      watch_cmd: "tmux attach -t threadlens-api",
       notes: "Local multi-provider observability dashboard (TS-only runtime)",
     },
   ];

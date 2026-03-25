@@ -1,11 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Provider Observatory">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ThreadLens">
   <defs>
-    <linearGradient id="po-gradient" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#4b7bff" />
-      <stop offset="1" stop-color="#a855f7" />
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#191c1f" />
+      <stop offset="50%" stop-color="#0b0c0d" />
+      <stop offset="100%" stop-color="#050607" />
+    </linearGradient>
+    <linearGradient id="lens-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2a3036" opacity="0.4" />
+      <stop offset="100%" stop-color="#0b0c0d" opacity="0.1" />
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="18" fill="#09111f" />
-  <path d="M20 46V18h15c8 0 13 4.8 13 12s-5 12-13 12h-8v4z" fill="url(#po-gradient)" />
-  <circle cx="42" cy="22" r="6" fill="#d8b4fe" />
+
+  <!-- Dark Squircle Background for macOS & Web -->
+  <rect width="512" height="512" rx="116" fill="url(#bg-grad)" />
+
+  <!-- Subtle inner lens body -->
+  <circle cx="256" cy="256" r="200" fill="url(#lens-grad)" />
+
+  <!-- Concentric lens rings (Quartz Mono style) -->
+  <g fill="none" stroke-linecap="round">
+    <circle cx="256" cy="256" r="200" stroke="#b5c2ca" stroke-width="4" opacity="0.3" />
+    <circle cx="256" cy="256" r="150" stroke="#b5c2ca" stroke-width="6" opacity="0.5" />
+    <circle cx="256" cy="256" r="100" stroke="#b5c2ca" stroke-width="8" opacity="0.7" />
+    <circle cx="256" cy="256" r="50"  stroke="#b5c2ca" stroke-width="12" opacity="0.9" />
+  </g>
 </svg>

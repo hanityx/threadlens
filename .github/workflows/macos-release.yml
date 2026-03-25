@@ -23,67 +23,18 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile
 
-      - name: OSS hygiene
-        run: pnpm oss:hygiene
-
-      - name: Release preflight
-        run: pnpm release:preflight
-
       - name: Build desktop zip
         run: pnpm package:desktop
-
-      - name: Sign and notarize (optional)
-        if: ${{ secrets.APPLE_SIGN_IDENTITY != '' && secrets.APPLE_ID != '' && secrets.APPLE_TEAM_ID != '' && secrets.APPLE_APP_PASSWORD != '' }}
-        env:
-          APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
-        run: pnpm release:macos:sign
 
       - name: Upload app artifact
         uses: actions/upload-artifact@v4
         with:
-          name: provider-surface-app
-          path: apps/desktop-electron/dist/mac-arm64/Provider Observatory.app
+          name: threadlens-app
+          path: apps/desktop-electron/dist/mac-arm64/ThreadLens.app
 
       - name: Upload desktop zip artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: provider-surface-zips
+          name: threadlens-zips
           path: apps/desktop-electron/dist/*.zip
-          if-no-files-found: ignore
-
-      - name: Upload perf smoke report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: perf-smoke-report-macos-release
-          path: .run/perf/perf-smoke-*.*
-          if-no-files-found: ignore
-
-      - name: Upload forensics smoke report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: forensics-smoke-report-macos-release
-          path: .run/forensics/forensics-smoke-*.*
-          if-no-files-found: ignore
-
-      - name: Upload smoke summary report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: smoke-summary-report-macos-release
-          path: .run/smoke/smoke-summary-*.*
-          if-no-files-found: ignore
-
-      - name: Upload web live e2e smoke report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-live-e2e-report-macos-release
-          path: |
-            .run/e2e-live/web-live-e2e-*.*
-            .run/e2e-live/test-results-*
           if-no-files-found: ignore

@@ -1,31 +1,32 @@
 {
-  "name": "@provider-surface/desktop-electron",
+  "name": "@threadlens/desktop-electron",
   "version": "0.1.0",
   "private": true,
-  "description": "Electron shell for Provider Observatory",
-  "author": "Provider Observatory Contributors",
+  "description": "Electron shell for ThreadLens",
+  "author": "ThreadLens Contributors",
   "main": "main.cjs",
   "scripts": {
     "dev": "electron .",
     "icon:build": "./scripts/build-app-icon.sh",
     "stage": "node scripts/stage-desktop-assets.cjs",
-    "build": "pnpm run icon:build && pnpm run stage && node --check main.cjs && node --check preload.cjs",
+    "build": "pnpm run icon:build && pnpm run stage && node --check main.cjs && node --check main-menu.cjs && node --check preload.cjs",
     "dist:dir": "pnpm run build && electron-builder --dir",
     "dist:mac": "pnpm run build && electron-builder --mac dir zip",
-    "lint": "node --check main.cjs && node --check preload.cjs"
+    "lint": "node --check main.cjs && node --check main-menu.cjs && node --check preload.cjs"
   },
   "devDependencies": {
     "electron": "^41.0.2",
     "electron-builder": "^26.0.12"
   },
   "build": {
-    "appId": "com.providerobservatory.desktop",
-    "productName": "Provider Observatory",
+    "appId": "com.threadlens.desktop",
+    "productName": "ThreadLens",
     "directories": {
       "output": "dist"
     },
     "files": [
       "main.cjs",
+      "main-menu.cjs",
       "preload.cjs",
       "app/**/*",
       "package.json"

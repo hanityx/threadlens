@@ -12,7 +12,7 @@ import Fastify, {
   FastifyInstance,
 } from "fastify";
 import cors from "@fastify/cors";
-import { AgentRuntimeState } from "@provider-surface/shared-contracts";
+import { AgentRuntimeState } from "@threadlens/shared-contracts";
 
 import {
   START_TS,

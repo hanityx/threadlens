@@ -21,6 +21,10 @@ __pycache__/
 .DS_Store
 *.log
 .run/
+local-notes/
+.claude/
+.playwright-mcp/
+public-export-tmp/
 .playwright-cli/
 .preflight-*.log
 .env.release.local

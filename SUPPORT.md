@@ -7,8 +7,9 @@ Use this guide before opening a public issue.
 Run these first:
 
 ```bash
-pnpm oss:hygiene
-pnpm release:preflight
+pnpm --filter @threadlens/api test
+pnpm --filter @threadlens/api build
+pnpm --filter @threadlens/web build
 ```
 
 If one of these fails, include the failing command output in your issue.
@@ -20,12 +21,12 @@ If one of these fails, include the failing command output in your issue.
 Open a GitHub bug issue when:
 - the app crashes
 - the Electron bundle fails to start
-- `release:preflight` fails unexpectedly
+- the API or web build fails unexpectedly
 - provider/session data is missing or clearly incorrect
 
 Before filing:
 - attach the relevant `.run/` report path if available
-- include OS, Node, pnpm, and whether you used `pnpm public:export`
+- include OS, Node, pnpm, and whether you used `pnpm package:desktop:dir`
 
 ### Feature requests
 
@@ -44,15 +45,13 @@ Use:
 
 ## Public release helpers
 
-- First public push guide: [docs/FIRST_PUBLIC_PUSH.md](docs/FIRST_PUBLIC_PUSH.md)
-- Release checklist: [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)
-- Release notes draft: [docs/RELEASE_NOTES_0.1.0.md](docs/RELEASE_NOTES_0.1.0.md)
+- Public architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ## Common commands
 
 ```bash
-pnpm oss:hygiene
-pnpm release:preflight
-pnpm public:export
-pnpm release:macos:sign
+pnpm --filter @threadlens/api test
+pnpm --filter @threadlens/api build
+pnpm --filter @threadlens/web build
+pnpm package:desktop:dir
 ```

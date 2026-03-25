@@ -26,8 +26,8 @@ A clear and concise description of what you expected to happen.
 - Browser: [e.g., Chrome 130]
 
 **Validation checks already run**
-- [ ] `pnpm oss:hygiene`
-- [ ] `pnpm release:preflight`
+- [ ] no unintended private files or local-only helpers are included
+- [ ] `pnpm build`
 - [ ] I attached the relevant `.run/` report or terminal output
 
 **Relevant paths / artifacts**

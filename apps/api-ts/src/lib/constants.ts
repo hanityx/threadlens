@@ -11,12 +11,12 @@ import { fileURLToPath } from "node:url";
 
 /* ── Build-time paths ─────────────────────────────────────────────── */
 
-const THIS_DIR = process.env.PROVIDER_OBSERVATORY_PROJECT_ROOT
-  ? path.join(process.env.PROVIDER_OBSERVATORY_PROJECT_ROOT, ".api-root")
+const THIS_DIR = process.env.THREADLENS_PROJECT_ROOT
+  ? path.join(process.env.THREADLENS_PROJECT_ROOT, ".api-root")
   : path.dirname(fileURLToPath(import.meta.url));
 // lib/ → src/ → api-ts/ → apps/ → project root
 export const PROJECT_ROOT =
-  process.env.PROVIDER_OBSERVATORY_PROJECT_ROOT ??
+  process.env.THREADLENS_PROJECT_ROOT ??
   path.resolve(THIS_DIR, "../../../..");
 
 /* ── Server config ────────────────────────────────────────────────── */
@@ -29,6 +29,7 @@ export const START_TS = Date.now();
 
 export const STATE_DIR = path.resolve(
   PROJECT_ROOT,
+  // Legacy THREADLENS_ prefix is kept for backward-compatible local automation.
   process.env.THREADLENS_STATE_DIR ?? path.join(".run", "state"),
 );
 export const ROADMAP_STATE_FILE = path.join(STATE_DIR, "roadmap_state.json");
@@ -137,6 +138,7 @@ export const directApiPaths = new Set([
   "/api/related-tools",
   "/api/compare-apps",
   "/api/runtime-health",
+  "/api/sync-lens",
   "/api/smoke-status",
   "/api/data-sources",
   "/api/provider-matrix",

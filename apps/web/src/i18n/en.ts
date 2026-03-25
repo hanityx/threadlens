@@ -20,7 +20,7 @@ export const en = {
     "syncHint": "Refresh runtime, provider, and safety data now"
   },
   "hero": {
-    "title": "Provider Observatory",
+    "title": "ThreadLens",
     "badge": "Desktop beta",
     "description": "One desktop for conversation search, Codex cleanup review, and source-session backup across your core AI tools.",
     "active": "Active",

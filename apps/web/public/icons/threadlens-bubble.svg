@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ThreadLens icon option B">
+  <rect width="64" height="64" rx="18" fill="#0b0f14" />
+  <path
+    d="M17 19H37C42.523 19 47 23.477 47 29V30C47 35.523 42.523 40 37 40H28L22 45V40H17C11.477 40 7 35.523 7 30V29C7 23.477 11.477 19 17 19Z"
+    fill="none"
+    stroke="#f3f6fb"
+    stroke-width="4.5"
+    stroke-linejoin="round"
+  />
+  <circle cx="27" cy="29.5" r="8" fill="none" stroke="#f3f6fb" stroke-width="4" />
+  <circle cx="27" cy="29.5" r="2.75" fill="#f3f6fb" />
+  <path
+    d="M40.5 40.5L48 48"
+    fill="none"
+    stroke="#f3f6fb"
+    stroke-width="4.5"
+    stroke-linecap="round"
+  />
+</svg>

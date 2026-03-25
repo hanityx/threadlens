@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import type { ExecutionGraphData } from "@provider-surface/shared-contracts";
+import type { ExecutionGraphData } from "@threadlens/shared-contracts";
 import type { Messages } from "../i18n";
 import type { ProvidersPanelProps } from "../components/ProvidersPanel";
 import type { SessionDetailProps } from "../components/SessionDetail";

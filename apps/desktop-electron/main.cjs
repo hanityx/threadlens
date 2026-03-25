@@ -3,19 +3,46 @@ const fs = require("node:fs");
 const http = require("node:http");
 const net = require("node:net");
 const { spawn } = require("node:child_process");
-const { app, BrowserWindow, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, Menu, ipcMain, nativeImage, shell } = require("electron");
+const {
+  buildMenuTemplate,
+  getDefaultIconCandidates,
+  resolveAppIconPath,
+} = require("./main-menu.cjs");
 
 const isDev = Boolean(process.env.ELECTRON_RENDERER_URL);
 const DESKTOP_API_START_PORT = Number(
-  process.env.PROVIDER_OBSERVATORY_API_PORT || process.env.API_TS_PORT || 8788,
+  process.env.THREADLENS_API_PORT || process.env.API_TS_PORT || 8788,
 );
 const DESKTOP_API_HOST = "127.0.0.1";
 const DESKTOP_API_READY_TIMEOUT_MS = 12000;
 let desktopApiProcess = null;
 let desktopApiBaseUrl = `http://${DESKTOP_API_HOST}:${DESKTOP_API_START_PORT}`;
-const WINDOW_TITLE_SUFFIX = typeof process.env.PROVIDER_OBSERVATORY_WINDOW_TITLE_SUFFIX === "string"
-  ? process.env.PROVIDER_OBSERVATORY_WINDOW_TITLE_SUFFIX.trim()
+const WINDOW_TITLE_SUFFIX = typeof process.env.THREADLENS_WINDOW_TITLE_SUFFIX === "string"
+  ? process.env.THREADLENS_WINDOW_TITLE_SUFFIX.trim()
   : "";
+
+function getAppIconPath() {
+  return resolveAppIconPath({
+    candidates: getDefaultIconCandidates(__dirname, app.isPackaged, process.resourcesPath),
+  });
+}
+
+function applyAppIcon(targetWindow) {
+  const iconPath = getAppIconPath();
+  if (!iconPath) return;
+
+  const image = nativeImage.createFromPath(iconPath);
+  if (image.isEmpty()) return;
+
+  if (process.platform === "darwin") {
+    app.dock?.setIcon(image);
+  }
+
+  if (targetWindow && process.platform !== "darwin") {
+    targetWindow.setIcon(image);
+  }
+}
 
 function resolveExistingPath(filePath) {
   const normalized = typeof filePath === "string" ? filePath.trim() : "";
@@ -57,8 +84,8 @@ function createRouteSearch(route) {
 }
 
 function readInitialRoute() {
-  const raw = typeof process.env.PROVIDER_OBSERVATORY_INITIAL_ROUTE === "string"
-    ? process.env.PROVIDER_OBSERVATORY_INITIAL_ROUTE.trim()
+  const raw = typeof process.env.THREADLENS_INITIAL_ROUTE === "string"
+    ? process.env.THREADLENS_INITIAL_ROUTE.trim()
     : "";
   if (!raw) return null;
 
@@ -72,7 +99,7 @@ function readInitialRoute() {
       threadId: typeof parsed.threadId === "string" ? parsed.threadId : "",
     };
   } catch (error) {
-    console.warn("[desktop] invalid PROVIDER_OBSERVATORY_INITIAL_ROUTE", error);
+    console.warn("[desktop] invalid THREADLENS_INITIAL_ROUTE", error);
     return null;
   }
 }
@@ -160,7 +187,7 @@ async function startDesktopApi() {
   fs.mkdirSync(stateRoot, { recursive: true });
 
   desktopApiBaseUrl = `http://${DESKTOP_API_HOST}:${apiPort}`;
-  process.env.PROVIDER_OBSERVATORY_DESKTOP_API_BASE_URL = desktopApiBaseUrl;
+  process.env.THREADLENS_DESKTOP_API_BASE_URL = desktopApiBaseUrl;
 
   desktopApiProcess = spawn(process.execPath, [apiEntry], {
     env: {
@@ -168,7 +195,7 @@ async function startDesktopApi() {
       ELECTRON_RUN_AS_NODE: "1",
       API_TS_PORT: String(apiPort),
       APP_VERSION: app.getVersion(),
-      PROVIDER_OBSERVATORY_PROJECT_ROOT: stateRoot,
+      THREADLENS_PROJECT_ROOT: stateRoot,
     },
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
@@ -194,8 +221,8 @@ async function startDesktopApi() {
 
 function createMainWindow(route = null) {
   const windowTitle = WINDOW_TITLE_SUFFIX
-    ? `Provider Observatory ${WINDOW_TITLE_SUFFIX}`
-    : "Provider Observatory";
+    ? `ThreadLens ${WINDOW_TITLE_SUFFIX}`
+    : "ThreadLens";
   const win = new BrowserWindow({
     width: 1440,
     height: 960,
@@ -204,6 +231,7 @@ function createMainWindow(route = null) {
     title: windowTitle,
     backgroundColor: "#0a0d14",
     autoHideMenuBar: true,
+    ...(process.platform !== "darwin" && getAppIconPath() ? { icon: getAppIconPath() } : {}),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -228,9 +256,46 @@ function createMainWindow(route = null) {
   } else {
     void win.loadFile(entry, routeSearch ? { search: routeSearch } : undefined);
   }
+
+  applyAppIcon(win);
+  Menu.setApplicationMenu(createMenu());
+  return win;
 }
 
-ipcMain.handle("provider-surface:file-action", async (_event, payload) => {
+function createMenu() {
+  const focusedWindow = BrowserWindow.getFocusedWindow();
+  return Menu.buildFromTemplate(
+    buildMenuTemplate({
+      appName: "ThreadLens",
+      isMac: process.platform === "darwin",
+      isDev,
+      hasFocusedWindow: Boolean(focusedWindow),
+      onOpenRoute: (route) => createMainWindow(route),
+      onRefresh: () => {
+        const target = BrowserWindow.getFocusedWindow();
+        if (target) target.webContents.reload();
+      },
+      onOpenAppData: async () => {
+        const stateRoot = path.join(app.getPath("userData"), "state");
+        fs.mkdirSync(stateRoot, { recursive: true });
+        await shell.openPath(stateRoot);
+      },
+      onOpenLogs: async () => {
+        const logsDir = app.getPath("logs");
+        fs.mkdirSync(logsDir, { recursive: true });
+        await shell.openPath(logsDir);
+      },
+      onShowAbout: () => {
+        app.showAboutPanel();
+      },
+      onOpenHomepage: () => {
+        void shell.openExternal("https://github.com/threadlens/threadlens");
+      },
+    }),
+  );
+}
+
+ipcMain.handle("threadlens:file-action", async (_event, payload) => {
   try {
     const action = typeof payload?.action === "string" ? payload.action : "";
     const filePath = resolveExistingPath(payload?.filePath);
@@ -263,7 +328,7 @@ ipcMain.handle("provider-surface:file-action", async (_event, payload) => {
   }
 });
 
-ipcMain.handle("provider-surface:open-window", async (_event, payload) => {
+ipcMain.handle("threadlens:open-window", async (_event, payload) => {
   try {
     const route = {
       view: typeof payload?.view === "string" ? payload.view : "",
@@ -284,7 +349,17 @@ ipcMain.handle("provider-surface:open-window", async (_event, payload) => {
   }
 });
 
+ipcMain.handle("threadlens:get-api-base-url", async () => desktopApiBaseUrl);
+
 app.whenReady().then(() => {
+  app.setName("ThreadLens");
+  app.setAboutPanelOptions({
+    applicationName: "ThreadLens",
+    applicationVersion: app.getVersion(),
+    version: app.getVersion(),
+    credits: "Local-first AI thread and session workbench",
+  });
+  Menu.setApplicationMenu(createMenu());
   Promise.resolve()
     .then(() => startDesktopApi())
     .catch((error) => {

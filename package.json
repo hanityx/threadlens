@@ -1,16 +1,16 @@
 {
-  "name": "provider-surface-monorepo",
+  "name": "threadlens-monorepo",
   "private": true,
   "version": "0.1.0",
-  "description": "Local-first observability dashboard for AI provider sessions",
+  "description": "Local-first observability dashboard for AI threads and sessions",
   "license": "MIT",
-  "homepage": "https://github.com/provider-surface/provider-surface",
+  "homepage": "https://github.com/threadlens/threadlens",
   "bugs": {
-    "url": "https://github.com/provider-surface/provider-surface/issues"
+    "url": "https://github.com/threadlens/threadlens/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/provider-surface/provider-surface.git"
+    "url": "https://github.com/threadlens/threadlens.git"
   },
   "keywords": [
     "electron",
@@ -33,40 +33,18 @@
     }
   },
   "scripts": {
-    "dev:api": "pnpm --filter @provider-surface/api dev",
-    "dev:tui": "pnpm --filter @provider-surface/tui dev",
-    "dev:tui:stack": "./scripts/dev-tui-stack.sh",
-    "tui": "./scripts/run-tui.sh",
-    "dev:web": "pnpm --filter @provider-surface/web dev",
-    "dev:desktop": "ELECTRON_RENDERER_URL=http://127.0.0.1:5174 pnpm --filter @provider-surface/desktop-electron dev",
-    "dev": "pnpm -r --parallel --filter @provider-surface/api --filter @provider-surface/web dev",
-    "build": "pnpm --filter @provider-surface/shared-contracts build && pnpm --filter @provider-surface/api build && pnpm --filter @provider-surface/web build",
-    "build:tui": "pnpm --filter @provider-surface/tui build",
-    "start:tui": "pnpm --filter @provider-surface/tui start",
-    "build:desktop": "pnpm --filter @provider-surface/shared-contracts build && pnpm --filter @provider-surface/web build && pnpm --filter @provider-surface/api bundle:desktop && pnpm --filter @provider-surface/desktop-electron build",
-    "package:desktop": "pnpm build:desktop && pnpm --filter @provider-surface/desktop-electron dist:mac",
-    "package:desktop:dir": "pnpm build:desktop && pnpm --filter @provider-surface/desktop-electron dist:dir",
-    "release:bundle": "./scripts/release-bundle.sh",
-    "release:artifacts:cleanup": "./scripts/cleanup-release-artifacts.sh",
-    "release:status": "./scripts/release-status.sh",
-    "release:public:prepare": "./scripts/prepare-public-release.sh",
-    "release:public:stage": "./scripts/stage-public-release.sh",
-    "release:public:ready": "./scripts/refresh-public-ready.sh",
-    "release:macos:doctor": "./scripts/macos-sign-doctor.sh",
-    "release:macos:sign": "./scripts/macos-sign-notarize.sh",
-    "release:preflight": "./scripts/release-preflight.sh",
-    "oss:hygiene": "./scripts/oss-hygiene.sh",
-    "public:export": "./scripts/export-public-tree.sh",
-    "public:init": "./scripts/init-public-repo.sh",
-    "public:push-ready": "./scripts/public-push-ready.sh",
-    "public:verify": "./scripts/verify-public-export.sh",
-    "perf:smoke": "./scripts/perf-smoke.sh",
-    "perf:smoke:strict": "PERF_SMOKE_STRICT=1 ./scripts/perf-smoke.sh",
-    "forensics:smoke": "./scripts/forensics-smoke.sh",
-    "web:e2e:live": "./scripts/web-live-e2e-smoke.sh",
-    "smoke:summary": "./scripts/smoke-summary.sh",
+    "dev:api": "pnpm --filter @threadlens/api dev",
+    "dev:tui": "pnpm --filter @threadlens/tui dev",
+    "dev:web": "pnpm --filter @threadlens/web dev",
+    "dev:desktop": "ELECTRON_RENDERER_URL=http://127.0.0.1:5174 pnpm --filter @threadlens/desktop-electron dev",
+    "dev": "pnpm -r --parallel --filter @threadlens/api --filter @threadlens/web dev",
+    "build": "pnpm --filter @threadlens/shared-contracts build && pnpm --filter @threadlens/api build && pnpm --filter @threadlens/web build",
+    "build:tui": "pnpm --filter @threadlens/tui build",
+    "start:tui": "pnpm --filter @threadlens/tui start",
+    "build:desktop": "pnpm --filter @threadlens/shared-contracts build && pnpm --filter @threadlens/web build && pnpm --filter @threadlens/api bundle:desktop && pnpm --filter @threadlens/desktop-electron build",
+    "package:desktop": "pnpm build:desktop && pnpm --filter @threadlens/desktop-electron dist:mac",
+    "package:desktop:dir": "pnpm build:desktop && pnpm --filter @threadlens/desktop-electron dist:dir",
     "test": "pnpm -r test",
-    "test:contract": "pnpm --filter @provider-surface/tests-api-contract test",
     "lint": "pnpm -r lint"
   },
   "devDependencies": {

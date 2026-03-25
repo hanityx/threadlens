@@ -74,7 +74,7 @@ async function runFullPageSmoke(page: Page, suffix: string, testInfo: { outputPa
   await surfaceTabs(page).getByRole("button", { name: /^overview$/i }).click();
   const setupButton = page.getByRole("button", { name: /^setup$/i }).first();
   await setupButton.click();
-  await expect(page.getByText(/setup workspace|provider observatory/i).first()).toBeVisible();
+  await expect(page.getByText(/setup workspace|threadlens/i).first()).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath(`setup-${suffix}.png`),
     fullPage: true,

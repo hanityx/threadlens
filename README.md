@@ -1,157 +1,115 @@
-# Provider Observatory
+# ThreadLens
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/Node-%3E%3D20-blue)](https://nodejs.org)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D10-orange)](https://pnpm.io)
-[![CI](https://github.com/provider-surface/provider-surface/actions/workflows/ci.yml/badge.svg)](https://github.com/provider-surface/provider-surface/actions/workflows/ci.yml)
+[![CI](https://github.com/threadlens/threadlens/actions/workflows/ci.yml/badge.svg)](https://github.com/threadlens/threadlens/actions/workflows/ci.yml)
 
-Local-first desktop control room for searching, reviewing, backing up, and safely cleaning up local AI conversations.
+Local-first workbench for searching, reviewing, backing up, and safely cleaning up local AI conversations across Codex, Claude CLI, Gemini CLI, and related local session sources.
 
-<!-- Demo: animated SVG showing all dashboard views (20s loop) -->
 <p align="center">
-  <img src="docs/assets/demo.svg" alt="Provider Observatory Demo" width="100%"/>
+  <img src="docs/assets/readme-overview.png" alt="ThreadLens overview surface" width="100%"/>
 </p>
 
-Recommended product flow:
-- `Conversation Search` when you only remember a phrase, filename, or old prompt
-- `Codex Cleanup` when you want impact analysis, dry-runs, pin/archive, and cleanup review for Codex threads
-- `Source Sessions` when you want raw session transcripts, selective backup, backup bundle export, and source-session actions across Codex, Claude, Gemini, and Copilot
-- `AI Diagnostics` when you need operator-level path, parser, and execution-flow evidence
+ThreadLens is built around four operator workflows:
+- `Conversation Search` for finding the exact phrase, filename, or session note first
+- `Source Sessions` for browsing transcripts, backing up raw files, and exporting recovery bundles
+- `Cleanup` for Codex thread review, impact analysis, archive actions, and dry-runs
+- `AI Diagnostics` for path, parser, and execution-flow inspection across providers
 
-Provider Observatory helps manage large local AI histories with a product-first workflow:
-- raw conversation search across providers
-- Codex cleanup workflow with impact analysis and cleanup dry-run
-- source-session browsing with transcript inspection and backup-first actions
-- multi-provider diagnostics for Codex, Claude, Gemini, and optional Copilot
-- recovery and backup export tooling
-- desktop shell via Electron
+## What It Does
 
-Optional related-tools panel:
-- set `THREADLENS_RELATED_TOOLS_JSON` to populate the `Related Tools` panel with your own local tool entries
-- default behavior shows only Provider Observatory itself
-
-```bash
-export THREADLENS_RELATED_TOOLS_JSON='[
-  {
-    "name": "My Session CLI",
-    "command": "my-session-cli",
-    "running_pattern": "my-session-cli",
-    "tmux_session": "my-session-cli",
-    "start_cmd": "my-session-cli start",
-    "watch_cmd": "tmux attach -t my-session-cli",
-    "notes": "Local worktree/session helper"
-  }
-]'
-```
-
-Optional loop-control panel:
-- set `THREADLENS_LOOP_CONTROLLERS_JSON` to expose local automation controllers in `AGI Loop Control`
-- default behavior shows an empty loop panel and does not ship any controller scripts
-
-```bash
-export THREADLENS_LOOP_CONTROLLERS_JSON='[
-  {
-    "id": "nightly_sync",
-    "label": "Nightly Sync",
-    "controller": "./ops/nightly-sync-control.sh"
-  }
-]'
-```
-
-Runtime state location:
-- default local state lives under `.run/state/`
-- set `THREADLENS_STATE_DIR` to move roadmap, alert, checklist, and recovery-plan files elsewhere
+- Search raw conversation text before deciding whether the result belongs in Cleanup or Sessions.
+- Review Codex cleanup candidates with impact analysis and dry-run guardrails.
+- Inspect transcript files from supported providers without diving through local storage by hand.
+- Keep backup and recovery actions close to the data they affect.
+- Use the same local runtime from the web app, terminal workbench, or desktop shell.
 
 ## Tech Stack
+- TUI: Ink + React 19
 - Desktop: Electron
 - API: Node.js + TypeScript + Fastify
 - Runtime: TypeScript-only Fastify API
-- Web UI: React + Vite
+- Web UI: React 18 + Vite
 
-## Repository Structure
-- `apps/api-ts` Fastify gateway and TS routes
-- `apps/web` dashboard frontend
-- `apps/desktop-electron` desktop shell
-- `packages/shared-contracts` shared types/contracts
-- `scripts` dev/release automation scripts
-- `docs` PRD, operations, troubleshooting, release docs
+## Optional Remote Sync Lens
 
-## Development
+`/api/sync-lens` is an optional read-only comparison surface for operators who
+want to compare the local Codex state against a second machine.
+
+- Set `SYNC_LENS_REMOTE_ALIAS=<ssh-alias>` before starting `@threadlens/api`
+- The remote host must provide `ssh` access and `python3`
+- Strict host-key checks stay enabled by default
+
+## Getting Started
+
 ```bash
-# from repository root
 pnpm install
 pnpm dev
+pnpm dev:tui      # optional terminal workbench
 pnpm dev:desktop  # optional Electron shell
 ```
 
 Web UI: `http://127.0.0.1:5174`  
 TS API: `http://127.0.0.1:8788`
 
-## Core Commands
+## Terminal Workbench
+
 ```bash
-pnpm --filter @provider-surface/api test
-pnpm --filter @provider-surface/api build
-pnpm --filter @provider-surface/web test
-pnpm --filter @provider-surface/web test:e2e
-pnpm web:e2e:live
-pnpm --filter @provider-surface/tests-api-contract test
-pnpm oss:hygiene
-pnpm public:verify
-pnpm forensics:smoke
-pnpm perf:smoke:strict
-pnpm smoke:summary
-pnpm build:desktop
-pnpm release:preflight
+pnpm dev:api
+pnpm dev:tui
+
+pnpm start:tui
+pnpm start:tui -- --query obsidian
+pnpm start:tui -- --query obsidian --results
+pnpm start:tui -- --view sessions --provider codex
+pnpm start:tui -- --view sessions --provider codex --filter 019cecd0
+pnpm start:tui -- --view cleanup --filter risk
 ```
 
-Smoke outputs:
-- Forensics: `.run/forensics/forensics-smoke-<timestamp>.{json,md}`
-- Perf: `.run/perf/perf-smoke-<timestamp>.{json,md}`
-- Summary: `.run/smoke/smoke-summary-<timestamp>.{json,md}`
-- Hygiene: `pnpm oss:hygiene` blocks legacy product names, internal codenames, removed shell references, and raw `/user-root/...` leaks in tracked files.
-- Public export verify: `pnpm public:verify` confirms the export is history-free, clean, and includes the expected release files.
+Keymap highlights:
+- `1 / 2 / 3`: Search / Sessions / Cleanup
+- `?`: help overlay
+- Search: type directly, `Enter`/`Ctrl+N`/`Tab` results focus, `/` or `i` query focus
+- Sessions: `[` `]` provider scope, `b` backup, `a` archive dry-run, `d` delete dry-run
+- Cleanup: `space` select, `a` analyze, `d` dry-run, `D` execute
 
-## Desktop Artifacts
-- Electron shell validation: `pnpm build:desktop`
-- Electron unsigned package: `pnpm package:desktop:dir`
-  - `.app`: `apps/desktop-electron/dist/mac-arm64/Provider Observatory.app`
-  - `.zip`: `apps/desktop-electron/dist/*.zip` via `pnpm package:desktop`
+## Desktop Build
 
-## Release
-- Preflight checklist: `docs/RELEASE_CHECKLIST.md`
-- Signing/notarization guide: `docs/RELEASE_SIGNING.md`
-- Local release quickstart: `docs/LOCAL_RELEASE_QUICKSTART.md`
-- First public push guide: `docs/FIRST_PUBLIC_PUSH.md`
-- Release notes draft: `docs/RELEASE_NOTES_0.1.0.md`
-- Signing readiness check: `pnpm release:macos:doctor`
-- Signing command: `pnpm release:macos:sign`
-- Release bundle: `pnpm release:bundle`
-- Release artifact cleanup: `pnpm release:artifacts:cleanup`
-- Release status: `pnpm release:status`
-- Public release prep: `pnpm release:public:prepare`
-- Public release ready (recommended, no push): `pnpm release:public:ready`
-- Public release stage (manual step): `pnpm release:public:stage`
-- Public export command: `pnpm public:export`
-- Public repo init: `pnpm public:init` or `pnpm public:init -- <export-dir>`
-- Public push readiness: `pnpm public:push-ready`
-- Public export verification: `pnpm public:verify`
-- Stable aliases after running release scripts:
-  - `.run/release-bundles/latest`
-  - `.run/public-release/latest-clean`
-  - `.run/public-release/latest-verified`
-  - `.run/public-release/latest-stage`
-- `latest-stage` is only updated by the official stage flow or by `pnpm public:init` when run against `latest-clean`; scratch/test exports do not replace it.
-- `pnpm release:artifacts:cleanup` removes old scratch/test exports and stale bundles while preserving the current `latest-*` alias targets.
-- `pnpm release:public:stage` now keeps the clean export and staged repo as separate directories from the same run.
-- If `latest-clean` is newer than `latest-stage`, rerun `pnpm release:public:ready` before pushing.
-- `pnpm release:public:ready` and `pnpm public:init` infer `origin` from `package.json` `repository.url` unless `PUBLIC_REMOTE_URL` overrides it.
+```bash
+pnpm build:desktop
+pnpm package:desktop:dir
+pnpm package:desktop
+```
 
-## Product Surface
-- `Overview`: runtime, smoke, recovery, and product guidance
-- `Conversation Search`: search raw transcripts first, then jump into the correct workflow
-- `Codex Cleanup`: Codex thread-focused review, impact analysis, and cleanup dry-run
-- `Source Sessions`: provider-scoped session exploration and backup hub
-- `AI Diagnostics`: advanced provider diagnostics and execution flow
+Expected outputs:
+- `.app`: `apps/desktop-electron/dist/mac-arm64/ThreadLens.app`
+- `.zip`: `apps/desktop-electron/dist/*.zip`
+
+## Repository Structure
+
+- `apps/api-ts` Fastify API runtime
+- `apps/web` React workbench
+- `apps/tui` Ink terminal workbench
+- `apps/desktop-electron` Electron shell
+- `packages/shared-contracts` shared contracts and schema surface
+- `docs` public architecture, product, troubleshooting, and release notes
+
+## Core Commands
+
+```bash
+pnpm --filter @threadlens/api test
+pnpm --filter @threadlens/api build
+pnpm --filter @threadlens/web test
+pnpm --filter @threadlens/web build
+pnpm --filter @threadlens/tui build
+pnpm build:desktop
+```
+
+## Docs
+
+- Architecture: `docs/ARCHITECTURE.md`
+- Internal release, troubleshooting, and product notes live under `docs/private-notes/`
 
 ## Contributing
 

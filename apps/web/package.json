@@ -1,7 +1,7 @@
 {
-  "name": "@provider-surface/web",
+  "name": "@threadlens/web",
   "version": "0.1.0",
-  "description": "React workbench UI for Provider Observatory",
+  "description": "React workbench UI for ThreadLens",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -15,7 +15,7 @@
     "lint": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@provider-surface/shared-contracts": "workspace:*",
+    "@threadlens/shared-contracts": "workspace:*",
     "@tanstack/react-query": "^5.64.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

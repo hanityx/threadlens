@@ -22,7 +22,7 @@ export function CleanupView(props: {
   const [filterQuery, setFilterQuery] = useState(initialFilter ?? "");
   const [focusMode, setFocusMode] = useState<"list" | "filter">("list");
   const [analysisSummary, setAnalysisSummary] = useState<string>(
-    "/·i: 필터 · a: 영향 분석 · d: 드라이런 · D: 실행 · c: 토큰지움 · space: 선택",
+    "/·i: filter · a: impact analysis · d: dry-run · D: execute · c: clear token · space: select",
   );
   const [pendingInitialThreadId, setPendingInitialThreadId] = useState<string | null>(initialThreadId);
   const [pendingCleanup, setPendingCleanup] = useState<{ token: string; ids: string[] } | null>(null);
@@ -165,12 +165,12 @@ export function CleanupView(props: {
     }
     if (input.toLowerCase() === "x") {
       setSelectedIds([]);
-      setAnalysisSummary("선택 해제됨");
+      setAnalysisSummary("Selection cleared");
       return;
     }
     if (input === "c") {
       setPendingCleanup(null);
-      setAnalysisSummary("정리 토큰 지움");
+      setAnalysisSummary("Cleanup token cleared");
       return;
     }
     if (input.toLowerCase() === "r") {
@@ -178,7 +178,7 @@ export function CleanupView(props: {
       return;
     }
     if (input === "a" && selectedIds.length > 0) {
-      setAnalysisSummary("영향 분석 중…");
+      setAnalysisSummary("Running impact analysis...");
       void analyzeDelete(selectedIds)
         .then((data) => {
           const report = data.reports?.[0];
@@ -189,7 +189,7 @@ export function CleanupView(props: {
             parents: report?.parents ?? [],
           });
           setAnalysisSummary(
-            `영향 ${data.count ?? 0}건` +
+            `Impacts ${data.count ?? 0} items` +
               (report?.summary ? ` · ${truncate(report.summary, 48)}` : ""),
           );
         })
@@ -199,7 +199,7 @@ export function CleanupView(props: {
       return;
     }
     if (input === "d" && selectedIds.length > 0) {
-      setAnalysisSummary("드라이런 중…");
+      setAnalysisSummary("Running dry-run...");
       void cleanupDryRun(selectedIds)
         .then((data) => {
           const token = String(data.confirm_token_expected ?? "").trim();
@@ -213,9 +213,9 @@ export function CleanupView(props: {
             help: String(data.confirm_help ?? "").trim(),
           });
           setAnalysisSummary(
-            `드라이런 ready · token ${token || "-"}` +
+            `Dry-run ready · token ${token || "-"}` +
               (data.target_file_count ? ` · files ${data.target_file_count}` : "") +
-              (token ? " · Shift+D 실행" : ""),
+              (token ? " · Shift+D execute" : ""),
           );
         })
         .catch((actionError) => {
@@ -229,10 +229,10 @@ export function CleanupView(props: {
         pendingCleanup.ids.length !== normalizedSelectedIds.length ||
         pendingCleanup.ids.some((id, index) => id !== normalizedSelectedIds[index])
       ) {
-        setAnalysisSummary("먼저 현재 선택으로 d 드라이런을 다시 돌려.");
+        setAnalysisSummary("Run d dry-run again with the current selection first.");
         return;
       }
-      setAnalysisSummary("정리 실행 중…");
+      setAnalysisSummary("Running cleanup...");
       void cleanupApply(normalizedSelectedIds, pendingCleanup.token)
         .then((data) => {
           setPendingCleanup(null);
@@ -246,7 +246,7 @@ export function CleanupView(props: {
             help: String(data.confirm_help ?? "").trim(),
           });
           setAnalysisSummary(
-            `정리 완료 · deleted ${data.deleted_file_count ?? 0}/${data.target_file_count ?? 0}` +
+            `Cleanup complete · deleted ${data.deleted_file_count ?? 0}/${data.target_file_count ?? 0}` +
               (data.backup?.copied_count ? ` · backup ${data.backup.copied_count}` : ""),
           );
           fetchRows();
@@ -260,27 +260,27 @@ export function CleanupView(props: {
   return (
     <Box flexDirection="column" gap={1}>
       <Box borderStyle="round" borderColor="cyan" paddingX={1} flexDirection="column">
-        <Text color="cyan">정리</Text>
-        <Text color="gray">/·i 필터 · Esc·Enter 목록복귀 · ↑↓ 또는 j/k · space 선택 · a 영향분석 · d 드라이런 · D 실행 · c 토큰지움 · x 선택해제 · r 새로고침</Text>
+        <Text color="cyan">Cleanup</Text>
+        <Text color="gray">/·i filter · Esc·Enter back to list · ↑↓ or j/k · space select · a impact analysis · d dry-run · D execute · c clear token · x clear selection · r refresh</Text>
         <Text color={focusMode === "filter" ? "green" : "gray"}>
-          filter: {filterQuery.length > 0 ? `${filterQuery}${focusMode === "filter" ? "▌" : ""}` : focusMode === "filter" ? "입력 중▌" : "없음"}
+          filter: {filterQuery.length > 0 ? `${filterQuery}${focusMode === "filter" ? "▌" : ""}` : focusMode === "filter" ? "typing▌" : "none"}
         </Text>
         <Text color="yellow">selected: {selectedIds.length} / total {totalCount || rows.length}</Text>
         {pendingCleanup ? <Text color="yellow">pending cleanup · {pendingCleanup.token}</Text> : null}
         <Text color="gray">{analysisSummary}</Text>
-        {loading ? <Text color="yellow">스레드 로딩 중…</Text> : null}
+        {loading ? <Text color="yellow">Loading threads...</Text> : null}
         {error ? <Text color="red">{error}</Text> : null}
       </Box>
       <Box gap={2}>
         <Box width="58%" borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
-          <Text color="cyan">스레드</Text>
+          <Text color="cyan">Threads</Text>
           {filteredRows.length > 0 ? (
             <Text color="gray">
               showing {visibleThreads.start + 1}-{visibleThreads.end}/{filteredRows.length}
               {filterQuery.trim() ? ` · filtered from ${rows.length}` : ""}
             </Text>
           ) : null}
-          {filteredRows.length === 0 ? <Text color="gray">{rows.length === 0 ? "스레드 없음" : "필터 결과 없음"}</Text> : null}
+          {filteredRows.length === 0 ? <Text color="gray">{rows.length === 0 ? "No threads" : "No filtered results"}</Text> : null}
           {visibleThreads.items.map((row, offset) => {
             const index = visibleThreads.start + offset;
             const focused = index === selectedIndex;
@@ -298,7 +298,7 @@ export function CleanupView(props: {
           })}
         </Box>
         <Box width="42%" borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
-          <Text color="cyan">선택 상세</Text>
+          <Text color="cyan">Selection detail</Text>
           {selected ? (
             <>
               <Text>{truncate(selected.title || selected.thread_id, 54)}</Text>
@@ -309,7 +309,7 @@ export function CleanupView(props: {
               <Text color="gray">{truncate(selected.cwd || "-", 56)}</Text>
               {lastAnalysis ? (
                 <>
-                  <Text color="yellow">영향 분석</Text>
+                  <Text color="yellow">Impact analysis</Text>
                   <Text color="gray">count {lastAnalysis.count}</Text>
                   {lastAnalysis.summary ? <Text>{truncate(lastAnalysis.summary, 96)}</Text> : null}
                   {lastAnalysis.impacts.slice(0, 3).map((impact, index) => (
@@ -326,7 +326,7 @@ export function CleanupView(props: {
               ) : null}
               {lastCleanup ? (
                 <>
-                  <Text color="yellow">정리 미리보기</Text>
+                  <Text color="yellow">Cleanup preview</Text>
                   <Text color="gray">
                     {lastCleanup.mode} · files {lastCleanup.fileCount}
                     {lastCleanup.deletedCount ? ` · deleted ${lastCleanup.deletedCount}` : ""}
@@ -338,7 +338,7 @@ export function CleanupView(props: {
               ) : null}
             </>
           ) : (
-            <Text color="gray">스레드를 선택해.</Text>
+            <Text color="gray">Select a thread.</Text>
           )}
         </Box>
       </Box>

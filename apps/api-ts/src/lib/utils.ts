@@ -18,7 +18,7 @@ import { z } from "zod";
 import {
   ApiEnvelope,
   SCHEMA_VERSION,
-} from "@provider-surface/shared-contracts";
+} from "@threadlens/shared-contracts";
 
 /* ── Types ────────────────────────────────────────────────────────── */
 

@@ -1,6 +1,6 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ApiEnvelope, BulkThreadActionResult } from "@provider-surface/shared-contracts";
+import type { ApiEnvelope, BulkThreadActionResult } from "@threadlens/shared-contracts";
 import { apiGet, apiPost, apiPostJsonAllowError } from "../api";
 import { extractEnvelopeData, normalizeThreadRow, parseNum } from "../lib/helpers";
 import type {
@@ -156,7 +156,7 @@ function formatMutationErrorMessage(raw: string): string {
     normalized.includes("networkerror") ||
     normalized.includes(RUNTIME_BACKEND_DOWN_CACHED)
   ) {
-    return "런타임 연결이 불안정해서 요청에 실패했어. `pnpm --filter @provider-surface/api dev` 상태를 확인한 뒤 다시 시도해.";
+    return "The runtime connection is unstable, so the request failed. Check `pnpm --filter @threadlens/api dev` and try again.";
   }
 
   if (
@@ -164,11 +164,11 @@ function formatMutationErrorMessage(raw: string): string {
     normalized.includes("no thread ids provided") ||
     normalized.includes("at least 1")
   ) {
-    return "유효한 thread ID가 선택되지 않았어. 하나 이상 선택하고 다시 시도해.";
+    return "No valid thread ID is selected. Select at least one and try again.";
   }
 
   if (normalized.includes("confirm_token")) {
-    return "확인 토큰이 유효하지 않아. 드라이런을 다시 실행한 뒤 최신 토큰으로 다시 시도해.";
+    return "The confirm token is invalid. Run the dry-run again and retry with the latest token.";
   }
 
   return normalized || trimmed;
@@ -1086,7 +1086,7 @@ export function useAppData(options?: { providersDiagnosticsOpen?: boolean }) {
     return [
       {
         id: "all" as ProviderView,
-        name: "전체 AI",
+        name: "All AI",
         status: "active" as const,
         scanned: allProviderSessionRows.length,
         scan_ms: null,
@@ -1111,7 +1111,7 @@ export function useAppData(options?: { providersDiagnosticsOpen?: boolean }) {
     if (!exists) setProviderView("all");
   }, [providerView, providerTabs]);
   const selectedProviderLabel =
-    providerView === "all" ? "전체 AI" : providerById.get(providerView)?.name ?? providerView;
+    providerView === "all" ? "All AI" : providerById.get(providerView)?.name ?? providerView;
   const selectedProviderFilePaths = useMemo(
     () =>
       providerSessionRows

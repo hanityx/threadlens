@@ -3,7 +3,7 @@ import { z } from "zod";
 import {
   SCHEMA_VERSION,
   type AgentRuntimeState,
-} from "@provider-surface/shared-contracts";
+} from "@threadlens/shared-contracts";
 import { getExecutionGraphData } from "../../execution-graph.js";
 import {
   APP_VERSION,

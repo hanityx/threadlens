@@ -30,7 +30,7 @@ function isCodexRelatedCommand(commandLc: string): boolean {
     "openai.chat-helper",
     "agent-loop",
     "oh-my-codex",
-    "provider-surface",
+    "threadlens",
     "conductor",
     "tmux",
   ];
@@ -62,8 +62,8 @@ function classifyCodexProcess(command: string): string {
     return "automation-loop";
   }
   if (
-    lc.includes("provider-surface/apps/api-ts") ||
-    lc.includes("@provider-surface/api") ||
+    lc.includes("threadlens/apps/api-ts") ||
+    lc.includes("@threadlens/api") ||
     lc.includes("src/app/create-server.ts")
   ) {
     return "overview-server";

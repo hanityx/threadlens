@@ -1,6 +1,6 @@
-# Provider Observatory Desktop (Electron)
+# ThreadLens Desktop (Electron)
 
-Electron is the primary desktop shell for Provider Observatory.
+Electron is the primary desktop shell for ThreadLens.
 
 ## What It Does
 
@@ -16,18 +16,18 @@ From the repository root:
 
 ```bash
 pnpm install
-API_TS_PORT=8899 pnpm --filter @provider-surface/api dev
-VITE_API_PROXY_TARGET=http://127.0.0.1:8899 pnpm --filter @provider-surface/web dev --host 127.0.0.1 --port 5181
-ELECTRON_RENDERER_URL=http://127.0.0.1:5181 pnpm --filter @provider-surface/desktop-electron dev
+API_TS_PORT=8899 pnpm --filter @threadlens/api dev
+VITE_API_PROXY_TARGET=http://127.0.0.1:8899 pnpm --filter @threadlens/web dev --host 127.0.0.1 --port 5181
+ELECTRON_RENDERER_URL=http://127.0.0.1:5181 pnpm --filter @threadlens/desktop-electron dev
 ```
 
 ## Validation
 
 ```bash
-pnpm --filter @provider-surface/desktop-electron lint
+pnpm --filter @threadlens/desktop-electron lint
 pnpm build:desktop
 pnpm package:desktop:dir
-pnpm --filter @provider-surface/desktop-electron exec electron --version
+pnpm --filter @threadlens/desktop-electron exec electron --version
 ```
 
 ## Packaging
@@ -38,7 +38,7 @@ pnpm package:desktop:dir
 pnpm package:desktop
 ```
 
-- Directory build output: `apps/desktop-electron/dist/mac-arm64/Provider Observatory.app`
+- Directory build output: `apps/desktop-electron/dist/mac-arm64/ThreadLens.app`
 - Zip output: `apps/desktop-electron/dist/*.zip`
 - The packaged app bundles the built web UI and the embedded TS API runner.
 - The packaged app runs against the embedded TS API only.

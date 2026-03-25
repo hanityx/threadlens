@@ -434,7 +434,7 @@ export async function evaluateAlertHooksTs(
     lastFired[ruleId] = event.ts;
     stateChanged = true;
     if (config.desktop_notify) {
-      await resolved.desktopNotifier("Provider Observatory Alert", event.message);
+      await resolved.desktopNotifier("ThreadLens Alert", event.message);
     }
   }
 
@@ -594,7 +594,7 @@ function sameNumberMap(
 }
 
 function notifyDesktop(title: string, message: string): void {
-  const safeTitle = String(title || "Provider Observatory Alert").replace(/"/g, "'");
+  const safeTitle = String(title || "ThreadLens Alert").replace(/"/g, "'");
   const safeMessage = String(message || "").replace(/"/g, "'");
   try {
     execFileSync(

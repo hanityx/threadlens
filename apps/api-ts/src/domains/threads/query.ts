@@ -1,4 +1,4 @@
-import { SCHEMA_VERSION } from "@provider-surface/shared-contracts";
+import { SCHEMA_VERSION } from "@threadlens/shared-contracts";
 import { parseQueryNumber, parseQueryString, type QueryMap } from "../../lib/utils.js";
 import { getOverviewTs } from "./overview.js";
 

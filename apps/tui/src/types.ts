@@ -1,4 +1,4 @@
-import type { ApiEnvelope } from "@provider-surface/shared-contracts";
+import type { ApiEnvelope } from "@threadlens/shared-contracts";
 
 export type SearchHit = {
   provider: string;

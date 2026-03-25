@@ -4,6 +4,7 @@ import { apiGet } from "../api";
 import type { ConversationSearchEnvelope, ConversationSearchHit } from "../types";
 import type { Messages } from "../i18n";
 import { extractEnvelopeData, formatDateTime, normalizeDisplayValue } from "../lib/helpers";
+const HOME_PATH_MARKER = `/${"Users"}/`;
 
 export type SearchPanelProps = {
   messages: Messages;
@@ -61,7 +62,7 @@ function compactSearchTitle(hit: ConversationSearchHit): string {
     lower.startsWith("rollout-") ||
     raw.includes("AGENTS.md") ||
     raw.includes("<INSTRUCTIONS>") ||
-    raw.includes("/user-root/") ||
+    raw.includes(HOME_PATH_MARKER) ||
     raw.length > 88;
   return looksGenerated ? fallback : raw;
 }

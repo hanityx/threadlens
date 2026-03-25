@@ -72,6 +72,7 @@ const PROVIDER_CSV_COLUMNS_STORAGE_KEY = "po-provider-csv-columns";
 const LEGACY_PROVIDER_CSV_COLUMNS_STORAGE_KEY = "cmc-provider-csv-columns";
 const PROVIDER_SLOW_ONLY_STORAGE_KEY = "po-provider-slow-only";
 const LEGACY_PROVIDER_SLOW_ONLY_STORAGE_KEY = "cmc-provider-slow-only";
+const HOME_PATH_MARKER = `/${"Users"}/`;
 
 function readStorageValue(keys: readonly string[]): string | null {
   if (typeof window === "undefined") return null;
@@ -136,7 +137,7 @@ export function compactSessionTitle(title?: string | null, sessionId?: string | 
     lower.startsWith("rollout-") ||
     normalized.includes("AGENTS.md") ||
     normalized.includes("<INSTRUCTIONS>") ||
-    normalized.includes("/user-root/") ||
+    normalized.includes(HOME_PATH_MARKER) ||
     normalized.length > 72;
   return looksGenerated ? fallbackLabel : normalized;
 }

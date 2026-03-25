@@ -9,11 +9,11 @@ import { CleanupView } from "./views/CleanupView.js";
 function HelpOverlay() {
   return (
     <Box borderStyle="round" borderColor="yellow" paddingX={1} flexDirection="column">
-      <Text color="yellow">도움말</Text>
-      <Text color="gray">전역: 1 Search · 2 Sessions · 3 Cleanup · ? 도움말 · q 종료</Text>
-      <Text color="gray">Search: 타이핑 입력 · Enter/Ctrl+N/Tab 결과 · /·Esc·Ctrl+P·i 입력복귀 · [ ] provider · j/k 이동 · J/K page · g/G ends · n/p snippet · Ctrl+O 정리실 · r 새검색</Text>
-      <Text color="gray">Sessions: /·i 필터 · Esc·Enter 목록복귀 · [ ] provider · j/k 이동 · J/K page · g/G ends · b 백업 · a/A 보관 · d/D 삭제 · c 토큰지움 · r 새로고침</Text>
-      <Text color="gray">Cleanup: /·i 필터 · Esc·Enter 목록복귀 · j/k 이동 · J/K page · g/G ends · space 선택 · a 영향 분석 · d 드라이런 · D 실행 · c 토큰지움 · x 선택 초기화 · r 새로고침</Text>
+      <Text color="yellow">Help</Text>
+      <Text color="gray">Global: 1 Search · 2 Sessions · 3 Cleanup · ? Help · q quit</Text>
+      <Text color="gray">Search: type to search · Enter/Ctrl+N/Tab results · /·Esc·Ctrl+P·i edit · [ ] provider · j/k move · J/K page · g/G ends · n/p snippet · Ctrl+O cleanup · r refresh</Text>
+      <Text color="gray">Sessions: /·i filter · Esc·Enter back to list · [ ] provider · j/k move · J/K page · g/G ends · b backup · a/A archive · d/D delete · c clear token · r refresh</Text>
+      <Text color="gray">Cleanup: /·i filter · Esc·Enter back to list · j/k move · J/K page · g/G ends · space select · a impact analysis · d dry-run · D execute · c clear token · x clear selection · r refresh</Text>
     </Box>
   );
 }
@@ -43,9 +43,9 @@ export function App(props: AppBootstrapProps) {
   const activeView = VIEWS[viewIndex]!.id;
 
   const footerText = useMemo(() => {
-    if (activeView === "search") return "Search: Enter/Ctrl+N/Tab 결과 · /·Esc·Ctrl+P·i 입력 · j/k·J/K·g/G 이동 · n/p snippet · Ctrl+O 정리실";
-    if (activeView === "sessions") return "Sessions: /·i 필터 · Esc·Enter 복귀 · j/k·J/K·g/G 이동 · b 백업 · a/A 보관 · d/D 삭제";
-    return "Cleanup: /·i 필터 · Esc·Enter 복귀 · j/k·J/K·g/G 이동 · space 선택 · a 영향 분석 · d/D 실행";
+    if (activeView === "search") return "Search: Enter/Ctrl+N/Tab results · /·Esc·Ctrl+P·i edit · j/k·J/K·g/G move · n/p snippet · Ctrl+O cleanup";
+    if (activeView === "sessions") return "Sessions: /·i filter · Esc·Enter back · j/k·J/K·g/G move · b backup · a/A archive · d/D delete";
+    return "Cleanup: /·i filter · Esc·Enter back · j/k·J/K·g/G move · space select · a impact analysis · d/D execute";
   }, [activeView]);
 
   useInput((input, key) => {
@@ -80,9 +80,9 @@ export function App(props: AppBootstrapProps) {
   return (
     <Box flexDirection="column" padding={1} gap={1}>
       <Box borderStyle="round" borderColor="green" paddingX={1} flexDirection="column">
-        <Text color="green">Provider Observatory TUI v0</Text>
+        <Text color="green">ThreadLens TUI v0</Text>
         <Text color="gray">
-          1 Search · 2 Sessions · 3 Cleanup · q 종료 · API {getApiBaseUrl()}
+          1 Search · 2 Sessions · 3 Cleanup · q quit · API {getApiBaseUrl()}
         </Text>
         <Text>
           {VIEWS.map((view, index) =>

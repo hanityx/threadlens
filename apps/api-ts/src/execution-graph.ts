@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import type { ExecutionGraphData, ExecutionGraphEdge, ExecutionGraphNode } from "@provider-surface/shared-contracts";
+import type { ExecutionGraphData, ExecutionGraphEdge, ExecutionGraphNode } from "@threadlens/shared-contracts";
 import { getProviderMatrixTs } from "./lib/providers.js";
 import { getDataSourceInventoryTs } from "./domains/recovery/inventory.js";
 

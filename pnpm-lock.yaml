@@ -22,7 +22,7 @@ importers:
       '@fastify/cors':
         specifier: ^10.1.0
         version: 10.1.0
-      '@provider-surface/shared-contracts':
+      '@threadlens/shared-contracts':
         specifier: workspace:*
         version: link:../../packages/shared-contracts
       fastify:
@@ -59,7 +59,7 @@ importers:
 
   apps/tui:
     dependencies:
-      '@provider-surface/shared-contracts':
+      '@threadlens/shared-contracts':
         specifier: workspace:*
         version: link:../../packages/shared-contracts
       ink:
@@ -84,12 +84,12 @@ importers:
 
   apps/web:
     dependencies:
-      '@provider-surface/shared-contracts':
-        specifier: workspace:*
-        version: link:../../packages/shared-contracts
       '@tanstack/react-query':
         specifier: ^5.64.2
         version: 5.90.21(react@18.3.1)
+      '@threadlens/shared-contracts':
+        specifier: workspace:*
+        version: link:../../packages/shared-contracts
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -120,18 +120,6 @@ importers:
         version: 2.1.9(@types/node@22.19.13)
 
   packages/shared-contracts:
-    devDependencies:
-      '@types/node':
-        specifier: ^22.10.2
-        version: 22.19.13
-      typescript:
-        specifier: ^5.7.3
-        version: 5.9.3
-      vitest:
-        specifier: ^2.1.8
-        version: 2.1.9(@types/node@22.19.13)
-
-  tests/api-contract:
     devDependencies:
       '@types/node':
         specifier: ^22.10.2

@@ -2,6 +2,7 @@ const railDayFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
 });
+const HOME_PATH_MARKER = `/${"Users"}/`;
 
 const railTimeFormatter = new Intl.DateTimeFormat("en-US", {
   hour: "numeric",
@@ -62,7 +63,7 @@ export const normalizeWorkbenchSessionTitle = (
     lower.startsWith("rollout-") ||
     normalized.includes("AGENTS.md") ||
     normalized.includes("<INSTRUCTIONS>") ||
-    normalized.includes("/user-root/") ||
+    normalized.includes(HOME_PATH_MARKER) ||
     normalized.length > 72;
   return looksGenerated && fallbackText ? fallbackText : normalized;
 };

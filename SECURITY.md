@@ -8,13 +8,13 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability, please report it responsibly:
+If you discover a security vulnerability, please report it privately:
 
 1. **Do not** open a public GitHub issue.
-2. Email the maintainers or use GitHub's [private vulnerability reporting](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability).
+2. Use GitHub's **[Private vulnerability reporting](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability)** feature (available in the **Security** tab of this repository).
 3. Include steps to reproduce and any relevant details.
 
-We aim to respond within **72 hours** and will coordinate a fix before public disclosure.
+We aim to respond to private reports within **72 hours**.
 
 ## Scope
 

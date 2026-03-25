@@ -49,7 +49,7 @@ export function SessionDetail(props: SessionDetailProps) {
   const [copyNotice, setCopyNotice] = useState("");
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const desktopBridge =
-    typeof window !== "undefined" ? window.providerObservatoryDesktop : undefined;
+    typeof window !== "undefined" ? window.threadLensDesktop : undefined;
   const isElectronRuntime = desktopBridge?.runtime === "electron";
 
   useEffect(() => {

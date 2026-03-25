@@ -3,7 +3,7 @@ import { z } from "zod";
 import {
   BulkThreadActionResult,
   type BulkThreadActionRequest,
-} from "@provider-surface/shared-contracts";
+} from "@threadlens/shared-contracts";
 import {
   archiveThreadsLocalTs,
   getThreadResumeCommandsTs,

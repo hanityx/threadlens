@@ -1,39 +1,12 @@
-# Contributor Covenant Code of Conduct
+# Code of Conduct
 
-## Our Pledge
+## Our Goal
+We want to keep this project a welcoming and safe environment for everyone.
 
-We as members, contributors, and leaders pledge to make participation in our
-community a harassment-free experience for everyone, regardless of age, body
-size, visible or invisible disability, ethnicity, sex characteristics, gender
-identity and expression, level of experience, education, socio-economic status,
-nationality, personal appearance, race, religion, or sexual identity and
-orientation.
-
-## Our Standards
-
-Examples of behavior that contributes to a positive environment:
-
-- Using welcoming and inclusive language
-- Being respectful of differing viewpoints and experiences
-- Gracefully accepting constructive criticism
-- Focusing on what is best for the community
-- Showing empathy towards other community members
-
-Examples of unacceptable behavior:
-
-- The use of sexualized language or imagery and unwelcome sexual attention
-- Trolling, insulting/derogatory comments, and personal or political attacks
-- Public or private harassment
-- Publishing others' private information without explicit permission
-- Other conduct which could reasonably be considered inappropriate
+## Core Rules
+- **Be Kind**: Treat everyone with respect. No insults or harassment.
+- **Be Professional**: Focus on technical problems and constructive feedback.
+- **Be Responsible**: Respect the privacy and effort of others.
 
 ## Enforcement
-
-Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the project maintainers. All complaints will be reviewed and
-investigated and will result in a response that is deemed necessary and
-appropriate to the circumstances.
-
-## Attribution
-
-This Code of Conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org), version 2.1.
+Maintainers have the right to remove comments or block users who violate these rules. If you see an issue, please report it via GitHub's private reporting.

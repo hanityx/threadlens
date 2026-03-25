@@ -79,7 +79,7 @@ describe("api-ts direct endpoints", () => {
     expect(payload.ok).toBe(false);
   });
 
-  it("GET /api/threads responds from TS composition without python fetch", async () => {
+  it("GET /api/threads responds from TS composition", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     try {
@@ -110,7 +110,7 @@ describe("api-ts direct endpoints", () => {
     expect(payload.ok).toBe(false);
   });
 
-  it("POST /api/thread-resume-command responds from TS route without python fetch", async () => {
+  it("POST /api/thread-resume-command responds from TS route", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     try {
@@ -129,7 +129,7 @@ describe("api-ts direct endpoints", () => {
     }
   });
 
-  it("POST /api/analyze-delete responds from TS route without python fetch", async () => {
+  it("POST /api/analyze-delete responds from TS route", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     try {
@@ -202,6 +202,19 @@ describe("api-ts direct endpoints", () => {
     expect(root.uptime_sec).toBeTypeOf("number");
     expect(root.roots).toBeTruthy();
     expect(root.quick_counts).toBeTruthy();
+  });
+
+  it("GET /api/sync-lens returns read-only sync comparison payload", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/sync-lens" });
+    expect(res.statusCode).toBe(200);
+    const payload = res.json();
+    const root = payload.data ?? payload;
+    expect(root.mode).toBe("read-only-preview");
+    expect(typeof root.score).toBe("number");
+    expect(root.primary).toBeTruthy();
+    expect(root.secondary).toBeTruthy();
+    expect(Array.isArray(root.issues)).toBe(true);
+    expect(Array.isArray(root.actions)).toBe(true);
   });
 
   it("GET /api/smoke-status returns latest smoke status keys", async () => {
@@ -432,7 +445,7 @@ describe("api-ts direct endpoints", () => {
     expect(payload.ok).toBe(false);
   });
 
-  it("GET /api/agent-loops responds from TS route without python fetch", async () => {
+  it("GET /api/agent-loops responds from TS route", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     try {
@@ -447,7 +460,7 @@ describe("api-ts direct endpoints", () => {
     }
   });
 
-  it("GET /api/alert-hooks responds from TS route without python fetch", async () => {
+  it("GET /api/alert-hooks responds from TS route", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     try {
@@ -484,7 +497,7 @@ describe("api-ts direct endpoints", () => {
     expect(payload.ok).toBe(false);
   });
 
-  it("GET /api/overview responds from TS composition without python fetch", async () => {
+  it("GET /api/overview responds from TS composition", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     try {
@@ -538,7 +551,7 @@ describe("api-ts direct endpoints", () => {
     expect(payload.ok).toBe(false);
   });
 
-  it("POST /api/thread-forensics responds from TS composition without python fetch", async () => {
+  it("POST /api/thread-forensics responds from TS composition", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     try {

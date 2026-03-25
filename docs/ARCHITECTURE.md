@@ -1,10 +1,14 @@
-# Provider Observatory Architecture
+# ThreadLens Architecture
 
-This repository now serves product/runtime traffic through a TypeScript-first
-architecture and keeps `legacy/server.py` only as legacy admin/offline tooling.
+ThreadLens serves all product traffic through a TypeScript-first runtime.
+The Fastify API is the only active backend and is shared by the web app, TUI,
+and desktop shell.
 
 ## Product runtime
 
+- `apps/tui`
+  - Ink terminal workbench for search, sessions, and cleanup
+  - Calls the same TS API runtime used by the web and desktop shell
 - `apps/web`
   - React UI for search, cleanup, sessions, and diagnostics
 - `apps/api-ts`
@@ -13,14 +17,8 @@ architecture and keeps `legacy/server.py` only as legacy admin/offline tooling.
   - Unknown `/api/*` paths return `404`
 - `apps/desktop-electron`
   - Desktop shell, local API bootstrap, packaging
-- `legacy/server.py`
-  - Legacy admin/offline tool
-  - No longer required for product/runtime routes
-  - Retained only for legacy admin/offline tooling during final retirement
 
-## Current backend split
-
-### TS-native now
+## Active backend split
 
 - provider matrix, provider sessions, parser health
 - conversation search
@@ -40,12 +38,7 @@ architecture and keeps `legacy/server.py` only as legacy admin/offline tooling.
 - overview composition and summary reads
 - Electron packaging and release tooling
 
-### Legacy-only now
-
-- `legacy/server.py` remains available for offline/admin investigation
-- legacy parity or offline comparison flows can call it explicitly, but the app runtime does not
-
-## Target backend structure
+## Backend layout
 
 `apps/api-ts/src`
 
@@ -69,40 +62,29 @@ domains/
 lib/
   constants.ts             # shared config and filesystem roots
   providers.ts             # provider ids, root rules, matrix, safe-path helpers
-  recovery.ts              # remaining recovery aggregate module
+  recovery.ts              # recovery aggregate module
   utils.ts                 # pure helpers only
 ```
 
 ## Rules
 
 1. `app/create-server.ts` must stay focused on bootstrap, cache wiring, and route registration only.
-2. Any remaining Python dependency must stay outside product/runtime wiring.
+2. Product/runtime wiring must remain TypeScript-only.
 3. New TS business logic goes into a domain module, not `app/create-server.ts`.
 4. `app/routes/*` owns HTTP registration; `lib/` stays for pure helpers and constants, not route logic.
-5. Route handlers should call domain services or legacy adapters, never mix both
+5. Route handlers should call domain services or focused adapters, never mix both
    inline when avoidable.
+6. Terminal workflows should reuse the same TS API contracts first; do not fork
+   TUI-only business rules unless latency or offline constraints require it.
 
-## Migration strategy
+## Notes
 
-### Phase 1: isolate the boundary
-
-- move Python proxy/cache helpers out of `app/create-server.ts`
-- document every Python-backed endpoint
-- stop adding new Python calls to product/runtime routes
-
-### Phase 2: migrate by domain
-
-- completed for runtime/product routes
-- remaining work is retirement and deletion of legacy Python code
-
-### Phase 3: retire legacy Python code
-
-- delete unused legacy proxy helpers
-- remove legacy backend env/config names from shared constants
-- retire `legacy/server.py` or keep it only as an offline admin tool
-
-## Why not full rewrite at once
-
-The migration was done slice by slice because cleanup/state mutation paths were
-the highest-risk area. That boundary is now explicit and TS-native at runtime,
-so the remaining work is legacy retirement rather than product migration.
+- Conversation Search, Source Sessions, Cleanup, and Diagnostics all read from
+  the same local runtime.
+- Web stays on React 18 while the Ink TUI tracks React 19 on its own runtime.
+- Sync Lens is an optional read-only remote comparison path and requires an
+  explicit `SYNC_LENS_REMOTE_ALIAS` plus `python3` on the remote host.
+- Desktop packaging wraps the same web + API stack rather than maintaining a
+  separate desktop-only backend.
+- Older historical backend notes belong in local-only docs, not in the public product
+  architecture surface.

@@ -29,7 +29,7 @@ async function loadConstants(env: Record<string, EnvValue>) {
 }
 
 afterEach(() => {
-  delete process.env.PROVIDER_OBSERVATORY_PROJECT_ROOT;
+  delete process.env.THREADLENS_PROJECT_ROOT;
   delete process.env.THREADLENS_STATE_DIR;
   vi.resetModules();
 });
@@ -37,7 +37,7 @@ afterEach(() => {
 describe("runtime state paths", () => {
   it("defaults runtime state under .run/state at the project root", async () => {
     const mod = await loadConstants({
-      PROVIDER_OBSERVATORY_PROJECT_ROOT: undefined,
+      THREADLENS_PROJECT_ROOT: undefined,
       THREADLENS_STATE_DIR: undefined,
     });
 
@@ -50,10 +50,10 @@ describe("runtime state paths", () => {
     expect(mod.RECOVERY_PLAN_DIR).toBe(path.join(expectedStateDir, "recovery_plans"));
   });
 
-  it("resolves relative THREADLENS_STATE_DIR against PROVIDER_OBSERVATORY_PROJECT_ROOT", async () => {
-    const customRoot = path.join(os.tmpdir(), "provider-surface-root");
+  it("resolves relative THREADLENS_STATE_DIR against THREADLENS_PROJECT_ROOT", async () => {
+    const customRoot = path.join(os.tmpdir(), "threadlens-root");
     const mod = await loadConstants({
-      PROVIDER_OBSERVATORY_PROJECT_ROOT: customRoot,
+      THREADLENS_PROJECT_ROOT: customRoot,
       THREADLENS_STATE_DIR: path.join("var", "state"),
     });
 
@@ -62,10 +62,10 @@ describe("runtime state paths", () => {
   });
 
   it("accepts absolute THREADLENS_STATE_DIR overrides as-is", async () => {
-    const customRoot = path.join(os.tmpdir(), "provider-surface-root");
-    const absoluteStateDir = path.join(os.tmpdir(), "provider-surface-state");
+    const customRoot = path.join(os.tmpdir(), "threadlens-root");
+    const absoluteStateDir = path.join(os.tmpdir(), "threadlens-state");
     const mod = await loadConstants({
-      PROVIDER_OBSERVATORY_PROJECT_ROOT: customRoot,
+      THREADLENS_PROJECT_ROOT: customRoot,
       THREADLENS_STATE_DIR: absoluteStateDir,
     });
 

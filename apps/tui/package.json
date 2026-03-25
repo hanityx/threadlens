@@ -1,20 +1,20 @@
 {
-  "name": "@provider-surface/tui",
+  "name": "@threadlens/tui",
   "version": "0.1.0",
-  "description": "Terminal workbench for Provider Observatory",
+  "description": "Terminal workbench for ThreadLens",
   "license": "MIT",
   "type": "module",
   "bin": {
-    "provider-surface-tui": "dist/cli.js"
+    "threadlens-tui": "dist/cli.js"
   },
   "scripts": {
     "dev": "tsx watch src/cli.tsx",
-    "build": "pnpm --filter @provider-surface/shared-contracts build && tsc -p tsconfig.json",
+    "build": "pnpm --filter @threadlens/shared-contracts build && tsc -p tsconfig.json",
     "start": "node dist/cli.js",
-    "lint": "pnpm --filter @provider-surface/shared-contracts build && tsc -p tsconfig.json --noEmit"
+    "lint": "pnpm --filter @threadlens/shared-contracts build && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@provider-surface/shared-contracts": "workspace:*",
+    "@threadlens/shared-contracts": "workspace:*",
     "ink": "^6.8.0",
     "react": "^19.2.4"
   },

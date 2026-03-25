@@ -201,7 +201,7 @@ export function App() {
     });
   };
 
-  const { locale, messages, setLocale } = useLocale();
+  const { messages } = useLocale();
   const runtimeBackend = runtime.data?.data?.runtime_backend;
   const showRuntimeBackendDegraded =
     runtime.isError || (!runtimeLoading && runtimeBackend?.reachable === false);
@@ -362,8 +362,6 @@ export function App() {
           onHeaderSearchDraftChange={setHeaderSearchDraft}
           onHeaderSearchSubmit={handleHeaderSearchSubmit}
           syncStatusText={syncStatusText}
-          locale={locale}
-          onToggleLocale={() => setLocale(locale === "en" ? "ko" : "en")}
           theme={theme}
           onToggleTheme={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
           onRefresh={() => {

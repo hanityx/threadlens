@@ -1,19 +1,19 @@
 {
-  "name": "@provider-surface/api",
+  "name": "@threadlens/api",
   "version": "0.1.0",
-  "description": "Fastify API gateway for Provider Observatory",
+  "description": "Fastify API gateway for ThreadLens",
   "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/cli.ts",
-    "build": "pnpm --filter @provider-surface/shared-contracts build && tsc -p tsconfig.json",
-    "bundle:desktop": "pnpm --filter @provider-surface/shared-contracts build && rm -rf dist-electron && esbuild src/cli.ts --bundle --platform=node --format=cjs --target=node20 --define:import.meta.url='\"file:///provider-surface/api-cli.mjs\"' --outfile=dist-electron/server.cjs",
+    "build": "pnpm --filter @threadlens/shared-contracts build && tsc -p tsconfig.json",
+    "bundle:desktop": "pnpm --filter @threadlens/shared-contracts build && rm -rf dist-electron && esbuild src/cli.ts --bundle --platform=node --format=cjs --target=node20 --define:import.meta.url='\"file:///threadlens/api-cli.mjs\"' --outfile=dist-electron/server.cjs",
     "start": "node dist/cli.js",
     "test": "vitest run",
-    "lint": "pnpm --filter @provider-surface/shared-contracts build && tsc -p tsconfig.json --noEmit"
+    "lint": "pnpm --filter @threadlens/shared-contracts build && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@provider-surface/shared-contracts": "workspace:*",
+    "@threadlens/shared-contracts": "workspace:*",
     "@fastify/cors": "^10.1.0",
     "fastify": "^5.8.2",
     "zod": "^3.24.1"

@@ -3,17 +3,17 @@ import { render } from "ink";
 import { App } from "./App.js";
 import type { AppBootstrapProps, ProviderScope, ViewKey } from "./config.js";
 
-const HELP_TEXT = `Provider Observatory TUI
+const HELP_TEXT = `ThreadLens TUI
 
 Usage:
-  provider-surface-tui [--view search|sessions|cleanup] [--query <text>] [--provider all|codex|claude|gemini|copilot] [--filter <text>] [--results]
+  threadlens-tui [--view search|sessions|cleanup] [--query <text>] [--provider all|codex|claude|gemini|copilot] [--filter <text>] [--results]
 
 Examples:
-  provider-surface-tui
-  provider-surface-tui --query 옵시디언
-  provider-surface-tui --query 옵시디언 --results
-  provider-surface-tui --view sessions --provider codex
-  provider-surface-tui --view cleanup --filter risk
+  threadlens-tui
+  threadlens-tui --query obsidian
+  threadlens-tui --query obsidian --results
+  threadlens-tui --view sessions --provider codex
+  threadlens-tui --view cleanup --filter risk
 `;
 
 function parseArgs(argv: string[]): AppBootstrapProps | null {
@@ -72,7 +72,7 @@ if (!bootstrap) {
 }
 
 if (!process.stdin.isTTY) {
-  console.error("Provider Observatory TUI는 TTY 터미널에서 실행해야 해. Terminal, iTerm, tmux에서 다시 실행해.");
+  console.error("ThreadLens TUI must run in a TTY terminal. Re-run it in Terminal, iTerm, or tmux.");
   process.exit(1);
 }
 

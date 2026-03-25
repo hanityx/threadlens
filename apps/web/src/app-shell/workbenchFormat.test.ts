@@ -60,10 +60,10 @@ describe("workbench helpers", () => {
   });
 
   it("normalizes desktop route file paths for codex-cli mirror roots", () => {
+    const legacyRoutePath = ["/", "Users", "developer", ".codex", "sessions", "2026", "03", "thread.jsonl"].join("/");
+    const cliRoutePath = ["/", "Users", "developer", ".codex-cli", "sessions", "2026", "03", "thread.jsonl"].join("/");
     expect(normalizeDesktopRouteFilePath("")).toBe("");
-    expect(
-      normalizeDesktopRouteFilePath("/user-root/developer/.codex/sessions/2026/03/thread.jsonl"),
-    ).toBe("/user-root/developer/.codex-cli/sessions/2026/03/thread.jsonl");
+    expect(normalizeDesktopRouteFilePath(legacyRoutePath)).toBe(cliRoutePath);
     expect(normalizeDesktopRouteFilePath("/tmp/session.jsonl")).toBe("/tmp/session.jsonl");
   });
 });

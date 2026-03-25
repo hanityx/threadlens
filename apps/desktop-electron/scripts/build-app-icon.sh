@@ -2,10 +2,10 @@
 set -euo pipefail
 
 DESKTOP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SOURCE_SVG="$DESKTOP_ROOT/../web/public/favicon.svg"
+SOURCE_SVG="${THREADLENS_ICON_SOURCE:-$DESKTOP_ROOT/../web/public/favicon.svg}"
 OUTPUT_DIR="$DESKTOP_ROOT/build"
 OUTPUT_ICON="$OUTPUT_DIR/icon.icns"
-TMP_DIR="$(mktemp -d)"
+TMP_DIR="$OUTPUT_DIR/tmp_icon"
 ICONSET_DIR="$TMP_DIR/icon.iconset"
 
 cleanup() {

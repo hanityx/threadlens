@@ -1,4 +1,4 @@
-import type { ApiEnvelope } from "@provider-surface/shared-contracts";
+import type { ApiEnvelope } from "@threadlens/shared-contracts";
 import type {
   AnalyzeDeleteResponse,
   CleanupPreviewResponse,
@@ -9,7 +9,7 @@ import type {
   TranscriptResponse,
 } from "./types.js";
 
-const API_BASE_URL = process.env.PROVIDER_OBSERVATORY_API_URL ?? "http://127.0.0.1:8788";
+const API_BASE_URL = process.env.THREADLENS_API_URL ?? "http://127.0.0.1:8788";
 
 async function parseEnvelope<T>(response: Response, path: string): Promise<T> {
   let payload: unknown = null;

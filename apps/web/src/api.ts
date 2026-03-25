@@ -1,10 +1,11 @@
-const desktopApiBaseUrl =
-  typeof window !== "undefined" ? window.providerObservatoryDesktop?.apiBaseUrl : undefined;
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ??
-  desktopApiBaseUrl ??
-  (import.meta.env.DEV ? "" : "http://127.0.0.1:8788");
+async function resolveApiBaseUrl(): Promise<string> {
+  if (import.meta.env.VITE_API_BASE_URL) return import.meta.env.VITE_API_BASE_URL;
+  if (typeof window !== "undefined") {
+    const runtimeBase = await window.threadLensDesktop?.getApiBaseUrl?.();
+    if (runtimeBase) return runtimeBase;
+  }
+  return import.meta.env.DEV ? "" : "http://127.0.0.1:8788";
+}
 
 async function buildApiError(path: string, res: Response): Promise<Error> {
   const contentType = res.headers.get("content-type") || "";
@@ -24,7 +25,8 @@ async function buildApiError(path: string, res: Response): Promise<Error> {
 }
 
 export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`, init);
+  const apiBaseUrl = await resolveApiBaseUrl();
+  const res = await fetch(`${apiBaseUrl}${path}`, init);
   if (!res.ok) throw await buildApiError(path, res);
   return res.json() as Promise<T>;
 }
@@ -34,9 +36,10 @@ export async function apiPost<T>(
   body: unknown,
   init?: RequestInit,
 ): Promise<T> {
+  const apiBaseUrl = await resolveApiBaseUrl();
   const headers = new Headers(init?.headers ?? undefined);
   if (!headers.has("content-type")) headers.set("content-type", "application/json");
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const res = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
     method: "POST",
     headers,
@@ -51,9 +54,10 @@ export async function apiPostJsonAllowError<T>(
   body: unknown,
   init?: RequestInit,
 ): Promise<{ ok: boolean; status: number; data: T }> {
+  const apiBaseUrl = await resolveApiBaseUrl();
   const headers = new Headers(init?.headers ?? undefined);
   if (!headers.has("content-type")) headers.set("content-type", "application/json");
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const res = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
     method: "POST",
     headers,
