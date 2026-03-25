@@ -67,7 +67,11 @@ describe("workbench helpers", () => {
     expect(formatWorkbenchRailDay("2026-03-23T23:30:00+09:00")).toBe("Yesterday");
     expect(formatWorkbenchRailDay("2026-03-20T09:30:00+09:00")).toBe("Mar 20");
 
-    expect(formatWorkbenchRailTime("2026-03-24T09:30:00+09:00")).toBe("9:30 AM");
+    expect(formatWorkbenchRailTime("2026-03-24T09:30:00+09:00")).toBe(
+      new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(
+        new Date("2026-03-24T09:30:00+09:00"),
+      ),
+    );
     expect(formatWorkbenchRailTime("bad-time")).toBe("--:--");
   });
 
