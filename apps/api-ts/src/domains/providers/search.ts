@@ -43,6 +43,8 @@ const DEFAULT_CONVERSATION_SEARCH_LIMIT = 40;
 const MAX_CONVERSATION_SEARCH_LIMIT = 200;
 const DEFAULT_CONVERSATION_SEARCH_TRANSCRIPT_LIMIT = 10_000;
 const MAX_CONVERSATION_SEARCH_SCAN_LIMIT = 1_200;
+const SEARCH_TRANSCRIPT_CONCURRENCY = 8;
+const SEARCH_TRANSCRIPT_CACHE_MAX_ENTRIES = 2_000;
 
 type ProviderScanCacheEntry = {
   expires_at: number;
@@ -54,8 +56,18 @@ type ConversationTranscriptLoader = (
   filePath: string,
 ) => Promise<TranscriptPayload>;
 
+type CachedConversationTranscriptLoader = (
+  row: ProviderSessionRow,
+) => Promise<TranscriptPayload | null>;
+
+type TranscriptSearchCacheEntry = {
+  mtime: string;
+  transcript: TranscriptPayload | null;
+};
+
 const providerScanCache = new Map<string, ProviderScanCacheEntry>();
 const providerScanInflight = new Map<string, Promise<ProviderSessionScan>>();
+const transcriptSearchCache = new Map<string, TranscriptSearchCacheEntry>();
 
 export function invalidateProviderSearchCaches(provider: ProviderId) {
   for (const key of providerScanCache.keys()) {
@@ -72,6 +84,113 @@ export function invalidateProviderSearchCaches(provider: ProviderId) {
 
 function providerScanCacheKey(provider: ProviderId, limit: number): string {
   return `${provider}:${limit}`;
+}
+
+function transcriptSearchCacheKey(row: ProviderSessionRow): string {
+  return `${row.provider}:${path.resolve(row.file_path)}`;
+}
+
+function trimTranscriptSearchCache() {
+  while (transcriptSearchCache.size > SEARCH_TRANSCRIPT_CACHE_MAX_ENTRIES) {
+    const oldestKey = transcriptSearchCache.keys().next().value;
+    if (!oldestKey) return;
+    transcriptSearchCache.delete(oldestKey);
+  }
+}
+
+export function resolveConversationSearchLimits(options?: {
+  limit?: number;
+  sessionLimitPerProvider?: number;
+}) {
+  const resultLimit = Math.max(
+    1,
+    Math.min(
+      MAX_CONVERSATION_SEARCH_LIMIT,
+      Number(options?.limit) || DEFAULT_CONVERSATION_SEARCH_LIMIT,
+    ),
+  );
+  const scanLimit = Math.max(
+    80,
+    Math.min(
+      MAX_CONVERSATION_SEARCH_SCAN_LIMIT,
+      Number(options?.sessionLimitPerProvider) || Math.max(resultLimit * 8, 240),
+    ),
+  );
+  return {
+    resultLimit,
+    scanLimit,
+  };
+}
+
+export function createCachedConversationTranscriptLoader(
+  baseLoader: ConversationTranscriptLoader,
+): CachedConversationTranscriptLoader {
+  return async (row) => {
+    const key = transcriptSearchCacheKey(row);
+    const cached = transcriptSearchCache.get(key);
+    if (cached && cached.mtime === row.mtime) {
+      transcriptSearchCache.delete(key);
+      transcriptSearchCache.set(key, cached);
+      return cached.transcript;
+    }
+
+    const transcript = await baseLoader(row.provider, row.file_path).catch(() => null);
+    transcriptSearchCache.set(key, {
+      mtime: row.mtime,
+      transcript,
+    });
+    trimTranscriptSearchCache();
+    return transcript;
+  };
+}
+
+function conversationSearchResultDedupKey(result: ConversationSearchResult): string {
+  return [
+    result.provider,
+    result.session_id,
+    result.file_path,
+    result.match_kind,
+    result.role || "",
+    normalizeSearchText(result.snippet).toLowerCase(),
+  ].join("::");
+}
+
+function dedupeConversationSearchResults(
+  results: ConversationSearchResult[],
+): ConversationSearchResult[] {
+  const deduped: ConversationSearchResult[] = [];
+  const seen = new Set<string>();
+  for (const result of results) {
+    const key = conversationSearchResultDedupKey(result);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(result);
+  }
+  return deduped;
+}
+
+async function mapWithConcurrency<T, U>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<U>,
+): Promise<U[]> {
+  if (items.length === 0) return [];
+  const results = new Array<U>(items.length);
+  let nextIndex = 0;
+  const workerCount = Math.max(1, Math.min(concurrency, items.length));
+
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (true) {
+        const currentIndex = nextIndex;
+        nextIndex += 1;
+        if (currentIndex >= items.length) return;
+        results[currentIndex] = await worker(items[currentIndex], currentIndex);
+      }
+    }),
+  );
+
+  return results;
 }
 
 async function scanProviderSessions(
@@ -197,7 +316,10 @@ export async function getProviderSessionScan(
   limit = 80,
   options?: { forceRefresh?: boolean },
 ): Promise<ProviderSessionScan> {
-  const safeLimit = Math.max(1, Math.min(240, Number(limit) || 80));
+  const safeLimit = Math.max(
+    1,
+    Math.min(MAX_CONVERSATION_SEARCH_SCAN_LIMIT, Number(limit) || 80),
+  );
   const key = providerScanCacheKey(provider, safeLimit);
   const forceRefresh = Boolean(options?.forceRefresh);
   const now = Date.now();
@@ -273,13 +395,9 @@ export async function searchConversationRows(
   const trimmedQuery = normalizeSearchText(q);
   const normalizedQuery = normalizeSearchQuery(trimmedQuery);
   const tokens = buildSearchTokens(trimmedQuery);
-  const safeLimit = Math.max(
-    1,
-    Math.min(
-      MAX_CONVERSATION_SEARCH_LIMIT,
-      Number(options?.limit) || DEFAULT_CONVERSATION_SEARCH_LIMIT,
-    ),
-  );
+  const { resultLimit: safeLimit } = resolveConversationSearchLimits({
+    limit: options?.limit,
+  });
   const transcriptLimit = Math.max(
     100,
     Math.min(
@@ -292,6 +410,8 @@ export async function searchConversationRows(
     options?.transcriptLoader ??
     ((provider: ProviderId, filePath: string) =>
       buildSessionTranscript(provider, filePath, transcriptLimit));
+  const cachedTranscriptLoader =
+    createCachedConversationTranscriptLoader(transcriptLoader);
   const seenPaths = new Set<string>();
   const sortedRows = [...rows]
     .sort(
@@ -305,49 +425,52 @@ export async function searchConversationRows(
       return true;
     });
 
-  const results: ConversationSearchResult[] = [];
-  let searchedSessions = 0;
+  const perRowResults = await mapWithConcurrency(
+    sortedRows,
+    SEARCH_TRANSCRIPT_CONCURRENCY,
+    async (row) => {
+      const rowResults: ConversationSearchResult[] = [];
+      const identity = buildSearchIdentity(row);
+      const baseResult = {
+        provider: row.provider,
+        session_id: identity.sessionId,
+        title: identity.title,
+        file_path: row.file_path,
+        mtime: row.mtime,
+        ...(identity.threadId ? { thread_id: identity.threadId } : {}),
+      };
 
-  for (const row of sortedRows) {
-    searchedSessions += 1;
-    const identity = buildSearchIdentity(row);
-    const baseResult = {
-      provider: row.provider,
-      session_id: identity.sessionId,
-      title: identity.title,
-      file_path: row.file_path,
-      mtime: row.mtime,
-      ...(identity.threadId ? { thread_id: identity.threadId } : {}),
-    };
-
-    if (matchesConversationSearch(identity.title, normalizedQuery, tokens)) {
-      results.push({
-        ...baseResult,
-        match_kind: "title",
-        snippet: buildSearchSnippet(identity.title, normalizedQuery, tokens, 140),
-      });
-    }
-    const transcript = await transcriptLoader(row.provider, row.file_path).catch(
-      () => null,
-    );
-    if (!transcript?.messages?.length) continue;
-
-    for (let i = 0; i < transcript.messages.length; i += 1) {
-      const message = transcript.messages[i];
-      if (!matchesConversationSearch(message.text, normalizedQuery, tokens)) {
-        continue;
+      if (matchesConversationSearch(identity.title, normalizedQuery, tokens)) {
+        rowResults.push({
+          ...baseResult,
+          match_kind: "title",
+          snippet: buildSearchSnippet(identity.title, normalizedQuery, tokens, 140),
+        });
       }
-      results.push({
-        ...baseResult,
-        match_kind: "message",
-        snippet: buildSearchSnippet(message.text, normalizedQuery, tokens),
-        role: message.role,
-      });
-    }
-  }
+
+      const transcript = await cachedTranscriptLoader(row);
+      if (!transcript?.messages?.length) return rowResults;
+
+      for (let i = 0; i < transcript.messages.length; i += 1) {
+        const message = transcript.messages[i];
+        if (!matchesConversationSearch(message.text, normalizedQuery, tokens)) {
+          continue;
+        }
+        rowResults.push({
+          ...baseResult,
+          match_kind: "message",
+          snippet: buildSearchSnippet(message.text, normalizedQuery, tokens),
+          role: message.role,
+        });
+      }
+
+      return rowResults;
+    },
+  );
+  const results = dedupeConversationSearchResults(perRowResults.flat());
 
   return {
-    searched_sessions: searchedSessions,
+    searched_sessions: sortedRows.length,
     available_sessions: sortedRows.length,
     truncated: results.length > safeLimit,
     results: results.slice(0, safeLimit),
@@ -367,28 +490,14 @@ export async function searchLocalConversationsTs(
   const trimmedQuery = normalizeSearchText(q);
   const providers =
     options?.providers?.length ? Array.from(new Set(options.providers)) : defaultConversationSearchProviders();
-  const safeLimit = Math.max(
-    1,
-    Math.min(
-      MAX_CONVERSATION_SEARCH_LIMIT,
-      Number(options?.limit) || DEFAULT_CONVERSATION_SEARCH_LIMIT,
-    ),
-  );
-  const scanLimit = Math.max(
-    80,
-    Math.min(
-      MAX_CONVERSATION_SEARCH_SCAN_LIMIT,
-      Number(options?.sessionLimitPerProvider) || Math.max(safeLimit * 8, 240),
-    ),
-  );
+  const { resultLimit: safeLimit, scanLimit } = resolveConversationSearchLimits({
+    limit: options?.limit,
+    sessionLimitPerProvider: options?.sessionLimitPerProvider,
+  });
   const forceRefresh = Boolean(options?.forceRefresh);
   const scans = await Promise.all(
     providers.map((provider) =>
-      scanLimit <= 240
-        ? getProviderSessionScan(provider, scanLimit, { forceRefresh })
-        : scanProviderSessions(provider, scanLimit, {
-            maxLimit: MAX_CONVERSATION_SEARCH_SCAN_LIMIT,
-          }),
+      getProviderSessionScan(provider, scanLimit, { forceRefresh }),
     ),
   );
   const rows = scans.flatMap((scan) => scan.rows);
