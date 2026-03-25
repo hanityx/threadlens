@@ -3,8 +3,8 @@ import { compactPath } from "./helpers";
 
 describe("compactPath", () => {
   it("redacts macOS home prefixes generically", () => {
-    expect(compactPath("/user-root/example/workspace-root/threadlens/docs/HANDOFF.md", 24)).toBe(
-      "~/workspace-root/threadlens/docs/HANDOFF.md",
+    expect(compactPath("/user-root/example/project/docs/HANDOFF.md", 24)).toBe(
+      "~/project/docs/HANDOFF.md",
     );
   });
 
