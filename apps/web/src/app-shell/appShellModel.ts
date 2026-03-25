@@ -155,7 +155,16 @@ function buildRecentThreadSummary(row: ThreadRow): string {
 
 function buildRecentThreadTitle(row: ThreadRow): string {
   const normalized = normalizeWorkbenchTitle(row.title, "");
-  if (normalized) return normalized;
+  if (normalized) {
+    // If the title looks like a file path, show only the last two segments
+    const slashCount = (normalized.match(/\//g) ?? []).length;
+    if (normalized.startsWith("/") || normalized.startsWith("~/") || slashCount >= 3) {
+      const parts = normalized.replace(/\/$/, "").split("/").filter(Boolean);
+      if (parts.length >= 2) return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`;
+      if (parts.length === 1) return parts[0];
+    }
+    return normalized;
+  }
   const tags = new Set(row.risk_tags ?? []);
   if (row.activity_status === "running" && tags.has("ctx-high")) return "Running Review Session";
   if (row.risk_level === "high" && tags.has("no-cwd")) return "No-Workspace Review";

@@ -52,7 +52,7 @@ describe("search token migration", () => {
     expect(searchStyles).toMatch(/\.search-dedupe-strip,\s*\.search-empty-strip\s*{[^}]*background:\s*var\(--surface-search-inline-strip\);[^}]*border-color:\s*var\(--surface-search-inline-strip-border\);/s);
     expect(searchStyles).toMatch(/\.search-live-dot\s*{[^}]*background:\s*var\(--surface-search-live-dot\);[^}]*box-shadow:\s*var\(--shadow-search-live-dot\);/s);
     expect(searchStyles).toMatch(/\.search-loading-row\s*{[^}]*background:\s*var\(--surface-search-loading-row\);/s);
-    expect(searchStyles).toMatch(/\.search-group-header\s*{[^}]*border-bottom:\s*1px solid var\(--surface-border-subtle\);/s);
+    expect(searchStyles).toMatch(/\.search-group-header\s*{[^}]*border-bottom:\s*2px solid var\(--line\);/s);
     expect(searchStyles).toMatch(/\.search-match-item\s*{[^}]*border-top:\s*1px solid var\(--surface-divider-soft\);/s);
     expect(searchStyles).toMatch(/\.search-result-card\s*{[^}]*background:\s*var\(--surface-card-strong-subtle\);/s);
     expect(searchStyles).toMatch(/\.search-result-card:hover,\s*\.search-result-card:focus-visible\s*{[^}]*border-color:\s*var\(--surface-search-result-hover-border\);[^}]*background:\s*var\(--surface-search-result-hover\);/s);

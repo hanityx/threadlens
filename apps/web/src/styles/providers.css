@@ -178,6 +178,7 @@
 .provider-workspace-bar {
   display: grid;
   gap: 10px;
+  padding-top: 16px;
 }
 
 .provider-archive-stage {
@@ -264,6 +265,7 @@
 
 .provider-workspace-recent-list {
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 6px;
 }
 
@@ -902,7 +904,7 @@
 }
 
 .provider-session-table .title-col {
-  width: 35%;
+  width: 45%;
   max-width: 0;
 }
 
@@ -1061,6 +1063,12 @@
 .sessions-action-strip .inline-tools-disclosure {
   width: auto;
   margin-left: auto;
+}
+
+.sessions-action-strip > .sub-hint {
+  flex-basis: 100%;
+  order: 10;
+  padding: 2px 0;
 }
 
 .provider-side-stack {
@@ -1614,6 +1622,10 @@ tr:hover td {
 
 .threads-table-panel tbody tr:hover td {
   background: var(--surface-table-row-hover-strong);
+}
+
+.threads-table-panel .title-col {
+  width: 58%;
 }
 
 .threads-table-panel .title-main {

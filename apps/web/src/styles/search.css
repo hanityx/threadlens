@@ -9,6 +9,7 @@
   border-radius: 0;
   box-shadow: none;
   backdrop-filter: none;
+  padding-top: 16px;
 }
 
 .search-stage {
@@ -18,6 +19,7 @@
 .panel.search-panel header {
   border-bottom: 0;
   background: transparent;
+  padding: 0;
 }
 
 .panel.search-panel header span {
@@ -476,12 +478,12 @@
 
 .search-result-list {
   display: grid;
-  gap: 12px;
+  gap: 20px;
 }
 
 .search-group-section {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .search-group-header {
@@ -489,8 +491,8 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding-bottom: 7px;
-  border-bottom: 1px solid var(--surface-border-subtle);
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--line);
 }
 
 .search-group-header-meta {

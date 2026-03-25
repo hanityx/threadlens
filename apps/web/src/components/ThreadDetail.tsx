@@ -182,7 +182,7 @@ export function ThreadDetail(props: ThreadDetailProps) {
                 <div className="chat-toolbar detail-action-bar">
                   <button
                     type="button"
-                    className="btn-base"
+                    className="btn-outline"
                     onClick={() => selectedThreadId && bulkPin([selectedThreadId])}
                     disabled={!selectedThreadId || busy || threadActionsDisabled}
                     title={disabledReason}
@@ -191,7 +191,7 @@ export function ThreadDetail(props: ThreadDetailProps) {
                   </button>
                   <button
                     type="button"
-                    className="btn-base"
+                    className="btn-outline"
                     onClick={() => selectedThreadId && bulkUnpin([selectedThreadId])}
                     disabled={!selectedThreadId || busy || threadActionsDisabled}
                     title={disabledReason}
@@ -200,7 +200,7 @@ export function ThreadDetail(props: ThreadDetailProps) {
                   </button>
                   <button
                     type="button"
-                    className="btn-accent"
+                    className="btn-base"
                     onClick={() => selectedThreadId && bulkArchive([selectedThreadId])}
                     disabled={!selectedThreadId || busy || threadActionsDisabled}
                     title={disabledReason}
