@@ -81,7 +81,7 @@ describe("agent loops domain", () => {
     const controllerPath = path.join(rootDir, "loop-control.sh");
     await writeExecutable(
       controllerPath,
-      `#!/bin/zsh
+      `#!/usr/bin/env bash
 action="$1"
 if [[ "$action" == "status" ]]; then
   cat <<'EOF'
@@ -149,7 +149,7 @@ exit 0
     const controllerPath = path.join(rootDir, "loop-control.sh");
     await writeExecutable(
       controllerPath,
-      `#!/bin/zsh
+      `#!/usr/bin/env bash
 action="$1"
 if [[ "$action" == "status" ]]; then
   cat <<'EOF'
