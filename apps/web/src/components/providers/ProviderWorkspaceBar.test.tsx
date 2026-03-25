@@ -38,7 +38,7 @@ const recentRows: ProviderSessionRow[] = [
 ];
 
 describe("ProviderWorkspaceBar", () => {
-  it("renders provider chips, summary metrics, recent rows, and backup slot", () => {
+  it("renders provider chips, summary metrics, and recent rows", () => {
     const onSelectProviderView = vi.fn();
     const onSelectRecentRow = vi.fn();
 
@@ -59,17 +59,14 @@ describe("ProviderWorkspaceBar", () => {
         providerWorkspaceRecentRows={recentRows}
         selectedSessionPath="/tmp/codex-session.jsonl"
         onSelectRecentRow={onSelectRecentRow}
-        backupHubSlot={<div>Backup slot</div>}
       />,
     );
 
-    expect(html).toContain("Provider hub");
     expect(html).toContain("Codex sessions");
     expect(html).toContain("Optional providers");
     expect(html).toContain("Sessions");
     expect(html).toContain("Transcript");
     expect(html).toContain("Codex cleanup run");
-    expect(html).toContain("Backup slot");
     expect(onSelectProviderView).not.toHaveBeenCalled();
     expect(onSelectRecentRow).not.toHaveBeenCalled();
   });
@@ -92,11 +89,9 @@ describe("ProviderWorkspaceBar", () => {
         providerWorkspaceRecentRows={[]}
         selectedSessionPath={null}
         onSelectRecentRow={() => undefined}
-        backupHubSlot={<div>Backup slot</div>}
       />,
     );
 
     expect(html).not.toContain("recent rows");
-    expect(html).toContain("Backup slot");
   });
 });

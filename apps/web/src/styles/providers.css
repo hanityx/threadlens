@@ -196,9 +196,7 @@
 
 .provider-workspace-main {
   display: grid;
-  grid-template-columns: var(--provider-left-column) var(--provider-right-column);
   gap: 12px;
-  align-items: stretch;
 }
 
 .provider-archive-stage > header {
@@ -222,7 +220,6 @@
   display: grid;
   gap: 3px;
   max-width: 640px;
-  order: -1;
 }
 
 .provider-workspace-copy strong {

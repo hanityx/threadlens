@@ -101,6 +101,7 @@
   align-items: center;
   box-shadow: var(--surface-card-shadow);
   backdrop-filter: blur(var(--blur-lg));
+  max-width: 760px;
 }
 
 .thread-status-grid {

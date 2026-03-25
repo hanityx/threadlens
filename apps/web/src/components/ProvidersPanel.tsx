@@ -660,25 +660,6 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
           setSelectedSessionPath(row.file_path);
           setParserDetailProvider(row.provider);
         }}
-        backupHubSlot={
-          <BackupHub
-            messages={messages}
-            selectedProviderFilePathsCount={selectedProviderFilePaths.length}
-            latestBackupCount={latestBackupCount}
-            latestExportCount={latestExportCount}
-            providerDeleteBackupEnabled={providerDeleteBackupEnabled}
-            onProviderDeleteBackupEnabledChange={(checked) => setProviderDeleteBackupEnabled(checked)}
-            canRunProviderBackup={canRunProviderBackup}
-            busy={busy}
-            onRunBackupSelected={() => runProviderAction("backup_local", false)}
-            onRunRecoveryBackupExport={() => runRecoveryBackupExport([])}
-            latestBackupPath={latestBackupPath}
-            backupFlowHint={backupFlowHint}
-            deleteBackupModeLabel={deleteBackupModeLabel}
-            selectedSessionPreview={selectedSessionPreview}
-            backupActionResult={backupActionResult}
-          />
-        }
       />
 
       <section className="provider-ops-layout">
@@ -776,6 +757,25 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
         <ProviderSideStack
           advancedOpen={advancedOpen}
           sessionDetailSlot={sessionDetailSlot}
+          backupHubSlot={
+            <BackupHub
+              messages={messages}
+              selectedProviderFilePathsCount={selectedProviderFilePaths.length}
+              latestBackupCount={latestBackupCount}
+              latestExportCount={latestExportCount}
+              providerDeleteBackupEnabled={providerDeleteBackupEnabled}
+              onProviderDeleteBackupEnabledChange={(checked) => setProviderDeleteBackupEnabled(checked)}
+              canRunProviderBackup={canRunProviderBackup}
+              busy={busy}
+              onRunBackupSelected={() => runProviderAction("backup_local", false)}
+              onRunRecoveryBackupExport={() => runRecoveryBackupExport([])}
+              latestBackupPath={latestBackupPath}
+              backupFlowHint={backupFlowHint}
+              deleteBackupModeLabel={deleteBackupModeLabel}
+              selectedSessionPreview={selectedSessionPreview}
+              backupActionResult={backupActionResult}
+            />
+          }
           parserSlot={
             <ParserHealthTable
               messages={messages}

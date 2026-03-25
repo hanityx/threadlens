@@ -3,6 +3,14 @@
   gap: 14px;
 }
 
+.panel.search-panel {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
 .search-stage {
   gap: 14px;
 }
@@ -81,6 +89,7 @@
   gap: 10px;
   box-shadow: var(--surface-card-shadow);
   backdrop-filter: blur(var(--blur-lg));
+  max-width: 760px;
 }
 
 .search-command-breadcrumb {
