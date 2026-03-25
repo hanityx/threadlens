@@ -48,7 +48,11 @@ async function openPrimaryView(page: Page, label: "Threads" | "Providers") {
     await expect(page.getByRole("button", { name: bulkPinLabel }).first()).toBeVisible();
     return;
   }
+  await expect(page.locator(".provider-workspace-bar").first()).toBeVisible();
   await expect(page.getByRole("heading", { name: originalSessionsTitle }).first()).toBeVisible();
+  await expect(
+    page.locator(".provider-side-stack details").filter({ hasText: /Backup & export/i }).first(),
+  ).toBeVisible();
 }
 
 async function selectProviderChip(page: Page, label: RegExp) {
