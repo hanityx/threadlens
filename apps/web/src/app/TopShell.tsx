@@ -1,4 +1,5 @@
 import { useAppContext } from "./AppContext";
+import { Button } from "../design-system/Button";
 
 export function TopShell() {
   const {
@@ -86,25 +87,23 @@ export function TopShell() {
           <span className="top-sync-status" aria-live="polite">
             {syncStatusText}
           </span>
-          <button
-            type="button"
-            className="btn-outline"
+          <Button
+            variant="outline"
             onClick={() => setTheme(prev => prev === "dark" ? "light" : "dark")}
             title={
               theme === "dark" ? messages.nav.switchToLight : messages.nav.switchToDark
             }
           >
             {theme === "dark" ? messages.nav.light : messages.nav.dark}
-          </button>
-          <button
-            type="button"
-            className="btn-outline"
+          </Button>
+          <Button
+            variant="outline"
             onClick={() => void refreshAllData()}
             disabled={busy || refreshingAllData}
             title={messages.nav.syncHint}
           >
             {refreshingAllData ? "Syncing" : "Sync"}
-          </button>
+          </Button>
         </div>
       </div>
     </section>

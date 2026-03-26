@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { Button } from "../../design-system/Button";
+import { PanelHeader } from "../../design-system/PanelHeader";
 import type {
   DataSourceInventoryRow,
   ProviderMatrixProvider,
@@ -223,10 +225,7 @@ export function SetupWizard({
 
   return (
     <section className="panel setup-wizard-panel">
-      <header>
-        <h2>Setup</h2>
-        <span>detect / focus / ready</span>
-      </header>
+      <PanelHeader title="Setup" subtitle="detect / focus / ready" />
 
       <div className="setup-wizard-shell">
         <section className="setup-wizard-stage">
@@ -318,12 +317,12 @@ export function SetupWizard({
               </article>
             </div>
             <div className="setup-wizard-actions">
-              <button type="button" className="btn-accent" onClick={() => goToProviders()}>
+              <Button variant="accent" onClick={() => goToProviders()}>
                 Sessions
-              </button>
-              <button type="button" className="btn-outline" onClick={() => setExpandedAfterComplete(true)}>
+              </Button>
+              <Button variant="outline" onClick={() => setExpandedAfterComplete(true)}>
                 Reopen
-              </button>
+              </Button>
             </div>
           </div>
         ) : completedAt ? (
@@ -347,18 +346,18 @@ export function SetupWizard({
               </article>
             </div>
             <div className="setup-wizard-actions">
-              <button type="button" className="btn-accent" onClick={() => goToProviders()}>
+              <Button variant="accent" onClick={() => goToProviders()}>
                 Sessions
-              </button>
-              <button type="button" className="btn-outline" onClick={onOpenDiagnostics}>
+              </Button>
+              <Button variant="outline" onClick={onOpenDiagnostics}>
                 Diagnostics
-              </button>
-              <button type="button" className="btn-outline" onClick={() => setExpandedAfterComplete(false)}>
+              </Button>
+              <Button variant="outline" onClick={() => setExpandedAfterComplete(false)}>
                 Collapse
-              </button>
-              <button type="button" className="btn-outline" onClick={rerunWizard}>
+              </Button>
+              <Button variant="outline" onClick={rerunWizard}>
                 Rerun
-              </button>
+              </Button>
             </div>
           </div>
         ) : (
@@ -384,20 +383,19 @@ export function SetupWizard({
                   </article>
                 </div>
                 <div className="setup-wizard-actions">
-                  <button
-                    type="button"
-                    className="btn-accent"
+                  <Button
+                    variant="accent"
                     onClick={onRefresh}
                     disabled={providersRefreshing}
                   >
                     {providersRefreshing ? "Refreshing..." : "Refresh"}
-                  </button>
-                  <button type="button" className="btn-outline" onClick={() => setCurrentStep(2)}>
+                  </Button>
+                  <Button variant="outline" onClick={() => setCurrentStep(2)}>
                     {detectedSourceCount > 0 ? "Continue" : "Skip detect"}
-                  </button>
-                  <button type="button" className="btn-outline" onClick={() => goToProviders()}>
+                  </Button>
+                  <Button variant="outline" onClick={() => goToProviders()}>
                     Sessions
-                  </button>
+                  </Button>
                 </div>
               </>
             ) : null}
@@ -445,33 +443,30 @@ export function SetupWizard({
                   })}
                 </div>
                 <div className="setup-wizard-actions">
-                  <button
-                    type="button"
-                    className="btn-outline"
+                  <Button
+                    variant="outline"
                     onClick={applyRecommendedSelection}
                     disabled={recommendedProviderIds.length === 0}
                   >
                     Pick recommended
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-outline"
+                  </Button>
+                  <Button
+                    variant="outline"
                     onClick={clearSelection}
                     disabled={selectedProviderIds.length === 0}
                   >
                     Clear
-                  </button>
-                  <button type="button" className="btn-outline" onClick={() => setCurrentStep(1)}>
+                  </Button>
+                  <Button variant="outline" onClick={() => setCurrentStep(1)}>
                     Back
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-accent"
+                  </Button>
+                  <Button
+                    variant="accent"
                     onClick={() => setCurrentStep(3)}
                     disabled={selectedProviderIds.length === 0}
                   >
                     Continue
-                  </button>
+                  </Button>
                 </div>
               </>
             ) : null}
@@ -501,9 +496,9 @@ export function SetupWizard({
                           <span>Analyze: {card.canAnalyze ? "ready" : "blocked"}</span>
                         </div>
                         <div className="setup-wizard-actions">
-                          <button type="button" className="btn-outline" onClick={() => goToProviders(card.providerId)}>
+                          <Button variant="outline" onClick={() => goToProviders(card.providerId)}>
                             Open {card.name}
-                          </button>
+                          </Button>
                         </div>
                       </article>
                     ))}
@@ -515,20 +510,19 @@ export function SetupWizard({
                   </article>
                 )}
                 <div className="setup-wizard-actions">
-                  <button type="button" className="btn-outline" onClick={() => setCurrentStep(2)}>
+                  <Button variant="outline" onClick={() => setCurrentStep(2)}>
                     Back
-                  </button>
-                  <button type="button" className="btn-outline" onClick={onRefresh} disabled={providersRefreshing}>
+                  </Button>
+                  <Button variant="outline" onClick={onRefresh} disabled={providersRefreshing}>
                     {providersRefreshing ? "Refreshing..." : "Refresh"}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-accent"
+                  </Button>
+                  <Button
+                    variant="accent"
                     onClick={markComplete}
                     disabled={selectedCards.length === 0}
                   >
                     Mark ready
-                  </button>
+                  </Button>
                 </div>
               </>
             ) : null}

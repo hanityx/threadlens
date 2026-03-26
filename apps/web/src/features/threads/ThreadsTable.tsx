@@ -1,4 +1,6 @@
 import type { Messages } from "../../i18n";
+import { Button } from "../../design-system/Button";
+import { PanelHeader } from "../../design-system/PanelHeader";
 import type { CleanupPreviewData, ThreadRow } from "../../types";
 import { SKELETON_ROWS } from "../../types";
 import { normalizeDisplayValue } from "../../lib/helpers";
@@ -105,12 +107,14 @@ export function ThreadsTable(props: ThreadsTableProps) {
 
   return (
     <section className="panel threads-table-panel">
-      <header>
-        <h2>{messages.threadsTable.title}</h2>
-        <span>
-          {filteredRows.length} {messages.threadsTable.filtered} / {totalCount} {messages.threadsTable.total}
-        </span>
-      </header>
+      <PanelHeader
+        title={messages.threadsTable.title}
+        subtitle={
+          <>
+            {filteredRows.length} {messages.threadsTable.filtered} / {totalCount} {messages.threadsTable.total}
+          </>
+        }
+      />
       <div className="sticky-action-stack">
         <div className="sub-toolbar sticky-action-bar cleanup-status-strip">
           <div className="cleanup-status-inline">
@@ -128,18 +132,18 @@ export function ThreadsTable(props: ThreadsTableProps) {
           </div>
           <div className="thread-toolbar-group thread-toolbar-group-inline cleanup-inline-tools">
             <div className="thread-toolbar-inline">
-              <button type="button" className="btn-outline" onClick={() => selectVisibleRows("all")}>
+              <Button variant="outline" onClick={() => selectVisibleRows("all")}>
                 {messages.threadsTable.quickSelectAllVisible}
-              </button>
-              <button type="button" className="btn-outline" onClick={() => selectVisibleRows("high-risk")}>
+              </Button>
+              <Button variant="outline" onClick={() => selectVisibleRows("high-risk")}>
                 {messages.threadsTable.quickSelectHighRisk}
-              </button>
-              <button type="button" className="btn-outline" onClick={() => selectVisibleRows("pinned")}>
+              </Button>
+              <Button variant="outline" onClick={() => selectVisibleRows("pinned")}>
                 {messages.threadsTable.quickSelectPinned}
-              </button>
-              <button type="button" className="btn-outline" onClick={clearVisibleSelection}>
+              </Button>
+              <Button variant="outline" onClick={clearVisibleSelection}>
                 {messages.threadsTable.quickClearVisible}
-              </button>
+              </Button>
             </div>
             <span className="sub-hint">
               {selectedRow ? selectedRow.title || selectedRow.thread_id : messages.forensics.stagePending}
@@ -160,46 +164,46 @@ export function ThreadsTable(props: ThreadsTableProps) {
         <div className="sub-toolbar sticky-action-bar action-toolbar">
           <div className="thread-toolbar-group">
             <div className="thread-toolbar-inline">
-              <button
-                className="btn-base"
+              <Button
+                variant="base"
                 disabled={selectedIds.length === 0 || busy || threadActionsDisabled}
                 title={disabledReason}
                 onClick={() => bulkPin(selectedIds)}
               >
                 {messages.threadsTable.bulkPin}
-              </button>
-              <button
-                className="btn-base"
+              </Button>
+              <Button
+                variant="base"
                 disabled={selectedIds.length === 0 || busy || threadActionsDisabled}
                 title={disabledReason}
                 onClick={() => bulkUnpin(selectedIds)}
               >
                 {messages.threadsTable.bulkUnpin}
-              </button>
-              <button
-                className="btn-accent"
+              </Button>
+              <Button
+                variant="accent"
                 disabled={selectedIds.length === 0 || busy || threadActionsDisabled}
                 title={disabledReason}
                 onClick={() => bulkArchive(selectedIds)}
               >
                 {messages.threadsTable.bulkArchive}
-              </button>
-              <button
-                className="btn-outline"
+              </Button>
+              <Button
+                variant="outline"
                 disabled={selectedIds.length === 0 || busy || threadActionsDisabled}
                 title={disabledReason}
                 onClick={() => analyzeDelete(selectedIds)}
               >
                 {messages.threadsTable.bulkImpact}
-              </button>
-              <button
-                className="btn-outline"
+              </Button>
+              <Button
+                variant="outline"
                 disabled={selectedIds.length === 0 || busy || threadActionsDisabled}
                 title={disabledReason}
                 onClick={() => cleanupDryRun(selectedIds)}
               >
                 {messages.threadsTable.bulkCleanupDryRun}
-              </button>
+              </Button>
             </div>
           </div>
           <div className="thread-toolbar-group">

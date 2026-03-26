@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { PanelHeader } from "../../design-system/PanelHeader";
 import type { ConversationSearchHit, ProviderView } from "../../types";
 import { useAppContext } from "../../app/AppContext";
 
@@ -24,10 +25,7 @@ export function SearchRoute() {
     <Suspense
       fallback={
         <section className="panel">
-          <header>
-            <h2>{messages.nav.search}</h2>
-            <span>{messages.common.loading}</span>
-          </header>
+          <PanelHeader title={messages.nav.search} subtitle={messages.common.loading} />
           <div className="sub-toolbar">
             <div className="skeleton-line" />
           </div>

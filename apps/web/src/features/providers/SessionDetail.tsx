@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { Button } from "../../design-system/Button";
+import { PanelHeader } from "../../design-system/PanelHeader";
 import type { Messages } from "../../i18n";
 import type { ProviderSessionRow, TranscriptPayload } from "../../types";
 import { formatDateTime, formatInteger, normalizeDisplayValue } from "../../lib/helpers";
@@ -183,10 +185,7 @@ export function SessionDetail(props: SessionDetailProps) {
 
   return (
     <section className={`panel session-detail-panel ${!selectedSession ? "is-empty" : ""}`.trim()}>
-      <header>
-        <h2>{messages.sessionDetail.title}</h2>
-        <span>{sessionHeaderMeta}</span>
-      </header>
+      <PanelHeader title={messages.sessionDetail.title} subtitle={sessionHeaderMeta} />
       <div ref={bodyRef} className="impact-body">
         {!selectedSession ? (
           <div className="session-detail-empty-state">
@@ -235,27 +234,24 @@ export function SessionDetail(props: SessionDetailProps) {
                 <div className="detail-section-static-head">{messages.sessionDetail.desktopQuickActions}</div>
                 <div className="detail-section-body">
                   <div className="chat-toolbar detail-action-bar detail-action-bar-compact detail-action-bar-desktop">
-                    <button
-                      type="button"
-                      className="btn-outline"
+                    <Button
+                      variant="outline"
                       onClick={() => void runDesktopAction("reveal", messages.sessionDetail.revealInFinder)}
                     >
                       {messages.sessionDetail.revealInFinder}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-outline"
+                    </Button>
+                    <Button
+                      variant="outline"
                       onClick={() => void runDesktopAction("preview", messages.sessionDetail.previewFile)}
                     >
                       {messages.sessionDetail.previewFile}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-outline"
+                    </Button>
+                    <Button
+                      variant="outline"
                       onClick={() => void openDesktopWindow()}
                     >
                       {messages.sessionDetail.openInNewWindow}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </section>
@@ -336,9 +332,8 @@ export function SessionDetail(props: SessionDetailProps) {
                   <p>{messages.sessionDetail.rawActionHint}</p>
                 </div>
                 <div className="chat-toolbar detail-action-bar detail-action-bar-compact">
-                  <button
-                    type="button"
-                    className="btn-outline"
+                  <Button
+                    variant="outline"
                     onClick={() =>
                       copyText(
                         normalizeDisplayValue(selectedSession.display_title) ||
@@ -349,52 +344,46 @@ export function SessionDetail(props: SessionDetailProps) {
                     }
                   >
                     {messages.sessionDetail.copyTitle}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-outline"
+                  </Button>
+                  <Button
+                    variant="outline"
                     onClick={() => copyText(selectedSession.session_id, messages.sessionDetail.copyId)}
                   >
                     {messages.sessionDetail.copyId}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-outline"
+                  </Button>
+                  <Button
+                    variant="outline"
                     onClick={() => copyText(selectedSession.file_path, messages.sessionDetail.copyPath)}
                   >
                     {messages.sessionDetail.copyPath}
-                  </button>
+                  </Button>
                 </div>
                 {isElectronRuntime ? (
                   <div className="chat-toolbar detail-action-bar detail-action-bar-compact detail-action-bar-desktop">
-                    <button
-                      type="button"
-                      className="btn-outline"
+                    <Button
+                      variant="outline"
                       onClick={() => void runDesktopAction("reveal", messages.sessionDetail.revealInFinder)}
                     >
                       {messages.sessionDetail.revealInFinder}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-outline"
+                    </Button>
+                    <Button
+                      variant="outline"
                       onClick={() => void runDesktopAction("open", messages.sessionDetail.openFile)}
                     >
                       {messages.sessionDetail.openFile}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-outline"
+                    </Button>
+                    <Button
+                      variant="outline"
                       onClick={() => void runDesktopAction("preview", messages.sessionDetail.previewFile)}
                     >
                       {messages.sessionDetail.previewFile}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-outline"
+                    </Button>
+                    <Button
+                      variant="outline"
                       onClick={() => void openDesktopWindow()}
                     >
                       {messages.sessionDetail.openInNewWindow}
-                    </button>
+                    </Button>
                   </div>
                 ) : null}
                 {copyNotice ? <p className="sub-hint">{copyNotice}</p> : null}
@@ -408,9 +397,8 @@ export function SessionDetail(props: SessionDetailProps) {
                     {messages.sessionDetail.deleteWithBackup}
                   </label>
                   <div className="chat-toolbar detail-action-bar">
-                    <button
-                      type="button"
-                      className="btn-base"
+                    <Button
+                      variant="base"
                       onClick={() =>
                         runSingleProviderAction(
                           selectedSession.provider,
@@ -422,10 +410,9 @@ export function SessionDetail(props: SessionDetailProps) {
                       disabled={busy || !selectedSession}
                     >
                       {messages.sessionDetail.backup}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-outline"
+                    </Button>
+                    <Button
+                      variant="outline"
                       onClick={() =>
                         runSingleProviderAction(
                           selectedSession.provider,
@@ -437,10 +424,9 @@ export function SessionDetail(props: SessionDetailProps) {
                       disabled={busy || !canRunSessionAction}
                     >
                       {messages.sessionDetail.archiveDryRun}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-base"
+                    </Button>
+                    <Button
+                      variant="base"
                       onClick={() =>
                         runSingleProviderAction(
                           selectedSession.provider,
@@ -452,7 +438,7 @@ export function SessionDetail(props: SessionDetailProps) {
                       disabled={busy || !canRunSessionAction}
                     >
                       {messages.sessionDetail.archive}
-                    </button>
+                    </Button>
                   </div>
                 </div>
                 <div className="danger-zone">
@@ -461,9 +447,8 @@ export function SessionDetail(props: SessionDetailProps) {
                   <strong>Delete last.</strong>
                 </div>
                   <div className="chat-toolbar detail-action-bar detail-action-bar-danger">
-                    <button
-                      type="button"
-                      className="btn-outline"
+                    <Button
+                      variant="outline"
                       onClick={() =>
                         runSingleProviderAction(
                           selectedSession.provider,
@@ -476,10 +461,9 @@ export function SessionDetail(props: SessionDetailProps) {
                       disabled={busy || !canRunSessionAction}
                     >
                       {messages.sessionDetail.deleteDryRun}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-danger"
+                    </Button>
+                    <Button
+                      variant="danger"
                       onClick={() =>
                         runSingleProviderAction(
                           selectedSession.provider,
@@ -492,7 +476,7 @@ export function SessionDetail(props: SessionDetailProps) {
                       disabled={busy || !canRunSessionAction}
                     >
                       {messages.sessionDetail.delete}
-                    </button>
+                    </Button>
                   </div>
                 </div>
                 <p className="sub-hint">

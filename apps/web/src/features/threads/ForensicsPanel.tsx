@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Button } from "../../design-system/Button";
+import { PanelHeader } from "../../design-system/PanelHeader";
 
 import type { Messages } from "../../i18n";
 import type { ThreadRow, AnalyzeDeleteReport, CleanupPreviewData } from "../../types";
@@ -77,10 +79,7 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
     <section
       className={`panel impact-panel thread-review-panel ${selectedIds.length === 0 ? "is-empty-state" : ""}`.trim()}
     >
-      <header>
-        <h2>{messages.forensics.title}</h2>
-        <span>review · next steps</span>
-      </header>
+      <PanelHeader title={messages.forensics.title} subtitle="review · next steps" />
       <div className="impact-body">
         <section className="detail-hero detail-hero-forensics">
           <div className="detail-hero-copy">
@@ -106,9 +105,9 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
             <p>{cleanupReady ? "copy ready" : "run first"}</p>
             {cleanupReady ? (
               <div className="sub-toolbar action-toolbar">
-                <button type="button" className="btn-outline" onClick={handleCopyToken}>
+                <Button variant="outline" onClick={handleCopyToken}>
                   {tokenCopied ? messages.forensics.copyTokenDone : messages.forensics.copyToken}
-                </button>
+                </Button>
               </div>
             ) : null}
           </article>
@@ -156,22 +155,20 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
             {analyzeDeleteErrorMessage ? <div className="mono-sub">{analyzeDeleteErrorMessage}</div> : null}
             {cleanupDryRunErrorMessage ? <div className="mono-sub">{cleanupDryRunErrorMessage}</div> : null}
             <div className="sub-toolbar action-toolbar">
-              <button
-                type="button"
-                className="btn-outline"
+              <Button
+                variant="outline"
                 disabled={!canRetryForensics}
                 onClick={() => analyzeDelete(selectedIds)}
               >
                 {messages.forensics.retryImpact}
-              </button>
-              <button
-                type="button"
-                className="btn-outline"
+              </Button>
+              <Button
+                variant="outline"
                 disabled={!canRetryForensics}
                 onClick={() => cleanupDryRun(selectedIds)}
               >
                 {messages.forensics.retryDryRun}
-              </button>
+              </Button>
             </div>
             {!threadActionsDisabled && selectedIds.length === 0 ? (
               <div className="sub-hint">{messages.forensics.retryNeedsSelection}</div>

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Button } from "../../design-system/Button";
 import type { Messages } from "../../i18n";
 import type { DataSourceInventoryRow, ProviderMatrixProvider } from "../../types";
 import { dataSourceLabel, formatFetchMs } from "./helpers";
@@ -185,13 +186,13 @@ export function AiManagementMatrix(props: AiManagementMatrixProps) {
           <div className="panel-disclosure-body">
             <div className="sub-toolbar">
               {!slowFocusActive ? (
-                <button type="button" className="btn-outline" onClick={onFocusSlowProviders}>
+                <Button variant="outline" onClick={onFocusSlowProviders}>
                   {messages.providers.hotspotFocusSlow}
-                </button>
+                </Button>
               ) : (
-                <button type="button" className="btn-outline" onClick={onClearSlowFocus}>
+                <Button variant="outline" onClick={onClearSlowFocus}>
                   {messages.providers.hotspotClearFocus}
-                </button>
+                </Button>
               )}
             </div>
             <div className="hotspot-grid">
@@ -210,20 +211,18 @@ export function AiManagementMatrix(props: AiManagementMatrixProps) {
                     <span>{messages.providers.score} {card.parseScore ?? "-"}</span>
                   </div>
                   <div className="hotspot-actions">
-                    <button
-                      type="button"
-                      className="btn-outline"
+                    <Button
+                      variant="outline"
                       onClick={() => onJumpToProviderSessions(card.provider, card.parseFail, { fromHotspot: true })}
                     >
                       {messages.providers.openSessions}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-outline"
+                    </Button>
+                    <Button
+                      variant="outline"
                       onClick={() => onJumpToParserProvider(card.provider)}
                     >
                       {messages.providers.hotspotOpenParser}
-                    </button>
+                    </Button>
                   </div>
                 </article>
               ))}
@@ -317,21 +316,19 @@ export function AiManagementMatrix(props: AiManagementMatrixProps) {
                   {card.parseScore !== null ? ` · ${messages.providers.score} ${card.parseScore}` : ""}
                 </span>
                 <div className="provider-flow-button-group">
-                  <button
-                    type="button"
-                    className="btn-outline"
+                  <Button
+                    variant="outline"
                     onClick={() => onJumpToProviderSessions(card.providerId, card.parseFail)}
                   >
                     {messages.providers.openSessions}
-                  </button>
+                  </Button>
                   {card.parseFail > 0 ? (
-                    <button
-                      type="button"
-                      className="btn-outline"
+                    <Button
+                      variant="outline"
                       onClick={() => onJumpToParserProvider(card.providerId)}
                     >
                       {messages.providers.hotspotOpenParser}
-                    </button>
+                    </Button>
                   ) : null}
                 </div>
               </div>

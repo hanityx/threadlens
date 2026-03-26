@@ -1,4 +1,6 @@
 import type { Ref } from "react";
+import { Button } from "../../design-system/Button";
+import { PanelHeader } from "../../design-system/PanelHeader";
 import type { Messages } from "../../i18n";
 import type { ProviderSessionActionResult, ProviderSessionRow } from "../../types";
 import { SKELETON_ROWS } from "../../types";
@@ -130,16 +132,18 @@ export function SessionTable(props: SessionTableProps) {
 
   return (
     <section className="panel provider-session-stage" ref={sectionRef}>
-      <header>
-        <h2>{messages.providers.sessionsTitle}</h2>
-        <span>
-          {providerSessionSummary.rows ?? providerSessionRows.length} {messages.providers.rows} · {messages.providers.parseOk}{" "}
-          {providerSessionSummary.parse_ok ?? 0}
-          {" · "}
-          {messages.providers.queryLimit} {providerSessionsLimit}
-          {providerRowsSampled ? ` · ${messages.providers.sampledHint}` : ""}
-        </span>
-      </header>
+      <PanelHeader
+        title={messages.providers.sessionsTitle}
+        subtitle={
+          <>
+            {providerSessionSummary.rows ?? providerSessionRows.length} {messages.providers.rows} · {messages.providers.parseOk}{" "}
+            {providerSessionSummary.parse_ok ?? 0}
+            {" · "}
+            {messages.providers.queryLimit} {providerSessionsLimit}
+            {providerRowsSampled ? ` · ${messages.providers.sampledHint}` : ""}
+          </>
+        }
+      />
       <div className="provider-grid-intro">
         <div className="provider-grid-intro-copy">
           <span className="overview-note-label">archive</span>
@@ -155,9 +159,9 @@ export function SessionTable(props: SessionTableProps) {
               : messages.providers.sessionsEmptyNoSources}
             {` · ${messages.providers.sessionsEmptyActionHint}`}
           </span>
-          <button className="btn-outline" type="button" onClick={onPromoteDepthRefresh}>
+          <Button variant="outline" onClick={onPromoteDepthRefresh}>
             {messages.providers.depthDeep} + {messages.providers.refreshNow}
-          </button>
+          </Button>
         </div>
       ) : null}
       <div className="sub-toolbar sessions-control-strip">
@@ -199,18 +203,18 @@ export function SessionTable(props: SessionTableProps) {
       </div>
       <div className="sub-toolbar sessions-action-strip">
         <div className="sessions-action-main">
-          <button className="btn-outline" disabled={!canRunProviderAction || busy} onClick={onRunArchiveDryRun}>
+          <Button variant="outline" disabled={!canRunProviderAction || busy} onClick={onRunArchiveDryRun}>
             {messages.providers.archiveDryRun}
-          </button>
-          <button className="btn-base" disabled={!canRunProviderAction || busy} onClick={onRunArchive}>
+          </Button>
+          <Button variant="base" disabled={!canRunProviderAction || busy} onClick={onRunArchive}>
             {messages.providers.archive}
-          </button>
-          <button className="btn-outline" disabled={!canRunProviderAction || busy} onClick={onRunDeleteDryRun}>
+          </Button>
+          <Button variant="outline" disabled={!canRunProviderAction || busy} onClick={onRunDeleteDryRun}>
             {messages.providers.deleteDryRun}
-          </button>
-          <button className="btn-danger" disabled={!canRunProviderAction || busy} onClick={onRunDelete}>
+          </Button>
+          <Button variant="danger" disabled={!canRunProviderAction || busy} onClick={onRunDelete}>
             {messages.providers.delete}
-          </button>
+          </Button>
         </div>
         <div className="sessions-action-tools">
           {selectedSessionProvider ? (
@@ -265,30 +269,29 @@ export function SessionTable(props: SessionTableProps) {
               {!canApplySlowOnly && slowOnly ? (
                 <>
                   <span className="sub-hint">{messages.providers.slowOnlyDormant}</span>
-                  <button type="button" className="btn-outline" onClick={onSetProviderViewAll}>
+                  <Button variant="outline" onClick={onSetProviderViewAll}>
                     {messages.common.allAi}
-                  </button>
+                  </Button>
                 </>
               ) : null}
-              <button
-                className="btn-outline"
-                type="button"
+              <Button
+                variant="outline"
                 disabled={sortedProviderSessionRows.length === 0 || enabledCsvColumnsCount === 0}
                 onClick={onExportCsv}
               >
                 {messages.providers.exportCsv}
-              </button>
+              </Button>
             </div>
             <div className="sub-toolbar inline-tools-disclosure-body">
-              <button className="btn-outline" type="button" onClick={() => onSetCsvColumnsPreset("all")}>
+              <Button variant="outline" onClick={() => onSetCsvColumnsPreset("all")}>
                 {messages.providers.csvPresetAll}
-              </button>
-              <button className="btn-outline" type="button" onClick={() => onSetCsvColumnsPreset("compact")}>
+              </Button>
+              <Button variant="outline" onClick={() => onSetCsvColumnsPreset("compact")}>
                 {messages.providers.csvPresetCompact}
-              </button>
-              <button className="btn-outline" type="button" onClick={() => onSetCsvColumnsPreset("forensics")}>
+              </Button>
+              <Button variant="outline" onClick={() => onSetCsvColumnsPreset("forensics")}>
                 {messages.providers.csvPresetForensics}
-              </button>
+              </Button>
             </div>
             <div className="sub-toolbar inline-tools-disclosure-body">
               {csvColumnItems.map((item) => (
@@ -398,9 +401,9 @@ export function SessionTable(props: SessionTableProps) {
       </div>
       {hasMoreRows ? (
         <div className="sub-toolbar">
-          <button className="btn-outline" type="button" onClick={onLoadMoreRows}>
+          <Button variant="outline" onClick={onLoadMoreRows}>
             {messages.providers.loadMoreRows} {renderedProviderSessionRows.length}/{sortedProviderSessionRows.length}
-          </button>
+          </Button>
         </div>
       ) : null}
       {sessionFileActionResult ? (

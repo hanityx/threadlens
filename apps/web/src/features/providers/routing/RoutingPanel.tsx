@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { PanelHeader } from "../../../design-system/PanelHeader";
 import type { ExecutionGraphData } from "@threadlens/shared-contracts";
 import type { Messages } from "../../../i18n";
 import { compactPath, formatDateTime } from "../../../lib/helpers";
@@ -845,10 +846,7 @@ export function RoutingPanel({
 
   return (
     <section className="panel routing-workbench-panel">
-      <header>
-        <h2>Diagnostics map</h2>
-        <span>{formatDateTime(data?.generated_at)}</span>
-      </header>
+      <PanelHeader title="Diagnostics map" subtitle={formatDateTime(data?.generated_at)} />
       <div className="impact-body">
         <section className="routing-stage-shell">
           <div className="routing-stage-copy">

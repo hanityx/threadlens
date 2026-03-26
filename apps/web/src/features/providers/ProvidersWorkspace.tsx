@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { PanelHeader } from "../../design-system/PanelHeader";
 import type { ProvidersPanelProps } from "./ProvidersPanel";
 import { useAppContext } from "../../app/AppContext";
 
@@ -169,10 +170,7 @@ export function ProvidersWorkspace() {
       <Suspense
         fallback={
           <section className="panel">
-            <header>
-              <h2>{messages.nav.providers}</h2>
-              <span>{messages.common.loading}</span>
-            </header>
+            <PanelHeader title={messages.nav.providers} subtitle={messages.common.loading} />
             <div className="sub-toolbar">
               <div className="skeleton-line" />
             </div>
@@ -185,10 +183,7 @@ export function ProvidersWorkspace() {
             <Suspense
               fallback={
                 <section className="panel">
-                  <header>
-                    <h2>{messages.sessionDetail.title}</h2>
-                    <span>{messages.common.loading}</span>
-                  </header>
+                  <PanelHeader title={messages.sessionDetail.title} subtitle={messages.common.loading} />
                   <div className="sub-toolbar">
                     <div className="skeleton-line" />
                   </div>
@@ -227,10 +222,7 @@ export function ProvidersWorkspace() {
                   <Suspense
                     fallback={
                       <section className="panel">
-                        <header>
-                          <h2>{messages.nav.routing}</h2>
-                          <span>{messages.common.loading}</span>
-                        </header>
+                        <PanelHeader title={messages.nav.routing} subtitle={messages.common.loading} />
                         <div className="sub-toolbar">
                           <div className="skeleton-line" />
                         </div>

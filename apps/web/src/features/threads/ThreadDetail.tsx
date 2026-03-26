@@ -1,4 +1,6 @@
 import type { Messages } from "../../i18n";
+import { Button } from "../../design-system/Button";
+import { PanelHeader } from "../../design-system/PanelHeader";
 import type { ConversationSearchHit, ThreadRow, ThreadForensicsEnvelope } from "../../types";
 import { TranscriptLog } from "../../design-system/TranscriptLog";
 import type { TranscriptPayload } from "../../types";
@@ -105,9 +107,7 @@ export function ThreadDetail(props: ThreadDetailProps) {
 
   return (
     <section className="panel thread-review-panel">
-      <header>
-        <h2>{messages.threadDetail.title}</h2>
-      </header>
+      <PanelHeader title={messages.threadDetail.title} />
       <div className="impact-body">
         {!hasSelection ? (
           <div className="thread-detail-empty-state">
@@ -180,51 +180,46 @@ export function ThreadDetail(props: ThreadDetailProps) {
               <summary>{messages.threadDetail.sectionActions}</summary>
               <div className="detail-section-body">
                 <div className="chat-toolbar detail-action-bar">
-                  <button
-                    type="button"
-                    className="btn-outline"
+                  <Button
+                    variant="outline"
                     onClick={() => selectedThreadId && bulkPin([selectedThreadId])}
                     disabled={!selectedThreadId || busy || threadActionsDisabled}
                     title={disabledReason}
                   >
                     {messages.threadDetail.pin}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-outline"
+                  </Button>
+                  <Button
+                    variant="outline"
                     onClick={() => selectedThreadId && bulkUnpin([selectedThreadId])}
                     disabled={!selectedThreadId || busy || threadActionsDisabled}
                     title={disabledReason}
                   >
                     {messages.threadDetail.unpin}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-base"
+                  </Button>
+                  <Button
+                    variant="base"
                     onClick={() => selectedThreadId && bulkArchive([selectedThreadId])}
                     disabled={!selectedThreadId || busy || threadActionsDisabled}
                     title={disabledReason}
                   >
                     {messages.threadDetail.localArchive}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-outline"
+                  </Button>
+                  <Button
+                    variant="outline"
                     onClick={() => selectedThreadId && analyzeDelete([selectedThreadId])}
                     disabled={!selectedThreadId || busy || threadActionsDisabled}
                     title={disabledReason}
                   >
                     {messages.threadDetail.impactAnalysis}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-outline"
+                  </Button>
+                  <Button
+                    variant="outline"
                     onClick={() => selectedThreadId && cleanupDryRun([selectedThreadId])}
                     disabled={!selectedThreadId || busy || threadActionsDisabled}
                     title={disabledReason}
                   >
                     {messages.threadDetail.cleanupDryRun}
-                  </button>
+                  </Button>
                 </div>
                 {threadActionsDisabled ? <p className="sub-hint">{messages.threadDetail.backendDownHint}</p> : null}
               </div>

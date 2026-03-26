@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { PanelHeader } from "../design-system/PanelHeader";
 import { useAppContext } from "./AppContext";
 
 const ThreadDetail = lazy(async () => {
@@ -66,10 +67,7 @@ export function DetailShell() {
         <Suspense
           fallback={
             <section className="panel">
-              <header>
-                <h2>{messages.threadDetail.title}</h2>
-                <span>{messages.common.loading}</span>
-              </header>
+              <PanelHeader title={messages.threadDetail.title} subtitle={messages.common.loading} />
               <div className="sub-toolbar">
                 <div className="skeleton-line" />
               </div>
@@ -109,10 +107,7 @@ export function DetailShell() {
         <Suspense
           fallback={
             <section className="panel">
-              <header>
-                <h2>{messages.sessionDetail.title}</h2>
-                <span>{messages.common.loading}</span>
-              </header>
+              <PanelHeader title={messages.sessionDetail.title} subtitle={messages.common.loading} />
               <div className="sub-toolbar">
                 <div className="skeleton-line" />
               </div>

@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import { Button } from "./Button";
+import { PanelHeader } from "./PanelHeader";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "../api";
 import { extractEnvelopeData, formatDateTime } from "../lib/helpers";
@@ -232,24 +234,21 @@ export function SyncLensPanel({ locale }: Props) {
 
   return (
     <section className="panel sync-lens-panel">
-      <header>
-        <div>
-          <h2>{copy.title}</h2>
-          <span className="sync-lens-subtitle">{copy.subtitle}</span>
-        </div>
-        <div className="sync-lens-header-actions">
-          <button
-            type="button"
-            className="btn-outline"
+      <PanelHeader
+        title={copy.title}
+        subtitle={<span className="sync-lens-subtitle">{copy.subtitle}</span>}
+        actions={
+          <Button
+            variant="outline"
             onClick={() => {
               void query.refetch();
             }}
             disabled={query.isFetching}
           >
             {query.isFetching ? copy.refreshing : copy.refreshNow}
-          </button>
-        </div>
-      </header>
+          </Button>
+        }
+      />
 
       <div className="impact-body sync-lens-body">
         <div className="sync-lens-summary">

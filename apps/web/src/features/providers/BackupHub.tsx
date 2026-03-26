@@ -1,4 +1,5 @@
 import type { Messages } from "../../i18n";
+import { Button } from "../../design-system/Button";
 import type { ProviderSessionActionResult, ProviderSessionRow } from "../../types";
 import { compactSessionTitle } from "./helpers";
 
@@ -70,22 +71,20 @@ export function BackupHub(props: BackupHubProps) {
           />
           {messages.providers.deleteWithBackup}
         </label>
-        <button
-          className="btn-base"
-          type="button"
+        <Button
+          variant="base"
           disabled={!canRunProviderBackup || busy}
           onClick={onRunBackupSelected}
         >
           {busy ? messages.busy : messages.providers.backupSelected}
-        </button>
-        <button
-          className="btn-outline"
-          type="button"
+        </Button>
+        <Button
+          variant="outline"
           disabled={busy}
           onClick={onRunRecoveryBackupExport}
         >
           {messages.providers.exportAllBackups}
-        </button>
+        </Button>
       </div>
       <div className="provider-inline-result is-static">
         <strong>

@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { PanelHeader } from "../../design-system/PanelHeader";
 import type { ForensicsPanelProps } from "./ForensicsPanel";
 import type { Messages } from "../../i18n";
 
@@ -16,10 +17,7 @@ export function ThreadsForensicsSlot(props: ThreadsForensicsSlotProps) {
     <Suspense
       fallback={
         <section className="panel">
-          <header>
-            <h2>{props.messages.nav.forensics}</h2>
-            <span>{props.messages.common.loading}</span>
-          </header>
+          <PanelHeader title={props.messages.nav.forensics} subtitle={props.messages.common.loading} />
           <div className="sub-toolbar">
             <div className="skeleton-line" />
           </div>

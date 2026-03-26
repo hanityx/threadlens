@@ -1,4 +1,5 @@
 import type { Messages } from "../../i18n";
+import { Button } from "../../design-system/Button";
 import { formatDateTime } from "../../lib/helpers";
 import type { ProviderDataDepth } from "../../types";
 import { formatFetchMs } from "./helpers";
@@ -81,16 +82,15 @@ export function ProviderAdvancedShell({
         {advancedOpen ? (
           <>
             <section className="toolbar provider-diagnostics-toolbar">
-              <button
-                className="btn-outline"
-                type="button"
+              <Button
+                variant="outline"
                 onClick={onRefreshProvidersData}
                 disabled={providersRefreshing}
               >
                 {providersRefreshing
                   ? messages.providers.refreshing
                   : messages.providers.refreshNow}
-              </button>
+              </Button>
               <span className="sub-hint">
                 {providersLastRefreshAt
                   ? `${messages.providers.lastRefresh} ${formatDateTime(providersLastRefreshAt)}`
@@ -131,13 +131,12 @@ export function ProviderAdvancedShell({
                     </select>
                   </label>
                   {canReturnHotspotScope ? (
-                    <button
-                      className="btn-outline"
-                      type="button"
+                    <Button
+                      variant="outline"
                       onClick={onReturnHotspotScope}
                     >
                       {messages.providers.scopeReturn} {hotspotOriginLabel}
-                    </button>
+                    </Button>
                   ) : null}
                   <span className="sub-hint">
                     {messages.providers.parserHint}
