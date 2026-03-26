@@ -1,10 +1,68 @@
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "../api";
 import type { ConversationSearchEnvelope, ConversationSearchHit } from "../types";
 import type { Messages } from "../i18n";
 import { extractEnvelopeData, formatDateTime, normalizeDisplayValue } from "../lib/helpers";
 const HOME_PATH_MARKER = `/${"Users"}/`;
+
+/* ── Recent searches ──────────────────────────────────────────── */
+
+type RecentSearch = { q: string; ts: number };
+const RECENT_KEY = "tl:search:recent";
+const MAX_RECENT = 8;
+
+function loadRecentSearches(): RecentSearch[] {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item): item is RecentSearch =>
+        typeof item?.q === "string" && typeof item?.ts === "number",
+    );
+  } catch {
+    return [];
+  }
+}
+
+function addRecentSearch(query: string): RecentSearch[] {
+  const current = loadRecentSearches();
+  const updated: RecentSearch[] = [
+    { q: query, ts: Date.now() },
+    ...current.filter((item) => item.q !== query),
+  ].slice(0, MAX_RECENT);
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(updated));
+  } catch {
+    // ignore storage errors
+  }
+  return updated;
+}
+
+function removeRecentSearch(query: string): RecentSearch[] {
+  const current = loadRecentSearches();
+  const updated = current.filter((item) => item.q !== query);
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(updated));
+  } catch {
+    // ignore storage errors
+  }
+  return updated;
+}
+
+function formatRecentTime(ts: number): string {
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "yesterday";
+  return `${days}d ago`;
+}
 
 export type SearchPanelProps = {
   messages: Messages;
@@ -151,14 +209,35 @@ export function SearchPanel({
   onOpenThread,
   initialQuery = "",
 }: SearchPanelProps) {
-  const sampleQueries = ["backup", "agent", "review", "deploy"];
+  const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [provider, setProvider] = useState("all");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [recentSearches, setRecentSearches] = useState<RecentSearch[]>(
+    () => loadRecentSearches(),
+  );
+  const handleRemoveRecent = useCallback((q: string) => {
+    setRecentSearches(removeRecentSearch(q));
+  }, []);
   useEffect(() => {
     if (!initialQuery) return;
     setQuery((prev) => (prev === initialQuery ? prev : initialQuery));
   }, [initialQuery]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+      if (e.key === "Escape" && document.activeElement === inputRef.current) {
+        setQuery("");
+        inputRef.current?.blur();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -168,6 +247,11 @@ export function SearchPanel({
   }, [query]);
   const deferredQuery = useDeferredValue(debouncedQuery);
   const searchEnabled = deferredQuery.length >= 2;
+
+  useEffect(() => {
+    if (debouncedQuery.length < 2) return;
+    setRecentSearches(addRecentSearch(debouncedQuery));
+  }, [debouncedQuery]);
 
   const search = useQuery({
     queryKey: ["conversation-search", deferredQuery, provider],
@@ -333,62 +417,129 @@ export function SearchPanel({
             {searchEnabled ? `${availableSessions} rows` : "idle"}
           </span>
         </div>
-        <div className="search-command-bar">
-          <span className="search-command-prompt" aria-hidden="true">
-            &gt;
-          </span>
-          <input
-            type="search"
-            className="search-input search-input-stage"
-            aria-label="Search conversations"
-            placeholder={messages.search.inputPlaceholder}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-          <div className="search-command-shortcut" aria-hidden="true">
-            <kbd>⌘</kbd>
-            <kbd>K</kbd>
-          </div>
-        </div>
-
-          <div className="search-command-meta search-command-meta-stage">
+        <div className="search-command-body">
+          <div className="search-command-left">
+            <div className="search-command-bar">
+              <span className="search-command-prompt" aria-hidden="true">&gt;</span>
+              <input
+                ref={inputRef}
+                type="search"
+                className="search-input search-input-stage"
+                aria-label="Search conversations"
+                placeholder={messages.search.inputPlaceholder}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </div>
             <div className="search-command-meta-group">
               <div className="search-scope-label">{messages.search.providerFilter}</div>
-            <div className="search-scope-chips" aria-label={messages.search.providerFilter}>
-              <button
-                type="button"
-                className={`status-pill-button search-pill ${provider === "all" ? "status-active" : "status-preview"}`.trim()}
-                onClick={() => setProvider("all")}
-              >
-                {messages.search.allProviders}
-              </button>
-              {providerOptions
-                .filter((item) => item.id !== "all")
-                .map((item) => (
-                  <button
-                    key={`search-chip-${item.id}`}
-                    type="button"
-                    className={`status-pill-button search-pill ${provider === item.id ? "status-active" : "status-preview"}`.trim()}
-                    onClick={() => setProvider(item.id)}
-                  >
-                    {item.name}
-                  </button>
-                ))}
+              <div className="search-scope-chips" aria-label={messages.search.providerFilter}>
+                <button
+                  type="button"
+                  className={`status-pill-button search-pill ${provider === "all" ? "status-active" : "status-preview"}`.trim()}
+                  onClick={() => setProvider("all")}
+                >
+                  {messages.search.allProviders}
+                </button>
+                {providerOptions
+                  .filter((item) => item.id !== "all")
+                  .map((item) => (
+                    <button
+                      key={`search-chip-${item.id}`}
+                      type="button"
+                      className={`status-pill-button search-pill ${provider === item.id ? "status-active" : "status-preview"}`.trim()}
+                      onClick={() => setProvider(item.id)}
+                    >
+                      {item.name}
+                    </button>
+                  ))}
+              </div>
             </div>
           </div>
-          <div className="search-command-meta-group">
-            <div className="search-scope-label">examples</div>
-            <div className="search-example-chips">
-              {sampleQueries.map((sample) => (
-                <button
-                  key={`sample-query-${sample}`}
-                  type="button"
-                  className={`status-pill-button search-pill ${query.trim().toLowerCase() === sample ? "status-active" : "status-preview"}`.trim()}
-                  onClick={() => setQuery(sample)}
-                >
-                  {sample}
-                </button>
-              ))}
+          <div className="search-command-tips">
+            <div className="search-tips-col">
+              <div className="search-scope-label">tips</div>
+              <div className="search-tips-list">
+                <div className="search-tip-row">
+                  <span className="search-tip-key">keywords</span>
+                  <span className="search-tip-desc">free text, any order</span>
+                </div>
+                <div className="search-tip-row">
+                  <span className="search-tip-key">filename</span>
+                  <span className="search-tip-desc">AGENTS.md, .jsonl</span>
+                </div>
+                <div className="search-tip-row">
+                  <span className="search-tip-key">scope</span>
+                  <span className="search-tip-desc">filter by provider</span>
+                </div>
+              </div>
+            </div>
+            <div className="search-tips-col">
+              <div className="search-scope-label">shortcuts</div>
+              <div className="search-tips-shortcuts">
+                <div className="search-tip-row">
+                  <kbd className="search-tip-kbd">⌘K</kbd>
+                  <span className="search-tip-desc">focus search</span>
+                </div>
+                <div className="search-tip-row">
+                  <kbd className="search-tip-kbd">Esc</kbd>
+                  <span className="search-tip-desc">clear query</span>
+                </div>
+              </div>
+            </div>
+            <div className="search-tips-recent">
+              <div className="search-scope-label">{messages.search.recentSearches}</div>
+              {recentSearches.length === 0 ? (
+                <div className="search-recent-list">
+                  {([
+                    { q: "parser health", t: "2m ago" },
+                    { q: "gemini session", t: "1h ago" },
+                    { q: "AGENTS.md review", t: "3h ago" },
+                    { q: "threadlens debug", t: "yesterday" },
+                    { q: "copilot backup", t: "2d ago" },
+                    { q: "codex transcript", t: "3d ago" },
+                  ]).map(({ q, t }) => (
+                    <div key={q} className="search-recent-item search-recent-sample" aria-hidden="true">
+                      <span className="search-recent-icon">↺</span>
+                      <span className="search-recent-query">{q}</span>
+                      <span className="search-recent-time">{t}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="search-recent-list">
+                  {recentSearches.slice(0, 6).map((item) => (
+                    <div
+                      key={item.ts}
+                      className="search-recent-item"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setQuery(item.q)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setQuery(item.q);
+                        }
+                      }}
+                    >
+                      <span className="search-recent-icon" aria-hidden="true">↺</span>
+                      <span className="search-recent-query">{item.q}</span>
+                      <span className="search-recent-time">{formatRecentTime(item.ts)}</span>
+                      <button
+                        type="button"
+                        className="search-recent-remove"
+                        aria-label={`Remove "${item.q}" from recent searches`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveRecent(item.q);
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -396,12 +547,6 @@ export function SearchPanel({
 
       <div className="search-stage-layout">
         <div className="search-results-column">
-          {!searchEnabled ? (
-            <div className="search-idle-strip">
-              <span>{messages.search.emptyIdle}</span>
-            </div>
-          ) : null}
-
           {showLiveLoading ? (
             <div className="search-live-strip" role="status" aria-live="polite">
               <span className="search-live-dot" aria-hidden="true" />

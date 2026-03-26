@@ -117,7 +117,9 @@ export function TopShell(props: TopShellProps) {
             type="button"
             className="btn-outline"
             onClick={onToggleTheme}
-            title={theme === "dark" ? labels.switchToLight : labels.switchToDark}
+            title={
+              theme === "dark" ? labels.switchToLight : labels.switchToDark
+            }
           >
             {theme === "dark" ? labels.light : labels.dark}
           </button>

@@ -593,6 +593,9 @@ export const en = {
     "openThread": "Open Codex Cleanup",
     "matchTitle": "Title match",
     "matchMessage": "Message match",
-    "dedupedHint": "{count} duplicate hits collapsed."
+    "dedupedHint": "{count} duplicate hits collapsed.",
+    "recentSearches": "Recent searches",
+    "recentEmpty": "Your searches will appear here.",
+    "indexedProviders": "providers indexed"
   }
 } as const;
