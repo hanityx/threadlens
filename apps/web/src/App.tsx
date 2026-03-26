@@ -218,6 +218,8 @@ export function App() {
     providerView,
     visibleProviderTabs,
     visibleProviderIdSet,
+    providerSessionRows: allVisibleProviderSessionRows,
+    visibleRows,
     showForensics,
     showThreadDetail,
     showSessionDetail,

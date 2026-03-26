@@ -1,5 +1,5 @@
 import { startTransition, useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
-import type { ConversationSearchHit, LayoutView, ProviderView } from "../types";
+import type { ConversationSearchHit, LayoutView, ProviderSessionRow, ProviderView, ThreadRow } from "../types";
 import { normalizeDesktopRouteFilePath } from "./desktopRoute";
 
 const VALID_LAYOUT_VIEWS = new Set<LayoutView>(["overview", "search", "providers", "threads"]);
@@ -45,6 +45,77 @@ type ProviderTab = {
   id: ProviderView;
 };
 
+type HeaderSearchTarget =
+  | {
+      kind: "session";
+      filePath: string;
+      providerView: ProviderView;
+    }
+  | {
+      kind: "thread";
+      threadId: string;
+    };
+
+function normalizeHeaderSearchToken(value: string): string {
+  return String(value || "").trim().toLowerCase();
+}
+
+function findUniquePrefixMatch<T>(
+  query: string,
+  items: T[],
+  keysForItem: (item: T) => Array<string | null | undefined>,
+): T | null {
+  const exactMatches = items.filter((item) =>
+    keysForItem(item).some((key) => normalizeHeaderSearchToken(String(key || "")) === query),
+  );
+  if (exactMatches.length === 1) return exactMatches[0];
+  if (exactMatches.length > 1) return null;
+
+  const prefixMatches = items.filter((item) =>
+    keysForItem(item).some((key) => normalizeHeaderSearchToken(String(key || "")).startsWith(query)),
+  );
+  return prefixMatches.length === 1 ? prefixMatches[0] : null;
+}
+
+export function resolveHeaderSearchTarget(options: {
+  query: string;
+  visibleProviderIdSet: Set<string>;
+  providerSessionRows: ProviderSessionRow[];
+  threadRows: ThreadRow[];
+}): HeaderSearchTarget | null {
+  const normalizedQuery = normalizeHeaderSearchToken(options.query);
+  if (!normalizedQuery) return null;
+
+  const providerMatch = findUniquePrefixMatch(
+    normalizedQuery,
+    options.providerSessionRows,
+    (row) => [row.session_id, row.file_path],
+  );
+  if (providerMatch) {
+    return {
+      kind: "session",
+      filePath: providerMatch.file_path,
+      providerView: options.visibleProviderIdSet.has(providerMatch.provider)
+        ? (providerMatch.provider as ProviderView)
+        : "all",
+    };
+  }
+
+  const threadMatch = findUniquePrefixMatch(
+    normalizedQuery,
+    options.threadRows,
+    (row) => [row.thread_id],
+  );
+  if (threadMatch) {
+    return {
+      kind: "thread",
+      threadId: threadMatch.thread_id,
+    };
+  }
+
+  return null;
+}
+
 export function parseDesktopRouteSearch(search: string): DesktopRouteState {
   const params = new URLSearchParams(String(search || "").replace(/^\?/, ""));
   const view = params.get("view");
@@ -86,6 +157,8 @@ export function useAppShellBehavior(options: {
   providerView: ProviderView;
   visibleProviderTabs: ProviderTab[];
   visibleProviderIdSet: Set<string>;
+  providerSessionRows: ProviderSessionRow[];
+  visibleRows: ThreadRow[];
   showForensics: boolean;
   showThreadDetail: boolean;
   showSessionDetail: boolean;
@@ -339,6 +412,27 @@ export function useAppShellBehavior(options: {
   const handleHeaderSearchSubmit = () => {
     const nextQuery = options.headerSearchDraft.trim();
     if (!nextQuery) return;
+    const jumpTarget = resolveHeaderSearchTarget({
+      query: nextQuery,
+      visibleProviderIdSet: options.visibleProviderIdSet,
+      providerSessionRows: options.providerSessionRows,
+      threadRows: options.visibleRows,
+    });
+    if (jumpTarget?.kind === "session") {
+      options.setSearchThreadContext(null);
+      options.setSelectedThreadId("");
+      options.setProviderView(jumpTarget.providerView);
+      options.setSelectedSessionPath(jumpTarget.filePath);
+      options.changeLayoutView("providers");
+      return;
+    }
+    if (jumpTarget?.kind === "thread") {
+      options.setSearchThreadContext(null);
+      options.setSelectedSessionPath("");
+      options.setSelectedThreadId(jumpTarget.threadId);
+      options.changeLayoutView("threads");
+      return;
+    }
     options.setHeaderSearchSeed(nextQuery);
     options.changeLayoutView("search");
     if (typeof window === "undefined") return;

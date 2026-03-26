@@ -88,6 +88,7 @@ describe("thread mutations", () => {
     expect(saved["thread-titles"].titles).toEqual({ "thread-2": "Two" });
     expect(saved["thread-titles"].order).toEqual(["thread-2"]);
     expect(saved["pinned-thread-ids"]).toEqual([]);
+    expect(saved["archived-thread-ids"]).toEqual(["thread-1"]);
   });
 
   it("getThreadResumeCommandsTs returns codex resume commands", async () => {

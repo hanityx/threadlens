@@ -131,9 +131,33 @@ export function useThreadsData(layoutView: LayoutView) {
   }, [filteredRows.length]);
 
   const visibleRows = filteredRows.slice(0, renderLimit);
+  const availableThreadIds = useMemo(
+    () => new Set(rows.map((row) => row.thread_id).filter(Boolean)),
+    [rows],
+  );
   const selectedIds = Object.entries(selected)
     .filter(([, on]) => on)
     .map(([id]) => id);
+  useEffect(() => {
+    if (!selectedThreadId) return;
+    if (availableThreadIds.has(selectedThreadId)) return;
+    setSelectedThreadId("");
+  }, [availableThreadIds, selectedThreadId]);
+  useEffect(() => {
+    setSelected((prev) => {
+      let changed = false;
+      const next: Record<string, boolean> = {};
+      for (const [threadId, isSelected] of Object.entries(prev)) {
+        if (!isSelected) continue;
+        if (availableThreadIds.has(threadId)) {
+          next[threadId] = true;
+          continue;
+        }
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [availableThreadIds]);
 
   const selectedSet = new Set(selectedIds);
   const allFilteredSelected = filteredRows.length > 0 && filteredRows.every((row) => selectedSet.has(row.thread_id));

@@ -7,6 +7,7 @@ export type CodexUiState = {
   titles: Record<string, string>;
   order: string[];
   pinned: string[];
+  archived: string[];
   workspaces: string[];
   active: string[];
   labels: Record<string, string>;
@@ -19,6 +20,7 @@ function defaultUiState(): CodexUiState {
     titles: {},
     order: [],
     pinned: [],
+    archived: [],
     workspaces: [],
     active: [],
     labels: {},
@@ -55,6 +57,11 @@ export async function loadCodexUiState(
   const pinned = Array.isArray(record["pinned-thread-ids"])
     ? record["pinned-thread-ids"].map((item) => String(item ?? "").trim()).filter(Boolean)
     : [];
+  const archived = Array.isArray(record["archived-thread-ids"])
+    ? record["archived-thread-ids"]
+        .map((item) => String(item ?? "").trim())
+        .filter(Boolean)
+    : [];
   const workspaces = Array.isArray(record["electron-saved-workspace-roots"])
     ? record["electron-saved-workspace-roots"]
         .map((item) => String(item ?? "").trim())
@@ -79,6 +86,7 @@ export async function loadCodexUiState(
     titles,
     order,
     pinned,
+    archived,
     workspaces,
     active,
     labels,
@@ -268,6 +276,14 @@ export async function archiveThreadsLocalTs(
     dryRun: false,
     stateFilePath: options?.stateFilePath,
   });
+  const stateFilePath = options?.stateFilePath ?? CODEX_GLOBAL_STATE_FILE;
+  const state = await readRawCodexUiState(stateFilePath);
+  const archivedBefore = Array.isArray(state["archived-thread-ids"])
+    ? state["archived-thread-ids"].map((item) => String(item ?? "").trim()).filter(Boolean)
+    : [];
+  state["archived-thread-ids"] = Array.from(new Set([...archivedBefore, ...ids]));
+  await mkdir(path.dirname(stateFilePath), { recursive: true });
+  await writeFile(stateFilePath, JSON.stringify(state, null, 2), "utf-8");
   return {
     ok: true,
     mode: "local-hide",

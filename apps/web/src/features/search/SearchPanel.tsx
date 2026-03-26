@@ -230,9 +230,14 @@ export function SearchPanel({
         e.preventDefault();
         inputRef.current?.focus();
       }
-      if (e.key === "Escape" && document.activeElement === inputRef.current) {
+      if (e.key === "Escape") {
         setQuery("");
-        inputRef.current?.blur();
+        const activeElement = document.activeElement;
+        if (activeElement instanceof HTMLElement) {
+          activeElement.blur();
+        } else {
+          inputRef.current?.blur();
+        }
       }
     };
     window.addEventListener("keydown", handler);

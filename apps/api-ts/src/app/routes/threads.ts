@@ -127,6 +127,9 @@ export async function registerThreadRoutes(
         failed: threadIds.length - success,
         results,
       };
+      if (success > 0) {
+        deps.invalidateOverviewCache();
+      }
 
       return envelope(payload, null);
     },

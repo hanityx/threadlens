@@ -297,6 +297,10 @@ export function useProvidersData(options: {
     () => providerView === "all" ? allProviderSessionRows : currentProviderSessionRows,
     [providerView, allProviderSessionRows, currentProviderSessionRows],
   );
+  const availableProviderFilePaths = useMemo(
+    () => new Set(allProviderSessionRows.map((row) => row.file_path).filter(Boolean)),
+    [allProviderSessionRows],
+  );
   const providerSessionSummary = useMemo(() => {
     const parseOk = providerSessionRows.filter((row) => row.probe.ok).length;
     const parseFail = providerSessionRows.length - parseOk;
@@ -355,6 +359,26 @@ export function useProvidersData(options: {
     const exists = providerTabs.some((tab) => tab.id === providerView);
     if (!exists) setProviderView("all");
   }, [providerView, providerTabs, setProviderView]);
+  useEffect(() => {
+    if (!selectedSessionPath) return;
+    if (availableProviderFilePaths.has(selectedSessionPath)) return;
+    setSelectedSessionPath("");
+  }, [availableProviderFilePaths, selectedSessionPath]);
+  useEffect(() => {
+    setSelectedProviderFiles((prev) => {
+      let changed = false;
+      const next: Record<string, boolean> = {};
+      for (const [filePath, selected] of Object.entries(prev)) {
+        if (!selected) continue;
+        if (availableProviderFilePaths.has(filePath)) {
+          next[filePath] = true;
+          continue;
+        }
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [availableProviderFilePaths]);
 
   const selectedProviderLabel = providerView === "all" ? "All AI" : providerById.get(providerView)?.name ?? providerView;
   const selectedProviderFilePaths = useMemo(
