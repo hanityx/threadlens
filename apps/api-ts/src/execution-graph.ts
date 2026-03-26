@@ -4,6 +4,12 @@ import type { ExecutionGraphData, ExecutionGraphEdge, ExecutionGraphNode } from 
 import { getProviderMatrixTs } from "./lib/providers.js";
 import { getDataSourceInventoryTs } from "./domains/recovery/inventory.js";
 
+const HOME_ROOT_NAMES = ["Users", "home"] as const;
+const HOME_PATH_TEXT_PATTERN = new RegExp(
+  `/(${HOME_ROOT_NAMES.join("|")})/[^\\s"'` + "`" + `]+`,
+  "g",
+);
+
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

@@ -110,9 +110,7 @@ function sanitizeLoopControlSpec(raw: unknown, projectRoot: string): LoopControl
 function loadLoopControlSpecs(options: AgentLoopsOptions = {}): Record<string, LoopControlSpec> {
   const env = options.env ?? process.env;
   const projectRoot = path.resolve(options.projectRoot ?? defaultProjectRoot());
-  const raw = String(env.THREADLENS_LOOP_CONTROLLERS_JSON ?? "").trim() ||
-    // Legacy THREADLENS_ prefix is kept for backward-compatible local automation.
-    String(env.THREADLENS_LOOP_CONTROLLERS_JSON ?? "").trim();
+  const raw = String(env.THREADLENS_LOOP_CONTROLLERS_JSON ?? "").trim();
   if (!raw) return {};
 
   let parsed: unknown;

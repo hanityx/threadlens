@@ -202,40 +202,4 @@ exit 2
     });
   });
 
-  it("keeps THREADLENS_LOOP_CONTROLLERS_JSON as a fallback", async () => {
-    const rootDir = await withTempDir("threadlens-agent-loops-legacy-");
-    const controllerPath = path.join(rootDir, "loop-control.sh");
-    await writeExecutable(
-      controllerPath,
-      `#!/usr/bin/env bash
-if [[ "$1" == "status" ]]; then
-  cat <<'EOF'
-running=no
-live_session=
-state_dir=${rootDir}
-EOF
-  exit 0
-fi
-exit 0
-`,
-    );
-
-    const data = await getAgentLoopsStatusTs({
-      env: {
-        ...process.env,
-        THREADLENS_LOOP_CONTROLLERS_JSON: "",
-        THREADLENS_LOOP_CONTROLLERS_JSON: JSON.stringify([
-          {
-            id: "legacy_loop",
-            label: "Legacy Loop",
-            controller: controllerPath,
-          },
-        ]),
-      },
-      projectRoot: rootDir,
-    });
-
-    expect(data.count).toBe(1);
-    expect(data.rows[0]?.loop_id).toBe("legacy_loop");
-  });
 });

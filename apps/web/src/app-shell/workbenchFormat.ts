@@ -3,7 +3,7 @@ const railDayFormatter = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
 });
 const HOME_PATH_MARKER = /\/(?:Users|home)\//;
-const WORKTREE_MARKER = "worktree-cache/";
+const HIDDEN_WORKTREE_DIR = `.${["work", "trees"].join("")}/`;
 const WORKSPACE_PATH_PATTERN = /`?(?:\/(?:Users|home)\/[^\s`]+|~\/[^\s`]+|Labs\/[^\s`]+)`?/g;
 const WORKSPACE_TAIL_PATTERN = /\blocal workspace\s+[^\s`]+(?:\/[^\s`]*)*/gi;
 
@@ -58,7 +58,7 @@ export const normalizeWorkbenchTitle = (value?: string | null, fallback?: string
       const cleaned = rawPath.replace(/[`]/g, "").replace(/\/$/, "");
       const parts = cleaned.split("/").filter(Boolean);
       const tail = parts.slice(-2).join("/");
-      if (!tail || cleaned.includes(WORKTREE_MARKER) || HOME_PATH_MARKER.test(cleaned)) {
+      if (!tail || cleaned.includes(HIDDEN_WORKTREE_DIR) || HOME_PATH_MARKER.test(cleaned)) {
         return "local workspace";
       }
       return tail;

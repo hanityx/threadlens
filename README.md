@@ -104,12 +104,12 @@ pnpm --filter @threadlens/web test
 pnpm --filter @threadlens/web build
 pnpm --filter @threadlens/tui build
 pnpm build:desktop
+pnpm check:public-markdown-hygiene
 ```
 
 ## Docs
 
 - Architecture: `docs/ARCHITECTURE.md`
-- Internal release, troubleshooting, and product notes live under `docs/private-notes/`
 
 ## Contributing
 

@@ -21,8 +21,9 @@ We welcome all contributions! However, to avoid wasted effort, please **open an 
 - Run API tests: `pnpm --filter @threadlens/api test`
 - Run API build: `pnpm --filter @threadlens/api build`
 - Run Web build: `pnpm --filter @threadlens/web build`
+- Run the public markdown hygiene gate when tracked docs change: `pnpm check:public-markdown-hygiene`
 
-All three must pass before a PR is accepted.
+These checks must pass before a PR is accepted.
 
 ### Project Structure
 
@@ -46,6 +47,16 @@ All three must pass before a PR is accepted.
 - **Never** delete local thread/session data without a token-verified flow
 - Keep backward compatibility for existing `/api/*` responses
 - Prefer incremental migration over large rewrites
+
+### Public Markdown Hygiene
+
+If your change touches tracked markdown, run:
+
+```bash
+pnpm check:public-markdown-hygiene
+```
+
+This check fails when public markdown still contains blocked local-path or internal-codename traces.
 
 ## Reporting Issues
 
