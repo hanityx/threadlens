@@ -1,0 +1,112 @@
+/* ── Density: Compact ─────────────────────────────────── */
+:root[data-density="compact"] body {
+  font-size: var(--text-body-compact);
+  line-height: 1.55;
+}
+
+:root[data-density="compact"] .page {
+  max-width: 1540px;
+  padding: 24px 30px;
+  gap: 18px;
+}
+
+:root[data-density="compact"] .hero {
+  padding: 24px 28px;
+}
+
+:root[data-density="compact"] .hero-meta {
+  margin-top: 14px;
+}
+
+:root[data-density="compact"] .meta-chip {
+  padding: 5px 12px;
+  font-size: var(--text-base);
+}
+
+:root[data-density="compact"] .kpi-grid {
+  gap: 12px;
+}
+
+:root[data-density="compact"] .kpi-card {
+  padding: 16px 18px;
+}
+
+:root[data-density="compact"] .kpi-value {
+  font-size: var(--text-2xl);
+}
+
+:root[data-density="compact"] .panel header {
+  padding: 14px 16px;
+}
+
+:root[data-density="compact"] .sub-toolbar {
+  padding: 8px 12px;
+  gap: 8px;
+}
+
+:root[data-density="compact"] .sticky-action-stack {
+  top: 4px;
+}
+
+:root[data-density="compact"] .detail-action-bar {
+  top: 4px;
+  padding: 6px 8px;
+}
+
+:root[data-density="compact"] th,
+:root[data-density="compact"] td {
+  padding: 10px 12px;
+  font-size: var(--text-md);
+}
+
+:root[data-density="compact"] .impact-body {
+  padding: 14px 16px;
+  gap: 12px;
+}
+
+:root[data-density="compact"] .provider-roots > summary {
+  padding: 5px 8px;
+  font-size: var(--text-sm);
+}
+
+:root[data-density="compact"] .provider-roots > ul {
+  padding: 0 8px 7px 18px;
+}
+
+:root[data-density="compact"] .detail-section > summary {
+  padding: 10px 11px;
+  font-size: var(--text-base);
+}
+
+:root[data-density="compact"] .detail-section-body {
+  padding: 10px;
+  gap: 10px;
+}
+
+:root[data-density="compact"] .impact-kv {
+  padding: 9px 10px;
+}
+
+:root[data-density="compact"] .provider-flow-board {
+  padding: 10px 12px 12px;
+  gap: 10px;
+}
+
+:root[data-density="compact"] .provider-flow-card {
+  padding: 10px;
+  gap: 10px;
+}
+
+:root[data-density="compact"] .provider-flow-node {
+  min-width: 70px;
+  padding: 6px 7px;
+}
+
+:root[data-density="compact"] .chat-log {
+  max-height: 340px;
+  padding: 10px;
+}
+
+:root[data-density="compact"] .chat-item {
+  padding: 10px 12px;
+}

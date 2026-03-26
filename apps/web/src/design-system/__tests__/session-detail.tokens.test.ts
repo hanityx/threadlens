@@ -1,0 +1,76 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+
+const sessionDetailStyles = readFileSync(new URL("../session-detail.css", import.meta.url), "utf8");
+
+describe("session detail token migration", () => {
+  it("uses typography tokens for review and detail labels", () => {
+    expect(sessionDetailStyles).toMatch(/\.thread-review-panel > header h2\s*{[^}]*font-size:\s*var\(--text-lg\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-panel > header span\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-card span\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-card strong\s*{[^}]*font-size:\s*var\(--text-lg\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-card p\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(sessionDetailStyles).toMatch(/\.detail-section > summary\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(sessionDetailStyles).toMatch(/\.detail-section-static-head\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(sessionDetailStyles).toMatch(/\.detail-hero-copy strong\s*{[^}]*font-size:\s*var\(--text-md\);/s);
+    expect(sessionDetailStyles).toMatch(/\.detail-hero-copy p\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(sessionDetailStyles).toMatch(/\.detail-hero-pill\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(sessionDetailStyles).toMatch(/\.detail-hero-session-compact \.detail-hero-copy strong\s*{[^}]*font-size:\s*var\(--text-base\);/s);
+    expect(sessionDetailStyles).toMatch(/\.detail-hero-session-compact \.detail-hero-copy p\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-detail-empty-state strong\s*{[^}]*font-size:\s*var\(--text-md\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-detail-empty-state p\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-detail-empty-summary span,\s*\.thread-detail-empty-next \.overview-note-label\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-detail-empty-summary strong,\s*\.thread-detail-empty-next strong\s*{[^}]*font-size:\s*var\(--text-base\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-detail-empty-next p\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(sessionDetailStyles).toMatch(/\.session-detail-empty-summary strong,\s*\.session-detail-empty-next strong\s*{[^}]*font-size:\s*var\(--text-md\);/s);
+    expect(sessionDetailStyles).toMatch(/\.session-detail-empty-next p\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(sessionDetailStyles).toMatch(/\.detail-hero-session-compact \.detail-hero-pill\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
+    expect(sessionDetailStyles).toMatch(/\.session-detail-panel \.transcript-summary-main strong\s*{[^}]*font-size:\s*var\(--text-md\);/s);
+    expect(sessionDetailStyles).toMatch(/\.session-detail-panel \.transcript-summary-meta\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(sessionDetailStyles).toMatch(/\.session-detail-empty-summary span,\s*\.session-detail-empty-next \.overview-note-label\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.detail-section > summary,\s*\.thread-review-panel \.detail-section-static-head\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.transcript-summary-main strong\s*{[^}]*font-size:\s*var\(--text-base\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.transcript-summary-meta\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.impact-list h3\s*{[^}]*font-size:\s*var\(--text-base\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-empty-guide span\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-empty-guide strong\s*{[^}]*font-size:\s*var\(--text-base\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-empty-guide p\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.chat-item header strong\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.chat-item header span\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.chat-item p\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(sessionDetailStyles).toMatch(/\.impact-kv > span\s*{[^}]*font-size:\s*var\(--text-base\);/s);
+    expect(sessionDetailStyles).toMatch(/\.impact-list h3\s*{[^}]*font-size:\s*var\(--text-md\);/s);
+    expect(sessionDetailStyles).toMatch(/\.impact-list li\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+  });
+
+  it("uses semantic surface tokens for review and detail shells", () => {
+    expect(sessionDetailStyles).toMatch(/\.thread-review-panel\s*{[^}]*background:\s*var\(--surface-stage-subtle\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-panel > header\s*{[^}]*border-bottom:\s*1px solid var\(--surface-divider-faint\);[^}]*background:\s*var\(--surface-review-panel-header\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-card\s*{[^}]*background:\s*var\(--surface-card-strong-subtle\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-card\.is-ready,\s*\.thread-review-card-emphasis\s*{[^}]*border-color:\s*var\(--surface-review-card-active-border\);[^}]*background:\s*var\(--surface-review-card-active-bg\);[^}]*box-shadow:\s*var\(--shadow-review-card-active\),\s*var\(--surface-card-shadow\);/s);
+    expect(sessionDetailStyles).toMatch(/\.detail-section\s*{[^}]*background:\s*var\(--surface-card-strong-subtle\);/s);
+    expect(sessionDetailStyles).toMatch(/\.detail-section\[open\]\s*{[^}]*border-color:\s*var\(--surface-detail-section-open-border\);/s);
+    expect(sessionDetailStyles).toMatch(/\.detail-section > summary\s*{[^}]*background:\s*var\(--surface-nav-subtle\);/s);
+    expect(sessionDetailStyles).toMatch(/\.detail-section\[open\] > summary\s*{[^}]*border-bottom-color:\s*var\(--surface-detail-divider\);/s);
+    expect(sessionDetailStyles).toMatch(/\.detail-section-static-head\s*{[^}]*background:\s*var\(--surface-nav-subtle\);/s);
+    expect(sessionDetailStyles).toMatch(/\.detail-section-static-head\s*{[^}]*border-bottom:\s*1px solid var\(--surface-detail-divider\);/s);
+    expect(sessionDetailStyles).toMatch(/\.detail-hero\s*{[^}]*background:\s*var\(--surface-card-strong-subtle\);/s);
+    expect(sessionDetailStyles).toMatch(/\.detail-hero-pill\s*{[^}]*background:\s*var\(--surface-pill-ghost\);/s);
+    expect(sessionDetailStyles).toMatch(/\.detail-hero-session-compact\s*{[^}]*background:\s*var\(--surface-card-strong-ghost\);/s);
+    expect(sessionDetailStyles).toMatch(/\.session-detail-panel\s*{[^}]*background:\s*var\(--surface-stage-subtle\);/s);
+    expect(sessionDetailStyles).toMatch(/\.session-detail-panel \.transcript-summary-strip\s*{[^}]*border:\s*1px solid var\(--surface-detail-divider\);[^}]*background:\s*var\(--surface-nav-subtle\);/s);
+    expect(sessionDetailStyles).toMatch(/\.session-detail-panel \.chat-log\s*{[^}]*background:\s*var\(--surface-detail-chat-log\);[^}]*border-color:\s*var\(--surface-detail-divider\);/s);
+    expect(sessionDetailStyles).toMatch(/\.session-detail-panel \.detail-action-bar\s*{[^}]*border:\s*1px solid var\(--surface-detail-divider\);[^}]*background:\s*var\(--surface-detail-action-bar\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.detail-hero\s*{[^}]*background:\s*var\(--surface-card-strong-ghost\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-detail-empty-state\s*{[^}]*background:\s*var\(--surface-card-strong-subtle\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-detail-empty-summary article,\s*\.thread-detail-empty-next\s*{[^}]*border:\s*1px solid var\(--surface-detail-empty-border\);[^}]*background:\s*var\(--surface-nav-ghost\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-detail-empty-summary article,\s*\.thread-detail-empty-next\s*{[^}]*background:\s*var\(--surface-nav-ghost\);/s);
+    expect(sessionDetailStyles).toMatch(/\.session-detail-empty-summary article,\s*\.session-detail-empty-next\s*{[^}]*background:\s*var\(--surface-card-strong-subtle\);/s);
+    expect(sessionDetailStyles).toMatch(/\.session-detail-panel \.transcript-summary-strip\s*{[^}]*background:\s*var\(--surface-nav-subtle\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.transcript-summary-strip\s*{[^}]*border-color:\s*var\(--surface-border-ghost\);[^}]*background:\s*var\(--surface-nav-ghost\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.detail-action-bar\s*{[^}]*border-color:\s*var\(--surface-border-ghost\);[^}]*background:\s*var\(--surface-detail-action-bar-ghost\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-empty-guide article\s*{[^}]*border:\s*1px solid var\(--surface-detail-empty-border\);[^}]*background:\s*var\(--surface-nav-ghost\);/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.chat-log\s*{[^}]*border-color:\s*var\(--surface-detail-empty-border\);[^}]*background:\s*var\(--surface-card-bg-ghost\);/s);
+    expect(sessionDetailStyles).toMatch(/\.impact-list li\s*{[^}]*background:\s*var\(--surface-card-bg-ghost\);/s);
+  });
+});

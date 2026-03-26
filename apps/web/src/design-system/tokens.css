@@ -1,0 +1,492 @@
+/* ══════════════════════════════════════════════════════════
+   ThreadLens — Quartz Mono
+   Cold graphite base with restrained quartz highlights
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Design Tokens (Dark — Quartz Mono) ───────────────── */
+:root {
+  --font-sans: "Manrope", sans-serif;
+  --font-heading: var(--font-sans);
+  --font-body: var(--font-sans);
+  --font-label: var(--font-sans);
+  --font-mono: var(--font-sans);
+
+  --bg: #0b0c0d;
+  --bg-elev: #121416;
+  --panel: #17191b;
+  --panel-glass: rgba(23, 25, 27, 0.6);
+  --line: #303438;
+  --line-soft: #24282c;
+
+  --text: #f2f2ef;
+  --text-secondary: #b5bab5;
+  --muted: #7f867f;
+
+  --accent: #b5c2ca;
+  --accent-strong: #e2ebef;
+  --accent-dim: rgba(181, 194, 202, 0.14);
+  --accent-glow: rgba(181, 194, 202, 0.24);
+  --gradient-accent: linear-gradient(135deg, #edf1f3 0%, #c7d1d8 46%, #7a858c 100%);
+  --gradient-accent-subtle: linear-gradient(135deg, rgba(226, 235, 239, 0.08) 0%, rgba(181, 194, 202, 0.04) 100%);
+
+  --success: #7ea38d;
+  --success-dim: rgba(126, 163, 141, 0.12);
+  --warn: #a07a68;
+  --warn-dim: rgba(160, 122, 104, 0.10);
+  --info: #8fa8bc;
+  --info-dim: rgba(143, 168, 188, 0.10);
+
+  --hover: rgba(181, 194, 202, 0.09);
+  --active: rgba(181, 194, 202, 0.18);
+
+  --hero-bg: linear-gradient(155deg, #181b1d 0%, #131517 50%, #0f1112 100%);
+  --chip-bg: rgba(181, 194, 202, 0.06);
+  --tab-bg: #141618;
+  --tab-active-bg: rgba(181, 194, 202, 0.12);
+  --table-head-bg: rgba(18, 20, 22, 0.94);
+  --btn-bg: rgba(22, 26, 30, 0.9);
+  --btn-base-bg: rgba(31, 39, 46, 0.96);
+  --btn-accent-bg: rgba(82, 103, 121, 0.9);
+  --btn-accent-hover-bg: rgba(98, 118, 136, 0.96);
+  --btn-danger-bg: rgba(98, 35, 35, 0.94);
+  --btn-danger-hover-bg: rgba(122, 43, 43, 0.98);
+  --chat-log-bg: #0f1112;
+
+  --assistant-bg: rgba(149, 174, 187, 0.05);
+  --assistant-border: rgba(149, 174, 187, 0.18);
+  --user-bg: rgba(181, 194, 202, 0.05);
+  --user-border: rgba(181, 194, 202, 0.18);
+
+  --focus-ring: rgba(181, 194, 202, 0.24);
+  --badge-bg: rgba(226, 235, 239, 0.08);
+  --badge-text: #dde5e8;
+
+  --error-border: rgba(231, 150, 150, 0.34);
+  --error-bg: rgba(231, 150, 150, 0.10);
+  --error-text: #efc0c0;
+  --busy-border: rgba(206, 177, 128, 0.34);
+  --busy-bg: rgba(206, 177, 128, 0.10);
+  --busy-text: #ead7b3;
+
+  --glass-low: rgba(255, 255, 255, 0.06);
+  --glass-mid: rgba(255, 255, 255, 0.11);
+  --glass-high: rgba(255, 255, 255, 0.18);
+
+  --shadow-sm: 0 1px 0 rgba(255, 255, 255, 0.08), 0 12px 28px rgba(0, 0, 0, 0.24);
+  --shadow-md: 0 1px 0 rgba(255, 255, 255, 0.1), 0 20px 44px rgba(0, 0, 0, 0.28);
+  --shadow-lg: 0 1px 0 rgba(255, 255, 255, 0.12), 0 32px 72px rgba(0, 0, 0, 0.34);
+  --shadow-glow: 0 18px 42px rgba(120, 138, 150, 0.14);
+  --text-3xs: 0.49rem;
+  --text-2xs: 0.55rem;
+  --text-xs: 0.6rem;
+  --text-sm: 0.68rem;
+  --text-base: 0.78rem;
+  --text-md: 0.88rem;
+  --text-lg: 1rem;
+  --text-xl: 1.2rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 2rem;
+  --text-4xl: clamp(2.5rem, 4vw, 4rem);
+  --text-body-base: 0.9375rem;
+  --text-body-compact: 0.875rem;
+  --text-kpi-value: 1.78rem;
+  --text-display-search-stage: clamp(2rem, 2.55vw, 2.8rem);
+  --text-display-shell-hero: clamp(2.1rem, 3.5vw, 3.15rem);
+  --text-display-mobile-stage: 2.2rem;
+  --text-display-mobile-hero: 1.3rem;
+  --text-display-stage: clamp(2rem, 3.15vw, 3.2rem);
+  --text-display-hero: clamp(3.08rem, 4.2vw, 4.96rem);
+  --blur-sm: 8px;
+  --blur-light-panel: 14px;
+  --blur-md: 18px;
+  --blur-lg: 28px;
+  --blur-xl: 38px;
+  --surface-card-bg-ghost: color-mix(in srgb, var(--surface-card-bg) 58%, transparent);
+  --surface-card-bg-subtle: color-mix(in srgb, var(--surface-card-bg) 78%, transparent);
+  --surface-card-strong-ghost: color-mix(in srgb, var(--surface-card-bg-strong) 66%, transparent);
+  --surface-card-strong-subtle: color-mix(in srgb, var(--surface-card-bg-strong) 84%, transparent);
+  --surface-stage-ghost: color-mix(in srgb, var(--surface-stage-bg) 46%, transparent);
+  --surface-stage-subtle: color-mix(in srgb, var(--surface-stage-bg) 82%, transparent);
+  --surface-stage-soft: color-mix(in srgb, var(--surface-stage-bg) 78%, transparent);
+  --surface-nav-ghost: color-mix(in srgb, var(--surface-nav-bg) 64%, transparent);
+  --surface-nav-subtle: color-mix(in srgb, var(--surface-nav-bg) 84%, transparent);
+  --surface-pill-ghost: color-mix(in srgb, var(--surface-pill-bg) 84%, transparent);
+  --surface-border-ghost: color-mix(in srgb, var(--surface-card-border) 72%, transparent);
+  --surface-border-subtle: color-mix(in srgb, var(--surface-card-border) 88%, transparent);
+  --surface-search-command-shell: color-mix(in srgb, var(--surface-card-bg-strong) 74%, transparent);
+  --surface-search-breadcrumb-active: color-mix(in srgb, var(--accent-dim) 78%, transparent);
+  --surface-search-command-bar: color-mix(in srgb, var(--surface-card-bg) 72%, transparent);
+  --text-search-muted: color-mix(in srgb, var(--muted) 84%, transparent);
+  --surface-search-command-kbd: color-mix(in srgb, var(--surface-card-bg) 68%, transparent);
+  --surface-search-guide-card: color-mix(in srgb, var(--panel) 92%, transparent);
+  --surface-search-result-stage: color-mix(in srgb, var(--surface-card-bg) 82%, transparent);
+  --surface-search-result-stage-hover: color-mix(in srgb, var(--surface-card-bg-strong) 88%, transparent);
+  --surface-search-inline-strip: color-mix(in srgb, var(--surface-card-bg) 68%, transparent);
+  --surface-search-inline-strip-border: color-mix(in srgb, var(--surface-card-border) 84%, transparent);
+  --surface-search-live-dot: color-mix(in srgb, var(--accent) 84%, white);
+  --shadow-search-live-dot: 0 0 0 6px color-mix(in srgb, var(--accent) 14%, transparent);
+  --surface-search-loading-row: color-mix(in srgb, var(--bg-elev) 84%, transparent);
+  --surface-divider-soft: color-mix(in srgb, var(--line-soft) 85%, transparent);
+  --surface-search-result-hover-border: color-mix(in srgb, var(--surface-card-border) 86%, var(--accent) 14%);
+  --surface-search-result-hover: color-mix(in srgb, var(--surface-card-bg-strong) 90%, transparent);
+  --surface-search-inline-pill: color-mix(in srgb, var(--surface-pill-bg) 86%, transparent);
+  --text-search-inline-hover: color-mix(in srgb, var(--text) 92%, #2f4358);
+  --text-search-link-soft: color-mix(in srgb, var(--accent) 76%, white);
+  --text-search-link-hover: color-mix(in srgb, var(--accent) 86%, white);
+  --text-search-link-strong: color-mix(in srgb, var(--accent) 92%, white);
+  --surface-search-result-active-border: color-mix(in srgb, var(--surface-card-border) 80%, var(--accent) 20%);
+  --shadow-search-result-active-glow: 0 0 18px color-mix(in srgb, var(--accent) 12%, transparent);
+  --surface-search-preview-empty-border: color-mix(in srgb, var(--surface-card-border) 92%, transparent);
+  --surface-search-preview-empty-bg: color-mix(in srgb, var(--surface-card-bg) 54%, transparent);
+  --surface-kpi-info: linear-gradient(180deg, color-mix(in srgb, var(--info) 10%, transparent), transparent 60%), var(--surface-card-bg-subtle);
+  --surface-kpi-warn: linear-gradient(180deg, color-mix(in srgb, var(--warn) 10%, transparent), transparent 60%), var(--surface-card-bg-subtle);
+  --surface-kpi-success: linear-gradient(180deg, color-mix(in srgb, var(--success) 10%, transparent), transparent 60%), var(--surface-card-bg-subtle);
+  --surface-form-field-border: color-mix(in srgb, var(--line) 70%, var(--accent) 18%);
+  --surface-form-field-bg: linear-gradient(180deg, color-mix(in srgb, var(--bg-elev) 96%, var(--glass-mid)), color-mix(in srgb, var(--panel) 94%, transparent)), linear-gradient(135deg, transparent 0 52%, color-mix(in srgb, var(--accent) 12%, transparent) 52% 100%);
+  --surface-btn-outline: color-mix(in srgb, var(--surface-pill-bg) 90%, transparent);
+  --surface-btn-outline-hover: color-mix(in srgb, var(--hover) 88%, var(--surface-pill-bg));
+  --surface-panel-frosted: linear-gradient(180deg, color-mix(in srgb, var(--panel-glass) 74%, var(--glass-high)), color-mix(in srgb, var(--panel) 78%, transparent)), color-mix(in srgb, var(--panel-glass) 74%, transparent);
+  --surface-panel-border: color-mix(in srgb, var(--accent) 16%, var(--line));
+  --surface-panel-sheen: color-mix(in srgb, white 8%, transparent);
+  --surface-status-preview-hover-border: color-mix(in srgb, var(--info) 32%, transparent);
+  --surface-provider-slow-badge: color-mix(in srgb, var(--warn-dim) 80%, transparent);
+  --surface-provider-slow-row: color-mix(in srgb, var(--warn-dim) 55%, transparent);
+  --surface-provider-slow-row-hover: color-mix(in srgb, var(--warn-dim) 70%, var(--hover));
+  --surface-active-row-bg: color-mix(in srgb, var(--accent) 14%, var(--bg-elev));
+  --surface-impact-kv: color-mix(in srgb, var(--surface-card-bg) 72%, transparent);
+  --surface-stage-border-subtle: color-mix(in srgb, var(--surface-stage-border) 84%, transparent);
+  --surface-stage-border-soft: color-mix(in srgb, var(--surface-stage-border) 78%, transparent);
+  --surface-text-muted-dot: color-mix(in srgb, var(--text-secondary) 58%, transparent);
+  --surface-workspace-active-border: color-mix(in srgb, var(--accent) 36%, var(--surface-card-border));
+  --surface-workspace-active-bg: color-mix(in srgb, var(--surface-card-bg-strong) 82%, var(--accent-dim));
+  --surface-divider-subtle: color-mix(in srgb, var(--surface-card-border) 84%, transparent);
+  --surface-divider-strong: color-mix(in srgb, var(--surface-card-border) 76%, transparent);
+  --surface-divider-muted: color-mix(in srgb, var(--surface-card-border) 62%, transparent);
+  --surface-divider-faint: color-mix(in srgb, var(--surface-card-border) 58%, transparent);
+  --surface-card-accent-border-strong: color-mix(in srgb, var(--accent) 30%, var(--line));
+  --surface-card-accent-border-muted: color-mix(in srgb, var(--accent) 26%, var(--line));
+  --surface-card-accent-border: color-mix(in srgb, var(--accent) 32%, var(--line));
+  --surface-active-chip-border: color-mix(in srgb, var(--surface-active-border) 78%, transparent);
+  --surface-active-chip-bg: color-mix(in srgb, var(--surface-active-bg) 82%, transparent);
+  --surface-stage-subtle-strong: color-mix(in srgb, var(--surface-stage-bg) 80%, transparent);
+  --surface-elevated-subtle-soft: color-mix(in srgb, var(--bg-elev) 68%, transparent);
+  --surface-elevated-subtle: color-mix(in srgb, var(--bg-elev) 72%, transparent);
+  --surface-elevated-subtle-alt: color-mix(in srgb, var(--bg-elev) 74%, transparent);
+  --surface-elevated-subtle-strong: color-mix(in srgb, var(--bg-elev) 76%, transparent);
+  --surface-elevated-subtle-mid: color-mix(in srgb, var(--bg-elev) 80%, transparent);
+  --surface-elevated-subtle-max: color-mix(in srgb, var(--bg-elev) 90%, transparent);
+  --surface-panel-subtle: color-mix(in srgb, var(--panel) 90%, transparent);
+  --surface-panel-subtle-strong: color-mix(in srgb, var(--panel) 88%, transparent);
+  --surface-panel-subtle-soft: color-mix(in srgb, var(--panel) 84%, transparent);
+  --surface-panel-subtle-mid: color-mix(in srgb, var(--panel) 86%, transparent);
+  --surface-panel-subtle-balanced: color-mix(in srgb, var(--panel) 80%, transparent);
+  --surface-track-muted: color-mix(in srgb, var(--bg) 65%, var(--line-soft));
+  --surface-track-muted-strong: color-mix(in srgb, var(--bg) 70%, var(--line-soft));
+  --state-info-border-soft: color-mix(in srgb, var(--info) 40%, var(--line-soft));
+  --state-success-border-soft: color-mix(in srgb, var(--success) 34%, var(--line-soft));
+  --state-warn-border-soft: color-mix(in srgb, var(--warn) 38%, var(--line-soft));
+  --state-accent-border-soft: color-mix(in srgb, var(--accent) 38%, var(--line-soft));
+  --state-success-border-soft-strong: color-mix(in srgb, var(--success) 46%, var(--line-soft));
+  --state-danger-border-soft: color-mix(in srgb, var(--danger) 32%, var(--line-soft));
+  --state-success-border: color-mix(in srgb, var(--success) 35%, var(--line));
+  --state-success-border-soft-base: color-mix(in srgb, var(--success) 35%, var(--line-soft));
+  --state-success-bg: color-mix(in srgb, var(--success-dim) 70%, transparent);
+  --state-success-bg-muted: color-mix(in srgb, var(--success-dim) 65%, transparent);
+  --state-success-bg-soft: color-mix(in srgb, var(--success-dim) 68%, transparent);
+  --state-success-bg-strong: color-mix(in srgb, var(--success-dim) 72%, transparent);
+  --state-warn-border: color-mix(in srgb, var(--warn) 35%, var(--line));
+  --state-warn-border-soft-base: color-mix(in srgb, var(--warn) 35%, var(--line-soft));
+  --state-warn-border-muted: color-mix(in srgb, var(--warn) 30%, var(--line));
+  --state-warn-border-medium: color-mix(in srgb, var(--warn) 40%, var(--line));
+  --state-warn-border-soft-strong: color-mix(in srgb, var(--warn) 38%, var(--line));
+  --state-warn-border-strong: color-mix(in srgb, var(--warn) 42%, var(--line));
+  --state-warn-bg: color-mix(in srgb, var(--warn-dim) 70%, transparent);
+  --state-warn-bg-balanced: color-mix(in srgb, var(--warn-dim) 72%, transparent);
+  --state-warn-bg-soft: color-mix(in srgb, var(--warn-dim) 68%, transparent);
+  --state-warn-bg-strong: color-mix(in srgb, var(--warn-dim) 80%, transparent);
+  --state-info-border: color-mix(in srgb, var(--info) 35%, var(--line));
+  --state-info-border-weak: color-mix(in srgb, var(--info) 34%, var(--line));
+  --state-info-bg: color-mix(in srgb, var(--info-dim) 72%, transparent);
+  --state-info-bg-strong: color-mix(in srgb, var(--info-dim) 78%, transparent);
+  --state-danger-border: color-mix(in srgb, #ef4444 40%, var(--line));
+  --state-muted-border: color-mix(in srgb, var(--muted) 45%, var(--line));
+  --state-muted-border-soft: color-mix(in srgb, var(--muted) 45%, var(--line-soft));
+  --surface-session-table-head: color-mix(in srgb, var(--surface-card-bg-strong) 88%, transparent);
+  --surface-session-row-alt: color-mix(in srgb, var(--surface-card-bg) 44%, transparent);
+  --surface-session-row-hover: color-mix(in srgb, var(--surface-card-bg-strong) 64%, transparent);
+  --surface-danger-panel-border: color-mix(in srgb, var(--danger) 32%, var(--line));
+  --surface-danger-panel-bg: color-mix(in srgb, var(--danger) 7%, var(--panel));
+  --surface-tab-warn: color-mix(in srgb, var(--tab-bg) 84%, var(--warn-dim));
+  --surface-table-wrap: color-mix(in srgb, var(--surface-card-bg) 74%, transparent);
+  --surface-table-header: linear-gradient(180deg, color-mix(in srgb, var(--surface-card-bg-strong) 62%, transparent), color-mix(in srgb, var(--surface-card-bg) 42%, transparent));
+  --surface-table-toolbar: color-mix(in srgb, var(--surface-card-bg-strong) 58%, transparent);
+  --surface-table-head: color-mix(in srgb, var(--surface-card-bg-strong) 90%, transparent);
+  --surface-table-row-hover: color-mix(in srgb, var(--surface-card-bg) 62%, var(--hover));
+  --surface-table-row-alt: color-mix(in srgb, var(--surface-card-bg) 24%, transparent);
+  --surface-table-row-hover-strong: color-mix(in srgb, var(--surface-card-bg-strong) 66%, var(--hover));
+  --surface-ai-hub-card: linear-gradient(160deg, color-mix(in srgb, var(--bg-elev) 86%, rgba(59, 130, 246, 0.08)), transparent 72%), color-mix(in srgb, var(--bg-elev) 82%, transparent);
+  --surface-review-panel-header: linear-gradient(180deg, color-mix(in srgb, var(--surface-card-bg-strong) 74%, transparent), color-mix(in srgb, var(--surface-stage-bg) 52%, transparent));
+  --surface-review-card-active-border: color-mix(in srgb, var(--surface-card-border) 88%, var(--accent) 12%);
+  --surface-review-card-active-bg: color-mix(in srgb, var(--surface-card-bg-strong) 88%, var(--accent-dim));
+  --shadow-review-card-active: 0 0 0 1px color-mix(in srgb, var(--surface-card-border) 72%, var(--accent) 16%);
+  --surface-detail-section-open-border: color-mix(in srgb, var(--surface-card-border) 86%, var(--text) 14%);
+  --surface-detail-divider: color-mix(in srgb, var(--surface-card-border) 82%, transparent);
+  --surface-detail-chat-log: color-mix(in srgb, var(--surface-card-bg) 78%, transparent);
+  --surface-detail-action-bar: color-mix(in srgb, var(--surface-nav-bg) 72%, transparent);
+  --surface-detail-empty-border: color-mix(in srgb, var(--surface-card-border) 74%, transparent);
+  --surface-detail-action-bar-ghost: color-mix(in srgb, var(--surface-nav-bg) 66%, transparent);
+  --surface-panel-header: linear-gradient(180deg, color-mix(in srgb, var(--panel-glass) 64%, var(--glass-high)), color-mix(in srgb, var(--panel) 88%, transparent)), var(--gradient-accent-subtle);
+  --surface-cleanup-header: linear-gradient(180deg, color-mix(in srgb, var(--surface-card-bg-strong) 62%, transparent), color-mix(in srgb, var(--surface-stage-bg) 42%, transparent));
+  --surface-thread-status-card: color-mix(in srgb, var(--surface-card-bg-strong) 76%, transparent);
+  --surface-thread-status-ready-border: color-mix(in srgb, var(--surface-card-border) 90%, var(--accent) 10%);
+  --surface-thread-status-ready-bg: color-mix(in srgb, var(--surface-card-bg-strong) 88%, var(--accent-dim));
+  --surface-thread-status-accent-border: color-mix(in srgb, var(--surface-card-border) 84%, var(--accent) 16%);
+  --shadow-thread-status-accent: 0 18px 32px -28px color-mix(in srgb, var(--accent) 42%, transparent);
+  --surface-provider-result-export: color-mix(in srgb, var(--accent) 12%, var(--panel));
+  --surface-provider-result-code: color-mix(in srgb, var(--bg) 88%, transparent);
+  --surface-transcript-summary-strip: color-mix(in srgb, var(--bg-elev) 44%, transparent);
+  --surface-chat-action-bar: color-mix(in srgb, var(--panel) 88%, transparent);
+  --surface-setup-stage-pill-border: color-mix(in srgb, var(--surface-pill-border) 90%, transparent);
+  --surface-setup-complete-compact-border: color-mix(in srgb, var(--accent) 26%, var(--line));
+  --surface-setup-complete-compact-bg: linear-gradient(135deg, color-mix(in srgb, var(--panel) 84%, rgba(99, 102, 241, 0.08)), transparent 72%), color-mix(in srgb, var(--panel) 92%, transparent);
+  --surface-setup-active-border: color-mix(in srgb, var(--accent) 55%, var(--line));
+  --surface-setup-step-done-border: color-mix(in srgb, var(--success) 30%, var(--line));
+  --surface-setup-choice-selected-bg: color-mix(in srgb, var(--accent) 16%, var(--panel));
+  --text-top-search-placeholder: color-mix(in srgb, var(--muted) 86%, transparent);
+  --text-top-surface-btn: color-mix(in srgb, var(--text) 72%, transparent);
+  --surface-provider-select-border: color-mix(in srgb, var(--line) 68%, var(--accent) 20%);
+  --surface-provider-select-bg: linear-gradient(180deg, color-mix(in srgb, var(--bg-elev) 94%, var(--glass-low)), color-mix(in srgb, var(--panel) 96%, transparent)), linear-gradient(135deg, transparent 0 52%, color-mix(in srgb, var(--accent) 14%, transparent) 52% 100%);
+  --surface-provider-select-sheen: inset 0 1px 0 color-mix(in srgb, white 7%, transparent);
+  --surface-overview-window-dot-border: color-mix(in srgb, var(--surface-card-border) 84%, transparent);
+  --surface-overview-window-dot-bg: color-mix(in srgb, var(--muted) 26%, transparent);
+  --surface-overview-window-dot-muted: color-mix(in srgb, var(--surface-card-bg-strong) 60%, var(--muted));
+  --surface-overview-card-action-quiet-border: color-mix(in srgb, var(--surface-pill-border) 58%, transparent);
+  --text-overview-side-head: color-mix(in srgb, var(--text) 82%, transparent);
+  --text-overview-side-icon: color-mix(in srgb, var(--accent) 60%, var(--muted));
+  --surface-overview-history-item-bg: color-mix(in srgb, var(--surface-card-bg) 22%, transparent);
+  --surface-overview-history-item-border: color-mix(in srgb, var(--surface-card-border) 42%, transparent);
+  --surface-overview-history-item-hover-bg: color-mix(in srgb, var(--surface-card-bg) 76%, transparent);
+  --surface-overview-muted-dot: color-mix(in srgb, var(--muted) 42%, transparent);
+  --surface-overview-demo-border: color-mix(in srgb, var(--accent) 28%, var(--line));
+  --surface-overview-demo-bg: linear-gradient(180deg, rgba(255,255,255,0.03), transparent), color-mix(in srgb, var(--panel) 90%, rgba(99, 102, 241, 0.08));
+  --shadow-overview-demo-step: 0 0 0 4px color-mix(in srgb, var(--accent) 10%, transparent);
+  --surface-overview-kick-border: color-mix(in srgb, var(--accent) 30%, var(--line));
+  --surface-overview-kick-bg: linear-gradient(180deg, rgba(255,255,255,0.03), transparent), color-mix(in srgb, var(--panel) 88%, rgba(99, 102, 241, 0.10));
+  --surface-overview-secondary-panel: color-mix(in srgb, var(--panel) 92%, rgba(255, 255, 255, 0.42));
+  --surface-overview-secondary-close: color-mix(in srgb, var(--panel) 88%, rgba(255, 255, 255, 0.68));
+  --surface-panel-subtle-max: color-mix(in srgb, var(--panel) 92%, transparent);
+  --state-success-fill-gradient: linear-gradient(90deg, color-mix(in srgb, var(--success) 70%, #a7f3d0), var(--success));
+  --state-warn-fill-gradient: linear-gradient(90deg, color-mix(in srgb, var(--warn) 60%, #fde68a), var(--warn));
+  --state-warn-fill-gradient-strong: linear-gradient(90deg, color-mix(in srgb, var(--warn) 55%, #fde68a), var(--warn));
+  --state-info-fill-gradient: linear-gradient(90deg, color-mix(in srgb, var(--info) 55%, #93c5fd), var(--info));
+  --state-success-fill-gradient-soft: linear-gradient(90deg, color-mix(in srgb, var(--success) 45%, #86efac), var(--success));
+  --page-bg: #080b12;
+  --page-haze: linear-gradient(180deg, rgba(33, 41, 49, 0.4), rgba(8, 11, 18, 0.08));
+  --surface-shell-bg: rgba(11, 14, 18, 0.9);
+  --surface-shell-border: rgba(198, 214, 226, 0.12);
+  --surface-shell-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(181, 194, 202, 0.04), 0 22px 52px rgba(0, 0, 0, 0.42);
+  --surface-nav-bg: rgba(14, 17, 21, 0.92);
+  --surface-nav-border: rgba(198, 214, 226, 0.1);
+  --surface-nav-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(181, 194, 202, 0.04), 0 14px 30px rgba(0, 0, 0, 0.32);
+  --surface-stage-bg: rgba(14, 18, 23, 0.94);
+  --surface-stage-border: rgba(198, 214, 226, 0.11);
+  --surface-stage-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(181, 194, 202, 0.04), 0 30px 68px rgba(0, 0, 0, 0.42);
+  --surface-card-bg: rgba(18, 23, 28, 0.92);
+  --surface-card-bg-strong: rgba(21, 27, 33, 0.96);
+  --surface-card-border: rgba(188, 207, 220, 0.11);
+  --surface-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 18px 34px rgba(0, 0, 0, 0.3);
+  --surface-pill-bg: rgba(191, 208, 221, 0.06);
+  --surface-pill-border: rgba(203, 220, 232, 0.11);
+  --surface-pill-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --surface-active-bg: #708796;
+  --surface-active-text: #f4f8ff;
+  --surface-active-shadow: 0 16px 30px rgba(61, 78, 89, 0.28);
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-shell-md: 24px;
+  --radius-shell-lg: 28px;
+  --radius-shell-xl: 32px;
+  --radius-pill: 999px;
+  --transition: 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Light theme ──────────────────────────────────────── */
+:root[data-theme="light"] {
+  --bg: #f8f9fb;
+  --bg-elev: #f1f4f7;
+  --panel: #ffffff;
+  --panel-glass: rgba(248, 249, 251, 0.84);
+  --line: #aab3b9;
+  --line-soft: #dbe4ea;
+  --text: #2b3438;
+  --text-secondary: #586065;
+  --muted: #737c81;
+  --accent: #496177;
+  --accent-strong: #294256;
+  --accent-dim: rgba(73, 97, 119, 0.08);
+  --accent-glow: rgba(73, 97, 119, 0.12);
+  --gradient-accent: linear-gradient(135deg, #496177 0%, #6e8599 100%);
+  --gradient-accent-subtle: linear-gradient(135deg, rgba(73, 97, 119, 0.08) 0%, rgba(204, 229, 255, 0.38) 100%);
+  --success: #587163;
+  --success-dim: rgba(88, 113, 99, 0.08);
+  --warn: #845f4c;
+  --warn-dim: rgba(132, 95, 76, 0.08);
+  --info: #576d82;
+  --info-dim: rgba(87, 109, 130, 0.08);
+  --hover: rgba(73, 97, 119, 0.05);
+  --active: rgba(73, 97, 119, 0.1);
+  --hero-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.74) 0%, rgba(241, 244, 247, 0.44) 100%);
+  --chip-bg: rgba(241, 244, 247, 0.9);
+  --tab-bg: #f1f4f7;
+  --tab-active-bg: rgba(73, 97, 119, 0.1);
+  --table-head-bg: rgba(241, 244, 247, 0.96);
+  --btn-bg: rgba(243, 246, 249, 0.98);
+  --btn-base-bg: rgba(231, 237, 242, 0.98);
+  --btn-accent-bg: rgba(73, 97, 119, 0.94);
+  --btn-accent-hover-bg: rgba(61, 82, 99, 0.98);
+  --btn-danger-bg: rgba(147, 53, 53, 0.94);
+  --btn-danger-hover-bg: rgba(124, 36, 36, 0.98);
+  --chat-log-bg: #f8f9fb;
+  --assistant-bg: rgba(73, 97, 119, 0.05);
+  --assistant-border: rgba(73, 97, 119, 0.14);
+  --user-bg: rgba(84, 96, 110, 0.05);
+  --user-border: rgba(84, 96, 110, 0.12);
+  --focus-ring: rgba(73, 97, 119, 0.18);
+  --badge-bg: rgba(73, 97, 119, 0.08);
+  --badge-text: #3c546a;
+  --error-border: rgba(159, 64, 61, 0.24);
+  --error-bg: rgba(159, 64, 61, 0.08);
+  --error-text: #752121;
+  --busy-border: rgba(138, 112, 76, 0.24);
+  --busy-bg: rgba(138, 112, 76, 0.08);
+  --busy-text: #6b5637;
+  --glass-low: rgba(255, 255, 255, 0.58);
+  --glass-mid: rgba(255, 255, 255, 0.72);
+  --glass-high: rgba(255, 255, 255, 0.84);
+  --shadow-sm: inset 0 1px 0 rgba(255, 255, 255, 0.82), 0 8px 18px rgba(43, 52, 56, 0.04);
+  --shadow-md: inset 0 1px 0 rgba(255, 255, 255, 0.82), 0 16px 34px rgba(43, 52, 56, 0.06);
+  --shadow-lg: inset 0 0 20px rgba(255, 255, 255, 0.75), 0 40px 100px rgba(43, 52, 56, 0.08);
+  --shadow-glow: 0 18px 36px rgba(43, 52, 56, 0.06);
+  --page-bg: #f8f9fb;
+  --page-haze: linear-gradient(180deg, rgba(255, 255, 255, 0.008), rgba(255, 255, 255, 0));
+  --surface-shell-bg: rgba(248, 249, 251, 0.965);
+  --surface-shell-border: rgba(160, 170, 178, 0.28);
+  --surface-shell-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 10px 24px rgba(43, 52, 56, 0.048);
+  --surface-nav-bg: rgba(248, 249, 251, 0.955);
+  --surface-nav-border: rgba(160, 170, 178, 0.24);
+  --surface-nav-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 8px 20px rgba(43, 52, 56, 0.038);
+  --surface-stage-bg: linear-gradient(135deg, rgba(250, 251, 252, 0.95) 0%, rgba(240, 243, 246, 0.9) 100%);
+  --surface-stage-border: rgba(160, 170, 178, 0.26);
+  --surface-stage-shadow: inset 0 0 10px rgba(255, 255, 255, 0.58), 0 16px 36px rgba(43, 52, 56, 0.048);
+  --surface-card-bg: rgba(251, 252, 253, 0.92);
+  --surface-card-bg-strong: rgba(252, 253, 255, 0.96);
+  --surface-card-border: rgba(160, 170, 178, 0.26);
+  --surface-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88), 0 10px 22px rgba(43, 52, 56, 0.04);
+  --surface-pill-bg: rgba(241, 244, 247, 0.9);
+  --surface-pill-border: rgba(170, 179, 185, 0.16);
+  --surface-pill-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  --surface-active-bg: #496177;
+  --surface-active-text: #f4f8ff;
+  --surface-active-shadow: 0 16px 30px rgba(73, 97, 119, 0.16);
+}
+
+:root:not([data-theme="light"]) .overview-command-shell,
+:root:not([data-theme="light"]) .search-command-shell,
+:root:not([data-theme="light"]) .provider-archive-stage,
+:root:not([data-theme="light"]) .threads-table-panel {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(181, 194, 202, 0.04),
+    0 22px 52px rgba(0, 0, 0, 0.36);
+}
+
+:root:not([data-theme="light"]) .overview-insight-card.is-primary,
+:root:not([data-theme="light"]) .overview-insight-card.is-review,
+:root:not([data-theme="light"]) .overview-side-card,
+:root:not([data-theme="light"]) .provider-workspace-primary,
+:root:not([data-theme="light"]) .provider-workspace-actions {
+  border-color: rgba(188, 207, 220, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(181, 194, 202, 0.03),
+    0 16px 34px rgba(0, 0, 0, 0.28);
+}
+
+:root:not([data-theme="light"]) .overview-insight-card.is-primary {
+  background: rgba(21, 27, 33, 0.97);
+}
+
+:root:not([data-theme="light"]) .overview-insight-card.is-review {
+  background: rgba(19, 25, 31, 0.95);
+}
+
+:root:not([data-theme="light"]) .overview-insight-card.is-primary strong,
+:root:not([data-theme="light"]) .overview-insight-card.is-review strong,
+:root:not([data-theme="light"]) .overview-side-head strong,
+:root:not([data-theme="light"]) .search-stage-title h2,
+:root:not([data-theme="light"]) .provider-archive-stage > header h2,
+:root:not([data-theme="light"]) .threads-table-panel > header h2 {
+  color: var(--accent-strong);
+}
+
+:root[data-theme="light"] .overview-command-shell,
+:root[data-theme="light"] .search-command-shell,
+:root[data-theme="light"] .provider-archive-stage,
+:root[data-theme="light"] .threads-table-panel,
+:root[data-theme="light"] .thread-review-panel,
+:root[data-theme="light"] .session-detail-panel,
+:root[data-theme="light"] .routing-workbench-panel {
+  border-color: rgba(164, 173, 180, 0.24);
+  background: color-mix(in srgb, var(--surface-stage-bg) 88%, rgb(238, 242, 246) 12%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.88),
+    0 12px 28px rgba(43, 52, 56, 0.05);
+  backdrop-filter: blur(var(--blur-light-panel));
+}
+
+:root[data-theme="light"] .overview-insight-card.is-primary,
+:root[data-theme="light"] .overview-insight-card.is-review,
+:root[data-theme="light"] .overview-side-card,
+:root[data-theme="light"] .search-result-card-stage,
+:root[data-theme="light"] .provider-advanced-shell,
+:root[data-theme="light"] .routing-stage-shell,
+:root[data-theme="light"] .routing-node-card,
+:root[data-theme="light"] .thread-review-card {
+  border-color: rgba(164, 173, 180, 0.24);
+  background: color-mix(in srgb, var(--surface-card-bg-strong) 90%, rgb(238, 242, 246) 10%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.88),
+    0 10px 24px rgba(43, 52, 56, 0.042);
+}
+
+:root[data-theme="light"] .overview-insight-card.is-primary,
+:root[data-theme="light"] .overview-insight-card.is-review,
+:root[data-theme="light"] .overview-side-card,
+:root[data-theme="light"] .search-result-card-stage {
+  background: color-mix(in srgb, var(--surface-card-bg-strong) 92%, rgb(238, 242, 246) 8%);
+}
+
+:root[data-theme="light"] .overview-command-shell,
+:root[data-theme="light"] .search-command-shell {
+  background: color-mix(in srgb, var(--surface-card-bg-strong) 92%, rgb(236, 240, 244) 8%);
+}
+
+:root[data-theme="light"] .provider-archive-stage,
+:root[data-theme="light"] .routing-workbench-panel {
+  background: color-mix(in srgb, var(--surface-stage-bg) 82%, rgb(234, 239, 243) 18%);
+}
+
+:root[data-theme="light"] .provider-workspace-primary,
+:root[data-theme="light"] .provider-workspace-actions,
+:root[data-theme="light"] .provider-summary-cell,
+:root[data-theme="light"] .provider-selection-preview,
+:root[data-theme="light"] .provider-inline-result,
+:root[data-theme="light"] .routing-stage-shell,
+:root[data-theme="light"] .routing-stage-summary-card,
+:root[data-theme="light"] .routing-node-card {
+  background: color-mix(in srgb, var(--surface-card-bg-strong) 84%, rgb(234, 239, 243) 16%);
+}

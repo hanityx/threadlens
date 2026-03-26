@@ -1,0 +1,112 @@
+import { useAppContext } from "./AppContext";
+
+export function TopShell() {
+  const {
+    layoutView,
+    changeLayoutView,
+    handleSearchIntent,
+    handleProvidersIntent,
+    headerSearchDraft,
+    setHeaderSearchDraft,
+    handleHeaderSearchSubmit,
+    syncStatusText,
+    theme,
+    setTheme,
+    refreshAllData,
+    busy,
+    refreshingAllData,
+    messages,
+  } = useAppContext();
+
+  return (
+    <section className="top-actions">
+      <div className="top-actions-main">
+        <div className="top-actions-copy">
+          <strong>ThreadLens</strong>
+        </div>
+        <nav className="top-surface-nav" aria-label="surface tabs">
+          <button
+            type="button"
+            className={`top-surface-btn ${layoutView === "overview" ? "is-active" : ""}`}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => changeLayoutView("overview")}
+          >
+            {messages.nav.overview}
+          </button>
+          <button
+            type="button"
+            className={`top-surface-btn ${layoutView === "search" ? "is-active" : ""}`}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => changeLayoutView("search")}
+            onMouseEnter={handleSearchIntent}
+            onFocus={handleSearchIntent}
+          >
+            {messages.nav.search}
+          </button>
+          <button
+            type="button"
+            className={`top-surface-btn ${layoutView === "threads" ? "is-active" : ""}`}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => changeLayoutView("threads")}
+          >
+            {messages.nav.threads}
+          </button>
+          <button
+            type="button"
+            className={`top-surface-btn ${layoutView === "providers" ? "is-active" : ""}`}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => changeLayoutView("providers")}
+            onMouseEnter={handleProvidersIntent}
+            onFocus={handleProvidersIntent}
+          >
+            {messages.nav.providers}
+          </button>
+        </nav>
+      </div>
+      <div className="top-actions-tools">
+        <form
+          className="top-search-shell"
+          onSubmit={(event) => {
+            event.preventDefault();
+            handleHeaderSearchSubmit();
+          }}
+        >
+          <span className="top-search-icon" aria-hidden="true">
+            ⌕
+          </span>
+          <input
+            type="search"
+            className="top-search-input"
+            placeholder="Jump to sessions, threads, keywords..."
+            value={headerSearchDraft}
+            onChange={(event) => setHeaderSearchDraft(event.target.value)}
+          />
+        </form>
+        <div className="top-controls">
+          <span className="top-sync-status" aria-live="polite">
+            {syncStatusText}
+          </span>
+          <button
+            type="button"
+            className="btn-outline"
+            onClick={() => setTheme(prev => prev === "dark" ? "light" : "dark")}
+            title={
+              theme === "dark" ? messages.nav.switchToLight : messages.nav.switchToDark
+            }
+          >
+            {theme === "dark" ? messages.nav.light : messages.nav.dark}
+          </button>
+          <button
+            type="button"
+            className="btn-outline"
+            onClick={() => void refreshAllData()}
+            disabled={busy || refreshingAllData}
+            title={messages.nav.syncHint}
+          >
+            {refreshingAllData ? "Syncing" : "Sync"}
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
