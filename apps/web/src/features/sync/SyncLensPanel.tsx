@@ -1,14 +1,14 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { apiGet } from "../api";
-import { extractEnvelopeData, formatDateTime } from "../lib/helpers";
+import { apiGet } from "../../api";
+import { extractEnvelopeData, formatDateTime } from "../../lib/helpers";
 import type {
   Locale,
   SyncLensActionPreview,
   SyncLensEnvelope,
   SyncLensHostSnapshot,
   SyncLensIssue,
-} from "../types";
+} from "../../types";
 
 type Props = {
   locale: Locale;

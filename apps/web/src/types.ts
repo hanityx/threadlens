@@ -1,5 +1,5 @@
 import type { ApiEnvelope, ExecutionGraphData } from "@threadlens/shared-contracts";
-import type { TranscriptMessage } from "./components/TranscriptLog";
+import type { TranscriptMessage } from "./design-system/TranscriptLog";
 
 /* ── Runtime ──────────────────────────────────────────── */
 export type RuntimeEnvelope = ApiEnvelope<{
