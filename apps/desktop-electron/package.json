@@ -6,7 +6,7 @@
   "author": "ThreadLens Contributors",
   "main": "main.cjs",
   "scripts": {
-    "dev": "electron .",
+    "dev": "node scripts/prepare-dev.cjs && electron .",
     "icon:build": "./scripts/build-app-icon.sh",
     "stage": "node scripts/stage-desktop-assets.cjs",
     "build": "pnpm run icon:build && pnpm run stage && node --check main.cjs && node --check main-menu.cjs && node --check preload.cjs",

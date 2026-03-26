@@ -29,7 +29,7 @@ public-export-tmp/
 .preflight-*.log
 .env.release.local
 
-# local-only data & automation (never committed)
+# runtime state
 daemon/
 recovery_plans/
 roadmap_state.json
