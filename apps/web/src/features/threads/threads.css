@@ -56,6 +56,26 @@
   max-width: 560px;
 }
 
+.thread-workflow-copy-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scope-badge {
+  font-size: var(--text-2xs);
+  font-family: var(--font-label);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: var(--surface-card-border);
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  padding: 1px 6px;
+  line-height: 1.5;
+}
+
 .thread-workflow-copy strong {
   font-size: var(--text-display-search-stage);
   line-height: 0.92;
@@ -105,40 +125,43 @@
 }
 
 .thread-status-grid {
-  width: 100%;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
 .thread-status-card {
   border: 1px solid var(--surface-card-border);
-  border-radius: 15px;
+  border-radius: 12px;
   background: var(--surface-thread-status-card);
-  padding: 8px 10px;
-  display: grid;
-  gap: 2px;
+  padding: 7px 12px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
   box-shadow: var(--surface-card-shadow);
 }
 
 .thread-status-card span {
   color: var(--muted);
-  font-size: var(--text-sm);
+  font-size: var(--text-2xs);
   font-family: var(--font-label);
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .thread-status-card strong {
-  font-size: var(--text-base);
+  font-size: var(--text-md);
   line-height: 1.18;
   color: var(--text);
+  font-family: var(--font-heading);
+  letter-spacing: -0.02em;
 }
 
 .thread-status-card p {
   margin: 0;
   color: var(--text-secondary);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   line-height: 1.24;
 }
 

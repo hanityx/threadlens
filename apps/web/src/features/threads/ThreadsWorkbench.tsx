@@ -59,7 +59,10 @@ export function ThreadsWorkbench() {
         <PanelHeader title="Review" subtitle="analyze · clean up" />
         <div className="cleanup-command-body">
           <div className="thread-workflow-copy">
-            <span className="overview-note-label">cleanup</span>
+            <div className="thread-workflow-copy-eyebrow">
+              <span className="overview-note-label">cleanup</span>
+              <span className="scope-badge">Codex</span>
+            </div>
             <strong>Review &amp; archive</strong>
             <p>Select, analyze, clean up.</p>
           </div>
