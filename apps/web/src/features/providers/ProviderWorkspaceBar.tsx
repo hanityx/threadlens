@@ -45,7 +45,7 @@ export function ProviderWorkspaceBar({
   const allTabs = [...coreProviderTabs, ...optionalProviderTabs];
 
   return (
-    <section className="provider-workspace-bar">
+    <section className="page-section-header provider-workspace-bar">
       <div className="provider-workspace-copy">
         <div className="thread-workflow-copy-eyebrow">
           <span className="overview-note-label">sessions</span>

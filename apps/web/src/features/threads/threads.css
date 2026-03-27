@@ -92,20 +92,11 @@
 }
 
 .cleanup-command-shell {
-  overflow: visible;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
-}
-
-.cleanup-command-shell > header {
-  display: none;
+  display: grid;
+  gap: 12px;
 }
 
 .cleanup-command-body {
-  padding: 16px 0 0;
   display: grid;
   gap: 14px;
 }

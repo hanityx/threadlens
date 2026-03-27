@@ -1,5 +1,4 @@
 import { useAppContext } from "../../app/AppContext";
-import { PanelHeader } from "../../design-system/PanelHeader";
 import { ThreadsTable } from "./ThreadsTable";
 import { ThreadDetailSlot } from "./ThreadDetailSlot";
 
@@ -57,8 +56,7 @@ export function ThreadsWorkbench() {
 
   return (
     <>
-      <section className="panel cleanup-command-shell">
-        <PanelHeader title="Review" subtitle="analyze · clean up" />
+      <section className="page-section-header cleanup-command-shell">
         <div className="cleanup-command-body">
           <div className="thread-workflow-copy">
             <div className="thread-workflow-copy-eyebrow">
