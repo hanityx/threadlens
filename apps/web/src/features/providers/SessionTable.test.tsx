@@ -115,9 +115,6 @@ const actionResult: ProviderSessionActionResult = {
 
 describe("SessionTable", () => {
   it("renders toolbar, rows, and action result summary", () => {
-    const onSessionFilterChange = vi.fn();
-    const onProbeFilterChange = vi.fn();
-    const onToggleSelectAllFiltered = vi.fn();
     const onRunArchiveDryRun = vi.fn();
     const onRunArchive = vi.fn();
     const onRunDeleteDryRun = vi.fn();
@@ -143,20 +140,11 @@ describe("SessionTable", () => {
         providerSessionRows={rows}
         providerSessionsLimit={50}
         providerRowsSampled={false}
-        providerLabel="Codex"
         showProviderSessionsZeroState={false}
         selectedProviderHasPresentSource={true}
         onPromoteDepthRefresh={onPromoteDepthRefresh}
-        sessionFilter=""
-        onSessionFilterChange={onSessionFilterChange}
-        probeFilter="all"
-        onProbeFilterChange={onProbeFilterChange}
         sortedProviderSessionRows={rows}
         renderedProviderSessionRows={rows}
-        allFilteredProviderRowsSelected={false}
-        allProviderRowsSelected={false}
-        onToggleSelectAllFiltered={onToggleSelectAllFiltered}
-        selectedProviderFilePathsCount={1}
         canRunProviderAction={true}
         busy={false}
         onRunArchiveDryRun={onRunArchiveDryRun}
@@ -198,8 +186,6 @@ describe("SessionTable", () => {
       />,
     );
 
-    expect(html).toContain("Sessions");
-    expect(html).toContain("Search sessions");
     expect(html).toContain("Open Codex Cleanup");
     expect(html).toContain("session-…7890");
     expect(html).toContain("delete_local · Preview");
@@ -216,20 +202,11 @@ describe("SessionTable", () => {
         providerSessionRows={[]}
         providerSessionsLimit={50}
         providerRowsSampled={false}
-        providerLabel="Codex"
         showProviderSessionsZeroState={true}
         selectedProviderHasPresentSource={false}
         onPromoteDepthRefresh={() => undefined}
-        sessionFilter=""
-        onSessionFilterChange={() => undefined}
-        probeFilter="all"
-        onProbeFilterChange={() => undefined}
         sortedProviderSessionRows={[]}
         renderedProviderSessionRows={[]}
-        allFilteredProviderRowsSelected={false}
-        allProviderRowsSelected={false}
-        onToggleSelectAllFiltered={() => undefined}
-        selectedProviderFilePathsCount={0}
         canRunProviderAction={false}
         busy={false}
         onRunArchiveDryRun={() => undefined}

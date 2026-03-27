@@ -300,7 +300,7 @@
 .provider-summary-cell {
   border: 1px solid var(--surface-card-border);
   border-radius: var(--radius-card);
-  background: var(--surface-thread-status-card);
+  background: var(--surface-card-bg-ghost);
   padding: 7px 12px;
   display: flex;
   flex-direction: row;
@@ -318,7 +318,7 @@
 }
 
 .provider-summary-cell strong {
-  font-size: var(--text-md);
+  font-size: var(--text-base);
   color: var(--text);
   font-family: var(--font-heading);
   letter-spacing: -0.02em;

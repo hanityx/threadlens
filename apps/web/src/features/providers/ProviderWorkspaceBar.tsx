@@ -21,6 +21,7 @@ export interface ProviderWorkspaceBarProps {
     archived: number;
     lastRefreshAt: string;
   };
+  searchSlot?: React.ReactNode;
 }
 
 function formatRefreshAge(iso: string): string {
@@ -41,6 +42,7 @@ export function ProviderWorkspaceBar({
   optionalProviderTabs,
   onSelectProviderView,
   summary,
+  searchSlot,
 }: ProviderWorkspaceBarProps) {
   const allTabs = [...coreProviderTabs, ...optionalProviderTabs];
 
@@ -105,6 +107,7 @@ export function ProviderWorkspaceBar({
           <strong>{formatRefreshAge(summary.lastRefreshAt)}</strong>
         </article>
       </div>
+      {searchSlot}
     </section>
   );
 }

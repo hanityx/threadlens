@@ -1363,7 +1363,7 @@
 }
 
 .overview-note-label {
-  color: rgba(240, 246, 251, 0.54);
+  color: var(--muted);
   font-size: var(--text-sm);
   font-family: var(--font-mono);
   letter-spacing: 0.12em;

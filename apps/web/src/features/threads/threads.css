@@ -135,14 +135,14 @@
 
 .thread-status-card span {
   color: var(--muted);
-  font-size: var(--text-2xs);
+  font-size: var(--text-sm);
   font-family: var(--font-label);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .thread-status-card strong {
-  font-size: var(--text-md);
+  font-size: var(--text-base);
   line-height: 1.18;
   color: var(--text);
   font-family: var(--font-heading);
@@ -152,7 +152,7 @@
 .thread-status-card p {
   margin: 0;
   color: var(--text-secondary);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   line-height: 1.24;
 }
 

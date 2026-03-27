@@ -12,20 +12,11 @@ export interface SessionTableProps {
   providerSessionRows: ProviderSessionRow[];
   providerSessionsLimit: number;
   providerRowsSampled: boolean;
-  providerLabel: string;
   showProviderSessionsZeroState: boolean;
   selectedProviderHasPresentSource: boolean;
   onPromoteDepthRefresh: () => void;
-  sessionFilter: string;
-  onSessionFilterChange: (value: string) => void;
-  probeFilter: string;
-  onProbeFilterChange: (value: string) => void;
   sortedProviderSessionRows: ProviderSessionRow[];
   renderedProviderSessionRows: ProviderSessionRow[];
-  allFilteredProviderRowsSelected: boolean;
-  allProviderRowsSelected: boolean;
-  onToggleSelectAllFiltered: (checked: boolean) => void;
-  selectedProviderFilePathsCount: number;
   canRunProviderAction: boolean;
   busy: boolean;
   onRunArchiveDryRun: () => void;
@@ -74,20 +65,11 @@ export function SessionTable(props: SessionTableProps) {
     providerSessionRows,
     providerSessionsLimit,
     providerRowsSampled,
-    providerLabel,
     showProviderSessionsZeroState,
     selectedProviderHasPresentSource,
     onPromoteDepthRefresh,
-    sessionFilter,
-    onSessionFilterChange,
-    probeFilter,
-    onProbeFilterChange,
     sortedProviderSessionRows,
     renderedProviderSessionRows,
-    allFilteredProviderRowsSelected,
-    allProviderRowsSelected,
-    onToggleSelectAllFiltered,
-    selectedProviderFilePathsCount,
     canRunProviderAction,
     busy,
     onRunArchiveDryRun,
@@ -131,13 +113,6 @@ export function SessionTable(props: SessionTableProps) {
 
   return (
     <section className="panel provider-session-stage" ref={sectionRef}>
-      <div className="provider-grid-intro">
-        <div className="provider-grid-intro-copy">
-          <span className="overview-note-label">archive</span>
-          <strong>{providerLabel} session archive</strong>
-          <p>Select sessions to view or delete.</p>
-        </div>
-      </div>
       {showProviderSessionsZeroState ? (
         <div className="info-box compact">
           <span className="sub-hint">
@@ -151,43 +126,6 @@ export function SessionTable(props: SessionTableProps) {
           </Button>
         </div>
       ) : null}
-      <div className="sub-toolbar sessions-control-strip">
-        <input
-          className="search-input"
-          placeholder={messages.providers.sessionSearchPlaceholder}
-          value={sessionFilter}
-          onChange={(e) => onSessionFilterChange(e.target.value)}
-        />
-        <select
-          className="filter-select"
-          aria-label={messages.providers.probeFilterLabel}
-          value={probeFilter}
-          onChange={(e) => onProbeFilterChange(e.target.value)}
-        >
-          <option value="all">{messages.providers.probeAll}</option>
-          <option value="ok">{messages.providers.probeOk}</option>
-          <option value="fail">{messages.providers.probeFail}</option>
-        </select>
-        <div className="sessions-control-meta">
-          <span className="sub-hint">
-            rows {sortedProviderSessionRows.length}/{providerSessionRows.length}
-            {sortedProviderSessionRows.length > renderedProviderSessionRows.length
-              ? ` · window ${renderedProviderSessionRows.length}/${sortedProviderSessionRows.length}`
-              : ""}
-          </span>
-          <label className="check-inline">
-            <input
-              type="checkbox"
-              checked={allFilteredProviderRowsSelected || allProviderRowsSelected}
-              onChange={(e) => onToggleSelectAllFiltered(e.target.checked)}
-            />
-            {messages.providers.selectAllInTab}
-          </label>
-          <span className="sub-hint">
-            {providerLabel} · selected {selectedProviderFilePathsCount}
-          </span>
-        </div>
-      </div>
       <div className="sub-toolbar sessions-action-strip">
         <div className="sessions-action-main">
           <Button variant="outline" disabled={!canRunProviderAction || busy} onClick={onRunArchiveDryRun}>

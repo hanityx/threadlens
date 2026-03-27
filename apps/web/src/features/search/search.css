@@ -184,7 +184,7 @@
   padding: 0 13px;
   border: 1px solid var(--surface-card-border);
   border-radius: 14px;
-  background: var(--surface-card-bg);
+  background: var(--surface-search-command-bar);
 }
 
 .search-command-prompt {

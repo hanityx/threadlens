@@ -639,6 +639,46 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     setSlowOnly(false);
   };
 
+  const searchSlot = (
+    <div className="sub-toolbar cleanup-toolbar">
+      <input
+        className="search-input"
+        placeholder={messages.providers.sessionSearchPlaceholder}
+        value={sessionFilter}
+        onChange={(e) => setSessionFilter(e.target.value)}
+      />
+      <select
+        className="filter-select"
+        aria-label={messages.providers.probeFilterLabel}
+        value={probeFilter}
+        onChange={(e) => setProbeFilter(e.target.value as ProviderProbeFilter)}
+      >
+        <option value="all">{messages.providers.probeAll}</option>
+        <option value="ok">{messages.providers.probeOk}</option>
+        <option value="fail">{messages.providers.probeFail}</option>
+      </select>
+      <div className="sessions-control-meta">
+        <span className="sub-hint">
+          rows {sortedProviderSessionRows.length}/{providerSessionRows.length}
+          {sortedProviderSessionRows.length > renderedProviderSessionRows.length
+            ? ` · window ${renderedProviderSessionRows.length}/${sortedProviderSessionRows.length}`
+            : ""}
+        </span>
+        <label className="check-inline">
+          <input
+            type="checkbox"
+            checked={allFilteredProviderRowsSelected || allProviderRowsSelected}
+            onChange={(e) => toggleSelectAllProviderRows(e.target.checked, filteredProviderFilePaths)}
+          />
+          {messages.providers.selectAllInTab}
+        </label>
+        <span className="sub-hint">
+          {providerLabel} · selected {selectedProviderFilePaths.length}
+        </span>
+      </div>
+    </div>
+  );
+
   return (
     <>
       <ProviderWorkspaceBar
@@ -656,6 +696,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
           archived: archivedSessionCount,
           lastRefreshAt: providersLastRefreshAt,
         }}
+        searchSlot={searchSlot}
       />
 
       <section className="provider-ops-layout">
@@ -668,25 +709,14 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
           providerSessionRows={providerSessionRows}
           providerSessionsLimit={providerSessionsLimit}
           providerRowsSampled={providerRowsSampled}
-          providerLabel={providerLabel}
           showProviderSessionsZeroState={showProviderSessionsZeroState}
           selectedProviderHasPresentSource={selectedProviderHasPresentSource}
           onPromoteDepthRefresh={() => {
             setProviderDataDepth("deep");
             refreshProvidersData();
           }}
-          sessionFilter={sessionFilter}
-          onSessionFilterChange={setSessionFilter}
-          probeFilter={probeFilter}
-          onProbeFilterChange={(value) => setProbeFilter(value as ProviderProbeFilter)}
           sortedProviderSessionRows={sortedProviderSessionRows}
           renderedProviderSessionRows={renderedProviderSessionRows}
-          allFilteredProviderRowsSelected={allFilteredProviderRowsSelected}
-          allProviderRowsSelected={allProviderRowsSelected}
-          onToggleSelectAllFiltered={(checked) =>
-            toggleSelectAllProviderRows(checked, filteredProviderFilePaths)
-          }
-          selectedProviderFilePathsCount={selectedProviderFilePaths.length}
           canRunProviderAction={canRunProviderAction}
           busy={busy}
           onRunArchiveDryRun={() => runProviderAction("archive_local", true)}
