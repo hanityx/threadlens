@@ -1,6 +1,5 @@
 import type { Ref } from "react";
 import { Button } from "../../design-system/Button";
-import { PanelHeader } from "../../design-system/PanelHeader";
 import type { Messages } from "../../i18n";
 import type { ProviderSessionActionResult, ProviderSessionRow } from "../../types";
 import { SKELETON_ROWS } from "../../types";
@@ -132,18 +131,6 @@ export function SessionTable(props: SessionTableProps) {
 
   return (
     <section className="panel provider-session-stage" ref={sectionRef}>
-      <PanelHeader
-        title={messages.providers.sessionsTitle}
-        subtitle={
-          <>
-            {providerSessionSummary.rows ?? providerSessionRows.length} {messages.providers.rows} · {messages.providers.parseOk}{" "}
-            {providerSessionSummary.parse_ok ?? 0}
-            {" · "}
-            {messages.providers.queryLimit} {providerSessionsLimit}
-            {providerRowsSampled ? ` · ${messages.providers.sampledHint}` : ""}
-          </>
-        }
-      />
       <div className="provider-grid-intro">
         <div className="provider-grid-intro-copy">
           <span className="overview-note-label">archive</span>

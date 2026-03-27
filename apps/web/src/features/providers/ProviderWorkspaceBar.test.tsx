@@ -40,7 +40,7 @@ describe("ProviderWorkspaceBar", () => {
       />,
     );
 
-    expect(html).toContain("Codex sessions");
+    expect(html).toContain("Codex");
     expect(html).toContain("Sessions");
     expect(html).toContain("Transcript");
   });

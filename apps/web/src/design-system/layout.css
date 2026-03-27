@@ -272,12 +272,9 @@
 }
 
 .page-section-header {
-  border: 1px solid var(--surface-stage-border-subtle);
-  border-radius: var(--radius-shell-md);
-  background: var(--surface-stage-subtle);
-  box-shadow: var(--surface-stage-shadow);
-  backdrop-filter: blur(var(--blur-md)) saturate(130%);
-  padding: 18px 22px;
+  display: grid;
+  gap: 12px;
+  padding-top: 16px;
 }
 
 .overview-workbench {

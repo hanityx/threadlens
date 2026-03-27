@@ -85,7 +85,7 @@ export const en = {
     "optional": "Optional",
     "unknown": "Unknown",
     "loading": "Loading...",
-    "allAi": "All AI",
+    "allAi": "All providers",
     "ok": "OK",
     "fail": "Fail"
   },

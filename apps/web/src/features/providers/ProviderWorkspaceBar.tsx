@@ -50,7 +50,7 @@ export function ProviderWorkspaceBar({
         <div className="thread-workflow-copy-eyebrow">
           <span className="overview-note-label">sessions</span>
         </div>
-        <strong>{providerLabel} sessions</strong>
+        <strong>{providerLabel}</strong>
         <p>Browse, back up, and export.</p>
       </div>
 
