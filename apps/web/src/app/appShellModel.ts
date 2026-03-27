@@ -168,7 +168,7 @@ function buildRecentThreadTitle(row: ThreadRow): string {
   const tags = new Set(row.risk_tags ?? []);
   if (row.activity_status === "running" && tags.has("ctx-high")) return "Running Review Session";
   if (row.risk_level === "high" && tags.has("no-cwd")) return "No-Workspace Review";
-  if (row.is_pinned && row.risk_level === "high") return "Pinned Risk Thread";
+  if (row.is_pinned && row.risk_level === "high") return "Pinned Review Thread";
   if (tags.has("orphan-candidate")) return "Archive Candidate";
   if (tags.has("ctx-medium")) return "Context Drift Note";
   if (row.risk_level === "high") return "Flagged Session Trace";

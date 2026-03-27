@@ -9,14 +9,12 @@ describe("layout token migration", () => {
     expect(layoutStyles).toMatch(/\.top-actions\s*{[^}]*backdrop-filter:\s*blur\(var\(--blur-lg\)\);/s);
     expect(layoutStyles).toMatch(/\.shell-rail-mark\s*{[^}]*font-size:\s*var\(--text-base\);/s);
     expect(layoutStyles).toMatch(/\.top-actions-label\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
-    expect(layoutStyles).toMatch(/\.shell-rail-brand strong,\s*\.top-actions-copy strong\s*{[^}]*font-size:\s*var\(--text-lg\);/s);
     expect(layoutStyles).toMatch(/\.shell-rail-brand strong\s*{[^}]*font-size:\s*var\(--text-base\);/s);
     expect(layoutStyles).toMatch(/\.shell-rail-btn-key\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
     expect(layoutStyles).toMatch(/\.shell-rail-btn-label\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
     expect(layoutStyles).toMatch(/\.top-search-icon\s*{[^}]*font-size:\s*var\(--text-base\);/s);
     expect(layoutStyles).toMatch(/\.top-search-input\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
     expect(layoutStyles).toMatch(/\.top-surface-btn\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
-    expect(layoutStyles).toMatch(/\.top-actions-copy strong\s*{[^}]*font-size:\s*var\(--text-lg\);/s);
     expect(layoutStyles).toMatch(/\.top-sync-status\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
     expect(layoutStyles).toMatch(/\.provider-quick-switch\s*{[^}]*font-size:\s*var\(--text-base\);/s);
     expect(layoutStyles).toMatch(/\.lang-btn\s*{[^}]*font-size:\s*var\(--text-base\);/s);

@@ -113,7 +113,7 @@ export function ThreadDetail(props: ThreadDetailProps) {
           <div className="thread-detail-empty-state">
             <div className="thread-detail-empty-copy">
               <strong>Open after select.</strong>
-              <p>risk / transcript</p>
+              <p>cleanup signal / transcript</p>
             </div>
             <div className="thread-detail-empty-summary" aria-label="thread detail scope">
               <article>

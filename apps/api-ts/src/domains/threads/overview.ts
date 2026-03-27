@@ -11,6 +11,7 @@ import {
 } from "../../lib/utils.js";
 import { getProviderSessionScan } from "../providers/search.js";
 import { loadCodexUiState } from "./state.js";
+import { collectCodexLocalRefs, readCodexSessionMeta } from "./metadata.js";
 
 type OverviewThreadRow = {
   id: string;
@@ -193,6 +194,16 @@ async function buildOverview(includeThreads: boolean, forceRefresh: boolean) {
   const pinned = new Set(state.pinned);
   const archived = new Set(state.archived);
   const activeRoots = state.active;
+  const visibleScanRows = scan.rows.filter((row) => !archived.has(row.session_id));
+  const { refs } = await collectCodexLocalRefs(
+    visibleScanRows.map((row) => row.session_id),
+    CHAT_DIR,
+  );
+  const sessionMetaByThreadId = new Map(
+    await Promise.all(
+      visibleScanRows.map(async (row) => [row.session_id, await readCodexSessionMeta(row.file_path)] as const),
+    ),
+  );
 
   const rows: OverviewThreadRow[] = scan.rows
     .filter((row) => !archived.has(row.session_id))
@@ -203,9 +214,20 @@ async function buildOverview(includeThreads: boolean, forceRefresh: boolean) {
     const titleSource = stateTitle ? "global-state" : row.probe.title_source || "provider-scan";
     const inferredTime = row.mtime || "";
     const age = parseAgeDetails(inferredTime);
-    const hasLocalData = true;
-    const cwd = "";
-    const matchesActiveWorkspace = false;
+    const localRef = refs.get(threadId);
+    const sessionMeta = sessionMetaByThreadId.get(threadId) ?? { has_session_log: true, cwd: "" };
+    const hasLocalData = Boolean(localRef?.has_local_data);
+    const projectBuckets = Array.from(localRef?.project_buckets ?? []).sort();
+    const cwd = sessionMeta.cwd;
+    const matchesActiveWorkspace = cwd
+      ? activeRoots.some((root) => {
+          const normalizedRoot = String(root ?? "").trim();
+          return Boolean(
+            normalizedRoot &&
+            (cwd === normalizedRoot || cwd.startsWith(`${normalizedRoot}${path.sep}`)),
+          );
+        })
+      : false;
     const contextScore = calcContextScore(row.size_bytes, row.probe.ok);
     const risk = calcRisk(contextScore, age.age_days, {
       pinned: pinned.has(threadId),
@@ -224,10 +246,10 @@ async function buildOverview(includeThreads: boolean, forceRefresh: boolean) {
         in_order: orderIndex.has(threadId),
         order_index: orderIndex.get(threadId) ?? 999999,
         has_local_data: hasLocalData,
-        project_buckets: [],
+        project_buckets: projectBuckets,
         cwd,
         timestamp: row.mtime,
-        has_session_log: true,
+        has_session_log: sessionMeta.has_session_log,
         session_source: row.source,
         history_text: "",
         local_cache_paths: [row.file_path],

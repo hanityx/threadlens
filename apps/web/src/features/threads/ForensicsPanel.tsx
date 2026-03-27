@@ -57,9 +57,9 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
         ? `${selectedIds.length} rows selected`
         : messages.forensics.nextStepPending;
   const heroBody = cleanupReady
-    ? "Copy the token only when the review looks safe."
-    : impactReady
-      ? `${topImpactLabel} · ${topImpactRow?.risk_level ?? "risk"} / ${topImpactRow?.risk_score ?? 0}`
+      ? "Copy the token only when the review looks safe."
+      : impactReady
+      ? `${topImpactLabel} · ${topImpactRow?.risk_level ?? "signal"} / ${topImpactRow?.risk_score ?? 0}`
       : selectedIds.length > 0
         ? `${highRiskCount} flagged · run impact next`
         : "pick rows first";
@@ -127,7 +127,7 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
               <article>
                 <span>2</span>
                 <strong>run impact</strong>
-                <p>inspect risk and cleanup scope first.</p>
+                <p>inspect impact and cleanup signal first.</p>
               </article>
               <article>
                 <span>3</span>

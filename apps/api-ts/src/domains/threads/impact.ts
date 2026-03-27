@@ -1,12 +1,12 @@
-import { readdir } from "node:fs/promises";
-import path from "node:path";
 import {
   CHAT_DIR,
-  CODEX_HOME,
 } from "../../lib/constants.js";
-import { pathExists } from "../../lib/utils.js";
 import { resolveCodexSessionPathByThreadId } from "../providers/search.js";
 import { loadCodexUiState } from "./state.js";
+import {
+  collectCodexLocalRefs,
+  readCodexSessionMetaForThreadIdWithResolver,
+} from "./metadata.js";
 
 export type AnalyzeDeleteReportTs = {
   id: string;
@@ -24,91 +24,6 @@ export type AnalyzeDeleteDataTs = {
   reports: AnalyzeDeleteReportTs[];
 };
 
-type LocalRefData = {
-  has_local_data: boolean;
-  project_buckets: Set<string>;
-};
-
-async function sessionMetaForThreadId(threadId: string) {
-  return sessionMetaForThreadIdWithResolver(threadId, resolveCodexSessionPathByThreadId);
-}
-
-async function sessionMetaForThreadIdWithResolver(
-  threadId: string,
-  resolveSessionPath: (threadId: string) => Promise<string | null>,
-) {
-  const filePath = await resolveSessionPath(threadId);
-  if (!filePath) {
-    return { has_session_log: false, cwd: "" };
-  }
-  return {
-    has_session_log: true,
-    cwd: "",
-  };
-}
-
-async function countProjectBucketFiles(bucketPath: string): Promise<number> {
-  try {
-    const children = await readdir(bucketPath, { withFileTypes: true });
-    let total = 0;
-    for (const child of children) {
-      if (!child.isDirectory() || !child.name.startsWith("conversations-v3-")) continue;
-      const convPath = path.join(bucketPath, child.name);
-      const convFiles = await readdir(convPath, { withFileTypes: true }).catch(() => []);
-      total += convFiles.filter((entry) => entry.isFile() && entry.name.endsWith(".data")).length;
-    }
-    return total;
-  } catch {
-    return 0;
-  }
-}
-
-async function collectLocalRefs(threadIds: string[], chatDir = CHAT_DIR) {
-  const refs = new Map<string, LocalRefData>();
-  const bucketCounts = new Map<string, number>();
-  for (const id of threadIds) {
-    refs.set(id, { has_local_data: false, project_buckets: new Set<string>() });
-  }
-
-  try {
-    const entries = await readdir(chatDir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const full = path.join(chatDir, entry.name);
-      if (entry.name.startsWith("conversations-v3-")) {
-        for (const threadId of threadIds) {
-          const hitPath = path.join(full, `${threadId}.data`);
-          if (await pathExists(hitPath)) {
-            refs.get(threadId)!.has_local_data = true;
-          }
-        }
-        continue;
-      }
-      if (!entry.name.startsWith("project-g-p-")) continue;
-      let bucketTouched = false;
-      for (const threadId of threadIds) {
-        const children = await readdir(full, { withFileTypes: true }).catch(() => []);
-        for (const child of children) {
-          if (!child.isDirectory() || !child.name.startsWith("conversations-v3-")) continue;
-          const hitPath = path.join(full, child.name, `${threadId}.data`);
-          if (await pathExists(hitPath)) {
-            refs.get(threadId)!.has_local_data = true;
-            refs.get(threadId)!.project_buckets.add(entry.name);
-            bucketTouched = true;
-          }
-        }
-      }
-      if (bucketTouched && !bucketCounts.has(entry.name)) {
-        bucketCounts.set(entry.name, await countProjectBucketFiles(full));
-      }
-    }
-  } catch {
-    return { refs, bucketCounts };
-  }
-
-  return { refs, bucketCounts };
-}
-
 export async function analyzeDeleteImpactTs(
   threadIds: string[],
   options?: {
@@ -124,11 +39,11 @@ export async function analyzeDeleteImpactTs(
   const titles = state.titles;
   const orderSet = new Set(state.order);
   const pinnedSet = new Set(state.pinned);
-  const { refs, bucketCounts } = await collectLocalRefs(ids, options?.chatDir);
+  const { refs, bucketCounts } = await collectCodexLocalRefs(ids, options?.chatDir ?? CHAT_DIR);
 
   const reports: AnalyzeDeleteReportTs[] = [];
   for (const threadId of ids) {
-    const sessionMeta = await sessionMetaForThreadIdWithResolver(
+    const sessionMeta = await readCodexSessionMetaForThreadIdWithResolver(
       threadId,
       options?.resolveSessionPath ?? resolveCodexSessionPathByThreadId,
     );

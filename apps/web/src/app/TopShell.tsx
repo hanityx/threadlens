@@ -22,9 +22,6 @@ export function TopShell() {
   return (
     <section className="top-actions">
       <div className="top-actions-main">
-        <div className="top-actions-copy">
-          <strong>ThreadLens</strong>
-        </div>
         <nav className="top-surface-nav" aria-label="surface tabs">
           <button
             type="button"

@@ -73,7 +73,7 @@ export function ThreadsWorkbench() {
             </article>
             {highRiskVisibleCount > 0 ? (
               <article className="thread-status-card is-warn">
-                <span>high risk</span>
+                <span>high signal</span>
                 <strong>{highRiskVisibleCount}</strong>
               </article>
             ) : null}
