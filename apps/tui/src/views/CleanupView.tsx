@@ -4,6 +4,12 @@ import { analyzeDelete, cleanupApply, cleanupDryRun, listThreads } from "../api.
 import type { ThreadRow } from "../types.js";
 import { getWindowedItems, truncate } from "../lib/format.js";
 
+const RISK_COLOR: Record<string, string> = {
+  high: "red",
+  medium: "yellow",
+  low: "green",
+};
+
 export function CleanupView(props: {
   active: boolean;
   initialThreadId: string | null;
@@ -21,9 +27,7 @@ export function CleanupView(props: {
   const [totalCount, setTotalCount] = useState(0);
   const [filterQuery, setFilterQuery] = useState(initialFilter ?? "");
   const [focusMode, setFocusMode] = useState<"list" | "filter">("list");
-  const [analysisSummary, setAnalysisSummary] = useState<string>(
-    "/·i: filter · a: impact analysis · d: dry-run · D: execute · c: clear token · space: select",
-  );
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [pendingInitialThreadId, setPendingInitialThreadId] = useState<string | null>(initialThreadId);
   const [pendingCleanup, setPendingCleanup] = useState<{ token: string; ids: string[] } | null>(null);
   const [lastAnalysis, setLastAnalysis] = useState<{
@@ -96,7 +100,7 @@ export function CleanupView(props: {
         row.risk_level,
         ...(row.risk_tags ?? []),
       ]
-        .some((value) => typeof value === "string" && value.toLowerCase().includes(needle)),
+        .some((value) => typeof value === "string" && value.toLowerCase().includes(value)),
     );
   }, [filterQuery, rows]);
 
@@ -127,34 +131,13 @@ export function CleanupView(props: {
       }
       return;
     }
-    if (input === "/" || input.toLowerCase() === "i") {
-      setFocusMode("filter");
-      return;
-    }
-    if (key.upArrow || input === "k") {
-      setSelectedIndex((prev) => Math.max(0, prev - 1));
-      return;
-    }
-    if (key.downArrow || input === "j") {
-      setSelectedIndex((prev) => Math.min(Math.max(filteredRows.length - 1, 0), prev + 1));
-      return;
-    }
-    if (input === "g") {
-      setSelectedIndex(0);
-      return;
-    }
-    if (input === "G") {
-      setSelectedIndex(Math.max(filteredRows.length - 1, 0));
-      return;
-    }
-    if (input === "K") {
-      setSelectedIndex((prev) => Math.max(0, prev - 10));
-      return;
-    }
-    if (input === "J") {
-      setSelectedIndex((prev) => Math.min(Math.max(filteredRows.length - 1, 0), prev + 10));
-      return;
-    }
+    if (input === "/" || input.toLowerCase() === "i") { setFocusMode("filter"); return; }
+    if (key.upArrow || input === "k") { setSelectedIndex((prev) => Math.max(0, prev - 1)); return; }
+    if (key.downArrow || input === "j") { setSelectedIndex((prev) => Math.min(Math.max(filteredRows.length - 1, 0), prev + 1)); return; }
+    if (input === "g") { setSelectedIndex(0); return; }
+    if (input === "G") { setSelectedIndex(Math.max(filteredRows.length - 1, 0)); return; }
+    if (input === "K") { setSelectedIndex((prev) => Math.max(0, prev - 10)); return; }
+    if (input === "J") { setSelectedIndex((prev) => Math.min(Math.max(filteredRows.length - 1, 0), prev + 10)); return; }
     if (input === " " && selected) {
       setSelectedIds((prev) =>
         prev.includes(selected.thread_id)
@@ -165,12 +148,12 @@ export function CleanupView(props: {
     }
     if (input.toLowerCase() === "x") {
       setSelectedIds([]);
-      setAnalysisSummary("Selection cleared");
+      setStatusMessage("Selection cleared");
       return;
     }
     if (input === "c") {
       setPendingCleanup(null);
-      setAnalysisSummary("Cleanup token cleared");
+      setStatusMessage("Pending token cleared");
       return;
     }
     if (input.toLowerCase() === "r") {
@@ -178,7 +161,7 @@ export function CleanupView(props: {
       return;
     }
     if (input === "a" && selectedIds.length > 0) {
-      setAnalysisSummary("Running impact analysis...");
+      setStatusMessage("Analyzing impact…");
       void analyzeDelete(selectedIds)
         .then((data) => {
           const report = data.reports?.[0];
@@ -188,18 +171,15 @@ export function CleanupView(props: {
             impacts: report?.impacts ?? [],
             parents: report?.parents ?? [],
           });
-          setAnalysisSummary(
-            `Impacts ${data.count ?? 0} items` +
-              (report?.summary ? ` · ${truncate(report.summary, 48)}` : ""),
-          );
+          setStatusMessage(`Impact: ${data.count ?? 0} items${report?.summary ? " · " + truncate(report.summary, 48) : ""}`);
         })
-        .catch((actionError) => {
-          setAnalysisSummary(actionError instanceof Error ? actionError.message : String(actionError));
+        .catch((err) => {
+          setStatusMessage(err instanceof Error ? err.message : String(err));
         });
       return;
     }
     if (input === "d" && selectedIds.length > 0) {
-      setAnalysisSummary("Running dry-run...");
+      setStatusMessage("Dry-run…");
       void cleanupDryRun(selectedIds)
         .then((data) => {
           const token = String(data.confirm_token_expected ?? "").trim();
@@ -212,14 +192,10 @@ export function CleanupView(props: {
             backupCount: data.backup?.copied_count ?? 0,
             help: String(data.confirm_help ?? "").trim(),
           });
-          setAnalysisSummary(
-            `Dry-run ready · token ${token || "-"}` +
-              (data.target_file_count ? ` · files ${data.target_file_count}` : "") +
-              (token ? " · Shift+D execute" : ""),
-          );
+          setStatusMessage(token ? `Token: ${token}  ·  Press D to execute` : `Dry-run done · ${data.target_file_count ?? 0} files`);
         })
-        .catch((actionError) => {
-          setAnalysisSummary(actionError instanceof Error ? actionError.message : String(actionError));
+        .catch((err) => {
+          setStatusMessage(err instanceof Error ? err.message : String(err));
         });
       return;
     }
@@ -229,10 +205,10 @@ export function CleanupView(props: {
         pendingCleanup.ids.length !== normalizedSelectedIds.length ||
         pendingCleanup.ids.some((id, index) => id !== normalizedSelectedIds[index])
       ) {
-        setAnalysisSummary("Run d dry-run again with the current selection first.");
+        setStatusMessage("Run dry-run first (press d) with current selection.");
         return;
       }
-      setAnalysisSummary("Running cleanup...");
+      setStatusMessage("Executing cleanup…");
       void cleanupApply(normalizedSelectedIds, pendingCleanup.token)
         .then((data) => {
           setPendingCleanup(null);
@@ -245,100 +221,177 @@ export function CleanupView(props: {
             backupCount: data.backup?.copied_count ?? 0,
             help: String(data.confirm_help ?? "").trim(),
           });
-          setAnalysisSummary(
-            `Cleanup complete · deleted ${data.deleted_file_count ?? 0}/${data.target_file_count ?? 0}` +
-              (data.backup?.copied_count ? ` · backup ${data.backup.copied_count}` : ""),
-          );
+          setStatusMessage(`Done · deleted ${data.deleted_file_count ?? 0}/${data.target_file_count ?? 0}${data.backup?.copied_count ? ` · backup ${data.backup.copied_count}` : ""}`);
           fetchRows();
         })
-        .catch((actionError) => {
-          setAnalysisSummary(actionError instanceof Error ? actionError.message : String(actionError));
+        .catch((err) => {
+          setStatusMessage(err instanceof Error ? err.message : String(err));
         });
     }
   });
 
   return (
     <Box flexDirection="column" gap={1}>
-      <Box borderStyle="round" borderColor="cyan" paddingX={1} flexDirection="column">
-        <Text color="cyan">Cleanup</Text>
-        <Text color="gray">/·i filter · Esc·Enter back to list · ↑↓ or j/k · space select · a impact analysis · d dry-run · D execute · c clear token · x clear selection · r refresh</Text>
-        <Text color={focusMode === "filter" ? "green" : "gray"}>
-          filter: {filterQuery.length > 0 ? `${filterQuery}${focusMode === "filter" ? "▌" : ""}` : focusMode === "filter" ? "typing▌" : "none"}
-        </Text>
-        <Text color="yellow">selected: {selectedIds.length} / total {totalCount || rows.length}</Text>
-        {pendingCleanup ? <Text color="yellow">pending cleanup · {pendingCleanup.token}</Text> : null}
-        <Text color="gray">{analysisSummary}</Text>
-        {loading ? <Text color="yellow">Loading threads...</Text> : null}
+      {/* Header */}
+      <Box borderStyle="round" borderColor="cyan" paddingX={2} flexDirection="column" gap={0}>
+        <Box justifyContent="space-between" alignItems="center">
+          <Text color="cyan" bold>Cleanup</Text>
+          <Box gap={2}>
+            {loading ? <Text color="yellow">loading…</Text> : null}
+            <Text color="gray" dimColor>{totalCount || rows.length} threads</Text>
+            {selectedIds.length > 0 ? (
+              <Text color="yellow" bold>{selectedIds.length} selected</Text>
+            ) : null}
+          </Box>
+        </Box>
+
+        {/* Filter bar */}
+        <Box borderStyle="single" borderColor={focusMode === "filter" ? "green" : "gray"} paddingX={1}>
+          <Text color="gray" dimColor>filter  </Text>
+          {filterQuery.length > 0 ? (
+            <Text color={focusMode === "filter" ? "white" : "gray"}>
+              {filterQuery}{focusMode === "filter" ? "▌" : ""}
+            </Text>
+          ) : (
+            <Text color="gray" dimColor>
+              {focusMode === "filter" ? "type to filter▌" : "/·i to filter"}
+            </Text>
+          )}
+          {filterQuery && focusMode !== "filter" ? (
+            <Text color="gray" dimColor>  ({filteredRows.length}/{rows.length})</Text>
+          ) : null}
+        </Box>
+
+        {/* Pending cleanup indicator */}
+        {pendingCleanup ? (
+          <Box gap={2} alignItems="center">
+            <Text color="red" bold>⚠ Pending delete:</Text>
+            <Text color="gray" dimColor>token {pendingCleanup.token}</Text>
+            <Text color="white">{pendingCleanup.ids.length} threads</Text>
+            <Text color="white">→ D execute</Text>
+            <Text color="gray" dimColor>c clear</Text>
+          </Box>
+        ) : null}
+
+        {/* Status message */}
+        {statusMessage ? (
+          <Text color={
+            statusMessage.includes("Done") || statusMessage.includes("complete") ? "green" :
+            statusMessage.includes("…") ? "yellow" :
+            statusMessage.includes("error") || statusMessage.includes("fail") ? "red" : "gray"
+          }>
+            {statusMessage}
+          </Text>
+        ) : null}
+
         {error ? <Text color="red">{error}</Text> : null}
       </Box>
-      <Box gap={2}>
-        <Box width="58%" borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
-          <Text color="cyan">Threads</Text>
-          {filteredRows.length > 0 ? (
-            <Text color="gray">
-              showing {visibleThreads.start + 1}-{visibleThreads.end}/{filteredRows.length}
-              {filterQuery.trim() ? ` · filtered from ${rows.length}` : ""}
-            </Text>
+
+      {/* List + Detail */}
+      <Box gap={1}>
+        <Box width="55%" borderStyle="round" borderColor={focusMode === "list" ? "cyan" : "gray"} paddingX={1} flexDirection="column">
+          <Box justifyContent="space-between">
+            <Text color="cyan">Threads</Text>
+            {filteredRows.length > 0 ? (
+              <Text color="gray" dimColor>{visibleThreads.start + 1}–{visibleThreads.end}/{filteredRows.length}</Text>
+            ) : null}
+          </Box>
+          {filteredRows.length === 0 ? (
+            <Text color="gray" dimColor>{rows.length === 0 ? "No threads found." : "No results for filter."}</Text>
           ) : null}
-          {filteredRows.length === 0 ? <Text color="gray">{rows.length === 0 ? "No threads" : "No filtered results"}</Text> : null}
           {visibleThreads.items.map((row, offset) => {
-            const index = visibleThreads.start + offset;
-            const focused = index === selectedIndex;
+            const idx = visibleThreads.start + offset;
+            const focused = idx === selectedIndex;
             const checked = selectedIds.includes(row.thread_id);
+            const riskColor = RISK_COLOR[row.risk_level ?? ""] ?? "gray";
             return (
               <Box key={row.thread_id} flexDirection="column" marginTop={1}>
-                <Text color={focused ? "green" : "white"}>
-                  {focused ? "›" : " "} [{checked ? "x" : " "}] {truncate(row.title || row.thread_id, 62)}
-                </Text>
-                <Text color="gray">
-                  risk {row.risk_score ?? 0} · {row.is_pinned ? "pinned" : "normal"} · {row.source || "-"}
-                </Text>
+                <Box gap={1}>
+                  <Text color={focused ? "green" : "gray"}>{focused ? "›" : " "}</Text>
+                  <Text color={checked ? "yellow" : "gray"}>{checked ? "[✓]" : "[ ]"}</Text>
+                  <Text color={focused ? "white" : "gray"} bold={focused}>
+                    {truncate(row.title || row.thread_id, 48)}
+                  </Text>
+                </Box>
+                <Box gap={2} paddingLeft={2}>
+                  <Text color={riskColor} dimColor>risk {row.risk_score ?? 0}</Text>
+                  <Text color="gray" dimColor>{row.risk_level ?? "?"}</Text>
+                  {row.is_pinned ? <Text color="cyan" dimColor>pinned</Text> : null}
+                  <Text color="gray" dimColor>{row.source || "-"}</Text>
+                </Box>
               </Box>
             );
           })}
         </Box>
-        <Box width="42%" borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
-          <Text color="cyan">Selection detail</Text>
+
+        <Box width="45%" borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
+          <Text color="cyan">Detail</Text>
           {selected ? (
             <>
-              <Text>{truncate(selected.title || selected.thread_id, 54)}</Text>
-              <Text color="gray">{selected.thread_id}</Text>
-              <Text color="gray">
-                risk {selected.risk_score ?? 0} · {selected.risk_level || "-"}
-              </Text>
-              <Text color="gray">{truncate(selected.cwd || "-", 56)}</Text>
-              {lastAnalysis ? (
-                <>
-                  <Text color="yellow">Impact analysis</Text>
-                  <Text color="gray">count {lastAnalysis.count}</Text>
-                  {lastAnalysis.summary ? <Text>{truncate(lastAnalysis.summary, 96)}</Text> : null}
-                  {lastAnalysis.impacts.slice(0, 3).map((impact, index) => (
-                    <Text key={`impact-${index}`} color="gray">
-                      impact {index + 1}: {truncate(impact, 72)}
-                    </Text>
-                  ))}
-                  {lastAnalysis.parents.slice(0, 2).map((parent, index) => (
-                    <Text key={`parent-${index}`} color="gray">
-                      parent {index + 1}: {truncate(parent, 72)}
-                    </Text>
-                  ))}
-                </>
-              ) : null}
-              {lastCleanup ? (
-                <>
-                  <Text color="yellow">Cleanup preview</Text>
-                  <Text color="gray">
-                    {lastCleanup.mode} · files {lastCleanup.fileCount}
-                    {lastCleanup.deletedCount ? ` · deleted ${lastCleanup.deletedCount}` : ""}
-                    {lastCleanup.backupCount ? ` · backup ${lastCleanup.backupCount}` : ""}
+              <Box marginTop={1} flexDirection="column">
+                <Text color="white" bold>{truncate(selected.title || selected.thread_id, 50)}</Text>
+                <Text color="gray" dimColor>{truncate(selected.thread_id, 50)}</Text>
+                <Box gap={3}>
+                  <Text color={RISK_COLOR[selected.risk_level ?? ""] ?? "gray"}>
+                    risk {selected.risk_score ?? 0}
                   </Text>
-                  {lastCleanup.token ? <Text color="gray">token {lastCleanup.token}</Text> : null}
-                  {lastCleanup.help ? <Text>{truncate(lastCleanup.help, 96)}</Text> : null}
-                </>
+                  <Text color="gray" dimColor>{selected.risk_level ?? "?"}</Text>
+                  {selected.is_pinned ? <Text color="cyan">pinned</Text> : null}
+                </Box>
+                {selected.cwd ? (
+                  <Text color="gray" dimColor>{truncate(selected.cwd, 52)}</Text>
+                ) : null}
+                {(selected.risk_tags ?? []).length > 0 ? (
+                  <Text color="gray" dimColor>tags: {selected.risk_tags!.join(", ")}</Text>
+                ) : null}
+              </Box>
+
+              {/* Impact analysis result */}
+              {lastAnalysis ? (
+                <Box flexDirection="column" borderStyle="single" borderColor="yellow" paddingX={1} marginTop={1}>
+                  <Text color="yellow" dimColor>impact analysis</Text>
+                  <Text color="gray" dimColor>{lastAnalysis.count} items</Text>
+                  {lastAnalysis.summary ? (
+                    <Text color="white">{truncate(lastAnalysis.summary, 52)}</Text>
+                  ) : null}
+                  {lastAnalysis.impacts.slice(0, 2).map((impact, i) => (
+                    <Text key={`impact-${i}`} color="gray" dimColor>· {truncate(impact, 50)}</Text>
+                  ))}
+                </Box>
               ) : null}
+
+              {/* Cleanup dry-run / execute result */}
+              {lastCleanup ? (
+                <Box flexDirection="column" borderStyle="single" borderColor={lastCleanup.deletedCount > 0 ? "red" : "gray"} paddingX={1} marginTop={1}>
+                  <Box justifyContent="space-between">
+                    <Text color={lastCleanup.deletedCount > 0 ? "red" : "gray"} dimColor>
+                      {lastCleanup.mode}
+                    </Text>
+                    <Text color="gray" dimColor>{lastCleanup.fileCount} files</Text>
+                  </Box>
+                  {lastCleanup.deletedCount > 0 ? (
+                    <Text color="red">deleted {lastCleanup.deletedCount}</Text>
+                  ) : null}
+                  {lastCleanup.backupCount > 0 ? (
+                    <Text color="green" dimColor>backup {lastCleanup.backupCount}</Text>
+                  ) : null}
+                  {lastCleanup.token ? (
+                    <Text color="yellow" dimColor>token {lastCleanup.token}</Text>
+                  ) : null}
+                </Box>
+              ) : null}
+
+              {/* Action hints */}
+              <Box gap={2} marginTop={1} flexWrap="wrap">
+                <Text color="gray" dimColor>Space select</Text>
+                <Text color="cyan" dimColor>a analysis</Text>
+                <Text color="yellow" dimColor>d dry-run</Text>
+                <Text color="red" dimColor>D execute</Text>
+                <Text color="gray" dimColor>x clear</Text>
+              </Box>
             </>
           ) : (
-            <Text color="gray">Select a thread.</Text>
+            <Text color="gray" dimColor>Select a thread.</Text>
           )}
         </Box>
       </Box>

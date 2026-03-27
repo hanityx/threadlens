@@ -23,6 +23,24 @@ type SearchMeta = {
   truncated: boolean;
 };
 
+const PROVIDER_COLOR: Record<string, string> = {
+  codex: "yellow",
+  claude: "magenta",
+  gemini: "blue",
+  copilot: "cyan",
+  all: "white",
+};
+
+function providerBadge(provider: string): string {
+  const badges: Record<string, string> = {
+    codex: "CDX",
+    claude: "CLU",
+    gemini: "GEM",
+    copilot: "CPT",
+  };
+  return badges[provider] ?? provider.slice(0, 3).toUpperCase();
+}
+
 export function SearchView(props: {
   active: boolean;
   onOpenSession: (provider: ProviderScope, filePath: string) => void;
@@ -66,13 +84,8 @@ export function SearchView(props: {
     onFocusModeChange?.(focusMode);
   }, [focusMode, onFocusModeChange, onTextEntryChange]);
 
-  useEffect(() => {
-    onQueryChange?.(query);
-  }, [onQueryChange, query]);
-
-  useEffect(() => {
-    onProviderChange?.(provider);
-  }, [onProviderChange, provider]);
+  useEffect(() => { onQueryChange?.(query); }, [onQueryChange, query]);
+  useEffect(() => { onProviderChange?.(provider); }, [onProviderChange, provider]);
 
   useEffect(() => {
     if (query.trim().length < 2) {
@@ -81,12 +94,10 @@ export function SearchView(props: {
       setError(null);
       return;
     }
-
     let cancelled = false;
     const timer = setTimeout(() => {
       setLoading(true);
       setError(null);
-
       void searchConversations(query.trim(), provider)
         .then((data) => {
           if (cancelled) return;
@@ -98,25 +109,17 @@ export function SearchView(props: {
           });
           setSelectedIndex(0);
           setSnippetIndex(0);
-          if ((initialFocusMode ?? "query") === "results") {
-            setFocusMode("results");
-          }
+          if ((initialFocusMode ?? "query") === "results") setFocusMode("results");
         })
-        .catch((fetchError) => {
+        .catch((err) => {
           if (cancelled) return;
           setResults([]);
           setMeta({ searched: 0, available: 0, truncated: false });
-          setError(fetchError instanceof Error ? fetchError.message : String(fetchError));
+          setError(err instanceof Error ? err.message : String(err));
         })
-        .finally(() => {
-          if (!cancelled) setLoading(false);
-        });
+        .finally(() => { if (!cancelled) setLoading(false); });
     }, 180);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [provider, query, refreshTick]);
 
   const groupedResults = useMemo<SearchSessionGroup[]>(() => {
@@ -126,9 +129,7 @@ export function SearchView(props: {
       const existing = groups.get(key);
       if (existing) {
         existing.matchCount += 1;
-        if (hit.snippet && !existing.snippets.includes(hit.snippet)) {
-          existing.snippets.push(hit.snippet);
-        }
+        if (hit.snippet && !existing.snippets.includes(hit.snippet)) existing.snippets.push(hit.snippet);
         continue;
       }
       groups.set(key, {
@@ -143,212 +144,178 @@ export function SearchView(props: {
         snippets: hit.snippet ? [hit.snippet] : [],
       });
     }
-
-    return Array.from(groups.values()).sort((left, right) => {
-      if (right.matchCount !== left.matchCount) return right.matchCount - left.matchCount;
-      return right.mtime.localeCompare(left.mtime);
+    return Array.from(groups.values()).sort((a, b) => {
+      if (b.matchCount !== a.matchCount) return b.matchCount - a.matchCount;
+      return b.mtime.localeCompare(a.mtime);
     });
   }, [results]);
 
   const providerSummary = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const group of groupedResults) {
-      counts.set(group.provider, (counts.get(group.provider) ?? 0) + 1);
-    }
-    return Array.from(counts.entries())
-      .map(([name, count]) => `${name} ${count}`)
-      .join(" · ");
+    for (const g of groupedResults) counts.set(g.provider, (counts.get(g.provider) ?? 0) + 1);
+    return Array.from(counts.entries()).map(([n, c]) => `${n} ${c}`).join(" · ");
   }, [groupedResults]);
 
-  useEffect(() => {
-    setSnippetIndex(0);
-  }, [selectedIndex, groupedResults]);
+  useEffect(() => { setSnippetIndex(0); }, [selectedIndex, groupedResults]);
 
   useInput((input, key) => {
     if (!active) return;
-    if (input === "[") {
-      setProviderIndex((prev) => (prev - 1 + PROVIDERS.length) % PROVIDERS.length);
-      return;
-    }
-    if (input === "]") {
-      setProviderIndex((prev) => (prev + 1) % PROVIDERS.length);
-      return;
-    }
-    if (input.toLowerCase() === "r" && query.trim().length >= 2) {
-      setRefreshTick((prev) => prev + 1);
-      return;
-    }
-    if (key.ctrl && input.toLowerCase() === "n") {
-      if (groupedResults.length > 0) setFocusMode("results");
-      return;
-    }
-    if (key.ctrl && input.toLowerCase() === "p") {
-      setFocusMode("query");
-      return;
-    }
+    if (input === "[") { setProviderIndex((p) => (p - 1 + PROVIDERS.length) % PROVIDERS.length); return; }
+    if (input === "]") { setProviderIndex((p) => (p + 1) % PROVIDERS.length); return; }
+    if (input.toLowerCase() === "r" && query.trim().length >= 2) { setRefreshTick((p) => p + 1); return; }
+    if (key.ctrl && input.toLowerCase() === "n") { if (groupedResults.length > 0) setFocusMode("results"); return; }
+    if (key.ctrl && input.toLowerCase() === "p") { setFocusMode("query"); return; }
     if (focusMode === "query") {
-      if (key.tab) {
-        if (groupedResults.length > 0) setFocusMode("results");
-        return;
-      }
-      if (key.return) {
-        if (groupedResults.length > 0) setFocusMode("results");
-        return;
-      }
-      if (key.escape) {
-        if (groupedResults.length > 0) setFocusMode("results");
-        return;
-      }
-      if (key.backspace || key.delete) {
-        setQuery((prev) => prev.slice(0, -1));
-        return;
-      }
-      if (
-        !key.ctrl &&
-        !key.meta &&
-        !key.escape &&
-        !key.return &&
-        !key.tab &&
-        !key.upArrow &&
-        !key.downArrow &&
-        !key.leftArrow &&
-        !key.rightArrow &&
-        input.length > 0
-      ) {
-        setQuery((prev) => prev + input);
+      if (key.tab || key.return || key.escape) { if (groupedResults.length > 0) setFocusMode("results"); return; }
+      if (key.backspace || key.delete) { setQuery((p) => p.slice(0, -1)); return; }
+      if (!key.ctrl && !key.meta && !key.escape && !key.return && !key.tab && !key.upArrow && !key.downArrow && !key.leftArrow && !key.rightArrow && input.length > 0) {
+        setQuery((p) => p + input);
       }
       return;
     }
-    if (key.tab || key.escape || input === "/" || input.toLowerCase() === "i") {
-      setFocusMode("query");
-      return;
-    }
-    if (key.upArrow || input === "k") {
-      setSelectedIndex((prev) => Math.max(0, prev - 1));
-      return;
-    }
-    if (key.downArrow || input === "j") {
-      setSelectedIndex((prev) => Math.min(Math.max(groupedResults.length - 1, 0), prev + 1));
-      return;
-    }
-    if (input === "g") {
-      setSelectedIndex(0);
-      return;
-    }
-    if (input === "G") {
-      setSelectedIndex(Math.max(groupedResults.length - 1, 0));
-      return;
-    }
-    if (input === "K") {
-      setSelectedIndex((prev) => Math.max(0, prev - 10));
-      return;
-    }
-    if (input === "J") {
-      setSelectedIndex((prev) => Math.min(Math.max(groupedResults.length - 1, 0), prev + 10));
-      return;
-    }
+    if (key.tab || key.escape || input === "/" || input.toLowerCase() === "i") { setFocusMode("query"); return; }
+    if (key.upArrow || input === "k") { setSelectedIndex((p) => Math.max(0, p - 1)); return; }
+    if (key.downArrow || input === "j") { setSelectedIndex((p) => Math.min(Math.max(groupedResults.length - 1, 0), p + 1)); return; }
+    if (input === "g") { setSelectedIndex(0); return; }
+    if (input === "G") { setSelectedIndex(Math.max(groupedResults.length - 1, 0)); return; }
+    if (input === "K") { setSelectedIndex((p) => Math.max(0, p - 10)); return; }
+    if (input === "J") { setSelectedIndex((p) => Math.min(Math.max(groupedResults.length - 1, 0), p + 10)); return; }
     if (input.toLowerCase() === "n" || key.rightArrow) {
-      const selected = groupedResults[selectedIndex];
-      if (selected && selected.snippets.length > 1) {
-        setSnippetIndex((prev) => Math.min(selected.snippets.length - 1, prev + 1));
-      }
+      const sel = groupedResults[selectedIndex];
+      if (sel && sel.snippets.length > 1) setSnippetIndex((p) => Math.min(sel.snippets.length - 1, p + 1));
       return;
     }
     if (input.toLowerCase() === "p" || key.leftArrow) {
-      const selected = groupedResults[selectedIndex];
-      if (selected && selected.snippets.length > 1) {
-        setSnippetIndex((prev) => Math.max(0, prev - 1));
-      }
+      const sel = groupedResults[selectedIndex];
+      if (sel && sel.snippets.length > 1) setSnippetIndex((p) => Math.max(0, p - 1));
       return;
     }
-    if (key.return) {
-      const selected = groupedResults[selectedIndex];
-      if (selected) onOpenSession(selected.provider, selected.filePath);
-      return;
-    }
-    if (key.ctrl && input.toLowerCase() === "o") {
-      const selected = groupedResults[selectedIndex];
-      if (selected?.threadId) onOpenCleanup(selected.threadId);
-    }
+    if (key.return) { const sel = groupedResults[selectedIndex]; if (sel) onOpenSession(sel.provider, sel.filePath); return; }
+    if (key.ctrl && input.toLowerCase() === "o") { const sel = groupedResults[selectedIndex]; if (sel?.threadId) onOpenCleanup(sel.threadId); }
   });
 
   const selected = groupedResults[selectedIndex] ?? null;
-  const visibleGroups = useMemo(() => getWindowedItems(groupedResults, selectedIndex, 12), [groupedResults, selectedIndex]);
+  const visibleGroups = useMemo(() => getWindowedItems(groupedResults, selectedIndex, 10), [groupedResults, selectedIndex]);
 
   return (
     <Box flexDirection="column" gap={1}>
-      <Box borderStyle="round" borderColor="cyan" paddingX={1} flexDirection="column">
-        <Text color="cyan">Search</Text>
-        <Text color="gray">Input mode: type directly · Enter/Ctrl+N/Tab show results · /·Esc·Ctrl+P·i edit again</Text>
-        <Box borderStyle="round" borderColor={focusMode === "query" ? "green" : "gray"} paddingX={1}>
+      {/* Query bar */}
+      <Box borderStyle="round" borderColor="cyan" paddingX={2} flexDirection="column" gap={0}>
+        <Box justifyContent="space-between" alignItems="center">
+          <Text color="cyan" bold>Search</Text>
+          <Box gap={2}>
+            {loading ? <Text color="yellow">searching…</Text> : null}
+            {meta.searched > 0 ? (
+              <Text color="gray" dimColor>{meta.searched}/{meta.available} sessions{meta.truncated ? " (partial)" : ""}</Text>
+            ) : null}
+          </Box>
+        </Box>
+        <Box borderStyle="single" borderColor={focusMode === "query" ? "green" : "gray"} paddingX={1}>
+          <Text color="gray" dimColor>›  </Text>
           {query.length > 0 ? (
-            <Text color={focusMode === "query" ? "white" : "gray"}>
-              {query}
-              {focusMode === "query" ? "▌" : ""}
-            </Text>
+            <Text color={focusMode === "query" ? "white" : "gray"}>{query}{focusMode === "query" ? "▌" : ""}</Text>
           ) : (
-            <Text color="gray">{focusMode === "query" ? "Enter at least 2 characters▌" : "Enter at least 2 characters"}</Text>
+            <Text color="gray" dimColor>{focusMode === "query" ? "type query (min 2 chars)▌" : "enter query…"}</Text>
           )}
         </Box>
-        <Text color="yellow">scope: {provider}</Text>
-        <Text color="gray">focus: {focusMode}</Text>
-        <Text color="gray">
-          scanned {meta.searched}/{meta.available}
-          {meta.truncated ? " · truncated" : ""}
-          {" · "}groups {groupedResults.length} · matches {results.length}
-        </Text>
-        {providerSummary ? <Text color="gray">{providerSummary}</Text> : null}
-        {loading ? <Text color="yellow">Searching...</Text> : null}
-        {error ? <Text color="red">{error}</Text> : null}
-        {!loading && query.trim().length < 2 ? <Text color="gray">Enter at least 2 characters.</Text> : null}
-      </Box>
-      <Box gap={2}>
-        <Box width="58%" borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
-          <Text color="cyan">Session results</Text>
-          {groupedResults.length > 0 ? (
-            <Text color="gray">
-              showing {visibleGroups.start + 1}-{visibleGroups.end}/{groupedResults.length}
+        <Box gap={1} alignItems="center">
+          <Text color="gray" dimColor>scope:</Text>
+          {PROVIDERS.map((p, i) => (
+            <Text key={p} color={i === providerIndex ? (PROVIDER_COLOR[p] ?? "white") : "gray"} bold={i === providerIndex}>
+              {i === providerIndex ? `[${p}]` : p}
             </Text>
+          ))}
+          <Text color="gray" dimColor>  [ ] switch</Text>
+          {error ? <Text color="red">  {error}</Text> : null}
+        </Box>
+        {groupedResults.length > 0 ? (
+          <Box gap={3}>
+            <Text color="white">{groupedResults.length} sessions</Text>
+            <Text color="gray" dimColor>{results.length} hits</Text>
+            {providerSummary ? <Text color="gray" dimColor>{providerSummary}</Text> : null}
+          </Box>
+        ) : null}
+      </Box>
+
+      {/* Results + detail */}
+      <Box gap={1}>
+        <Box width="55%" borderStyle="round" borderColor={focusMode === "results" ? "cyan" : "gray"} paddingX={1} flexDirection="column">
+          <Box justifyContent="space-between">
+            <Text color="cyan">Results</Text>
+            {groupedResults.length > 0 ? (
+              <Text color="gray" dimColor>{visibleGroups.start + 1}–{visibleGroups.end}/{groupedResults.length}</Text>
+            ) : null}
+          </Box>
+          {groupedResults.length === 0 && !loading ? (
+            <Text color="gray" dimColor>{query.trim().length < 2 ? "Enter at least 2 characters." : "No results found."}</Text>
           ) : null}
-          {groupedResults.length === 0 ? <Text color="gray">No search results</Text> : null}
           {visibleGroups.items.map((group, offset) => {
-            const index = visibleGroups.start + offset;
-            const focused = index === selectedIndex;
+            const idx = visibleGroups.start + offset;
+            const focused = idx === selectedIndex;
+            const pColor = PROVIDER_COLOR[group.provider] ?? "white";
+            const snippet = focused ? (group.snippets[snippetIndex] ?? "") : "";
             return (
               <Box key={group.key} flexDirection="column" marginTop={1}>
-                <Text color={focused ? "green" : "white"}>
-                  {focused ? "›" : " "} {truncate(group.title, 68)}
-                </Text>
-                <Text color="gray">
-                  {group.provider} · match {group.matchCount} · {formatDateLabel(group.mtime)}
-                </Text>
-                <Text color={focused ? "white" : "gray"}>
-                  {truncate(group.snippets[0] || "-", 82)}
-                </Text>
+                <Box gap={1}>
+                  <Text color={focused ? "green" : "gray"}>{focused ? "›" : " "}</Text>
+                  <Text color={pColor} dimColor={!focused}>{providerBadge(group.provider)}</Text>
+                  <Text color={focused ? "white" : "gray"} bold={focused}>{truncate(group.title, 54)}</Text>
+                </Box>
+                <Box gap={3} paddingLeft={2}>
+                  <Text color="gray" dimColor>{group.matchCount} hit{group.matchCount !== 1 ? "s" : ""}</Text>
+                  <Text color="gray" dimColor>{formatDateLabel(group.mtime)}</Text>
+                  {group.threadId ? <Text color="green" dimColor>cleanup</Text> : null}
+                </Box>
+                {focused && snippet ? (
+                  <Box paddingLeft={2}>
+                    <Text color="gray">{truncate(snippet.replace(/\s+/g, " ").trim(), 86)}</Text>
+                  </Box>
+                ) : null}
+                {focused && group.snippets.length > 1 ? (
+                  <Box paddingLeft={2}>
+                    <Text color="gray" dimColor>snippet {snippetIndex + 1}/{group.snippets.length}  n/p ←/→</Text>
+                  </Box>
+                ) : null}
               </Box>
             );
           })}
         </Box>
-        <Box width="42%" borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
-          <Text color="cyan">Selection detail</Text>
+
+        <Box width="45%" borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
+          <Text color="cyan">Detail</Text>
           {selected ? (
             <>
-              <Text>{truncate(selected.title, 56)}</Text>
-              <Text color="gray">{selected.provider}</Text>
-              <Text color="gray">{truncate(selected.filePath, 56)}</Text>
-              <Text color="gray">{selected.source}</Text>
-              <Text color="yellow">
-                snippets {selected.snippets.length} · {selected.threadId ? "Ctrl+O cleanup ready" : "session only"}
-              </Text>
-              {selected.snippets.length > 1 ? (
-                <Text color="gray">
-                  snippet {snippetIndex + 1}/{selected.snippets.length} · n/p or ←/→
-                </Text>
-              ) : null}
-              <Text>{truncate(selected.snippets[snippetIndex] || "-", 120)}</Text>
+              <Box gap={1} alignItems="flex-start" marginTop={1}>
+                <Text color={PROVIDER_COLOR[selected.provider] ?? "white"} bold>{providerBadge(selected.provider)}</Text>
+                <Text color="white">{truncate(selected.title, 46)}</Text>
+              </Box>
+              <Text color="gray" dimColor>{truncate(selected.filePath, 58)}</Text>
+              <Box gap={3}>
+                <Text color="gray" dimColor>{selected.source}</Text>
+                <Text color="gray" dimColor>{formatDateLabel(selected.mtime)}</Text>
+              </Box>
+              {selected.snippets.length > 0 ? (
+                <Box flexDirection="column" marginTop={1} borderStyle="single" borderColor="gray" paddingX={1}>
+                  <Box justifyContent="space-between">
+                    <Text color="gray" dimColor>snippet</Text>
+                    {selected.snippets.length > 1 ? (
+                      <Text color="gray" dimColor>{snippetIndex + 1}/{selected.snippets.length}</Text>
+                    ) : null}
+                  </Box>
+                  <Text color="white">
+                    {truncate((selected.snippets[snippetIndex] ?? "").replace(/\s+/g, " ").trim(), 200)}
+                  </Text>
+                </Box>
+              ) : (
+                <Text color="gray" dimColor>No snippet.</Text>
+              )}
+              <Box gap={3} marginTop={1}>
+                <Text color="green" dimColor>Enter open</Text>
+                {selected.threadId ? <Text color="yellow" dimColor>Ctrl+O cleanup</Text> : null}
+              </Box>
             </>
           ) : (
-            <Text color="gray">Select a search result.</Text>
+            <Text color="gray" dimColor>Select a result.</Text>
           )}
         </Box>
       </Box>
