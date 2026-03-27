@@ -176,22 +176,8 @@
 }
 
 .provider-workspace-bar {
-  padding-top: 16px;
-}
-
-.provider-workspace-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 24px;
-  flex-wrap: wrap;
-}
-
-.provider-workspace-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
+  display: grid;
+  gap: 10px;
 }
 
 .provider-archive-stage {
@@ -314,7 +300,7 @@
 .provider-summary-cell {
   border: 1px solid var(--surface-card-border);
   border-radius: 12px;
-  background: var(--surface-card-bg-ghost);
+  background: var(--surface-thread-status-card);
   padding: 7px 12px;
   display: flex;
   flex-direction: row;
@@ -618,10 +604,9 @@
 }
 
 .ai-management-focusbar {
-  padding: 0 20px;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
 }
 
