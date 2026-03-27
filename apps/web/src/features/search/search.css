@@ -682,9 +682,18 @@
 }
 
 .search-match-more {
+  display: block;
+  background: none;
+  border: none;
+  padding: 2px 0 0;
   color: var(--text-secondary);
   font-size: var(--text-xs);
-  padding-top: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.search-match-more:hover {
+  color: var(--text);
 }
 
 .search-result-actions {

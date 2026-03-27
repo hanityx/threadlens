@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState, useCallback, useTransition } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "../../api";
 import type { ConversationSearchEnvelope, ConversationSearchHit } from "../../types";
@@ -128,65 +128,7 @@ function compactSearchTitle(hit: ConversationSearchHit): string {
 function compactSearchSnippet(hit: ConversationSearchHit): string {
   const raw = String(hit.snippet || "").replace(/\s+/g, " ").trim();
   if (!raw) return "";
-  const normalized = raw
-    .replace(/^#\s*AGENTS\.md instructions for .*?<INSTRUCTIONS>\s*/i, "AGENTS instructions ")
-    .replace(/^#\s*Global AGENTS\s*/i, "Global agents ")
-    .replace(/\/Users\/[^\s)]+/g, "workspace path")
-    .trim();
-  const lower = normalized.toLowerCase();
-  const rolePrefix =
-    hit.role === "assistant"
-      ? "Assistant"
-      : hit.role === "tool"
-        ? "Tool"
-        : hit.role === "developer" || hit.role === "system"
-          ? "Policy"
-          : "User";
-  const providerLabel = compactProviderName(hit.provider);
-
-  if (lower.includes("agents instructions") || lower.includes("global agents")) {
-    return `${providerLabel} policy note on workspace rules.`;
-  }
-  if (
-    lower.includes("workspace path") ||
-    lower.includes(".jsonl") ||
-    lower.includes("rollout-")
-  ) {
-    return `${providerLabel} archive path note with workspace context.`;
-  }
-  if (
-    lower.includes("diagnostics") ||
-    lower.includes("provider") ||
-    lower.includes("parser") ||
-    lower.includes("flow")
-  ) {
-    return lower.includes("parser") || lower.includes("flow")
-      ? `${providerLabel} parser and flow diagnostics.`
-      : `${providerLabel} provider diagnostics note.`;
-  }
-  if (
-    lower.includes("review") ||
-    lower.includes("flagged") ||
-    lower.includes("impact") ||
-    lower.includes("cleanup")
-  ) {
-    if (lower.includes("cleanup")) return `${providerLabel} cleanup note from the review trail.`;
-    if (lower.includes("flagged")) return `${providerLabel} flagged review note.`;
-    return `${providerLabel} review trace with impact context.`;
-  }
-  if (
-    lower.includes("session") ||
-    lower.includes("transcript") ||
-    lower.includes("assistant") ||
-    lower.includes("user")
-  ) {
-    if (rolePrefix === "Assistant") return `${providerLabel} assistant reply from the archived session.`;
-    if (rolePrefix === "Tool") return `${providerLabel} tool output from the archived session.`;
-    if (rolePrefix === "Policy") return `${providerLabel} policy note from the archived session.`;
-    return "User prompt from the archived session.";
-  }
-
-  return normalized.length > 118 ? `${normalized.slice(0, 115)}…` : normalized;
+  return raw.length > 200 ? `${raw.slice(0, 197)}…` : raw;
 }
 
 function searchHitDedupKey(hit: ConversationSearchHit): string {
@@ -213,6 +155,9 @@ export function SearchPanel({
   const [query, setQuery] = useState("");
   const [provider, setProvider] = useState("all");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(() => new Set());
+  const [activeSessionKey, setActiveSessionKey] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
   const [recentSearches, setRecentSearches] = useState<RecentSearch[]>(
     () => loadRecentSearches(),
   );
@@ -246,7 +191,12 @@ export function SearchPanel({
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setDebouncedQuery(query.trim());
+      const next = query.trim();
+      setDebouncedQuery(next);
+      startTransition(() => {
+        setExpandedSessions(new Set());
+        setActiveSessionKey(null);
+      });
     }, 180);
     return () => window.clearTimeout(timer);
   }, [query]);
@@ -621,19 +571,26 @@ export function SearchPanel({
                   </div>
                   <div className="search-group-list">
                     {group.sessions.map((session) => {
-                      const providerName = providerLabelById.get(session.openHit.provider) ?? session.openHit.provider;
-                      const previewMatches = session.matches.slice(0, 1);
-                      const remainingMatches = session.matches.length - previewMatches.length;
+                      const cardProviderName = providerLabelById.get(session.openHit.provider) ?? session.openHit.provider;
+                      const isExpanded = expandedSessions.has(session.key);
+                      const isActive = activeSessionKey === session.key;
+                      const previewMatches = isExpanded ? session.matches : session.matches.slice(0, 1);
+                      const remainingMatches = session.matches.length - 1;
+                      const cardKey = `${group.id}:${session.key}`;
                       return (
                         <article
-                          key={`${group.id}:${session.key}`}
-                          className="search-result-card search-result-card-stage"
+                          key={cardKey}
+                          className={`search-result-card search-result-card-stage${isActive ? " is-active" : ""}`}
                           tabIndex={0}
                           role="button"
-                          onClick={() => onOpenSession(session.openHit)}
+                          onClick={() => {
+                            setActiveSessionKey(session.key);
+                            onOpenSession(session.openHit);
+                          }}
                           onKeyDown={(event) => {
                             if (event.key === "Enter" || event.key === " ") {
                               event.preventDefault();
+                              setActiveSessionKey(session.key);
                               onOpenSession(session.openHit);
                             }
                           }}
@@ -645,7 +602,7 @@ export function SearchPanel({
                               </strong>
                             </div>
                             <div className="search-result-top">
-                              <span className="status-pill status-active">{providerName}</span>
+                              <span className="status-pill status-active">{cardProviderName}</span>
                               <span className="search-result-kind">{session.matches.length} hits</span>
                             </div>
                           </div>
@@ -662,6 +619,7 @@ export function SearchPanel({
                                 className="status-pill-button search-inline-pill"
                                 onClick={(event) => {
                                   event.stopPropagation();
+                                  setActiveSessionKey(session.key);
                                   onOpenSession(session.openHit);
                                 }}
                               >
@@ -673,6 +631,7 @@ export function SearchPanel({
                                   className="status-pill-button search-inline-pill"
                                   onClick={(event) => {
                                     event.stopPropagation();
+                                    setActiveSessionKey(session.key);
                                     onOpenThread(session.openHit);
                                   }}
                                 >
@@ -698,9 +657,24 @@ export function SearchPanel({
                               </div>
                             ))}
                             {remainingMatches > 0 ? (
-                              <div className="search-match-more">
-                                +{remainingMatches} more
-                              </div>
+                              <button
+                                type="button"
+                                className="search-match-more"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setExpandedSessions((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(session.key)) {
+                                      next.delete(session.key);
+                                    } else {
+                                      next.add(session.key);
+                                    }
+                                    return next;
+                                  });
+                                }}
+                              >
+                                {isExpanded ? "▲ collapse" : `+${remainingMatches} more`}
+                              </button>
                             ) : null}
                           </div>
                         </article>
