@@ -54,8 +54,10 @@
 
   --assistant-bg: rgba(149, 174, 187, 0.05);
   --assistant-border: rgba(149, 174, 187, 0.18);
+  --assistant-label: #7ab8a0;
   --user-bg: rgba(181, 194, 202, 0.05);
   --user-border: rgba(181, 194, 202, 0.18);
+  --user-label: #7ea8c8;
 
   --focus-ring: rgba(181, 194, 202, 0.24);
   --badge-bg: rgba(226, 235, 239, 0.08);
@@ -353,8 +355,10 @@
   --chat-log-bg: #f8f9fb;
   --assistant-bg: rgba(73, 97, 119, 0.05);
   --assistant-border: rgba(73, 97, 119, 0.14);
+  --assistant-label: #3a7a60;
   --user-bg: rgba(84, 96, 110, 0.05);
   --user-border: rgba(84, 96, 110, 0.12);
+  --user-label: #3a6a9a;
   --focus-ring: rgba(73, 97, 119, 0.18);
   --badge-bg: rgba(73, 97, 119, 0.08);
   --badge-text: #3c546a;

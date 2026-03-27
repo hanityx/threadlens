@@ -72,27 +72,31 @@
 }
 
 .chat-log {
-  max-height: 420px;
+  max-height: 680px;
   overflow: auto;
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-md);
-  padding: 14px;
+  padding: 16px;
   background: var(--chat-log-bg);
-  display: grid;
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scroll-behavior: smooth;
 }
 
 .chat-item {
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-md);
-  padding: 14px 16px;
+  padding: 12px 16px;
   display: grid;
-  gap: 6px;
-  transition: border-color var(--transition);
+  gap: 8px;
+  transition: border-color var(--transition), box-shadow var(--transition);
+  position: relative;
 }
 
 .chat-item:hover {
   border-color: var(--line);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 
 .chat-item header {
@@ -107,10 +111,21 @@
 
 .chat-item header strong {
   text-transform: uppercase;
-  font-size: var(--text-sm);
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   color: var(--text-secondary);
+  opacity: 0.75;
+}
+
+.chat-item.role-user header strong {
+  color: var(--user-label, #6b9fc4);
+  opacity: 1;
+}
+
+.chat-item.role-assistant header strong {
+  color: var(--assistant-label, #7aad8f);
+  opacity: 1;
 }
 
 .chat-item header span {
@@ -123,15 +138,61 @@
   white-space: pre-wrap;
   word-break: break-word;
   font-size: var(--text-md);
-  line-height: 1.55;
+  line-height: 1.6;
+  max-height: 320px;
+  overflow: hidden;
+  position: relative;
+}
+
+.chat-item p.chat-text-expanded {
+  max-height: none;
+}
+
+.chat-item p:not(.chat-text-expanded):is(:has(+ .chat-expand-btn)) {
+  -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+}
+
+.chat-expand-btn {
+  display: inline-block;
+  margin-top: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.chat-expand-btn:hover {
+  color: var(--text);
 }
 
 .chat-item.role-user {
   border-color: var(--user-border);
   background: var(--user-bg);
+  border-left-width: 3px;
 }
 
 .chat-item.role-assistant {
   border-color: var(--assistant-border);
   background: var(--assistant-bg);
+  border-left-width: 3px;
+}
+
+.chat-item.role-tool,
+.chat-item.role-system,
+.chat-item.role-developer {
+  opacity: 0.7;
+  font-size: var(--text-sm);
+}
+
+.chat-item.role-tool p,
+.chat-item.role-system p,
+.chat-item.role-developer p {
+  font-size: var(--text-sm);
+  font-family: var(--font-mono, monospace);
+  line-height: 1.45;
 }

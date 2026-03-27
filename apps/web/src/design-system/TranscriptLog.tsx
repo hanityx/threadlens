@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { Messages } from "../i18n";
 import { formatDateTime } from "../lib/helpers";
 
@@ -25,6 +25,47 @@ type Props = {
 };
 
 type RoleFilter = TranscriptMessage["role"] | "all" | "dialog";
+
+const COLLAPSE_THRESHOLD = 600;
+
+function ChatMessage({
+  msg,
+  roleLabel,
+}: {
+  msg: TranscriptMessage;
+  roleLabel: (role: TranscriptMessage["role"]) => string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const pRef = useRef<HTMLParagraphElement>(null);
+  const [overflows, setOverflows] = useState(false);
+
+  useEffect(() => {
+    const el = pRef.current;
+    if (!el) return;
+    setOverflows(el.scrollHeight > COLLAPSE_THRESHOLD);
+  }, [msg.text]);
+
+  return (
+    <article className={`chat-item role-${msg.role}`}>
+      <header>
+        <strong>{roleLabel(msg.role)}</strong>
+        <span>{msg.ts ? formatDateTime(msg.ts) : msg.source_type}</span>
+      </header>
+      <p ref={pRef} className={expanded ? "chat-text-expanded" : undefined}>
+        {msg.text}
+      </p>
+      {overflows ? (
+        <button
+          type="button"
+          className="chat-expand-btn"
+          onClick={() => setExpanded((prev) => !prev)}
+        >
+          {expanded ? "▲ collapse" : "▼ show full message"}
+        </button>
+      ) : null}
+    </article>
+  );
+}
 
 export function TranscriptLog({
   messages,
@@ -147,13 +188,7 @@ export function TranscriptLog({
         {loading ? <div className="skeleton-line" /> : null}
         {!loading && filteredTranscript.length === 0 ? <p className="sub-hint">{resolvedEmptyLabel}</p> : null}
         {renderedTranscript.map((msg) => (
-          <article key={`msg-${msg.idx}-${msg.ts ?? "na"}`} className={`chat-item role-${msg.role}`}>
-            <header>
-              <strong>{roleLabel(msg.role)}</strong>
-              <span>{msg.ts ? formatDateTime(msg.ts) : msg.source_type}</span>
-            </header>
-            <p>{msg.text}</p>
-          </article>
+          <ChatMessage key={`msg-${msg.idx}-${msg.ts ?? "na"}`} msg={msg} roleLabel={roleLabel} />
         ))}
         {!loading && hasMoreRenderedTranscript ? (
           <p className="sub-hint">{messages.transcript.previewHint}</p>
