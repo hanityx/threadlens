@@ -730,7 +730,7 @@
   display: grid;
   gap: 9px;
   padding: 16px 16px 15px;
-  border-radius: 22px;
+  border-radius: var(--radius-modal);
   background: var(--surface-overview-history-item-bg);
   border-color: var(--surface-overview-history-item-border);
   box-shadow: none;
@@ -853,7 +853,7 @@
 
 .overview-status-grid article {
   border: 1px solid var(--surface-card-border);
-  border-radius: 22px;
+  border-radius: var(--radius-modal);
   background: var(--surface-card-bg-ghost);
   padding: 12px 13px 11px;
   display: grid;
@@ -933,7 +933,7 @@
 
 .overview-primary-card {
   border: 1px solid rgba(114, 131, 147, 0.12);
-  border-radius: 22px;
+  border-radius: var(--radius-modal);
   padding: 14px 14px 12px;
   display: grid;
   gap: 4px;
@@ -1062,7 +1062,7 @@
   flex-wrap: wrap;
   gap: 8px 18px;
   border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 18px;
+  border-radius: var(--radius-container);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.06) 32%, rgba(24, 28, 33, 0.24) 100%);
   box-shadow:

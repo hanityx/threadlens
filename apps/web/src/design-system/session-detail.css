@@ -446,7 +446,7 @@
   gap: 3px;
   padding: 8px 9px;
   border: 1px solid var(--surface-detail-empty-border);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background: var(--surface-nav-ghost);
   box-shadow: none;
 }
@@ -598,7 +598,7 @@
 
 .thread-review-panel .impact-list li {
   padding: 9px 10px;
-  border-radius: 12px;
+  border-radius: var(--radius-card);
 }
 
 .thread-review-empty-guide {
@@ -612,7 +612,7 @@
   gap: 4px;
   padding: 10px 11px;
   border: 1px solid var(--surface-detail-empty-border);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background: var(--surface-nav-ghost);
 }
 
@@ -647,7 +647,7 @@
 .thread-review-panel .chat-item {
   padding: 8px 10px;
   gap: 3px;
-  border-radius: 12px;
+  border-radius: var(--radius-card);
 }
 
 .thread-review-panel .chat-item header {

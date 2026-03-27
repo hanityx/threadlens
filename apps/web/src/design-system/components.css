@@ -250,18 +250,6 @@ button:disabled {
   box-shadow: none;
 }
 
-.btn-danger {
-  background: var(--btn-danger-bg);
-  color: #ffe4e6;
-  font-weight: 700;
-  box-shadow: none;
-}
-
-.btn-danger:hover {
-  background: var(--btn-danger-hover-bg);
-  box-shadow: none;
-}
-
 .btn-outline {
   background: var(--surface-btn-outline);
   color: var(--text);
@@ -536,7 +524,7 @@ pre {
   background:
     radial-gradient(circle at 100% 0%, rgba(255, 148, 148, 0.14), transparent 28%),
     linear-gradient(180deg, rgba(52, 25, 28, 0.92), rgba(24, 14, 16, 0.98));
-  border-radius: 22px;
+  border-radius: var(--radius-modal);
   padding: 14px 16px;
   color: rgba(255, 215, 215, 0.9);
   font-size: var(--text-md);
@@ -590,7 +578,7 @@ pre {
   background:
     radial-gradient(circle at 100% 0%, rgba(188, 199, 219, 0.12), transparent 28%),
     linear-gradient(180deg, rgba(30, 33, 39, 0.92), rgba(17, 19, 24, 0.98));
-  border-radius: 22px;
+  border-radius: var(--radius-modal);
   padding: 14px 16px;
   color: rgba(232, 235, 242, 0.92);
   font-size: var(--text-md);

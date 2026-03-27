@@ -132,7 +132,7 @@
 
 .thread-status-card {
   border: 1px solid var(--surface-card-border);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background: var(--surface-thread-status-card);
   padding: 7px 12px;
   display: flex;
@@ -176,12 +176,12 @@
 }
 
 .thread-status-card.is-warn {
-  border-color: #f59e0b44;
-  background: color-mix(in srgb, #f59e0b 8%, transparent);
+  border-color: var(--state-amber-border);
+  background: var(--state-amber-bg);
 }
 
 .thread-status-card.is-warn strong {
-  color: #f59e0b;
+  color: var(--color-amber);
 }
 
 .sticky-action-bar {
@@ -315,7 +315,7 @@
 .info-box {
   border: 1px solid var(--surface-card-border);
   background: var(--surface-card-bg-strong);
-  border-radius: 22px;
+  border-radius: var(--radius-modal);
   padding: 14px 16px;
   display: grid;
   gap: 8px;

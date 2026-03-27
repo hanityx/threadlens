@@ -17,7 +17,7 @@
   margin-top: 0;
   padding: 14px 16px 16px;
   border: 1px solid var(--surface-stage-border-subtle);
-  border-radius: 18px;
+  border-radius: var(--radius-container);
   background: var(--surface-stage-subtle);
   box-shadow: var(--surface-card-shadow);
   backdrop-filter: blur(var(--blur-md));
@@ -61,7 +61,7 @@
 .provider-routing-tools-main .session-routing-disclosure {
   width: 100%;
   border: 1px solid var(--surface-stage-border-soft);
-  border-radius: 18px;
+  border-radius: var(--radius-container);
   background: var(--surface-card-bg-subtle);
   box-shadow: var(--surface-card-shadow);
   backdrop-filter: blur(var(--blur-sm));
@@ -74,7 +74,7 @@
   gap: 16px;
   padding: 16px 18px;
   border: 0;
-  border-radius: 18px;
+  border-radius: var(--radius-container);
   background: transparent;
   box-shadow: none;
 }
@@ -206,7 +206,7 @@
 .provider-workspace-primary,
 .provider-workspace-actions {
   border: 1px solid var(--surface-card-border);
-  border-radius: 18px;
+  border-radius: var(--radius-container);
   background: var(--surface-card-bg-subtle);
   padding: 16px 18px;
   display: grid;
@@ -299,7 +299,7 @@
 
 .provider-summary-cell {
   border: 1px solid var(--surface-card-border);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background: var(--surface-thread-status-card);
   padding: 7px 12px;
   display: flex;
@@ -325,12 +325,12 @@
 }
 
 .provider-summary-cell.is-warn {
-  border-color: var(--surface-thread-status-accent-border, #f59e0b44);
-  background: color-mix(in srgb, #f59e0b 8%, transparent);
+  border-color: var(--state-amber-border);
+  background: var(--state-amber-bg);
 }
 
 .provider-summary-cell.is-warn strong {
-  color: #f59e0b;
+  color: var(--color-amber);
 }
 
 .provider-summary-cell.is-ok strong {
@@ -521,7 +521,7 @@
   min-height: 100%;
   align-items: flex-start;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background: transparent;
   box-shadow: none;
   color: var(--text-secondary);
@@ -668,7 +668,7 @@
   box-shadow: none;
   backdrop-filter: none;
   margin-top: 0;
-  border-radius: 18px;
+  border-radius: var(--radius-container);
 }
 
 .session-routing-disclosure summary {
@@ -868,7 +868,7 @@
 .provider-session-stage {
   overflow: hidden;
   border: 1px solid var(--surface-stage-border);
-  border-radius: 22px;
+  border-radius: var(--radius-modal);
   background: var(--surface-stage-subtle);
   box-shadow: var(--surface-stage-shadow);
   backdrop-filter: blur(var(--blur-lg));

@@ -306,12 +306,23 @@
 
   --radius-sm: 6px;
   --radius-md: 10px;
+  --radius-card: 12px;
   --radius-lg: 14px;
+  --radius-container: 18px;
   --radius-xl: 20px;
+  --radius-modal: 22px;
   --radius-shell-md: 24px;
   --radius-shell-lg: 28px;
   --radius-shell-xl: 32px;
   --radius-pill: 999px;
+
+  --color-amber: #f59e0b;
+  --state-amber-border: color-mix(in srgb, #f59e0b 27%, transparent);
+  --state-amber-bg: color-mix(in srgb, #f59e0b 8%, transparent);
+  --color-error: #ef4444;
+  --color-danger-text: #f87171;
+  --state-danger-bg: rgba(239, 68, 68, 0.1);
+  --state-danger-bg-subtle: rgba(239, 68, 68, 0.08);
   --transition: 180ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }

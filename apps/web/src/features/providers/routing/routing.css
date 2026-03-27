@@ -133,7 +133,7 @@
 
 .routing-node-card {
   border: 1px solid var(--surface-card-border);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   padding: 9px 10px;
   background: var(--surface-card-strong-subtle);
   display: grid;
@@ -303,7 +303,7 @@
   grid-template-columns: minmax(0, 1fr);
   align-items: flex-start;
   gap: 6px;
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   padding: 10px 11px;
   font-size: var(--text-sm);
 }
@@ -477,7 +477,7 @@
 }
 
 .routing-workbench-panel .compact-list li {
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   padding: 10px 11px;
   font-size: var(--text-sm);
   box-shadow: none;
@@ -619,7 +619,7 @@
 }
 
 .sync-lens-score-fill.is-bad {
-  background: linear-gradient(90deg, #f59e0b, #ef4444);
+  background: linear-gradient(90deg, var(--color-amber), var(--color-error));
 }
 
 .sync-lens-host-grid-wrap {
@@ -833,8 +833,8 @@
 
 .sync-lens-issue-severity.is-high {
   border-color: var(--state-danger-border);
-  color: #f87171;
-  background: rgba(239, 68, 68, 0.1);
+  color: var(--color-danger-text);
+  background: var(--state-danger-bg);
 }
 
 .sync-lens-issue-severity.is-medium {
@@ -881,8 +881,8 @@
 
 .sync-lens-action-risk.is-high {
   border-color: var(--state-danger-border);
-  color: #f87171;
-  background: rgba(239, 68, 68, 0.08);
+  color: var(--color-danger-text);
+  background: var(--state-danger-bg-subtle);
 }
 
 .sync-lens-action-risk.is-medium {
