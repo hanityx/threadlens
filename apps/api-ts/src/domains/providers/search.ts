@@ -65,6 +65,20 @@ type TranscriptSearchCacheEntry = {
   transcript: TranscriptPayload | null;
 };
 
+// Detects injected policy/system-prompt messages that appear as user role in Codex sessions.
+// These are AGENTS.md instructions, permission blocks, or assistant persona declarations
+// injected at conversation start — not actual user input.
+function isPolicyInjectionMessage(text: string): boolean {
+  const t = text.trimStart();
+  return (
+    t.startsWith("# AGENTS.md instructions for") ||
+    t.startsWith("<INSTRUCTIONS>") ||
+    t.startsWith("<permissions instructions>") ||
+    /^You are (Codex|Assist|Claude|Gemini|GPT|ChatGPT|Copilot)\b/i.test(t) ||
+    (t.startsWith("# ") && t.includes("<INSTRUCTIONS>"))
+  );
+}
+
 const providerScanCache = new Map<string, ProviderScanCacheEntry>();
 const providerScanInflight = new Map<string, Promise<ProviderSessionScan>>();
 const transcriptSearchCache = new Map<string, TranscriptSearchCacheEntry>();
@@ -453,6 +467,8 @@ export async function searchConversationRows(
 
       for (let i = 0; i < transcript.messages.length; i += 1) {
         const message = transcript.messages[i];
+        if (message.role === "system" || message.role === "tool") continue;
+        if (isPolicyInjectionMessage(message.text)) continue;
         if (!matchesConversationSearch(message.text, normalizedQuery, tokens)) {
           continue;
         }
