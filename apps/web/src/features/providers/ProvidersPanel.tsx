@@ -339,9 +339,9 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     () => sortedProviderSessionRows.slice(0, renderLimit),
     [sortedProviderSessionRows, renderLimit],
   );
-  const providerWorkspaceRecentRows = useMemo(
-    () => sortedProviderSessionRows.slice(0, 3),
-    [sortedProviderSessionRows],
+  const archivedSessionCount = useMemo(
+    () => providerSessionRows.filter((row) => row.source === "archived_sessions").length,
+    [providerSessionRows],
   );
   useEffect(() => {
     setRenderLimit(120);
@@ -653,12 +653,8 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
           sources: selectedManagementCard ? selectedProviderPresentSources : detectedDataSourceCount,
           transcriptReady: selectedManagementCard ? selectedProviderTranscriptReady : providerSessionSummary.parse_ok ?? 0,
           parseFail: selectedManagementCard ? selectedManagementCard.parseFail : parserSummary.parse_fail ?? 0,
-        }}
-        providerWorkspaceRecentRows={providerWorkspaceRecentRows}
-        selectedSessionPath={selectedSessionPath}
-        onSelectRecentRow={(row) => {
-          setSelectedSessionPath(row.file_path);
-          setParserDetailProvider(row.provider);
+          archived: archivedSessionCount,
+          lastRefreshAt: providersLastRefreshAt,
         }}
       />
 

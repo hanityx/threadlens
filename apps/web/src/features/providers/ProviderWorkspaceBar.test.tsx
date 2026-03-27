@@ -1,7 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { Messages } from "../../i18n";
-import type { ProviderSessionRow } from "../../types";
 import { ProviderWorkspaceBar } from "./ProviderWorkspaceBar";
 
 const messages = {
@@ -18,60 +17,35 @@ const messages = {
   },
 } as unknown as Messages;
 
-const recentRows: ProviderSessionRow[] = [
-  {
-    provider: "codex",
-    source: "history",
-    session_id: "session-1234567890",
-    display_title: "Codex cleanup run",
-    file_path: "/tmp/codex-session.jsonl",
-    size_bytes: 256,
-    mtime: "2026-03-24T08:00:00.000Z",
-    probe: {
-      ok: true,
-      format: "jsonl",
-      error: null,
-      detected_title: "Codex cleanup run",
-      title_source: "header",
-    },
-  },
-];
+const baseSummary = {
+  sessions: 12,
+  sources: 3,
+  transcriptReady: 10,
+  parseFail: 0,
+  archived: 0,
+  lastRefreshAt: "2026-03-27T08:00:00.000Z",
+};
 
 describe("ProviderWorkspaceBar", () => {
-  it("renders provider chips, summary metrics, and recent rows", () => {
-    const onSelectProviderView = vi.fn();
-    const onSelectRecentRow = vi.fn();
-
+  it("renders provider chips and summary metrics", () => {
     const html = renderToStaticMarkup(
       <ProviderWorkspaceBar
         messages={messages}
         providerLabel="Codex"
         providerView="codex"
         coreProviderTabs={[{ id: "codex", name: "Codex" }]}
-        optionalProviderTabs={[{ id: "claude", name: "Claude" }]}
-        onSelectProviderView={onSelectProviderView}
-        summary={{
-          sessions: 12,
-          sources: 3,
-          transcriptReady: 10,
-          parseFail: 2,
-        }}
-        providerWorkspaceRecentRows={recentRows}
-        selectedSessionPath="/tmp/codex-session.jsonl"
-        onSelectRecentRow={onSelectRecentRow}
+        optionalProviderTabs={[{ id: "claude", name: "Claude CLI" }]}
+        onSelectProviderView={() => undefined}
+        summary={baseSummary}
       />,
     );
 
     expect(html).toContain("Codex sessions");
-    expect(html).toContain("Optional providers");
     expect(html).toContain("Sessions");
     expect(html).toContain("Transcript");
-    expect(html).toContain("Codex cleanup run");
-    expect(onSelectProviderView).not.toHaveBeenCalled();
-    expect(onSelectRecentRow).not.toHaveBeenCalled();
   });
 
-  it("renders empty recent-row state without the list", () => {
+  it("renders parse-fail warning when parseFail > 0", () => {
     const html = renderToStaticMarkup(
       <ProviderWorkspaceBar
         messages={messages}
@@ -80,18 +54,26 @@ describe("ProviderWorkspaceBar", () => {
         coreProviderTabs={[]}
         optionalProviderTabs={[]}
         onSelectProviderView={() => undefined}
-        summary={{
-          sessions: 0,
-          sources: 0,
-          transcriptReady: 0,
-          parseFail: 0,
-        }}
-        providerWorkspaceRecentRows={[]}
-        selectedSessionPath={null}
-        onSelectRecentRow={() => undefined}
+        summary={{ ...baseSummary, parseFail: 3 }}
       />,
     );
 
-    expect(html).not.toContain("recent rows");
+    expect(html).toContain("Parse fail");
+  });
+
+  it("renders archived count when > 0", () => {
+    const html = renderToStaticMarkup(
+      <ProviderWorkspaceBar
+        messages={messages}
+        providerLabel="All providers"
+        providerView="all"
+        coreProviderTabs={[]}
+        optionalProviderTabs={[]}
+        onSelectProviderView={() => undefined}
+        summary={{ ...baseSummary, archived: 5 }}
+      />,
+    );
+
+    expect(html).toContain("archived");
   });
 });

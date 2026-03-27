@@ -175,6 +175,15 @@
   box-shadow: var(--shadow-thread-status-accent), var(--surface-card-shadow);
 }
 
+.thread-status-card.is-warn {
+  border-color: #f59e0b44;
+  background: color-mix(in srgb, #f59e0b 8%, transparent);
+}
+
+.thread-status-card.is-warn strong {
+  color: #f59e0b;
+}
+
 .sticky-action-bar {
   background: var(--surface-card-bg-subtle);
   backdrop-filter: blur(var(--blur-sm));

@@ -1,7 +1,5 @@
 import type { Messages } from "../../i18n";
-import { formatDateTime } from "../../lib/helpers";
-import type { ProviderSessionRow, ProviderView } from "../../types";
-import { compactSessionTitle, suppressMouseFocus } from "./helpers";
+import type { ProviderView } from "../../types";
 
 type ProviderChipTab = {
   id: ProviderView;
@@ -20,10 +18,19 @@ export interface ProviderWorkspaceBarProps {
     sources: number;
     transcriptReady: number;
     parseFail: number;
+    archived: number;
+    lastRefreshAt: string;
   };
-  providerWorkspaceRecentRows: ProviderSessionRow[];
-  selectedSessionPath: string | null;
-  onSelectRecentRow: (row: ProviderSessionRow) => void;
+}
+
+function formatRefreshAge(iso: string): string {
+  if (!iso) return "-";
+  const diff = Date.now() - new Date(iso).getTime();
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  return `${Math.floor(m / 60)}h ago`;
 }
 
 export function ProviderWorkspaceBar({
@@ -34,105 +41,71 @@ export function ProviderWorkspaceBar({
   optionalProviderTabs,
   onSelectProviderView,
   summary,
-  providerWorkspaceRecentRows,
-  selectedSessionPath,
-  onSelectRecentRow,
 }: ProviderWorkspaceBarProps) {
+  const allTabs = [...coreProviderTabs, ...optionalProviderTabs];
+
   return (
     <section className="provider-workspace-bar">
-      <div className="provider-workspace-copy">
-        <span className="overview-note-label">sessions</span>
-        <strong>{providerLabel} sessions</strong>
-        <p>Browse, back up, and export.</p>
-      </div>
+      <div className="provider-workspace-header">
+        <div className="provider-workspace-copy">
+          <span className="overview-note-label">sessions</span>
+          <strong>{providerLabel} sessions</strong>
+          <p>Browse, back up, and export.</p>
+        </div>
 
-      <div className="provider-workspace-primary">
-        <div className="ai-management-focusbar">
-          <button
-            type="button"
-            className={`provider-chip ${providerView === "all" ? "is-active" : ""}`.trim()}
-            onClick={() => onSelectProviderView("all")}
-          >
-            {messages.common.allAi}
-          </button>
-          {coreProviderTabs.map((tab) => (
+        <div className="provider-workspace-meta">
+          <div className="ai-management-focusbar">
             <button
-              key={`core-provider-chip-${tab.id}`}
               type="button"
-              className={`provider-chip ${providerView === tab.id ? "is-active" : ""}`.trim()}
-              onClick={() => onSelectProviderView(tab.id)}
+              className={`provider-chip ${providerView === "all" ? "is-active" : ""}`.trim()}
+              onClick={() => onSelectProviderView("all")}
             >
-              {tab.name}
+              {messages.common.allAi}
             </button>
-          ))}
-          {optionalProviderTabs.length > 0 ? (
-            <details className="provider-chip-disclosure">
-              <summary>{messages.providers.optionalProvidersSummary}</summary>
-              <div className="provider-chip-disclosure-body">
-                {optionalProviderTabs.map((tab) => (
-                  <button
-                    key={`optional-provider-chip-${tab.id}`}
-                    type="button"
-                    className={`provider-chip ${providerView === tab.id ? "is-active" : ""}`.trim()}
-                    onClick={() => onSelectProviderView(tab.id)}
-                  >
-                    {tab.name}
-                  </button>
-                ))}
-              </div>
-            </details>
-          ) : null}
-        </div>
-
-        <div className="provider-workspace-summary">
-          <article className="provider-summary-cell">
-            <span>{messages.providers.hubMetricSessions}</span>
-            <strong>{summary.sessions}</strong>
-          </article>
-          <article className="provider-summary-cell">
-            <span>{messages.providers.hubMetricSources}</span>
-            <strong>{summary.sources}</strong>
-          </article>
-          <article className="provider-summary-cell">
-            <span>{messages.providers.hubMetricTranscript}</span>
-            <strong>{summary.transcriptReady}</strong>
-          </article>
-          <article className="provider-summary-cell">
-            <span>{messages.providers.hubMetricParseFail}</span>
-            <strong>{summary.parseFail}</strong>
-          </article>
-        </div>
-
-        {providerWorkspaceRecentRows.length > 0 ? (
-          <div className="provider-workspace-recent">
-            <div className="provider-workspace-recent-head">
-              <span className="overview-note-label">recent rows</span>
-              <span className="sub-hint">{providerWorkspaceRecentRows.length} shown</span>
-            </div>
-            <div className="provider-workspace-recent-list">
-              {providerWorkspaceRecentRows.map((row) => (
-                <button
-                  key={`workspace-recent-${row.file_path}`}
-                  type="button"
-                  className={`provider-workspace-recent-item ${selectedSessionPath === row.file_path ? "is-active" : ""}`.trim()}
-                  onMouseDown={suppressMouseFocus}
-                  onClick={() => onSelectRecentRow(row)}
-                >
-                  <strong>
-                    {compactSessionTitle(
-                      row.display_title || row.probe.detected_title,
-                      row.session_id,
-                    )}
-                  </strong>
-                  <span className="sub-hint">
-                    {providerView === "all" ? `${row.provider} · ` : ""}
-                    {formatDateTime(row.mtime)}
-                  </span>
-                </button>
-              ))}
-            </div>
+            {allTabs.map((tab) => (
+              <button
+                key={`provider-chip-${tab.id}`}
+                type="button"
+                className={`provider-chip ${providerView === tab.id ? "is-active" : ""}`.trim()}
+                onClick={() => onSelectProviderView(tab.id)}
+              >
+                {tab.name}
+              </button>
+            ))}
           </div>
-        ) : null}
+
+          <div className="provider-workspace-summary">
+            <article className="provider-summary-cell">
+              <span>{messages.providers.hubMetricSessions}</span>
+              <strong>{summary.sessions}</strong>
+            </article>
+            {summary.archived > 0 ? (
+              <article className="provider-summary-cell is-muted">
+                <span>archived</span>
+                <strong>{summary.archived}</strong>
+              </article>
+            ) : null}
+            <article className="provider-summary-cell">
+              <span>{messages.providers.hubMetricTranscript}</span>
+              <strong>{summary.transcriptReady}</strong>
+            </article>
+            {summary.parseFail > 0 ? (
+              <article className="provider-summary-cell is-warn">
+                <span>{messages.providers.hubMetricParseFail}</span>
+                <strong>{summary.parseFail}</strong>
+              </article>
+            ) : (
+              <article className="provider-summary-cell is-ok">
+                <span>parse</span>
+                <strong>OK</strong>
+              </article>
+            )}
+            <article className="provider-summary-cell is-muted">
+              <span>synced</span>
+              <strong>{formatRefreshAge(summary.lastRefreshAt)}</strong>
+            </article>
+          </div>
+        </div>
       </div>
     </section>
   );

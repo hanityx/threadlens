@@ -52,6 +52,8 @@ export function ThreadsWorkbench() {
   const selectedCount = selectedIds.length;
   const dryRunReady = Boolean(cleanupData?.confirm_token_expected);
   const selectedImpactCount = selectedImpactRows.length;
+  const highRiskVisibleCount = visibleRows.filter((r) => (r.risk_score ?? 0) >= 70).length;
+  const pinnedCount = visibleRows.filter((r) => r.is_pinned).length;
 
   return (
     <>
@@ -68,19 +70,30 @@ export function ThreadsWorkbench() {
           </div>
           <div className="thread-status-grid">
             <article className="thread-status-card">
-              <span>visible</span>
-              <strong>{visibleCount}/{filteredCount}</strong>
-              <p>rows</p>
+              <span>threads</span>
+              <strong>{filteredCount}</strong>
             </article>
-            <article className={`thread-status-card ${selectedCount > 0 ? "is-accent" : ""}`.trim()}>
-              <span>selected</span>
-              <strong>{selectedCount}</strong>
-              <p>selected</p>
-            </article>
+            {highRiskVisibleCount > 0 ? (
+              <article className="thread-status-card is-warn">
+                <span>high risk</span>
+                <strong>{highRiskVisibleCount}</strong>
+              </article>
+            ) : null}
+            {pinnedCount > 0 ? (
+              <article className="thread-status-card">
+                <span>pinned</span>
+                <strong>{pinnedCount}</strong>
+              </article>
+            ) : null}
+            {selectedCount > 0 ? (
+              <article className="thread-status-card is-accent">
+                <span>selected</span>
+                <strong>{selectedCount}</strong>
+              </article>
+            ) : null}
             <article className={`thread-status-card ${dryRunReady ? "is-ready" : ""}`.trim()}>
               <span>dry-run</span>
-              <strong>{dryRunReady ? "ready" : "pending"}</strong>
-              <p>{selectedImpactCount > 0 ? `${selectedImpactCount} impact` : "impact first"}</p>
+              <strong>{dryRunReady ? "ready" : "—"}</strong>
             </article>
           </div>
           <section className="toolbar cleanup-toolbar">
