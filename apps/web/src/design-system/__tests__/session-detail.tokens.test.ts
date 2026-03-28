@@ -25,7 +25,7 @@ describe("session detail token migration", () => {
     expect(sessionDetailStyles).toMatch(/\.session-detail-empty-summary strong,\s*\.session-detail-empty-next strong\s*{[^}]*font-size:\s*var\(--text-md\);/s);
     expect(sessionDetailStyles).toMatch(/\.session-detail-empty-next p\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
     expect(sessionDetailStyles).toMatch(/\.detail-hero-session-compact \.detail-hero-pill\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
-    expect(sessionDetailStyles).toMatch(/\.session-detail-panel \.transcript-summary-main strong\s*{[^}]*font-size:\s*var\(--text-md\);/s);
+    expect(sessionDetailStyles).toMatch(/\.session-detail-panel \.transcript-summary-main strong\s*{[^}]*font-size:\s*var\(--text-base\);/s);
     expect(sessionDetailStyles).toMatch(/\.session-detail-panel \.transcript-summary-meta\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
     expect(sessionDetailStyles).toMatch(/\.session-detail-empty-summary span,\s*\.session-detail-empty-next \.overview-note-label\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
     expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.detail-section > summary,\s*\.thread-review-panel \.detail-section-static-head\s*{[^}]*font-size:\s*var\(--text-xs\);/s);

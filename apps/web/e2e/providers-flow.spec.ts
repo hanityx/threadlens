@@ -6,20 +6,17 @@ const providersTabLabel = /^(Providers|Sessions|Source Sessions|Session Vault)$/
 const selectAllInTabLabel = /^(Select all in tab|Select all in current tab|Select tab)$/i;
 const selectAllFilteredLabel = /^(Select all filtered|Select all in current filter|Select filtered)$/i;
 const deleteDryRunLabel = /^(Delete dry-run|Delete source files \(dry-run\))$/i;
-const deleteLabel = /^(Delete|Delete source files|Delete locally)$/i;
 const bulkPinLabel = /^(Bulk Pin|Pin selected|Pin)$/i;
 const threadDetailTitle = /^(Thread Detail|Selected Thread Detail)$/i;
 const impactAnalysisLabel = /^(Impact Analysis|Impact)$/i;
 const cleanupDryRunLabel = /^(Cleanup Dry-Run|Dry-run)$/i;
-const originalSessionsTitle = /^(Sessions|Original Sessions|Source Sessions|Session Vault)$/i;
 const backupSelectedLabel = /^(Backup Selected Sessions|Back up selected sessions|Back up selected)$/i;
 const bundleAllBackupsLabel = /^(Bundle All Backups|Export backup bundle|Export full backup bundle|Export bundle)$/i;
 const searchTabLabel = /^(Search|Conversation Search)$/i;
 const searchPlaceholder = /^(Search your own words, filenames, or keywords|Search conversations)$/i;
 const codexSearchResultLabel = /Fix token flow/i;
 const claudeSearchResultLabel = /Claude notes/i;
-const openThreadLabel = /^(Open Codex Cleanup|Review)$/i;
-const openSessionLabel = /^(Open Source Session|Session)$/i;
+const openThreadLabel = /^(Open cleanup|Open Codex Cleanup|Review)$/i;
 
 type MockApiOptions = {
   providerActionCalls?: Array<Record<string, unknown>>;
@@ -48,8 +45,12 @@ async function openPrimaryView(page: Page, label: "Threads" | "Providers") {
     await expect(page.getByRole("button", { name: bulkPinLabel }).first()).toBeVisible();
     return;
   }
-  await expect(page.locator(".provider-workspace-bar").first()).toBeVisible();
-  await expect(page.getByRole("heading", { name: originalSessionsTitle }).first()).toBeVisible();
+  const workspaceBar = page.locator(".provider-workspace-bar").first();
+  await expect(workspaceBar).toBeVisible();
+  await expect(
+    workspaceBar.locator(".provider-workspace-copy strong").first(),
+  ).toContainText(/All providers|Codex CLI|Claude|Gemini/i);
+  await expect(page.locator(".provider-session-stage").first()).toBeVisible();
   await expect(
     page.locator(".provider-side-stack details").filter({ hasText: /Backup & export/i }).first(),
   ).toBeVisible();
@@ -439,11 +440,8 @@ test("providers workspace surfaces backup-first controls", async ({ page }, test
 
   await page.goto("/");
   await openPrimaryView(page, "Providers");
-  const sessionsPanel = page
-    .locator("section.panel")
-    .filter({ has: page.getByRole("heading", { name: originalSessionsTitle }) })
-    .last();
-  await expect(sessionsPanel.getByRole("heading", { name: originalSessionsTitle }).first()).toBeVisible();
+  const sessionsPanel = page.locator(".provider-session-stage").first();
+  await expect(sessionsPanel).toBeVisible();
   await page
     .locator(".provider-side-stack details")
     .filter({ hasText: /Backup & export/i })
@@ -485,14 +483,13 @@ test("delete action enforces dry-run token flow", async ({ page }) => {
   await page.locator("tbody input[type='checkbox']").first().check();
 
   const deleteDryRunButton = page.getByRole("button", { name: deleteDryRunLabel }).first();
-  const deleteButton = page.getByRole("button", { name: deleteLabel }).last();
   await deleteDryRunButton.click();
   await expect.poll(() => providerActionCalls.length).toBe(1);
 
   expect(providerActionCalls[0]?.dry_run).toBe(true);
   expect(providerActionCalls[0]?.confirm_token).toBe("");
 
-  await deleteButton.click();
+  await page.getByRole("button", { name: /^Execute Delete locally$/i }).click();
   await expect
     .poll(() =>
       providerActionCalls.some(
@@ -514,7 +511,6 @@ test("providers tab switches within performance budget", async ({ page }) => {
   await page.goto("/");
   const startedAt = Date.now();
   await openPrimaryView(page, "Providers");
-  await expect(page.getByRole("heading", { name: originalSessionsTitle }).first()).toBeVisible();
   const elapsedMs = Date.now() - startedAt;
 
   expect(elapsedMs).toBeLessThan(2500);
@@ -570,7 +566,7 @@ test("thread detail forensics actions send selected ids", async ({ page }) => {
   await expect(page.getByText("Forensics action test").first()).toBeVisible();
   await page.getByText("Forensics action test").first().click();
 
-  const threadDetailPanel = page.locator(".thread-review-panel").last();
+  const threadDetailPanel = page.locator(".thread-review-panel").first();
   await expect(threadDetailPanel).toBeVisible();
   await threadDetailPanel.locator("summary").filter({ hasText: /^Actions$/i }).click();
 
@@ -638,13 +634,6 @@ test("search groups results and routes into sessions and threads", async ({ page
 
   await page.getByRole("button", { name: searchTabLabel }).first().click();
   await page.locator("input.search-input-stage").fill("token");
-  await page.locator(".search-result-list").getByRole("button", { name: openSessionLabel }).first().click();
-  await expect(
-    page
-      .locator("section.panel")
-      .filter({ has: page.getByRole("heading", { name: originalSessionsTitle }) })
-      .last()
-      .getByRole("heading", { name: originalSessionsTitle })
-      .first(),
-  ).toBeVisible();
+  await page.locator(".search-result-list").getByRole("button", { name: /Fix token flow/i }).first().click();
+  await expect(page.locator(".session-detail-panel").first()).toContainText(/Token flow test thread/i);
 });

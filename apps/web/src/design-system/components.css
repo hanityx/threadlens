@@ -349,6 +349,100 @@ button:disabled {
   color: var(--muted);
 }
 
+.table-select-column {
+  width: 56px;
+  min-width: 56px;
+}
+
+.table-select-cell {
+  width: 56px;
+  min-width: 56px;
+  padding: 4px 8px;
+  vertical-align: middle;
+}
+
+.table-select-target {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 34px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--surface-card-strong-subtle) 68%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  transition:
+    background var(--transition),
+    border-color var(--transition),
+    box-shadow var(--transition),
+    transform var(--transition);
+}
+
+.table-select-target:hover {
+  border-color: color-mix(in srgb, var(--accent) 20%, var(--surface-border-subtle));
+  background: color-mix(in srgb, var(--surface-table-row-hover) 72%, var(--surface-card-strong-subtle));
+}
+
+.table-select-target.is-checked {
+  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-card-strong-subtle));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.table-select-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-subtle) 76%, var(--accent) 12%);
+  background: color-mix(in srgb, var(--surface-pill-bg) 84%, transparent);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition:
+    background var(--transition),
+    border-color var(--transition),
+    box-shadow var(--transition),
+    transform var(--transition);
+}
+
+.table-select-checkbox::after {
+  content: "";
+  width: 5px;
+  height: 9px;
+  border-right: 2px solid transparent;
+  border-bottom: 2px solid transparent;
+  transform: rotate(45deg) scale(0.78);
+  opacity: 0;
+  transition: opacity var(--transition), transform var(--transition), border-color var(--transition);
+}
+
+.table-select-checkbox:hover {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--surface-border-subtle));
+}
+
+.table-select-checkbox:checked {
+  border-color: color-mix(in srgb, var(--accent) 78%, transparent);
+  background: color-mix(in srgb, var(--accent) 92%, #ffffff 8%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.table-select-checkbox:checked::after {
+  opacity: 1;
+  transform: rotate(45deg) scale(1);
+  border-color: rgba(255, 255, 255, 0.96);
+}
+
+.table-select-checkbox:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
 :root[data-theme="light"] .status-active {
   color: #065f46;
   background: rgba(52, 211, 153, 0.10);

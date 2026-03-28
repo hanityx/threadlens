@@ -1,7 +1,7 @@
 import type { Messages } from "../../i18n";
 import { Button } from "../../design-system/Button";
 import { PanelHeader } from "../../design-system/PanelHeader";
-import type { CleanupPreviewData, ThreadRow } from "../../types";
+import type { ThreadRow } from "../../types";
 import { SKELETON_ROWS } from "../../types";
 import { normalizeDisplayValue } from "../../lib/helpers";
 
@@ -21,7 +21,7 @@ export interface ThreadsTableProps {
   toggleSelectAllFiltered: (checked: boolean) => void;
   selectedIds: string[];
   selectedImpactCount: number;
-  cleanupData: CleanupPreviewData | null;
+  dryRunReady: boolean;
 
   busy: boolean;
   threadActionsDisabled: boolean;
@@ -61,7 +61,7 @@ export function ThreadsTable(props: ThreadsTableProps) {
     toggleSelectAllFiltered,
     selectedIds,
     selectedImpactCount,
-    cleanupData,
+    dryRunReady,
     busy,
     threadActionsDisabled,
     bulkPin,
@@ -125,9 +125,9 @@ export function ThreadsTable(props: ThreadsTableProps) {
               {messages.threadsTable.workflowImpactTitle}{" "}
               {selectedImpactCount > 0 ? selectedImpactCount : messages.forensics.stagePending}
             </span>
-            <span className={`status-pill ${cleanupData?.confirm_token_expected ? "status-active" : "status-preview"}`}>
+            <span className={`status-pill ${dryRunReady ? "status-active" : "status-preview"}`}>
               {messages.threadsTable.workflowDryRunTitle}{" "}
-              {cleanupData?.confirm_token_expected ? messages.forensics.stageReady : messages.forensics.stagePending}
+              {dryRunReady ? messages.forensics.stageReady : messages.forensics.stagePending}
             </span>
           </div>
           <div className="thread-toolbar-group thread-toolbar-group-inline cleanup-inline-tools">
@@ -219,11 +219,11 @@ export function ThreadsTable(props: ThreadsTableProps) {
         <table>
           <thead>
             <tr>
-              <th></th>
-              <th>{messages.threadsTable.colTitle}</th>
-              <th>{messages.threadsTable.colRisk}</th>
-              <th>{messages.threadsTable.colPinned}</th>
-              <th>{messages.threadsTable.colSource}</th>
+              <th className="table-select-column"></th>
+              <th className="title-col">{messages.threadsTable.colTitle}</th>
+              <th className="col-risk">{messages.threadsTable.colRisk}</th>
+              <th className="col-pinned">{messages.threadsTable.colPinned}</th>
+              <th className="col-source">{messages.threadsTable.colSource}</th>
             </tr>
           </thead>
           <tbody>
@@ -238,13 +238,20 @@ export function ThreadsTable(props: ThreadsTableProps) {
                     setSelectedThreadId(row.thread_id);
                   }}
                 >
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={checked}
+                  <td className="table-select-cell">
+                    <label
+                      className={`table-select-target ${checked ? "is-checked" : ""}`.trim()}
                       onClick={(event) => event.stopPropagation()}
-                      onChange={(e) => setSelected((prev) => ({ ...prev, [row.thread_id]: e.target.checked }))}
-                    />
+                    >
+                      <input
+                        className="table-select-checkbox"
+                        type="checkbox"
+                        checked={checked}
+                        aria-label={`Select thread ${normalizeDisplayValue(row.title) || row.thread_id}`}
+                        onClick={(event) => event.stopPropagation()}
+                        onChange={(e) => setSelected((prev) => ({ ...prev, [row.thread_id]: e.target.checked }))}
+                      />
+                    </label>
                   </td>
                   <td className="title-col">
                     <div
@@ -262,9 +269,9 @@ export function ThreadsTable(props: ThreadsTableProps) {
                       {compactThreadId(row.thread_id)}
                     </div>
                   </td>
-                  <td>{row.risk_score ?? 0}</td>
-                  <td>{row.is_pinned ? messages.common.yes : messages.common.no}</td>
-                  <td>{row.source || row.project_bucket || "-"}</td>
+                  <td className="col-risk">{row.risk_score ?? 0}</td>
+                  <td className="col-pinned">{row.is_pinned ? messages.common.yes : messages.common.no}</td>
+                  <td className="col-source">{row.source || row.project_bucket || "-"}</td>
                 </tr>
               );
             })}

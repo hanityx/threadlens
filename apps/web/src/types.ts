@@ -262,6 +262,14 @@ export type ProviderSessionActionResult = {
   error?: string;
 };
 
+export type ProviderActionSelection = {
+  provider: string;
+  action: "backup_local" | "archive_local" | "delete_local";
+  file_paths: string[];
+  dry_run: boolean;
+  backup_before_delete?: boolean;
+};
+
 export type RecoveryBackupExportResponse = {
   ok: boolean;
   generated_at?: string;
@@ -301,6 +309,40 @@ export type AnalyzeDeleteData = {
   reports?: AnalyzeDeleteReport[];
 };
 
+export type ThreadCleanupOptions = {
+  delete_cache?: boolean;
+  delete_session_logs?: boolean;
+  clean_state_refs?: boolean;
+};
+
+export type CleanupPendingState = {
+  ids: string[];
+  confirmToken: string;
+  selectionKey: string;
+  options: ThreadCleanupOptions;
+};
+
+export type CleanupTarget = {
+  kind?: string;
+  thread_id?: string;
+  path: string;
+};
+
+export type CleanupFailure = {
+  path: string;
+  error: string;
+};
+
+export type CleanupStateResult = {
+  changed?: boolean;
+  removed?: {
+    titles?: number;
+    order?: number;
+    pinned?: number;
+  };
+  path?: string;
+};
+
 export type ThreadForensicsEnvelope = {
   count?: number;
   reports?: Array<{
@@ -328,6 +370,15 @@ export type CleanupPreviewData = {
   target_file_count?: number;
   requested_ids?: number;
   confirm_help?: string;
+  deleted_file_count?: number;
+  backup?: {
+    backup_dir?: string;
+    copied_count?: number;
+  };
+  failed?: CleanupFailure[];
+  state_result?: CleanupStateResult;
+  targets?: CleanupTarget[];
+  error?: string;
 };
 
 /* ── Transcript ───────────────────────────────────────── */

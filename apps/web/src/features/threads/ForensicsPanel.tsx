@@ -3,8 +3,17 @@ import { Button } from "../../design-system/Button";
 import { PanelHeader } from "../../design-system/PanelHeader";
 
 import type { Messages } from "../../i18n";
-import type { ThreadRow, AnalyzeDeleteReport, CleanupPreviewData } from "../../types";
+import type {
+  AnalyzeDeleteReport,
+  CleanupPendingState,
+  CleanupPreviewData,
+  ThreadRow,
+} from "../../types";
 import { prettyJson } from "../../lib/helpers";
+import {
+  buildThreadCleanupSelectionKey,
+  THREAD_CLEANUP_DEFAULT_OPTIONS,
+} from "../../hooks/appDataUtils";
 
 export interface ForensicsPanelProps {
   messages: Messages;
@@ -14,14 +23,18 @@ export interface ForensicsPanelProps {
   busy: boolean;
   analyzeDelete: (ids: string[]) => void;
   cleanupDryRun: (ids: string[]) => void;
+  cleanupExecute: (ids: string[]) => void;
   cleanupData: CleanupPreviewData | null;
+  pendingCleanup: CleanupPendingState | null;
   selectedImpactRows: AnalyzeDeleteReport[];
   analysisRaw: unknown;
   cleanupRaw: unknown;
   analyzeDeleteError: boolean;
   cleanupDryRunError: boolean;
+  cleanupExecuteError: boolean;
   analyzeDeleteErrorMessage: string;
   cleanupDryRunErrorMessage: string;
+  cleanupExecuteErrorMessage: string;
 }
 
 export function ForensicsPanel(props: ForensicsPanelProps) {
@@ -33,38 +46,82 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
     busy,
     analyzeDelete,
     cleanupDryRun,
+    cleanupExecute,
     cleanupData,
+    pendingCleanup,
     selectedImpactRows,
     analysisRaw,
     cleanupRaw,
     analyzeDeleteError,
     cleanupDryRunError,
+    cleanupExecuteError,
     analyzeDeleteErrorMessage,
     cleanupDryRunErrorMessage,
+    cleanupExecuteErrorMessage,
   } = props;
   const [tokenCopied, setTokenCopied] = useState(false);
   const canRetryForensics = !threadActionsDisabled && !busy && selectedIds.length > 0;
   const highRiskCount = selectedIds.filter((id) => (rows.find((r) => r.thread_id === id)?.risk_score ?? 0) >= 70).length;
   const impactReady = selectedImpactRows.length > 0;
-  const cleanupReady = Boolean(cleanupData?.confirm_token_expected);
   const topImpactRow = selectedImpactRows[0];
   const topImpactLabel = topImpactRow?.title || (topImpactRow?.id ? `row ${topImpactRow.id.slice(0, 8)}` : "");
-  const heroTitle = cleanupReady
-    ? `${selectedIds.length} rows ready for dry-run`
-    : impactReady
-      ? `${selectedImpactRows.length} impact summaries ready`
-      : selectedIds.length > 0
-        ? `${selectedIds.length} rows selected`
-        : messages.forensics.nextStepPending;
-  const heroBody = cleanupReady
-      ? "Copy the token only when the review looks safe."
+
+  const currentSelectionKey = buildThreadCleanupSelectionKey(selectedIds, THREAD_CLEANUP_DEFAULT_OPTIONS);
+  const cleanupReady = Boolean(
+    pendingCleanup?.confirmToken &&
+    pendingCleanup.selectionKey === currentSelectionKey &&
+    cleanupData?.mode !== "execute",
+  );
+  const cleanupSelectionChanged = Boolean(
+    pendingCleanup?.confirmToken &&
+    pendingCleanup.selectionKey !== currentSelectionKey,
+  );
+  const cleanupApplied = cleanupData?.mode === "execute" && cleanupData?.ok === true;
+  const cleanupTargetCount = Number(cleanupData?.target_file_count ?? cleanupData?.targets?.length ?? 0);
+  const cleanupDeletedCount = Number(cleanupData?.deleted_file_count ?? 0);
+  const cleanupFailedCount = cleanupData?.failed?.length ?? 0;
+  const stateRemoved = cleanupData?.state_result?.removed;
+  const stateRemovedCount = Number(stateRemoved?.titles ?? 0) + Number(stateRemoved?.order ?? 0) + Number(stateRemoved?.pinned ?? 0);
+  const executeReady = cleanupReady && !threadActionsDisabled && !busy;
+  const cleanupCardHeadline = cleanupApplied
+    ? `${messages.forensics.executeCleanup} · ${messages.providers.resultApplied}`
+    : `${messages.forensics.stageDryRun} · ${cleanupReady ? messages.providers.resultPreviewReady : messages.forensics.stagePending}`;
+  const cleanupCardSummary = cleanupApplied
+    ? `${cleanupDeletedCount}/${cleanupTargetCount || cleanupDeletedCount} deleted · ${cleanupFailedCount} failed`
+    : cleanupReady
+      ? `${cleanupTargetCount} targets · ${messages.forensics.cleanupTokenReady}`
+      : cleanupSelectionChanged
+        ? messages.forensics.cleanupSelectionChanged
+        : messages.forensics.cleanupTokenHint;
+  const cleanupCardDetail = cleanupApplied
+    ? `${stateRemovedCount} state refs updated`
+    : cleanupReady
+      ? messages.forensics.cleanupExecuteReadyBody
+      : messages.forensics.stageDryRunBody;
+
+  const heroTitle = cleanupApplied
+    ? `${cleanupDeletedCount}/${cleanupTargetCount || cleanupDeletedCount} cleanup targets applied`
+    : cleanupReady
+      ? `${selectedIds.length} rows ready for dry-run`
       : impactReady
-      ? `${topImpactLabel} · ${topImpactRow?.risk_level ?? "signal"} / ${topImpactRow?.risk_score ?? 0}`
-      : selectedIds.length > 0
-        ? `${highRiskCount} flagged · run impact next`
-        : "pick rows first";
+        ? `${selectedImpactRows.length} impact summaries ready`
+        : selectedIds.length > 0
+          ? `${selectedIds.length} rows selected`
+          : messages.forensics.nextStepPending;
+  const heroBody = cleanupApplied
+    ? `${cleanupFailedCount} failed · ${stateRemovedCount} state refs updated`
+    : cleanupSelectionChanged
+      ? messages.forensics.cleanupSelectionChanged
+      : cleanupReady
+        ? messages.forensics.cleanupExecuteReadyBody
+        : impactReady
+          ? `${topImpactLabel} · ${topImpactRow?.risk_level ?? "signal"} / ${topImpactRow?.risk_score ?? 0}`
+          : selectedIds.length > 0
+            ? `${highRiskCount} flagged · run impact next`
+            : "pick rows first";
+
   const handleCopyToken = async () => {
-    const token = cleanupData?.confirm_token_expected;
+    const token = pendingCleanup?.confirmToken ?? cleanupData?.confirm_token_expected;
     if (!token || !navigator.clipboard) return;
     try {
       await navigator.clipboard.writeText(token);
@@ -89,29 +146,71 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
         </section>
 
         <div className="thread-review-grid">
-          <article className={`thread-review-card ${selectedIds.length > 0 ? "thread-review-card-emphasis" : ""}`.trim()}>
+          <article className={`thread-review-card thread-review-card-metric ${selectedIds.length > 0 ? "thread-review-card-emphasis" : ""}`.trim()}>
             <span>{messages.forensics.selectedThreads}</span>
             <strong>{selectedIds.length}</strong>
             <p>rows</p>
           </article>
-          <article className={`thread-review-card ${highRiskCount > 0 ? "thread-review-card-emphasis" : ""}`.trim()}>
+          <article className={`thread-review-card thread-review-card-metric ${highRiskCount > 0 ? "thread-review-card-emphasis" : ""}`.trim()}>
             <span>{messages.forensics.includesHighRisk}</span>
             <strong>{highRiskCount}</strong>
             <p>flagged</p>
           </article>
-          <article className={`thread-review-card ${cleanupReady ? "is-ready" : ""}`.trim()}>
+          <article className={`thread-review-card thread-review-card-token ${cleanupReady || cleanupApplied ? "is-ready" : ""}`.trim()}>
             <span>{messages.forensics.cleanupToken}</span>
-            <strong>{cleanupData?.confirm_token_expected ?? "-"}</strong>
-            <p>{cleanupReady ? "copy ready" : "run first"}</p>
+            <strong>{cleanupCardHeadline}</strong>
+            <p>{cleanupCardSummary}</p>
+            <p>{cleanupCardDetail}</p>
+            {(pendingCleanup?.confirmToken ?? cleanupData?.confirm_token_expected) ? (
+              <code>{pendingCleanup?.confirmToken ?? cleanupData?.confirm_token_expected}</code>
+            ) : null}
             {cleanupReady ? (
               <div className="sub-toolbar action-toolbar">
                 <Button variant="outline" onClick={handleCopyToken}>
                   {tokenCopied ? messages.forensics.copyTokenDone : messages.forensics.copyToken}
                 </Button>
+                <Button
+                  variant="base"
+                  disabled={!executeReady}
+                  onClick={() => cleanupExecute(selectedIds)}
+                >
+                  {messages.forensics.executeCleanup}
+                </Button>
               </div>
             ) : null}
           </article>
         </div>
+
+        {cleanupSelectionChanged ? (
+          <p className="sub-hint">
+            {messages.forensics.cleanupSelectionChanged}
+          </p>
+        ) : null}
+
+        {cleanupApplied ? (
+          <details className="detail-section" open>
+            <summary>{messages.forensics.executionResult}</summary>
+            <div className="detail-section-body">
+              <section className="provider-result-grid provider-result-grid-compact thread-review-result-grid">
+                <article className="provider-result-card provider-result-card-export">
+                  <span className="overview-note-label">{messages.forensics.executionTargets}</span>
+                  <strong>{cleanupTargetCount}</strong>
+                  <p>{messages.forensics.executionDeleted} {cleanupDeletedCount}</p>
+                </article>
+                <article className="provider-result-card">
+                  <span className="overview-note-label">{messages.forensics.executionBackup}</span>
+                  <strong>{cleanupData?.backup?.backup_dir ? messages.providers.backedUp : "-"}</strong>
+                  <p>{cleanupData?.backup?.backup_dir || messages.common.unknown}</p>
+                </article>
+                <article className="provider-result-card">
+                  <span className="overview-note-label">{messages.forensics.executionFailures}</span>
+                  <strong>{cleanupFailedCount}</strong>
+                  <p>{stateRemovedCount} state refs updated</p>
+                </article>
+              </section>
+            </div>
+          </details>
+        ) : null}
 
         {threadActionsDisabled ? <p className="sub-hint">{messages.forensics.backendDownHint}</p> : null}
 
@@ -120,18 +219,18 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
           {!impactReady ? (
             <div className="thread-review-empty-guide">
               <article>
-                <span>1</span>
+                <span>pick</span>
                 <strong>select rows</strong>
                 <p>use visible, flagged, or pinned.</p>
               </article>
               <article>
-                <span>2</span>
+                <span>inspect</span>
                 <strong>run impact</strong>
                 <p>inspect impact and cleanup signal first.</p>
               </article>
               <article>
-                <span>3</span>
-                <strong>confirm dry-run</strong>
+                <span>preview</span>
+                <strong>run dry-run</strong>
                 <p>copy the token only after review.</p>
               </article>
             </div>
@@ -139,21 +238,38 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
             <ul>
               {selectedImpactRows.slice(0, 12).map((row) => (
                 <li key={row.id}>
-                  <strong>{row.title || row.id}</strong>
-                  <span>
-                    {row.risk_level ?? messages.common.unknown} / {row.risk_score ?? 0}
-                  </span>
+                  <div className="thread-review-impact-copy">
+                    <strong>{row.title || row.id}</strong>
+                    {row.summary ? <p className="thread-review-impact-summary">{row.summary}</p> : null}
+                    {row.parents?.length ? (
+                      <p className="thread-review-impact-note">
+                        <span>{messages.forensics.impactRefs}</span>
+                        {row.parents.slice(0, 2).join(" · ")}
+                      </p>
+                    ) : null}
+                    {row.impacts?.length ? (
+                      <p className="thread-review-impact-note">
+                        <span>{messages.forensics.impactChanges}</span>
+                        {row.impacts.slice(0, 2).join(" · ")}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="thread-review-impact-meta">
+                    <strong>{row.risk_score ?? 0}</strong>
+                    <span>{row.risk_level ?? messages.common.unknown}</span>
+                  </div>
                 </li>
               ))}
             </ul>
           )}
         </div>
 
-        {!threadActionsDisabled && (analyzeDeleteError || cleanupDryRunError) ? (
+        {!threadActionsDisabled && (analyzeDeleteError || cleanupDryRunError || cleanupExecuteError) ? (
           <div className="error-box">
             <div>{messages.errors.analysisDryRun}</div>
             {analyzeDeleteErrorMessage ? <div className="mono-sub">{analyzeDeleteErrorMessage}</div> : null}
             {cleanupDryRunErrorMessage ? <div className="mono-sub">{cleanupDryRunErrorMessage}</div> : null}
+            {cleanupExecuteErrorMessage ? <div className="mono-sub">{cleanupExecuteErrorMessage}</div> : null}
             <div className="sub-toolbar action-toolbar">
               <Button
                 variant="outline"
@@ -188,7 +304,7 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
               ) : null}
               {cleanupRaw ? (
                 <details open>
-                  <summary>{messages.forensics.rawDryRun}</summary>
+                  <summary>{cleanupData?.mode === "execute" ? messages.forensics.rawExecute : messages.forensics.rawDryRun}</summary>
                   <pre>{prettyJson(cleanupRaw)}</pre>
                 </details>
               ) : null}

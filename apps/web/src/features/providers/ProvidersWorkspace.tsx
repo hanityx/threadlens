@@ -53,6 +53,7 @@ export function ProvidersWorkspace() {
     setProviderDeleteBackupEnabled,
     runProviderAction,
     providerActionData,
+    providerActionSelection,
     runRecoveryBackupExport,
     recoveryBackupExportData,
     visibleParserReports: parserReports,
@@ -116,6 +117,7 @@ export function ProvidersWorkspace() {
     setProviderDeleteBackupEnabled,
     runProviderAction,
     providerActionData,
+    providerActionSelection,
     runRecoveryBackupExport,
     recoveryBackupExportData,
     parserReports,
@@ -130,9 +132,18 @@ export function ProvidersWorkspace() {
     refreshProvidersData,
   };
 
+  const selectedSessionActionResult =
+    selectedSession &&
+    providerActionData &&
+    providerActionSelection?.file_paths?.length === 1 &&
+    providerActionSelection.file_paths[0] === selectedSession.file_path
+      ? providerActionData
+      : null;
+
   const sessionDetailProps = {
     messages,
     selectedSession,
+    sessionActionResult: selectedSessionActionResult,
     emptyScopeLabel: emptySessionScopeLabel,
     emptyScopeRows: visibleProviderSessionSummary.rows,
     emptyScopeReady: visibleProviderSessionSummary.parse_ok,

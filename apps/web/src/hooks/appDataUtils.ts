@@ -22,6 +22,11 @@ export const PROVIDER_DEPTH_STORAGE_KEY = "po-provider-depth";
 export const LEGACY_PROVIDER_DEPTH_STORAGE_KEY = "cmc-provider-depth";
 export const FORENSICS_RETRY_DELAY_MS = 450;
 export const RUNTIME_BACKEND_DOWN_CACHED = "runtime-backend-down-cached";
+export const THREAD_CLEANUP_DEFAULT_OPTIONS = {
+  delete_cache: true,
+  delete_session_logs: true,
+  clean_state_refs: true,
+} as const;
 
 export type ProviderFetchMetrics = {
   data_sources: number | null;
@@ -51,6 +56,23 @@ export function normalizeThreadIds(threadIds: string[]): string[] {
   return Array.from(
     new Set(threadIds.map((item) => String(item || "").trim()).filter(Boolean)),
   ).slice(0, 500);
+}
+
+export function buildThreadCleanupSelectionKey(
+  threadIds: string[],
+  options?: {
+    delete_cache?: boolean;
+    delete_session_logs?: boolean;
+    clean_state_refs?: boolean;
+  },
+): string {
+  const ids = normalizeThreadIds(threadIds).sort();
+  const normalizedOptions = {
+    delete_cache: options?.delete_cache !== false,
+    delete_session_logs: options?.delete_session_logs !== false,
+    clean_state_refs: options?.clean_state_refs !== false,
+  };
+  return `${ids.join("||")}::${JSON.stringify(normalizedOptions)}`;
 }
 
 export function nowMs(): number {
@@ -145,6 +167,14 @@ export function formatMutationErrorMessage(raw: string): string {
 
   if (normalized.includes("confirm_token")) {
     return "The confirm token is invalid. Run the dry-run again and retry with the latest token.";
+  }
+
+  if (normalized.includes("cleanup-selection-changed")) {
+    return "The selected threads changed. Run cleanup dry-run again for the current selection.";
+  }
+
+  if (normalized.includes("cleanup-preview-required")) {
+    return "Run cleanup dry-run first so the current selection gets a fresh token.";
   }
 
   return normalized || trimmed;

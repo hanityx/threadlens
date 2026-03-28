@@ -3,8 +3,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ApiEnvelope, BulkThreadActionResult } from "@threadlens/shared-contracts";
 import type {
   AnalyzeDeleteData,
+  CleanupPendingState,
   CleanupPreviewData,
   LayoutView,
+  ProviderActionSelection,
   ProviderSessionActionResult,
   ProviderView,
   RecoveryBackupExportResponse,
@@ -16,11 +18,13 @@ import { apiGet, apiPost, apiPostJsonAllowError } from "../api";
 import { extractEnvelopeData } from "../lib/helpers";
 import {
   RUNTIME_BACKEND_DOWN_CACHED,
+  buildThreadCleanupSelectionKey,
   formatMutationErrorMessage,
   isTransientBackendError,
   normalizeThreadIds,
   postWithTransientRetry,
   providerActionSelectionKey,
+  THREAD_CLEANUP_DEFAULT_OPTIONS,
 } from "./appDataUtils";
 
 export function useMutations(options: {
@@ -35,7 +39,9 @@ export function useMutations(options: {
   /* ---- action result state ---- */
   const [analysisRaw, setAnalysisRaw] = useState<unknown>(null);
   const [cleanupRaw, setCleanupRaw] = useState<unknown>(null);
+  const [pendingCleanup, setPendingCleanup] = useState<CleanupPendingState | null>(null);
   const [providerActionRaw, setProviderActionRaw] = useState<unknown>(null);
+  const [providerActionSelection, setProviderActionSelection] = useState<ProviderActionSelection | null>(null);
   const [providerActionTokens, setProviderActionTokens] = useState<Record<string, string>>({});
   const [providerDeleteBackupEnabled, setProviderDeleteBackupEnabled] = useState(true);
   const [recoveryBackupExportRaw, setRecoveryBackupExportRaw] = useState<unknown>(null);
@@ -74,6 +80,14 @@ export function useMutations(options: {
     if (!isTransientBackendError(message)) return;
     queryClient.invalidateQueries({ queryKey: ["runtime"] });
   }, [queryClient]);
+  const invalidateProviderSurfaceQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ["data-sources"] });
+    queryClient.invalidateQueries({ queryKey: ["provider-sessions"] });
+    queryClient.invalidateQueries({ queryKey: ["provider-sessions-summary"] });
+    queryClient.invalidateQueries({ queryKey: ["provider-parser-health"] });
+    queryClient.invalidateQueries({ queryKey: ["provider-parser-health-summary"] });
+    queryClient.invalidateQueries({ queryKey: ["provider-matrix"] });
+  };
 
   const bulkPin = useMutation({
     mutationFn: (threadIds: string[]) => {
@@ -125,11 +139,68 @@ export function useMutations(options: {
       if (ids.length === 0) throw new Error("no-valid-thread-ids");
       return postWithTransientRetry<unknown>("/api/local-cleanup", {
         ids, dry_run: true,
-        options: { delete_cache: true, delete_session_logs: true, clean_state_refs: true },
+        options: THREAD_CLEANUP_DEFAULT_OPTIONS,
         confirm_token: "",
       });
     },
-    onSuccess: (data) => setCleanupRaw(data),
+    onSuccess: (data, threadIds) => {
+      setCleanupRaw(data);
+      const ids = normalizeThreadIds(threadIds);
+      const cleanupData = extractEnvelopeData<CleanupPreviewData>(data);
+      const confirmToken = String(cleanupData?.confirm_token_expected ?? "").trim();
+      if (!confirmToken) {
+        setPendingCleanup(null);
+        return;
+      }
+      setPendingCleanup({
+        ids,
+        confirmToken,
+        selectionKey: buildThreadCleanupSelectionKey(ids, THREAD_CLEANUP_DEFAULT_OPTIONS),
+        options: THREAD_CLEANUP_DEFAULT_OPTIONS,
+      });
+    },
+    onError: syncRuntimeAfterBackendFailure,
+  });
+
+  const cleanupExecute = useMutation({
+    mutationFn: async (threadIds: string[]) => {
+      const cachedReachable = runtime.data?.data?.runtime_backend?.reachable;
+      if (cachedReachable === false) throw new Error(`${RUNTIME_BACKEND_DOWN_CACHED}: runtime-down`);
+      const ids = normalizeThreadIds(threadIds);
+      if (ids.length === 0) throw new Error("no-valid-thread-ids");
+      if (!pendingCleanup?.confirmToken) throw new Error("cleanup-preview-required");
+      const selectionKey = buildThreadCleanupSelectionKey(ids, pendingCleanup.options);
+      if (selectionKey !== pendingCleanup.selectionKey) throw new Error("cleanup-selection-changed");
+
+      const response = await apiPostJsonAllowError<CleanupPreviewData>("/api/local-cleanup", {
+        ids,
+        dry_run: false,
+        options: pendingCleanup.options,
+        confirm_token: pendingCleanup.confirmToken,
+      });
+      const cleanupData = extractEnvelopeData<CleanupPreviewData>(response.data);
+      if (!response.ok) {
+        setCleanupRaw(response.data);
+        const nextToken = String(cleanupData?.confirm_token_expected ?? "").trim();
+        if (nextToken) {
+          setPendingCleanup({
+            ids,
+            confirmToken: nextToken,
+            selectionKey,
+            options: pendingCleanup.options,
+          });
+        }
+        throw new Error(String(cleanupData?.error ?? `local-cleanup status ${response.status}`));
+      }
+      return response.data;
+    },
+    onSuccess: (data) => {
+      setCleanupRaw(data);
+      setPendingCleanup(null);
+      queryClient.invalidateQueries({ queryKey: ["threads"] });
+      invalidateProviderSurfaceQueries();
+      queryClient.invalidateQueries({ queryKey: ["recovery"] });
+    },
     onError: syncRuntimeAfterBackendFailure,
   });
 
@@ -147,14 +218,23 @@ export function useMutations(options: {
       if (first.ok) return first.data;
       const firstData = first.data;
       const expectedToken = String(firstData?.confirm_token_expected ?? "").trim();
-      const shouldReplayConfirmedAction = input.action !== "backup_local" && !input.dry_run && !String(input.confirm_token ?? "").trim() && Boolean(expectedToken);
-      if (!shouldReplayConfirmedAction) throw new Error(String(firstData?.error || `provider-session-action status ${first.status}`));
-      const second = await apiPostJsonAllowError<ProviderSessionActionResult>("/api/provider-session-action", { ...requestBody, confirm_token: expectedToken });
-      if (!second.ok) throw new Error(String(second.data?.error || `provider-session-action status ${second.status}`));
-      return second.data;
+      const previewReady =
+        input.action !== "backup_local" &&
+        !input.dry_run &&
+        !String(input.confirm_token ?? "").trim() &&
+        Boolean(expectedToken);
+      if (previewReady) return firstData;
+      throw new Error(String(firstData?.error || `provider-session-action status ${first.status}`));
     },
     onSuccess: (data, variables) => {
       setProviderActionRaw(data);
+      setProviderActionSelection({
+        provider: variables.provider,
+        action: variables.action,
+        file_paths: variables.file_paths,
+        dry_run: variables.dry_run,
+        backup_before_delete: variables.backup_before_delete,
+      });
       const actionData = extractEnvelopeData<ProviderSessionActionResult>(data);
       const expectedToken = String(actionData?.confirm_token_expected ?? "").trim();
       const key = providerActionSelectionKey(variables.provider, variables.action, variables.file_paths, { backup_before_delete: variables.backup_before_delete });
@@ -163,10 +243,10 @@ export function useMutations(options: {
       } else if (actionData?.ok && !variables.dry_run) {
         setProviderActionTokens((prev) => { const next = { ...prev }; delete next[key]; return next; });
       }
-      queryClient.invalidateQueries({ queryKey: ["provider-sessions"] });
-      queryClient.invalidateQueries({ queryKey: ["provider-parser-health"] });
-      queryClient.invalidateQueries({ queryKey: ["provider-matrix"] });
-      queryClient.invalidateQueries({ queryKey: ["recovery"] });
+      if (actionData?.ok) {
+        invalidateProviderSurfaceQueries();
+        queryClient.invalidateQueries({ queryKey: ["recovery"] });
+      }
     },
   });
 
@@ -179,9 +259,9 @@ export function useMutations(options: {
   const runtimeBackendReachable = runtime.data?.data?.runtime_backend?.reachable;
   useEffect(() => {
     if (runtimeBackendReachable !== true) return;
-    if (!bulkPin.isError && !bulkUnpin.isError && !bulkArchive.isError && !analyzeDelete.isError && !cleanupDryRun.isError) return;
-    bulkPin.reset(); bulkUnpin.reset(); bulkArchive.reset(); analyzeDelete.reset(); cleanupDryRun.reset();
-  }, [runtimeBackendReachable, bulkPin, bulkUnpin, bulkArchive, analyzeDelete, cleanupDryRun]);
+    if (!bulkPin.isError && !bulkUnpin.isError && !bulkArchive.isError && !analyzeDelete.isError && !cleanupDryRun.isError && !cleanupExecute.isError) return;
+    bulkPin.reset(); bulkUnpin.reset(); bulkArchive.reset(); analyzeDelete.reset(); cleanupDryRun.reset(); cleanupExecute.reset();
+  }, [runtimeBackendReachable, bulkPin, bulkUnpin, bulkArchive, analyzeDelete, cleanupDryRun, cleanupExecute]);
 
   /* ---- derived ---- */
   const analysisData = extractEnvelopeData<AnalyzeDeleteData>(analysisRaw);
@@ -193,12 +273,13 @@ export function useMutations(options: {
 
   const analyzeDeleteErrorMessage = analyzeDelete.error instanceof Error ? formatMutationErrorMessage(analyzeDelete.error.message) : analyzeDelete.error ? formatMutationErrorMessage(String(analyzeDelete.error)) : "";
   const cleanupDryRunErrorMessage = cleanupDryRun.error instanceof Error ? formatMutationErrorMessage(cleanupDryRun.error.message) : cleanupDryRun.error ? formatMutationErrorMessage(String(cleanupDryRun.error)) : "";
+  const cleanupExecuteErrorMessage = cleanupExecute.error instanceof Error ? formatMutationErrorMessage(cleanupExecute.error.message) : cleanupExecute.error ? formatMutationErrorMessage(String(cleanupExecute.error)) : "";
   const bulkActionErrorMessage = bulkArchive.error instanceof Error ? formatMutationErrorMessage(bulkArchive.error.message) : bulkArchive.error ? formatMutationErrorMessage(String(bulkArchive.error)) : bulkPin.error instanceof Error ? formatMutationErrorMessage(bulkPin.error.message) : bulkPin.error ? formatMutationErrorMessage(String(bulkPin.error)) : bulkUnpin.error instanceof Error ? formatMutationErrorMessage(bulkUnpin.error.message) : bulkUnpin.error ? formatMutationErrorMessage(String(bulkUnpin.error)) : "";
   const bulkActionError = bulkArchive.isError || bulkPin.isError || bulkUnpin.isError;
   const providerSessionActionErrorMessage = providerSessionAction.error instanceof Error ? formatMutationErrorMessage(providerSessionAction.error.message) : providerSessionAction.error ? formatMutationErrorMessage(String(providerSessionAction.error)) : "";
   const recoveryBackupExportErrorMessage = recoveryBackupExport.error instanceof Error ? formatMutationErrorMessage(recoveryBackupExport.error.message) : recoveryBackupExport.error ? formatMutationErrorMessage(String(recoveryBackupExport.error)) : "";
 
-  const busy = bulkPin.isPending || bulkUnpin.isPending || bulkArchive.isPending || analyzeDelete.isPending || cleanupDryRun.isPending || providerSessionAction.isPending || recoveryBackupExport.isPending;
+  const busy = bulkPin.isPending || bulkUnpin.isPending || bulkArchive.isPending || analyzeDelete.isPending || cleanupDryRun.isPending || cleanupExecute.isPending || providerSessionAction.isPending || recoveryBackupExport.isPending;
   const runtimeLoading = runtime.isLoading && !runtime.data;
   const smokeStatusLoading = smokeStatus.isLoading && !smokeStatus.data;
   const recoveryLoading = recovery.isLoading && !recovery.data;
@@ -231,16 +312,19 @@ export function useMutations(options: {
     bulkArchive: (ids: string[]) => bulkArchive.mutate(ids),
     analyzeDelete: (ids: string[]) => analyzeDelete.mutate(ids),
     cleanupDryRun: (ids: string[]) => cleanupDryRun.mutate(ids),
+    cleanupExecute: (ids: string[]) => cleanupExecute.mutate(ids),
     analyzeDeleteError: analyzeDelete.isError,
     cleanupDryRunError: cleanupDryRun.isError,
-    analyzeDeleteErrorMessage, cleanupDryRunErrorMessage,
+    cleanupExecuteError: cleanupExecute.isError,
+    analyzeDeleteErrorMessage, cleanupDryRunErrorMessage, cleanupExecuteErrorMessage,
     bulkActionError, bulkActionErrorMessage,
     providerSessionActionError: providerSessionAction.isError,
     providerSessionActionErrorMessage,
     analysisRaw, cleanupRaw,
-    analysisData, cleanupData,
+    analysisData, cleanupData, pendingCleanup,
     smokeStatusLatest,
     providerActionData,
+    providerActionSelection,
     providerDeleteBackupEnabled, setProviderDeleteBackupEnabled,
     recoveryBackupExportData,
     recoveryBackupExportError: recoveryBackupExport.isError,

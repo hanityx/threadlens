@@ -127,9 +127,9 @@ export function useAppData(options?: { providersDiagnosticsOpen?: boolean }) {
 
     /* mutations */
     bulkPin: mutations.bulkPin, bulkUnpin: mutations.bulkUnpin, bulkArchive: mutations.bulkArchive,
-    analyzeDelete: mutations.analyzeDelete, cleanupDryRun: mutations.cleanupDryRun,
-    analyzeDeleteError: mutations.analyzeDeleteError, cleanupDryRunError: mutations.cleanupDryRunError,
-    analyzeDeleteErrorMessage: mutations.analyzeDeleteErrorMessage, cleanupDryRunErrorMessage: mutations.cleanupDryRunErrorMessage,
+    analyzeDelete: mutations.analyzeDelete, cleanupDryRun: mutations.cleanupDryRun, cleanupExecute: mutations.cleanupExecute,
+    analyzeDeleteError: mutations.analyzeDeleteError, cleanupDryRunError: mutations.cleanupDryRunError, cleanupExecuteError: mutations.cleanupExecuteError,
+    analyzeDeleteErrorMessage: mutations.analyzeDeleteErrorMessage, cleanupDryRunErrorMessage: mutations.cleanupDryRunErrorMessage, cleanupExecuteErrorMessage: mutations.cleanupExecuteErrorMessage,
     bulkActionError: mutations.bulkActionError, bulkActionErrorMessage: mutations.bulkActionErrorMessage,
     providerSessionActionError: mutations.providerSessionActionError, providerSessionActionErrorMessage: mutations.providerSessionActionErrorMessage,
 
@@ -140,7 +140,7 @@ export function useAppData(options?: { providersDiagnosticsOpen?: boolean }) {
 
     /* derived – analysis / cleanup */
     analysisRaw: mutations.analysisRaw, cleanupRaw: mutations.cleanupRaw,
-    analysisData: mutations.analysisData, cleanupData: mutations.cleanupData,
+    analysisData: mutations.analysisData, cleanupData: mutations.cleanupData, pendingCleanup: mutations.pendingCleanup,
     smokeStatusLatest: mutations.smokeStatusLatest,
     selectedImpactRows,
 
@@ -159,6 +159,7 @@ export function useAppData(options?: { providersDiagnosticsOpen?: boolean }) {
     canRunProviderAction: providersData.canRunProviderAction,
     canRunSelectedSessionAction: detailData.canRunSelectedSessionAction,
     providerActionData: mutations.providerActionData,
+    providerActionSelection: mutations.providerActionSelection,
     providerDeleteBackupEnabled: mutations.providerDeleteBackupEnabled, setProviderDeleteBackupEnabled: mutations.setProviderDeleteBackupEnabled,
     recoveryBackupExportData: mutations.recoveryBackupExportData,
     allParserReports: providersData.allParserReports,

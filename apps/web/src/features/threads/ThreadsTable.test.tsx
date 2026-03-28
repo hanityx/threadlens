@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { getMessages } from "../../i18n";
-import type { CleanupPreviewData, ThreadRow } from "../../types";
+import type { ThreadRow } from "../../types";
 import { ThreadsTable } from "./ThreadsTable";
 
 const messages = getMessages("en");
@@ -22,7 +22,6 @@ const rows: ThreadRow[] = [
 
 describe("ThreadsTable", () => {
   it("renders cleanup-signal copy instead of risk-heavy labels", () => {
-    const cleanupData: CleanupPreviewData | null = null;
     const html = renderToStaticMarkup(
       <ThreadsTable
         messages={messages}
@@ -39,7 +38,7 @@ describe("ThreadsTable", () => {
         toggleSelectAllFiltered={vi.fn()}
         selectedIds={[]}
         selectedImpactCount={0}
-        cleanupData={cleanupData}
+        dryRunReady={false}
         busy={false}
         threadActionsDisabled={false}
         bulkPin={vi.fn()}
@@ -52,5 +51,7 @@ describe("ThreadsTable", () => {
 
     expect(html).toContain("Cleanup signal");
     expect(html).toContain("Select high signal only");
+    expect(html).toContain("table-select-target");
+    expect(html).toContain("aria-label=\"Select thread Review this cleanup candidate\"");
   });
 });

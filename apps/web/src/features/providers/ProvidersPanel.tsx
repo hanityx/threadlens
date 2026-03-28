@@ -5,6 +5,7 @@ import type {
   ProviderDataDepth,
   ProviderView,
   DataSourceInventoryRow,
+  ProviderActionSelection,
   ProviderSessionRow,
   ProviderSessionActionResult,
   RecoveryBackupExportResponse,
@@ -14,10 +15,9 @@ import {
   CSV_COLUMN_KEYS,
   DEFAULT_CSV_COLUMNS,
   FORENSICS_CSV_COLUMNS,
+  clearSlowOnlyPref,
   readCsvColumnPrefs,
-  readSlowOnlyPref,
   writeCsvColumnPrefs,
-  writeSlowOnlyPref,
   type CsvColumnKey,
 } from "./helpers";
 import { DataSourcesList } from "./DataSourcesList";
@@ -59,6 +59,7 @@ import {
   buildProviderCsvColumnItems,
   buildProviderCsvExportData,
 } from "./providerCsvModel";
+import { providerActionSelectionKey } from "../../hooks/appDataUtils";
 import {
   buildProviderPanelPresentationModel,
   getCapabilityLevelLabel,
@@ -122,6 +123,7 @@ export interface ProvidersPanelProps {
     options?: { backup_before_delete?: boolean },
   ) => void;
   providerActionData: ProviderSessionActionResult | null;
+  providerActionSelection: ProviderActionSelection | null;
   runRecoveryBackupExport: (backupIds: string[]) => void;
   recoveryBackupExportData: RecoveryBackupExportResponse | null;
 
@@ -207,6 +209,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     setProviderDeleteBackupEnabled,
     runProviderAction,
     providerActionData,
+    providerActionSelection,
     runRecoveryBackupExport,
     recoveryBackupExportData,
     parserReports,
@@ -230,7 +233,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const [parserDetailProvider, setParserDetailProvider] = useState<string>("");
   const [parserFailOnly, setParserFailOnly] = useState(false);
   const [parserSort, setParserSort] = useState<ParserSort>("fail_desc");
-  const [slowOnly, setSlowOnly] = useState(readSlowOnlyPref);
+  const [slowOnly, setSlowOnly] = useState(false);
   const [hotspotScopeOrigin, setHotspotScopeOrigin] = useState<ProviderView | null>(null);
   const [csvColumns, setCsvColumns] = useState<Record<CsvColumnKey, boolean>>(readCsvColumnPrefs);
   const providerSessionsSectionRef = useRef<HTMLElement | null>(null);
@@ -296,8 +299,8 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     if (!exists) setSourceFilter("all");
   }, [sourceFilter, sourceFilterOptions]);
   useEffect(() => {
-    writeSlowOnlyPref(slowOnly);
-  }, [slowOnly]);
+    clearSlowOnlyPref();
+  }, []);
   const providerSessionComputedIndex = useMemo(
     () => buildProviderSessionComputedIndex(providerSessionRows),
     [providerSessionRows],
@@ -489,6 +492,32 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     slowFocusActive,
     showProviderColumn,
   } = presentationModel;
+  const sessionFileActionPreviewKey =
+    providerActionSelection && sessionFileActionResult
+      ? providerActionSelectionKey(
+          providerActionSelection.provider,
+          providerActionSelection.action,
+          providerActionSelection.file_paths,
+          { backup_before_delete: providerActionSelection.backup_before_delete },
+        )
+      : "";
+  const sessionFileActionCurrentKey =
+    providerView !== "all" && sessionFileActionResult
+      ? providerActionSelectionKey(providerView, sessionFileActionResult.action, selectedProviderFilePaths, {
+          backup_before_delete:
+            sessionFileActionResult.action === "delete_local" ? providerDeleteBackupEnabled : undefined,
+        })
+      : "";
+  const sessionFileActionCanExecute = Boolean(
+    sessionFileActionResult &&
+      providerActionSelection &&
+      providerActionSelection.action === sessionFileActionResult.action &&
+      sessionFileActionPreviewKey &&
+      sessionFileActionPreviewKey === sessionFileActionCurrentKey,
+  );
+  const providerSupportsCleanup =
+    providerView !== "all" &&
+    Boolean(providers.find((provider) => provider.provider === providerView)?.capabilities.safe_cleanup);
   const csvColumnItems = useMemo(
     () => buildProviderCsvColumnItems(messages, csvColumns),
     [messages, csvColumns],
@@ -675,6 +704,9 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
         <span className="sub-hint">
           {providerLabel} · selected {selectedProviderFilePaths.length}
         </span>
+        {effectiveSlowOnly ? (
+          <span className="sub-hint">{messages.providers.slowOnlyActive}</span>
+        ) : null}
       </div>
     </div>
   );
@@ -761,7 +793,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
           onCsvColumnChange={(key, checked) =>
             setCsvColumns((prev) => ({ ...prev, [key as CsvColumnKey]: checked }))
           }
-          showReadOnlyHint={!canRunProviderAction && providerView !== "all"}
+          showReadOnlyHint={!providerSupportsCleanup && providerView !== "all"}
           showProviderColumn={showProviderColumn}
           selectedSessionPath={selectedSessionPath}
           slowProviderSet={slowProviderSet}
@@ -775,6 +807,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
           onLoadMoreRows={() => setRenderLimit((prev) => prev + 120)}
           hasMoreRows={sortedProviderSessionRows.length > renderedProviderSessionRows.length}
           sessionFileActionResult={sessionFileActionResult}
+          sessionFileActionCanExecute={sessionFileActionCanExecute}
           actionLabel={actionLabel}
           csvExportedRows={csvExportedRows}
           sectionRef={providerSessionsSectionRef}

@@ -31,6 +31,7 @@ import {
 } from "../lib/providers.js";
 import { getDataSourceInventoryTs } from "../domains/recovery/inventory.js";
 import { invalidateOverviewTsCache } from "../domains/threads/overview.js";
+import { invalidateProviderSearchCaches } from "../domains/providers/search.js";
 import {
   registerPlatformRoutes,
   type ProxyRequest,
@@ -185,6 +186,7 @@ export async function createServer(): Promise<FastifyInstance> {
   });
   await registerThreadRoutes(app, {
     invalidateOverviewCache: invalidateOverviewTsCache,
+    invalidateProviderSessionCache: invalidateProviderSearchCaches,
   });
   await registerProviderRoutes(app, {
     parseConversationSearchProviders,

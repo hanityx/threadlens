@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../../design-system/Button";
-import { PanelHeader } from "../../design-system/PanelHeader";
 import type { Messages } from "../../i18n";
-import type { ProviderSessionRow, TranscriptPayload } from "../../types";
+import type { ProviderSessionActionResult, ProviderSessionRow, TranscriptPayload } from "../../types";
 import { formatDateTime, formatInteger, normalizeDisplayValue } from "../../lib/helpers";
 import { TranscriptLog } from "../../design-system/TranscriptLog";
+import { buildProviderSessionActionSummary } from "./providerPanelPresentationModel";
+import { compactSessionTitle } from "./helpers";
 
 export interface SessionDetailProps {
   messages: Messages;
   selectedSession: ProviderSessionRow | null;
+  sessionActionResult?: ProviderSessionActionResult | null;
   emptyScopeLabel?: string;
   emptyScopeRows?: number;
   emptyScopeReady?: number;
@@ -34,6 +36,7 @@ export function SessionDetail(props: SessionDetailProps) {
   const {
     messages,
     selectedSession,
+    sessionActionResult = null,
     emptyScopeLabel = "All ai",
     emptyScopeRows = 0,
     emptyScopeReady = 0,
@@ -169,23 +172,59 @@ export function SessionDetail(props: SessionDetailProps) {
   const fallbackSessionTitle = derivedSessionToken
     ? `session ${derivedSessionToken.slice(0, 8)}`
     : messages.threadDetail.unknownTitle;
-  const sessionDisplayTitle =
+  const sessionDisplayTitle = compactSessionTitle(
     normalizeDisplayValue(selectedSession?.display_title) ||
-    normalizeDisplayValue(selectedSession?.probe.detected_title) ||
-    fallbackSessionTitle;
+      normalizeDisplayValue(selectedSession?.probe.detected_title) ||
+      fallbackSessionTitle,
+    selectedSession?.session_id,
+  );
   const sessionProbeLabel = selectedSession
     ? `${selectedSession.probe.format} / ${selectedSession.probe.ok ? messages.common.ok : messages.common.fail}`
     : "";
-  const sessionHeaderMeta = selectedSession
-    ? normalizeDisplayValue(selectedSession.source) || selectedSession.provider
-    : emptyScopeLabel;
   const sessionCompactMeta = selectedSession
     ? `${normalizeDisplayValue(selectedSession.source) || selectedSession.provider} · ${formatDateTime(selectedSession.mtime)}`
     : "";
+  const sessionScopedActionResult =
+    sessionActionResult && sessionActionResult.target_count === 1
+      ? sessionActionResult
+      : null;
+  const sessionActionSummary = buildProviderSessionActionSummary(messages, sessionScopedActionResult);
+  const sessionActionCanExecute = Boolean(
+    selectedSession &&
+      sessionActionSummary?.previewReady &&
+      canRunSessionAction &&
+      (sessionScopedActionResult?.action !== "delete_local" ||
+        providerDeleteBackupEnabled === Boolean(sessionScopedActionResult.backup_before_delete)),
+  );
+  const executeSessionAction = () => {
+    if (!selectedSession || !sessionScopedActionResult) return;
+    runSingleProviderAction(
+      selectedSession.provider,
+      selectedSession.file_path,
+      sessionScopedActionResult.action,
+      false,
+      sessionScopedActionResult.action === "delete_local"
+        ? { backup_before_delete: providerDeleteBackupEnabled }
+        : undefined,
+    );
+  };
+  const executeSessionActionLabel =
+    sessionScopedActionResult
+      ? `${messages.providers.executeActionPrefix} ${
+          sessionScopedActionResult.action === "backup_local"
+            ? messages.providers.actionBackupLocal
+            : sessionScopedActionResult.action === "archive_local"
+              ? messages.providers.actionArchiveLocal
+              : messages.providers.actionDeleteLocal
+        }`
+      : "";
+  const sessionActionCardClass = [
+    "provider-result-card",
+    sessionActionSummary?.previewReady ? "provider-result-card-selected" : "provider-result-card-export",
+  ].join(" ");
 
   return (
     <section className={`panel session-detail-panel ${!selectedSession ? "is-empty" : ""}`.trim()}>
-      <PanelHeader title={messages.sessionDetail.title} subtitle={sessionHeaderMeta} />
       <div ref={bodyRef} className="impact-body">
         {!selectedSession ? (
           <div className="session-detail-empty-state">
@@ -220,6 +259,7 @@ export function SessionDetail(props: SessionDetailProps) {
           <>
             <section className="detail-hero detail-hero-session detail-hero-session-compact">
               <div className="detail-hero-copy">
+                <span className="overview-note-label">{messages.sessionDetail.title}</span>
                 <strong>{sessionDisplayTitle}</strong>
                 <p>{sessionCompactMeta}</p>
               </div>
@@ -324,14 +364,16 @@ export function SessionDetail(props: SessionDetailProps) {
             <details className="detail-section detail-section-actions">
               <summary>{messages.sessionDetail.sectionActions}</summary>
               <div className="detail-section-body">
-                <div className="impact-kv">
-                  <span>{messages.sessionDetail.fieldPath}</span>
-                  <strong className="mono-sub">{selectedSession.file_path}</strong>
+                <div className="session-actions-meta">
+                  <div className="impact-kv">
+                    <span>{messages.sessionDetail.fieldPath}</span>
+                    <strong className="mono-sub">{selectedSession.file_path}</strong>
+                  </div>
+                  <div className="info-box compact session-actions-hint-box">
+                    <p>{messages.sessionDetail.rawActionHint}</p>
+                  </div>
                 </div>
-                <div className="info-box compact">
-                  <p>{messages.sessionDetail.rawActionHint}</p>
-                </div>
-                <div className="chat-toolbar detail-action-bar detail-action-bar-compact">
+                <div className="chat-toolbar detail-action-bar detail-action-bar-compact session-copy-actions">
                   <Button
                     variant="outline"
                     onClick={() =>
@@ -359,7 +401,7 @@ export function SessionDetail(props: SessionDetailProps) {
                   </Button>
                 </div>
                 {isElectronRuntime ? (
-                  <div className="chat-toolbar detail-action-bar detail-action-bar-compact detail-action-bar-desktop">
+                  <div className="chat-toolbar detail-action-bar detail-action-bar-compact detail-action-bar-desktop session-desktop-actions">
                     <Button
                       variant="outline"
                       onClick={() => void runDesktopAction("reveal", messages.sessionDetail.revealInFinder)}
@@ -387,16 +429,16 @@ export function SessionDetail(props: SessionDetailProps) {
                   </div>
                 ) : null}
                 {copyNotice ? <p className="sub-hint">{copyNotice}</p> : null}
-                <div className="detail-actions-primary">
+                <div className="detail-actions-primary session-detail-actions-primary">
                   <label className="check-inline">
                     <input
                       type="checkbox"
                       checked={providerDeleteBackupEnabled}
                       onChange={(event) => setProviderDeleteBackupEnabled(event.target.checked)}
                     />
-                    {messages.sessionDetail.deleteWithBackup}
-                  </label>
-                  <div className="chat-toolbar detail-action-bar">
+                      {messages.sessionDetail.deleteWithBackup}
+                    </label>
+                  <div className="chat-toolbar detail-action-bar session-manage-actions">
                     <Button
                       variant="base"
                       onClick={() =>
@@ -425,22 +467,34 @@ export function SessionDetail(props: SessionDetailProps) {
                     >
                       {messages.sessionDetail.archiveDryRun}
                     </Button>
-                    <Button
-                      variant="base"
-                      onClick={() =>
-                        runSingleProviderAction(
-                          selectedSession.provider,
-                          selectedSession.file_path,
-                          "archive_local",
-                          false,
-                        )
-                      }
-                      disabled={busy || !canRunSessionAction}
-                    >
-                      {messages.sessionDetail.archive}
-                    </Button>
                   </div>
                 </div>
+                {sessionActionSummary ? (
+                  <section className="provider-result-grid provider-result-grid-compact session-result-stage">
+                    <article className={sessionActionCardClass}>
+                      <span className="overview-note-label">{messages.providers.actionResultTitle}</span>
+                      <strong>{sessionActionSummary.headline}</strong>
+                      <p>{sessionActionSummary.countSummary}</p>
+                      <p>{sessionActionSummary.detail}</p>
+                      {sessionActionSummary.token ? <code>{sessionActionSummary.token}</code> : null}
+                      {sessionActionSummary.previewReady ? (
+                        sessionActionCanExecute ? (
+                          <div className="sub-toolbar provider-result-actions">
+                            <Button
+                              variant={sessionScopedActionResult?.action === "delete_local" ? "danger" : "base"}
+                              onClick={executeSessionAction}
+                              disabled={busy}
+                            >
+                              {executeSessionActionLabel}
+                            </Button>
+                          </div>
+                        ) : (
+                          <p className="sub-hint">{messages.providers.resultSelectionChangedHint}</p>
+                        )
+                      ) : null}
+                    </article>
+                  </section>
+                ) : null}
                 <div className="danger-zone">
                 <div className="danger-zone-head">
                   <span className="overview-note-label">danger zone</span>
@@ -461,21 +515,6 @@ export function SessionDetail(props: SessionDetailProps) {
                       disabled={busy || !canRunSessionAction}
                     >
                       {messages.sessionDetail.deleteDryRun}
-                    </Button>
-                    <Button
-                      variant="danger"
-                      onClick={() =>
-                        runSingleProviderAction(
-                          selectedSession.provider,
-                          selectedSession.file_path,
-                          "delete_local",
-                          false,
-                          { backup_before_delete: providerDeleteBackupEnabled },
-                        )
-                      }
-                      disabled={busy || !canRunSessionAction}
-                    >
-                      {messages.sessionDetail.delete}
                     </Button>
                   </div>
                 </div>

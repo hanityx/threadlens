@@ -28,7 +28,10 @@ import {
 
 export async function registerThreadRoutes(
   app: FastifyInstance,
-  deps: { invalidateOverviewCache: () => void },
+  deps: {
+    invalidateOverviewCache: () => void;
+    invalidateProviderSessionCache: (provider: "codex") => void;
+  },
 ): Promise<void> {
   const idsPayloadSchema = z.object({
     ids: z.array(z.string().min(1)).min(1).max(500),
@@ -238,6 +241,7 @@ export async function registerThreadRoutes(
       });
       if (data.ok && parsed.data.dry_run === false) {
         deps.invalidateOverviewCache();
+        deps.invalidateProviderSessionCache("codex");
       }
       const status = data.ok ? 200 : 400;
       return reply.code(status).send(withSchemaVersion(data));

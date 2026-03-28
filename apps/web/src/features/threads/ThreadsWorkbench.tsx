@@ -1,4 +1,8 @@
 import { useAppContext } from "../../app/AppContext";
+import {
+  buildThreadCleanupSelectionKey,
+  THREAD_CLEANUP_DEFAULT_OPTIONS,
+} from "../../hooks/appDataUtils";
 import { ThreadsTable } from "./ThreadsTable";
 import { ThreadDetailSlot } from "./ThreadDetailSlot";
 
@@ -16,7 +20,11 @@ export function ThreadsWorkbench() {
     filteredRows,
     selectedIds,
     cleanupData,
+    pendingCleanup,
     selectedImpactRows,
+    analysisData,
+    analysisRaw,
+    cleanupRaw,
     showForensics,
     threads,
     threadsLoading,
@@ -33,6 +41,13 @@ export function ThreadsWorkbench() {
     bulkArchive,
     analyzeDelete,
     cleanupDryRun,
+    cleanupExecute,
+    analyzeDeleteError,
+    cleanupDryRunError,
+    cleanupExecuteError,
+    analyzeDeleteErrorMessage,
+    cleanupDryRunErrorMessage,
+    cleanupExecuteErrorMessage,
     selectedThread,
     highRiskCount,
     recentThreadTitle,
@@ -46,11 +61,25 @@ export function ThreadsWorkbench() {
     rows,
   } = useAppContext();
 
+  const reviewTargetIds = selectedIds.length > 0 ? selectedIds : selectedThreadId ? [selectedThreadId] : [];
+  const reviewTargetSet = new Set(reviewTargetIds);
+  const reviewImpactRows = (analysisData?.reports ?? []).filter((row) => reviewTargetSet.has(row.id));
+  const tableSelectionKey = buildThreadCleanupSelectionKey(selectedIds, THREAD_CLEANUP_DEFAULT_OPTIONS);
+  const reviewSelectionKey = buildThreadCleanupSelectionKey(reviewTargetIds, THREAD_CLEANUP_DEFAULT_OPTIONS);
   const visibleCount = visibleRows.length;
   const filteredCount = filteredRows.length;
-  const selectedCount = selectedIds.length;
-  const dryRunReady = Boolean(cleanupData?.confirm_token_expected);
-  const selectedImpactCount = selectedImpactRows.length;
+  const selectedCount = reviewTargetIds.length;
+  const dryRunReady = Boolean(
+    pendingCleanup?.confirmToken &&
+    pendingCleanup.selectionKey === reviewSelectionKey &&
+    cleanupData?.mode !== "execute",
+  );
+  const tableDryRunReady = Boolean(
+    pendingCleanup?.confirmToken &&
+    pendingCleanup.selectionKey === tableSelectionKey &&
+    cleanupData?.mode !== "execute",
+  );
+  const selectedImpactCount = reviewImpactRows.length;
   const highRiskVisibleCount = visibleRows.filter((r) => (r.risk_score ?? 0) >= 70).length;
   const pinnedCount = visibleRows.filter((r) => r.is_pinned).length;
 
@@ -122,7 +151,7 @@ export function ThreadsWorkbench() {
             {threadsFastBooting ? (
               <span className="sub-hint">fast boot</span>
             ) : null}
-            <span className="sub-hint">selected</span>
+            <span className="sub-hint">{selectedCount} selected</span>
           </section>
         </div>
       </section>
@@ -142,8 +171,8 @@ export function ThreadsWorkbench() {
           allFilteredSelected={allFilteredSelected}
           toggleSelectAllFiltered={toggleSelectAllFiltered}
           selectedIds={selectedIds}
-          selectedImpactCount={selectedImpactRows.length}
-          cleanupData={cleanupData}
+          selectedImpactCount={selectedImpactCount}
+          dryRunReady={tableDryRunReady}
           busy={busy}
           threadActionsDisabled={showRuntimeBackendDegraded}
           bulkPin={bulkPin}
@@ -178,6 +207,20 @@ export function ThreadsWorkbench() {
             bulkArchive={bulkArchive}
             analyzeDelete={analyzeDelete}
             cleanupDryRun={cleanupDryRun}
+            cleanupExecute={cleanupExecute}
+            selectedIds={reviewTargetIds}
+            rows={rows}
+            cleanupData={cleanupData}
+            pendingCleanup={pendingCleanup}
+            selectedImpactRows={reviewImpactRows}
+            analysisRaw={analysisRaw}
+            cleanupRaw={cleanupRaw}
+            analyzeDeleteError={analyzeDeleteError}
+            cleanupDryRunError={cleanupDryRunError}
+            cleanupExecuteError={cleanupExecuteError}
+            analyzeDeleteErrorMessage={analyzeDeleteErrorMessage}
+            cleanupDryRunErrorMessage={cleanupDryRunErrorMessage}
+            cleanupExecuteErrorMessage={cleanupExecuteErrorMessage}
           />
         ) : null}
       </section>

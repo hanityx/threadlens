@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Messages } from "../../i18n";
 import type { ProviderSessionActionResult } from "../../types";
 import {
+  buildProviderSessionActionSummary,
   buildProviderPanelPresentationModel,
   getCapabilityLevelLabel,
   getProviderActionLabel,
@@ -20,6 +21,16 @@ const messages = {
     actionBackupLocal: "Backup local",
     actionArchiveLocal: "Archive local",
     actionDeleteLocal: "Delete local",
+    resultPreviewReady: "Preview ready",
+    resultApplied: "Applied",
+    resultPreviewOnlyHint: "Dry-run only. Nothing changed yet.",
+    resultExecuteFromCardHint: "Preview ready. Execute from this card when it looks right.",
+    resultSelectionChangedHint: "Selection changed. Run the preview again before execute.",
+    resultArchiveAppliedHint: "Archive copied the source files into the local archive path.",
+    resultDeleteBackedUpHint: "Delete created a backup copy before removing the source files.",
+    resultDeleteDirectHint: "Delete ran directly on the source files without a backup copy.",
+    resultBackupAppliedHint: "Backup copy is ready for restore.",
+    executeActionPrefix: "Execute",
     flowStatusDone: "Done",
     flowStatusBlocked: "Blocked",
     flowStatusPending: "Pending",
@@ -41,12 +52,39 @@ const backupActionResult: ProviderSessionActionResult = {
   backup_manifest_path: "/tmp/backups/latest/manifest.json",
 };
 
+const previewDeleteResult: ProviderSessionActionResult = {
+  ok: true,
+  provider: "codex",
+  action: "delete_local",
+  dry_run: true,
+  target_count: 1,
+  valid_count: 1,
+  applied_count: 0,
+  confirm_token_expected: "tok-1",
+  confirm_token_accepted: false,
+  backed_up_count: 1,
+  backup_before_delete: true,
+};
+
 describe("providerPanelPresentationModel", () => {
   it("maps status, action, flow, and capability labels", () => {
     expect(getProviderStatusLabel(messages, "active")).toBe("Active");
     expect(getProviderActionLabel(messages, "archive_local")).toBe("Archive local");
     expect(getProviderFlowStateLabel(messages, "blocked")).toBe("Blocked");
     expect(getCapabilityLevelLabel("read-only")).toBe("Read only");
+  });
+
+  it("builds action summary copy for preview-ready results", () => {
+    const summary = buildProviderSessionActionSummary(messages, previewDeleteResult);
+
+    expect(summary).not.toBeNull();
+    if (!summary) {
+      throw new Error("expected preview summary");
+    }
+    expect(summary.headline).toBe("Delete local · Preview ready");
+    expect(summary.detail).toBe("Preview ready. Execute from this card when it looks right.");
+    expect(summary.token).toBe("tok-1");
+    expect(summary.previewReady).toBe(true);
   });
 
   it("builds backup summary state for a selected provider", () => {

@@ -34,6 +34,55 @@ export function getCapabilityLevelLabel(level: string) {
   return level;
 }
 
+export function buildProviderSessionActionSummary(
+  messages: Messages,
+  result: ProviderSessionActionResult | null,
+) {
+  if (!result) return null;
+
+  const actionLabel = getProviderActionLabel(messages, result.action);
+  const expectedToken = String(result.confirm_token_expected ?? "").trim();
+  const previewReady =
+    result.action !== "backup_local" &&
+    Boolean(expectedToken) &&
+    !result.confirm_token_accepted &&
+    result.applied_count === 0;
+  const countSummary = `${messages.providers.valid} ${result.valid_count} · ${messages.providers.applied} ${result.applied_count}${
+    typeof result.backed_up_count === "number"
+      ? ` · ${messages.providers.backedUp} ${result.backed_up_count}`
+      : ""
+  }`;
+
+  if (result.dry_run || previewReady) {
+    return {
+      headline: `${actionLabel} · ${previewReady ? messages.providers.resultPreviewReady : messages.providers.resultPreview}`,
+      countSummary,
+      detail: previewReady
+        ? messages.providers.resultExecuteFromCardHint
+        : messages.providers.resultPreviewOnlyHint,
+      token: previewReady ? expectedToken : "",
+      previewReady,
+    };
+  }
+
+  let detail = messages.providers.resultBackupAppliedHint;
+  if (result.action === "archive_local") {
+    detail = messages.providers.resultArchiveAppliedHint;
+  } else if (result.action === "delete_local") {
+    detail = result.backup_before_delete
+      ? messages.providers.resultDeleteBackedUpHint
+      : messages.providers.resultDeleteDirectHint;
+  }
+
+  return {
+    headline: `${actionLabel} · ${messages.providers.resultApplied}`,
+    countSummary,
+    detail,
+    token: "",
+    previewReady: false,
+  };
+}
+
 export function buildProviderPanelPresentationModel(options: {
   messages: Messages;
   providerView: ProviderView;

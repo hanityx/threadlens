@@ -3,8 +3,9 @@ import { Button } from "../../design-system/Button";
 import type { Messages } from "../../i18n";
 import type { ProviderSessionActionResult, ProviderSessionRow } from "../../types";
 import { SKELETON_ROWS } from "../../types";
-import { formatDateTime, formatInteger } from "../../lib/helpers";
+import { formatDateTime, formatInteger, normalizeDisplayValue } from "../../lib/helpers";
 import { compactSessionId, compactSessionTitle, suppressMouseFocus } from "./helpers";
+import { buildProviderSessionActionSummary } from "./providerPanelPresentationModel";
 
 export interface SessionTableProps {
   messages: Messages;
@@ -53,6 +54,7 @@ export interface SessionTableProps {
   onLoadMoreRows: () => void;
   hasMoreRows: boolean;
   sessionFileActionResult: ProviderSessionActionResult | null;
+  sessionFileActionCanExecute: boolean;
   actionLabel: (action: "backup_local" | "archive_local" | "delete_local") => string;
   csvExportedRows: number | null;
   sectionRef?: Ref<HTMLElement>;
@@ -106,10 +108,23 @@ export function SessionTable(props: SessionTableProps) {
     onLoadMoreRows,
     hasMoreRows,
     sessionFileActionResult,
+    sessionFileActionCanExecute,
     actionLabel,
     csvExportedRows,
     sectionRef,
   } = props;
+  const sessionActionSummary = buildProviderSessionActionSummary(messages, sessionFileActionResult);
+  const sessionExecuteLabel =
+    sessionFileActionResult ? `${messages.providers.executeActionPrefix} ${actionLabel(sessionFileActionResult.action)}` : "";
+  const sessionExecuteVariant = sessionFileActionResult?.action === "delete_local" ? "danger" : "base";
+  const handleExecuteSessionAction = () => {
+    if (!sessionFileActionResult) return;
+    if (sessionFileActionResult.action === "archive_local") {
+      onRunArchive();
+      return;
+    }
+    onRunDelete();
+  };
 
   return (
     <section className="panel provider-session-stage" ref={sectionRef}>
@@ -131,14 +146,8 @@ export function SessionTable(props: SessionTableProps) {
           <Button variant="outline" disabled={!canRunProviderAction || busy} onClick={onRunArchiveDryRun}>
             {messages.providers.archiveDryRun}
           </Button>
-          <Button variant="base" disabled={!canRunProviderAction || busy} onClick={onRunArchive}>
-            {messages.providers.archive}
-          </Button>
           <Button variant="outline" disabled={!canRunProviderAction || busy} onClick={onRunDeleteDryRun}>
             {messages.providers.deleteDryRun}
-          </Button>
-          <Button variant="danger" disabled={!canRunProviderAction || busy} onClick={onRunDelete}>
-            {messages.providers.delete}
           </Button>
         </div>
         <div className="sessions-action-tools">
@@ -243,7 +252,7 @@ export function SessionTable(props: SessionTableProps) {
         <table className="provider-session-table">
           <thead>
             <tr>
-              <th></th>
+              <th className="table-select-column"></th>
               {showProviderColumn ? <th className="col-provider">{messages.providers.colProvider}</th> : null}
               <th>{messages.providers.colSession}</th>
               <th className="col-source">{messages.threadDetail.fieldSource}</th>
@@ -254,7 +263,17 @@ export function SessionTable(props: SessionTableProps) {
             </tr>
           </thead>
           <tbody>
-            {renderedProviderSessionRows.map((row) => (
+            {renderedProviderSessionRows.map((row) => {
+              const isChecked = Boolean(selectedProviderFiles[row.file_path]);
+              const sessionDisplayTitle = compactSessionTitle(
+                row.display_title || row.probe.detected_title,
+                row.session_id,
+              );
+              const selectionLabel = compactSessionTitle(
+                row.display_title || row.probe.detected_title,
+                row.session_id,
+              );
+              return (
               <tr
                 key={`${row.provider}-${row.session_id}-${row.file_path}`}
                 data-file-key={encodeURIComponent(row.file_path)}
@@ -267,13 +286,20 @@ export function SessionTable(props: SessionTableProps) {
                   onSetParserDetailProvider(row.provider);
                 }}
               >
-                <td>
-                  <input
-                    type="checkbox"
-                    checked={Boolean(selectedProviderFiles[row.file_path])}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => onSelectedProviderFileChange(row.file_path, e.target.checked)}
-                  />
+                <td className="table-select-cell">
+                  <label
+                    className={`table-select-target ${isChecked ? "is-checked" : ""}`.trim()}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <input
+                      className="table-select-checkbox"
+                      type="checkbox"
+                      checked={isChecked}
+                      aria-label={`Select session ${selectionLabel}`}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => onSelectedProviderFileChange(row.file_path, e.target.checked)}
+                    />
+                  </label>
                 </td>
                 {showProviderColumn ? <td className="col-provider">{row.provider}</td> : null}
                 <td className="title-col">
@@ -291,7 +317,7 @@ export function SessionTable(props: SessionTableProps) {
                       className="title-main provider-session-title"
                       title={row.display_title || row.probe.detected_title || row.session_id}
                     >
-                      {compactSessionTitle(row.display_title || row.probe.detected_title, row.session_id)}
+                      {sessionDisplayTitle}
                     </div>
                     <div className="mono-sub provider-session-id" title={row.session_id}>
                       {compactSessionId(row.session_id)}
@@ -304,7 +330,7 @@ export function SessionTable(props: SessionTableProps) {
                 <td className="col-modified">{formatDateTime(row.mtime)}</td>
                 <td className="col-size">{formatInteger(row.size_bytes)}</td>
               </tr>
-            ))}
+            )})}
             {providerSessionsLoading
               ? Array.from({ length: SKELETON_ROWS }).map((_, idx) => (
                   <tr key={`provider-session-skeleton-${idx}`}>
@@ -317,7 +343,9 @@ export function SessionTable(props: SessionTableProps) {
             {sortedProviderSessionRows.length === 0 && !providerSessionsLoading ? (
               <tr>
                 <td colSpan={showProviderColumn ? 8 : 7} className="sub-hint">
-                  {messages.providers.sessionsLoading}
+                  {providerSessionRows.length === 0
+                    ? messages.providers.sessionsEmpty
+                    : messages.providers.sessionsEmptyFiltered}
                 </td>
               </tr>
             ) : null}
@@ -335,18 +363,21 @@ export function SessionTable(props: SessionTableProps) {
         <section className="provider-result-grid">
           <article className="provider-result-card">
             <span className="overview-note-label">{messages.providers.actionResultTitle}</span>
-            <strong>
-              {actionLabel(sessionFileActionResult.action)}
-              {sessionFileActionResult.dry_run ? ` · ${messages.providers.resultPreview}` : ""}
-            </strong>
-            <p>
-              {messages.providers.valid} {sessionFileActionResult.valid_count} · {messages.providers.applied}{" "}
-              {sessionFileActionResult.applied_count}
-              {typeof sessionFileActionResult.backed_up_count === "number"
-                ? ` · ${messages.providers.backedUp} ${sessionFileActionResult.backed_up_count}`
-                : ""}
-            </p>
-            {sessionFileActionResult.confirm_token_expected ? <code>{sessionFileActionResult.confirm_token_expected}</code> : null}
+            <strong>{sessionActionSummary?.headline ?? actionLabel(sessionFileActionResult.action)}</strong>
+            <p>{sessionActionSummary?.countSummary}</p>
+            <p>{sessionActionSummary?.detail}</p>
+            {sessionActionSummary?.token ? <code>{sessionActionSummary.token}</code> : null}
+            {sessionActionSummary?.previewReady ? (
+              sessionFileActionCanExecute ? (
+                <div className="sub-toolbar provider-result-actions">
+                  <Button variant={sessionExecuteVariant} disabled={busy} onClick={handleExecuteSessionAction}>
+                    {sessionExecuteLabel}
+                  </Button>
+                </div>
+              ) : (
+                <p className="sub-hint">{messages.providers.resultSelectionChangedHint}</p>
+              )
+            ) : null}
           </article>
           {sessionFileActionResult.backup_to ? (
             <article className="provider-result-card">

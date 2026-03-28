@@ -3,7 +3,6 @@ import { expect, test } from "@playwright/test";
 const providersTabLabel = /^(Providers|Sessions|Source Sessions|Session Vault)$/i;
 const threadsTabLabel = /^(Threads|Cleanup|Codex Cleanup)$/i;
 const providersHubTitle = /^(Sessions|Original Sessions|Source Sessions|Session Vault)$/i;
-const openDiagnosticsLabel = /^(Open Advanced Diagnostics|AI Diagnostics)/i;
 const routingTitle = /^(AI Diagnostics|AI Diagnostics \/ Execution Flow|Execution Routing Graph|Diagnostics map)$/i;
 const bulkImpactLabel = /^(Bulk Impact Analysis|Run impact analysis)$/i;
 const bulkCleanupDryRunLabel = /^(Bulk Cleanup Dry-Run|Run cleanup dry-run)$/i;
@@ -16,7 +15,12 @@ test("live stack renders providers and routing views", async ({ page }, testInfo
   await page.goto("/");
   await page.getByRole("button", { name: providersTabLabel }).first().click();
   await expect(page.getByRole("heading", { name: providersHubTitle }).first()).toBeVisible();
-  await page.locator("summary").filter({ hasText: openDiagnosticsLabel }).first().click();
+  const diagnosticsSummary = page
+    .locator("details.session-routing-disclosure summary")
+    .filter({ hasText: /Session surface/i })
+    .first();
+  await expect(diagnosticsSummary).toContainText(/Open|Hide/i);
+  await diagnosticsSummary.click();
   await expect(page.getByRole("heading", { name: routingTitle })).toBeVisible();
 
   await page.screenshot({ path: testInfo.outputPath("live-stack-core.png"), fullPage: true });
