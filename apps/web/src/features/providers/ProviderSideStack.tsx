@@ -17,7 +17,6 @@ export function ProviderSideStack({
       {backupHubSlot ? (
         <details className="detail-section">
           <summary>
-            <span className="overview-note-label">backup</span>
             <strong>Backup &amp; export</strong>
           </summary>
           <div className="detail-section-body">

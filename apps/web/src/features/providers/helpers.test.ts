@@ -30,6 +30,7 @@ describe("provider helpers", () => {
   it("compacts generated titles and long session ids", () => {
     expect(compactSessionTitle("", "2026-03-24-session-abcdef12")).toBe("session abcdef12");
     expect(compactSessionTitle("rollout-2026-03-24-something", "abcd1234")).toBe("session abcd1234");
+    expect(compactSessionTitle("Review instructions.md", "abcd1234")).toBe("session abcd1234");
     expect(compactSessionTitle("Clean title", "abcd1234")).toBe("Clean title");
     expect(compactSessionId("1234567890abcdefghijkl")).toBe("12345678…ijkl");
     expect(compactSessionId("short-id")).toBe("short-id");

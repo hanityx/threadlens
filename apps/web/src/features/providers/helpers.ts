@@ -70,9 +70,8 @@ export const OPTIONAL_PROVIDER_IDS = ["copilot"] as const;
 
 const PROVIDER_CSV_COLUMNS_STORAGE_KEY = "po-provider-csv-columns";
 const LEGACY_PROVIDER_CSV_COLUMNS_STORAGE_KEY = "cmc-provider-csv-columns";
-const PROVIDER_SLOW_ONLY_STORAGE_KEY = "po-provider-slow-only";
-const LEGACY_PROVIDER_SLOW_ONLY_STORAGE_KEY = "cmc-provider-slow-only";
 const HOME_PATH_MARKER = `/${"Users"}/`;
+const MARKDOWN_FILE_NAME_PATTERN = /\b[\w.-]+\.md\b/i;
 
 function readStorageValue(keys: readonly string[]): string | null {
   if (typeof window === "undefined") return null;
@@ -92,8 +91,10 @@ export function writeCsvColumnPrefs(columns: Record<CsvColumnKey, boolean>): voi
   writeStorageValue(PROVIDER_CSV_COLUMNS_STORAGE_KEY, JSON.stringify(columns));
 }
 
-export function writeSlowOnlyPref(enabled: boolean): void {
-  writeStorageValue(PROVIDER_SLOW_ONLY_STORAGE_KEY, enabled ? "1" : "0");
+export function clearSlowOnlyPref(): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem("po-provider-slow-only");
+  window.localStorage.removeItem("cmc-provider-slow-only");
 }
 
 export function csvCell(value: unknown): string {
@@ -135,7 +136,7 @@ export function compactSessionTitle(title?: string | null, sessionId?: string | 
   const lower = normalized.toLowerCase();
   const looksGenerated =
     lower.startsWith("rollout-") ||
-    normalized.includes("AGENTS.md") ||
+    MARKDOWN_FILE_NAME_PATTERN.test(normalized) ||
     normalized.includes("<INSTRUCTIONS>") ||
     normalized.includes(HOME_PATH_MARKER) ||
     normalized.length > 72;
@@ -170,18 +171,6 @@ export function readCsvColumnPrefs(): Record<CsvColumnKey, boolean> {
     return next;
   } catch {
     return DEFAULT_CSV_COLUMNS;
-  }
-}
-
-export function readSlowOnlyPref(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return (
-      readStorageValue([PROVIDER_SLOW_ONLY_STORAGE_KEY, LEGACY_PROVIDER_SLOW_ONLY_STORAGE_KEY]) ===
-      "1"
-    );
-  } catch {
-    return false;
   }
 }
 

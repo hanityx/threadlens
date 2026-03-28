@@ -4,6 +4,7 @@ const railDayFormatter = new Intl.DateTimeFormat("en-US", {
 });
 const HOME_PATH_MARKER = /\/(?:Users|home)\//;
 const HIDDEN_WORKTREE_DIR = `.${["work", "trees"].join("")}/`;
+const MARKDOWN_FILE_NAME_PATTERN = /\b[\w.-]+\.md\b/i;
 const WORKSPACE_PATH_PATTERN = /`?(?:\/(?:Users|home)\/[^\s`]+|~\/[^\s`]+|Labs\/[^\s`]+)`?/g;
 const WORKSPACE_TAIL_PATTERN = /\blocal workspace\s+[^\s`]+(?:\/[^\s`]*)*/gi;
 
@@ -79,7 +80,7 @@ export const normalizeWorkbenchSessionTitle = (
   const lower = normalized.toLowerCase();
   const looksGenerated =
     lower.startsWith("rollout-") ||
-    normalized.includes("AGENTS.md") ||
+    MARKDOWN_FILE_NAME_PATTERN.test(normalized) ||
     normalized.includes("<INSTRUCTIONS>") ||
     HOME_PATH_MARKER.test(normalized) ||
     normalized.length > 72;

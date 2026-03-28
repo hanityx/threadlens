@@ -5,6 +5,7 @@ import type { ConversationSearchEnvelope, ConversationSearchHit } from "../../ty
 import type { Messages } from "../../i18n";
 import { extractEnvelopeData, formatDateTime, normalizeDisplayValue } from "../../lib/helpers";
 const HOME_PATH_MARKER = `/${"Users"}/`;
+const MARKDOWN_FILE_NAME_PATTERN = /\b[\w.-]+\.md\b/i;
 
 /* ── Recent searches ──────────────────────────────────────────── */
 
@@ -118,7 +119,7 @@ function compactSearchTitle(hit: ConversationSearchHit): string {
     lower === "none" ||
     lower === "unknown" ||
     lower.startsWith("rollout-") ||
-    raw.includes("AGENTS.md") ||
+    MARKDOWN_FILE_NAME_PATTERN.test(raw) ||
     raw.includes("<INSTRUCTIONS>") ||
     raw.includes(HOME_PATH_MARKER) ||
     raw.length > 88;
@@ -151,10 +152,11 @@ export function SearchPanel({
   onOpenThread,
   initialQuery = "",
 }: SearchPanelProps) {
+  const initialTrimmedQuery = initialQuery.trim();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialTrimmedQuery);
   const [provider, setProvider] = useState("all");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState(initialTrimmedQuery);
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(() => new Set());
   const [activeSessionKey, setActiveSessionKey] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -202,6 +204,7 @@ export function SearchPanel({
   }, [query]);
   const deferredQuery = useDeferredValue(debouncedQuery);
   const searchEnabled = deferredQuery.length >= 2;
+  const showSearchGuidance = query.trim().length < 2;
 
   useEffect(() => {
     if (debouncedQuery.length < 2) return;
@@ -348,6 +351,11 @@ export function SearchPanel({
   }, [provider, providerLabelById, providerOptions, results]);
   const showLoadingSkeleton = searchEnabled && search.isLoading && results.length === 0;
   const showLiveLoading = searchEnabled && search.isFetching;
+  const statusText = showLiveLoading
+    ? messages.search.loading
+    : results.length === 0
+      ? messages.search.emptyResult
+      : null;
 
   return (
     <section className="panel search-panel search-stage">
@@ -368,11 +376,9 @@ export function SearchPanel({
           <span className="search-command-path is-active">
             {provider === "all" ? "all ai" : providerLabelById.get(provider) ?? provider}
           </span>
-          <span className="search-command-runtime">
-            {searchEnabled ? `${availableSessions} rows` : "idle"}
-          </span>
+          {!searchEnabled ? <span className="search-command-runtime">idle</span> : null}
         </div>
-        <div className="search-command-body">
+        <div className={`search-command-body ${showSearchGuidance ? "" : "is-condensed"}`.trim()}>
           <div className="search-command-left">
             <div className="search-command-bar">
               <span className="search-command-prompt" aria-hidden="true">&gt;</span>
@@ -411,130 +417,108 @@ export function SearchPanel({
               </div>
             </div>
           </div>
-          <div className="search-command-tips">
-            <div className="search-tips-col">
-              <div className="search-scope-label">tips</div>
-              <div className="search-tips-list">
-                <div className="search-tip-row">
-                  <span className="search-tip-key">keywords</span>
-                  <span className="search-tip-desc">free text, any order</span>
-                </div>
-                <div className="search-tip-row">
-                  <span className="search-tip-key">filename</span>
-                  <span className="search-tip-desc">AGENTS.md, .jsonl</span>
-                </div>
-                <div className="search-tip-row">
-                  <span className="search-tip-key">scope</span>
-                  <span className="search-tip-desc">filter by provider</span>
-                </div>
-              </div>
-            </div>
-            <div className="search-tips-col">
-              <div className="search-scope-label">shortcuts</div>
-              <div className="search-tips-shortcuts">
-                <div className="search-tip-row">
-                  <kbd className="search-tip-kbd">⌘K</kbd>
-                  <span className="search-tip-desc">focus search</span>
-                </div>
-                <div className="search-tip-row">
-                  <kbd className="search-tip-kbd">Esc</kbd>
-                  <span className="search-tip-desc">clear query</span>
+          {showSearchGuidance ? (
+            <div className="search-command-tips">
+              <div className="search-tips-col">
+                <div className="search-scope-label">tips</div>
+                <div className="search-tips-list">
+                  <div className="search-tip-row">
+                    <span className="search-tip-key">keywords</span>
+                    <span className="search-tip-desc">free text, any order</span>
+                  </div>
+                  <div className="search-tip-row">
+                    <span className="search-tip-key">filename</span>
+                    <span className="search-tip-desc">markdown, .jsonl</span>
+                  </div>
+                  <div className="search-tip-row">
+                    <span className="search-tip-key">scope</span>
+                    <span className="search-tip-desc">filter by provider</span>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="search-tips-recent">
-              <div className="search-scope-label">{messages.search.recentSearches}</div>
-              {recentSearches.length === 0 ? (
-                <div className="search-recent-list">
-                  {([
-                    { q: "parser health", t: "2m ago" },
-                    { q: "gemini session", t: "1h ago" },
-                    { q: "AGENTS.md review", t: "3h ago" },
-                    { q: "threadlens debug", t: "yesterday" },
-                    { q: "copilot backup", t: "2d ago" },
-                    { q: "codex transcript", t: "3d ago" },
-                  ]).map(({ q, t }) => (
-                    <div key={q} className="search-recent-item search-recent-sample" aria-hidden="true">
-                      <span className="search-recent-icon">↺</span>
-                      <span className="search-recent-query">{q}</span>
-                      <span className="search-recent-time">{t}</span>
-                    </div>
-                  ))}
+              <div className="search-tips-col">
+                <div className="search-scope-label">shortcuts</div>
+                <div className="search-tips-shortcuts">
+                  <div className="search-tip-row">
+                    <kbd className="search-tip-kbd">⌘K</kbd>
+                    <span className="search-tip-desc">focus search</span>
+                  </div>
+                  <div className="search-tip-row">
+                    <kbd className="search-tip-kbd">Esc</kbd>
+                    <span className="search-tip-desc">clear query</span>
+                  </div>
                 </div>
-              ) : (
-                <div className="search-recent-list">
-                  {recentSearches.slice(0, 6).map((item) => (
-                    <div
-                      key={item.ts}
-                      className="search-recent-item"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setQuery(item.q)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          setQuery(item.q);
-                        }
-                      }}
-                    >
-                      <span className="search-recent-icon" aria-hidden="true">↺</span>
-                      <span className="search-recent-query">{item.q}</span>
-                      <span className="search-recent-time">{formatRecentTime(item.ts)}</span>
-                      <button
-                        type="button"
-                        className="search-recent-remove"
-                        aria-label={`Remove "${item.q}" from recent searches`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemoveRecent(item.q);
+              </div>
+              <div className="search-tips-recent">
+                <div className="search-scope-label">{messages.search.recentSearches}</div>
+                {recentSearches.length === 0 ? (
+                  <p className="search-recent-empty">{messages.search.recentEmpty}</p>
+                ) : (
+                  <div className="search-recent-list">
+                    {recentSearches.slice(0, 6).map((item) => (
+                      <div
+                        key={item.ts}
+                        className="search-recent-item"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setQuery(item.q)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setQuery(item.q);
+                          }
                         }}
                       >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+                        <span className="search-recent-icon" aria-hidden="true">↺</span>
+                        <span className="search-recent-query">{item.q}</span>
+                        <span className="search-recent-time">{formatRecentTime(item.ts)}</span>
+                        <button
+                          type="button"
+                          className="search-recent-remove"
+                          aria-label={`Remove "${item.q}" from recent searches`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveRecent(item.q);
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
       </div>
 
       <div className="search-stage-layout">
         <div className="search-results-column">
-          {showLiveLoading ? (
-            <div className="search-live-strip" role="status" aria-live="polite">
-              <span className="search-live-dot" aria-hidden="true" />
-              <span>{messages.search.loading}</span>
-            </div>
-          ) : null}
-
-          {searchEnabled && !search.isLoading ? (
+          {searchEnabled ? (
             <div className="search-summary-strip" role="status" aria-live="polite">
               <span>
-                <strong>{resultCount}</strong> {messages.search.resultCountBody}
+                <strong>{resultCount}</strong> matches
               </span>
               <span>
                 <strong>
                   {searchedSessions}/{availableSessions}
                 </strong>{" "}
-                {messages.search.scannedSessionsBody}
+                scanned
               </span>
               <span>
-                <strong>{providerHitCount}</strong> AI · <strong>{messageMatches}</strong> {messages.search.messageMatches}
+                <strong>{providerHitCount}</strong> AI · <strong>{messageMatches}</strong> messages
               </span>
-            </div>
-          ) : null}
-
-          {searchEnabled && !search.isLoading && collapsedDuplicateCount > 0 ? (
-            <div className="info-box compact search-dedupe-strip">
-              <p>{messages.search.dedupedHint.replace("{count}", String(collapsedDuplicateCount))}</p>
-            </div>
-          ) : null}
-
-          {searchEnabled && !search.isLoading && results.length === 0 ? (
-            <div className="info-box compact search-empty-strip">
-              <p>{messages.search.emptyResult}</p>
+              {collapsedDuplicateCount > 0 ? (
+                <span>
+                  <strong>{collapsedDuplicateCount}</strong> deduped
+                </span>
+              ) : null}
+              {statusText ? (
+                <span className={`status-pill ${showLiveLoading ? "status-preview" : "status-missing"}`.trim()}>
+                  {statusText}
+                </span>
+              ) : null}
             </div>
           ) : null}
 
@@ -566,7 +550,7 @@ export function SearchPanel({
                     <strong>{group.name}</strong>
                     <div className="search-group-header-meta">
                       <span className="mono-sub">{group.sessions.length} rows</span>
-                      <span className="status-pill status-active">{group.matchCount}</span>
+                      <span className="status-pill status-active">{group.matchCount} hits</span>
                     </div>
                   </div>
                   <div className="search-group-list">
@@ -602,7 +586,13 @@ export function SearchPanel({
                               </strong>
                             </div>
                             <div className="search-result-top">
-                              <span className="status-pill status-active">{cardProviderName}</span>
+                              {session.openHit.session_id ? (
+                                <span className="search-result-kind search-result-session-id">
+                                  {compactSessionId(session.openHit.session_id)}
+                                </span>
+                              ) : (
+                                <span className="search-result-kind">{compactProviderName(cardProviderName)}</span>
+                              )}
                               <span className="search-result-kind">{session.matches.length} hits</span>
                             </div>
                           </div>
@@ -614,17 +604,6 @@ export function SearchPanel({
                               {compactSourceLabel(session.source)}
                             </span>
                             <div className="search-result-actions">
-                              <button
-                                type="button"
-                                className="status-pill-button search-inline-pill"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setActiveSessionKey(session.key);
-                                  onOpenSession(session.openHit);
-                                }}
-                              >
-                                {messages.search.openSession}
-                              </button>
                               {session.openHit.thread_id ? (
                                 <button
                                   type="button"

@@ -201,11 +201,12 @@ function providerWorkbenchNote(provider: string): string {
 }
 
 function flowReasonLabel(reason: string): string {
+  const lower = reason.toLowerCase();
   if (reason === "GUI or CLI user input") return "entry";
   if (reason === "Receive prompt") return "prompt";
   if (reason === "workspace/root plus nested overrides") return "agents scope";
-  if (reason === "Resolve AGENTS.md scope") return "agents scope";
-  if (reason === "system > developer > user > AGENTS.md scope") return "priority";
+  if (lower.includes("scope") && (lower.includes("agent") || lower.includes("override"))) return "agents scope";
+  if (lower.includes("system > developer > user") || lower.includes("priority chain")) return "priority";
   if (reason === "Priority chain applied.") return "priority";
   if (reason === "Tool calls plus local file reads and writes") return "tool io";
   if (reason === "developer_instructions / features / hooks") return "config";

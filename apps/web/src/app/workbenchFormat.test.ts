@@ -4,6 +4,7 @@ import {
   formatWorkbenchGroupLabel,
   formatWorkbenchRailDay,
   formatWorkbenchRailTime,
+  normalizeWorkbenchSessionTitle,
   normalizeWorkbenchTitle,
   providerFromSourceKey,
 } from "./workbenchFormat";
@@ -63,6 +64,7 @@ describe("workbench helpers", () => {
         "Fallback",
       ),
     ).toBe("local workspace");
+    expect(normalizeWorkbenchSessionTitle("Review instructions.md", "Fallback")).toBe("Fallback");
   });
 
   it("formats workbench day and time labels", () => {

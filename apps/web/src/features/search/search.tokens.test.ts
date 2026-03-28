@@ -6,7 +6,7 @@ const searchStyles = readFileSync(new URL("./search.css", import.meta.url), "utf
 describe("search token migration", () => {
   it("uses blur tokens for command and result surfaces", () => {
     expect(searchStyles).toMatch(/\.search-command-shell\s*{[^}]*backdrop-filter:\s*blur\(var\(--blur-lg\)\);/s);
-    expect(searchStyles).toMatch(/\.search-summary-strip\s*{[^}]*backdrop-filter:\s*blur\(var\(--blur-md\)\);/s);
+    expect(searchStyles).toMatch(/\.search-summary-strip\s*{[^}]*backdrop-filter:\s*blur\(var\(--blur-sm\)\);/s);
     expect(searchStyles).toMatch(/\.search-live-strip\s*{[^}]*backdrop-filter:\s*blur\(var\(--blur-md\)\);/s);
   });
 
@@ -44,7 +44,7 @@ describe("search token migration", () => {
     expect(searchStyles).toMatch(/\.search-command-shortcut\s*{[^}]*color:\s*var\(--text-search-muted\);/s);
     expect(searchStyles).toMatch(/\.search-command-shortcut kbd\s*{[^}]*background:\s*var\(--surface-search-command-kbd\);/s);
     expect(searchStyles).toMatch(/\.search-guide-grid article\s*{[^}]*background:\s*var\(--surface-search-guide-card\);/s);
-    expect(searchStyles).toMatch(/\.search-summary-strip\s*{[^}]*background:\s*var\(--surface-card-strong-subtle\);/s);
+    expect(searchStyles).toMatch(/\.search-summary-strip\s*{[^}]*background:\s*var\(--surface-nav-ghost\);/s);
     expect(searchStyles).toMatch(/\.search-live-strip\s*{[^}]*background:\s*var\(--surface-card-bg-subtle\);/s);
     expect(searchStyles).toMatch(/\.search-idle-strip\s*{[^}]*background:\s*var\(--surface-search-command-bar\);/s);
     expect(searchStyles).toMatch(/\.search-result-card-stage\s*{[^}]*background:\s*var\(--surface-search-result-stage\);/s);
@@ -56,8 +56,8 @@ describe("search token migration", () => {
     expect(searchStyles).toMatch(/\.search-match-item\s*{[^}]*border-top:\s*1px solid var\(--surface-divider-soft\);/s);
     expect(searchStyles).toMatch(/\.search-result-card\s*{[^}]*background:\s*var\(--surface-card-strong-subtle\);/s);
     expect(searchStyles).toMatch(/\.search-result-card:hover,\s*\.search-result-card:focus-visible\s*{[^}]*border-color:\s*var\(--surface-search-result-hover-border\);[^}]*background:\s*var\(--surface-search-result-hover\);/s);
-    expect(searchStyles).toMatch(/\.search-pill\s*{[^}]*background:\s*var\(--surface-pill-ghost\);/s);
-    expect(searchStyles).toMatch(/\.search-pill\.status-active,\s*\.search-pill:hover\s*{[^}]*color:\s*var\(--text-search-inline-hover\);/s);
+    expect(searchStyles).toMatch(/\.search-pill\s*{[^}]*border:\s*1px solid var\(--surface-pill-border\);[^}]*background:\s*var\(--surface-pill-ghost\);[^}]*box-shadow:\s*var\(--surface-pill-shadow\);/s);
+    expect(searchStyles).toMatch(/\.search-pill\.status-active\s*{[^}]*background:\s*var\(--success-dim\);[^}]*color:\s*var\(--success\);/s);
     expect(searchStyles).toMatch(/\.search-inline-pill\s*{[^}]*background:\s*var\(--surface-search-inline-pill\);/s);
     expect(searchStyles).toMatch(/\.search-inline-pill:hover\s*{[^}]*color:\s*var\(--text-search-inline-hover\);/s);
     expect(searchStyles).toMatch(/\.btn-link-inline\s*{[^}]*color:\s*var\(--text-search-link-soft\);/s);

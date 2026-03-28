@@ -35,24 +35,23 @@ function surfaceTabs(page: Page) {
 async function runFullPageSmoke(page: Page, suffix: string, testInfo: { outputPath: (path: string) => string }) {
   await page.goto("/");
 
-  await expect(page.getByText(/session workbench/i)).toBeVisible();
+  await expect(page.getByRole("heading", { name: /threadlens/i }).first()).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath(`overview-${suffix}.png`),
     fullPage: true,
   });
 
   await surfaceTabs(page).getByRole("button", { name: /^search$/i }).click();
-  await expect(page.getByRole("heading", { name: /^search$/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^(Conversations|Search)$/i })).toBeVisible();
   await expect(page.locator("input.search-input-stage")).toBeVisible();
-  await page.getByRole("button", { name: /^agent$/i }).first().click();
-  await expect(page.getByText(/hits/i).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /^All core AI$/i }).first()).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath(`search-${suffix}.png`),
     fullPage: true,
   });
 
   await surfaceTabs(page).getByRole("button", { name: /^sessions$/i }).click();
-  await expect(page.getByRole("heading", { name: /^sessions$/i }).first()).toBeVisible();
+  await expect(page.locator(".provider-workspace-bar").first()).toBeVisible();
   await openDiagnostics(page);
   await page.screenshot({
     path: testInfo.outputPath(`sessions-${suffix}.png`),
@@ -74,7 +73,8 @@ async function runFullPageSmoke(page: Page, suffix: string, testInfo: { outputPa
   await surfaceTabs(page).getByRole("button", { name: /^overview$/i }).click();
   const setupButton = page.getByRole("button", { name: /^setup$/i }).first();
   await setupButton.click();
-  await expect(page.getByText(/setup workspace|threadlens/i).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Setup$/i }).first()).toBeVisible();
+  await expect(page.getByText(/Step 1: detect/i).first()).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath(`setup-${suffix}.png`),
     fullPage: true,

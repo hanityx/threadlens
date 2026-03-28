@@ -115,6 +115,7 @@ export function TranscriptLog({
     [filteredTranscript, visibleCount],
   );
   const hasMoreRenderedTranscript = renderedTranscript.length < filteredTranscript.length;
+  const modeLabel = truncated ? messages.transcript.partial : messages.transcript.full;
 
   return (
     <>
@@ -124,15 +125,17 @@ export function TranscriptLog({
           <strong>
             {messageCount} {messages.transcript.messagesUnit}
           </strong>
+          <span className="transcript-summary-badge">{modeLabel}</span>
         </div>
         <div className="transcript-summary-meta">
-          <span className="sub-hint">
-            {messages.transcript.filteredCount} {renderedTranscript.length}/{filteredTranscript.length}
+          <span className="transcript-summary-stat">
+            <span className="overview-note-label">{messages.transcript.loadedCount}</span>
+            <strong>{renderedTranscript.length}</strong>
           </span>
-          <span className="sub-hint">
-            {messages.transcript.showingCount} {renderedTranscript.length}/{messageCount}
+          <span className="transcript-summary-stat">
+            <span className="overview-note-label">{messages.transcript.matchingCount}</span>
+            <strong>{filteredTranscript.length}</strong>
           </span>
-          <span className="sub-hint">{truncated ? messages.transcript.partial : messages.transcript.full}</span>
         </div>
       </div>
       <p className="sub-hint transcript-intro-copy">
