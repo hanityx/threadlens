@@ -221,10 +221,10 @@ let chatGptRootsCache: ChatGptRootsCacheEntry | null = null;
 export function providerName(provider: ProviderId): string {
   const labels: Record<ProviderId, string> = {
     codex: "Codex",
-    chatgpt: "ChatGPT Desktop",
-    claude: "Claude CLI",
-    gemini: "Gemini CLI",
-    copilot: "Copilot Chat",
+    chatgpt: "ChatGPT",
+    claude: "Claude",
+    gemini: "Gemini",
+    copilot: "Copilot",
   };
   return labels[provider] ?? provider;
 }
@@ -1052,7 +1052,7 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
     },
     {
       provider: "claude" as ProviderId,
-      name: "Claude CLI",
+      name: providerName("claude"),
       status: claudeStatus,
       capability_level: capabilityLevel(
         claudeStatus,
@@ -1073,7 +1073,7 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
     },
     {
       provider: "gemini" as ProviderId,
-      name: "Gemini CLI",
+      name: providerName("gemini"),
       status: geminiStatus,
       capability_level: capabilityLevel(
         geminiStatus,
@@ -1099,7 +1099,7 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
     },
     {
       provider: "copilot" as ProviderId,
-      name: "Copilot Chat",
+      name: providerName("copilot"),
       status: copilotStatus,
       capability_level: capabilityLevel(
         copilotStatus,

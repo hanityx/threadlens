@@ -425,19 +425,28 @@ export function defaultConversationSearchProviders(): ProviderId[] {
   return [...DEFAULT_CONVERSATION_SEARCH_PROVIDERS];
 }
 
-function buildSearchIdentity(row: ProviderSessionRow): {
+function buildSearchIdentity(
+  row: ProviderSessionRow,
+  openableThreadIds?: Set<string>,
+): {
   sessionId: string;
   threadId: string | null;
   title: string;
 } {
   const rawSessionId = inferSessionId(row.file_path) || row.session_id;
-  const threadId =
+  const threadIdCandidate =
     row.provider === "codex"
       ? extractCodexThreadIdFromSessionName(rawSessionId) ||
         extractCodexThreadIdFromSessionName(row.session_id) ||
         row.session_id ||
         ""
       : "";
+  const threadId =
+    threadIdCandidate && openableThreadIds
+      ? openableThreadIds.has(threadIdCandidate)
+        ? threadIdCandidate
+        : ""
+      : threadIdCandidate;
 
   return {
     sessionId: rawSessionId,
@@ -513,6 +522,7 @@ export async function searchConversationRows(
     limit?: number;
     transcriptLoader?: ConversationTranscriptLoader;
     transcriptLimit?: number;
+    openableThreadIds?: Set<string>;
   },
 ): Promise<{
   searched_sessions: number;
@@ -560,7 +570,7 @@ export async function searchConversationRows(
   }> = [];
 
   for (const row of sortedRows) {
-    const identity = buildSearchIdentity(row);
+    const identity = buildSearchIdentity(row, options?.openableThreadIds);
     const metadataResult = buildMetadataSearchResult(
       row,
       identity,
@@ -651,6 +661,24 @@ export async function searchConversationRows(
   };
 }
 
+async function resolveOpenableThreadIds(
+  forceRefresh: boolean,
+): Promise<Set<string>> {
+  const { getThreadsTs } = await import("../threads/query.js");
+  const threads = await getThreadsTs({
+    offset: "0",
+    limit: "240",
+    q: "",
+    sort: "updated_desc",
+    ...(forceRefresh ? { refresh: "1" } : {}),
+  });
+  return new Set(
+    (threads.rows ?? [])
+      .map((row) => String(row.thread_id || "").trim())
+      .filter(Boolean),
+  );
+}
+
 export async function searchLocalConversationsTs(
   q: string,
   options?: {
@@ -686,9 +714,11 @@ export async function searchLocalConversationsTs(
     ),
   );
   const rows = scans.flatMap((scan) => scan.rows);
+  const openableThreadIds = await resolveOpenableThreadIds(forceRefresh);
   const result = await searchConversationRows(rows, trimmedQuery, {
     limit: safeLimit,
     transcriptLimit: options?.transcriptLimit,
+    openableThreadIds,
   });
 
   return {

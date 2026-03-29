@@ -221,6 +221,49 @@ describe("searchConversationRows", () => {
     });
     expect(transcriptLoader).not.toHaveBeenCalled();
   });
+
+  it("omits cleanup thread ids that are not openable in the current thread read model", async () => {
+    const row = makeRow({
+      session_id: "rollout-2026-03-29T01-53-21-019d355d-51c3-7753-b2f2-8db585337e41",
+      file_path:
+        "/tmp/rollout-2026-03-29T01-53-21-019d355d-51c3-7753-b2f2-8db585337e41.jsonl",
+      display_title: "ThreadLens handoff",
+    });
+
+    const result = await searchConversationRows([row], "handoff", {
+      limit: 10,
+      openableThreadIds: new Set(),
+    });
+
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0]).toMatchObject({
+      provider: "codex",
+      session_id: "rollout-2026-03-29T01-53-21-019d355d-51c3-7753-b2f2-8db585337e41",
+      match_kind: "title",
+    });
+    expect(result.results[0].thread_id).toBeUndefined();
+  });
+
+  it("keeps cleanup thread ids when they are openable in the current thread read model", async () => {
+    const threadId = "019d355d-51c3-7753-b2f2-8db585337e41";
+    const row = makeRow({
+      session_id: `rollout-2026-03-29T01-53-21-${threadId}`,
+      file_path: `/tmp/rollout-2026-03-29T01-53-21-${threadId}.jsonl`,
+      display_title: "ThreadLens handoff",
+    });
+
+    const result = await searchConversationRows([row], "handoff", {
+      limit: 10,
+      openableThreadIds: new Set([threadId]),
+    });
+
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0]).toMatchObject({
+      provider: "codex",
+      thread_id: threadId,
+      match_kind: "title",
+    });
+  });
 });
 
 describe("createCachedConversationTranscriptLoader", () => {

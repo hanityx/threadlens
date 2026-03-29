@@ -2,7 +2,6 @@ export const SCHEMA_VERSION = "2026-02-27";
 
 export const SEARCHABLE_PROVIDER_IDS = [
   "codex",
-  "chatgpt",
   "claude",
   "gemini",
   "copilot",
@@ -12,7 +11,6 @@ export type SearchableProviderId = (typeof SEARCHABLE_PROVIDER_IDS)[number];
 
 export const SEARCHABLE_PROVIDER_LABELS: Record<SearchableProviderId, string> = {
   codex: "Codex",
-  chatgpt: "ChatGPT",
   claude: "Claude",
   gemini: "Gemini",
   copilot: "Copilot",

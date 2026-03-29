@@ -9,7 +9,7 @@ const SearchPanel = lazy(async () => {
   return { default: mod.SearchPanel };
 });
 
-const SESSION_OPENABLE_SEARCH_PROVIDER_IDS = SEARCHABLE_PROVIDER_IDS.filter((id) => id !== "chatgpt");
+const SESSION_OPENABLE_SEARCH_PROVIDER_IDS: ProviderView[] = [...SEARCHABLE_PROVIDER_IDS];
 
 export function SearchRoute() {
   const {
