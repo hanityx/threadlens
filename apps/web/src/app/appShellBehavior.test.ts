@@ -178,6 +178,7 @@ describe("desktop route helpers", () => {
           threadId: "",
         },
         layoutView: "providers",
+        providerView: "all",
         selectedSessionPath: "",
         selectedThreadId: "",
       }),
