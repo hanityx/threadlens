@@ -9,7 +9,9 @@ Run these first:
 ```bash
 pnpm --filter @threadlens/api test
 pnpm --filter @threadlens/api build
+pnpm --filter @threadlens/web test
 pnpm --filter @threadlens/web build
+pnpm --filter @threadlens/tui build
 ```
 
 If one of these fails, include the failing command output in your issue.
@@ -25,15 +27,17 @@ Open a GitHub bug issue when:
 - provider/session data is missing or clearly incorrect
 
 Before filing:
-- attach the relevant `.run/` report path if available
-- include OS, Node, pnpm, and whether you used `pnpm package:desktop:dir`
+- include the failing command output when possible
+- include OS, Node, and pnpm versions
+- say whether the issue happened in `Overview`, `Search`, `Sessions`, `Cleanup`, `TUI`, or packaged desktop mode
+- if the issue is provider-specific, include the provider name and the action you were attempting
 
 ### Feature requests
 
 Open a GitHub feature request when:
 - you want a new provider workflow
-- you want dashboard/forensics/release UX changes
-- you want packaging or public-release improvements
+- you want dashboard or cleanup UX changes
+- you want packaging or release-surface improvements
 
 ### Security reports
 
@@ -46,12 +50,17 @@ Use:
 ## Public release helpers
 
 - Public architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- Workflow guide: [docs/WORKFLOWS.md](docs/WORKFLOWS.md)
+- Provider guide: [docs/PROVIDER_SUPPORT.md](docs/PROVIDER_SUPPORT.md)
+- TUI guide: [docs/TUI.md](docs/TUI.md)
 
 ## Common commands
 
 ```bash
 pnpm --filter @threadlens/api test
 pnpm --filter @threadlens/api build
+pnpm --filter @threadlens/web test
 pnpm --filter @threadlens/web build
+pnpm --filter @threadlens/tui build
 pnpm package:desktop:dir
 ```

@@ -1,90 +1,85 @@
 # ThreadLens Architecture
 
-ThreadLens serves all product traffic through a TypeScript-first runtime.
-The Fastify API is the only active backend and is shared by the web app, TUI,
-and desktop shell.
+ThreadLens uses one local Fastify backend shared by web, TUI, and desktop.
 
-## Product runtime
+## Runtime
 
-- `apps/tui`
-  - Ink terminal workbench for search, sessions, and cleanup
-  - Calls the same TS API runtime used by the web and desktop shell
-- `apps/web`
-  - React UI for search, cleanup, sessions, and diagnostics
-- `apps/api-ts`
-  - Fastify API
-  - Owns all product/runtime domains
-  - Unknown `/api/*` paths return `404`
-- `apps/desktop-electron`
-  - Desktop shell, local API bootstrap, packaging
+- API: `127.0.0.1:8788`
+- Web dev server: `127.0.0.1:5174`
+- Unknown `/api/*` paths return `404`
+- Desktop packaging reuses the same web + API stack
 
-## Active backend split
+## Surfaces
 
-- provider matrix, provider sessions, parser health
-- conversation search
-- session transcript reads
-- threads read path
-- thread rename
-- thread forensics
-- thread pin
-- thread archive-local
-- thread resume-command
-- codex observatory
-- analyze-delete
-- local-cleanup
-- recovery center, backup export, smoke status, sync lens
-- agent loops
-- alert hooks
-- overview composition and summary reads
-- Electron packaging and release tooling
+- `apps/web`: React workbench for `Overview`, `Search`, `Sessions`, and `Cleanup`
+- `apps/tui`: Ink terminal workbench for `Search`, `Sessions`, and `Cleanup`
+- `apps/desktop-electron`: Electron shell that starts the bundled local API
+- `apps/api-ts`: Fastify runtime and domain logic
+- `packages/shared-contracts`: shared API envelope and contract types
 
-## Backend layout
+## Workflow Split
+
+- `Conversation Search`: cross-provider raw conversation lookup
+- `Sessions`: provider session files, transcripts, and file-level actions
+- `Cleanup`: Codex thread review, impact analysis, and cleanup execution
+- `Diagnostics`: runtime, parser, data-source, recovery, and execution-flow views
+
+## Route Groups
+
+`apps/api-ts/src/app/routes`
+
+- `platform.ts`: health, version, runtime, overview, recovery, smoke, sync lens, execution graph, alert hooks, agent loops
+- `providers.ts`: provider matrix, sessions, parser health, conversation search, session transcripts, provider session actions
+- `threads.ts`: thread list, thread mutations, forensics, impact analysis, local cleanup
+
+## Backend Layout
 
 `apps/api-ts/src`
 
 ```text
 app/
-  create-server.ts         # Fastify bootstrap and shared cache wiring
+  create-server.ts
   routes/
-    platform.ts            # meta, recovery, ops, overview, execution graph
-    providers.ts           # provider matrix, sessions, transcripts, search
-    threads.ts             # threads, cleanup, forensics, thread transcript
+    platform.ts
+    providers.ts
+    threads.ts
 domains/
   providers/
-    transcript.ts          # transcript parsing and transcript payloads
-    search.ts              # provider session scans, parser health, search read model
-    actions.ts             # provider session backup/archive/delete
-  threads/                 # Codex thread list, pin, archive, rename, cleanup
+    search.ts
+    transcript.ts
+    actions.ts
+  threads/
+    query.ts
+    cleanup.ts
+    forensics.ts
+    overview.ts
+    state.ts
   recovery/
-    roadmap.ts             # roadmap status and checkin append
-                            # recovery center, backup export, smoke, sync remain here for now
-  ops/                     # observatory, agent loops, alert hooks, runtime health
+    inventory.ts
+    roadmap.ts
+  ops/
+    observatory.ts
+    alert-hooks.ts
+    agent-loops.ts
 lib/
-  constants.ts             # shared config and filesystem roots
-  providers.ts             # provider ids, root rules, matrix, safe-path helpers
-  recovery.ts              # recovery aggregate module
-  utils.ts                 # pure helpers only
+  constants.ts
+  providers.ts
+  recovery.ts
+  sync-lens.ts
+  utils.ts
 ```
 
 ## Rules
 
-1. `app/create-server.ts` must stay focused on bootstrap, cache wiring, and route registration only.
-2. Product/runtime wiring must remain TypeScript-only.
-3. New TS business logic goes into a domain module, not `app/create-server.ts`.
-4. `app/routes/*` owns HTTP registration; `lib/` stays for pure helpers and constants, not route logic.
-5. Route handlers should call domain services or focused adapters, never mix both
-   inline when avoidable.
-6. Terminal workflows should reuse the same TS API contracts first; do not fork
-   TUI-only business rules unless latency or offline constraints require it.
+- `create-server.ts` stays focused on bootstrap and route registration
+- Route handlers register HTTP; domain logic lives under `domains/`
+- `lib/` stays for shared constants and focused helpers
+- Web, TUI, and desktop reuse the same API contracts
 
-## Notes
+## Safety
 
-- Conversation Search, Source Sessions, Cleanup, and Diagnostics all read from
-  the same local runtime.
-- Web stays on React 18 while the Ink TUI tracks React 19 on its own runtime.
-- Sync Lens is an optional read-only remote comparison path and requires an
-  explicit `SYNC_LENS_REMOTE_ALIAS` plus `python3` on the remote host.
-- Desktop packaging wraps the same web + API stack rather than maintaining a
-  separate desktop-only backend.
-- Older historical backend notes belong in local-only docs, not in the public product
-  architecture surface.
+- Destructive actions use `dry-run -> confirm token -> execute`
+- Session reads and writes validate provider roots first
+- Backup information stays close to destructive actions
+- The API is for local single-user use and should not be exposed to untrusted networks
+- `sync-lens` is optional and read-only; it requires `SYNC_LENS_REMOTE_ALIAS`, `ssh`, and `python3`
