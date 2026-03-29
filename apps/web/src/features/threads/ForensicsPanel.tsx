@@ -61,7 +61,6 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
   } = props;
   const [tokenCopied, setTokenCopied] = useState(false);
   const canRetryForensics = !threadActionsDisabled && !busy && selectedIds.length > 0;
-  const highRiskCount = selectedIds.filter((id) => (rows.find((r) => r.thread_id === id)?.risk_score ?? 0) >= 70).length;
   const impactReady = selectedImpactRows.length > 0;
   const topImpactRow = selectedImpactRows[0];
   const topImpactLabel = topImpactRow?.title || (topImpactRow?.id ? `row ${topImpactRow.id.slice(0, 8)}` : "");
@@ -98,28 +97,6 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
     : cleanupReady
       ? messages.forensics.cleanupExecuteReadyBody
       : messages.forensics.stageDryRunBody;
-
-  const heroTitle = cleanupApplied
-    ? `${cleanupDeletedCount}/${cleanupTargetCount || cleanupDeletedCount} cleanup targets applied`
-    : cleanupReady
-      ? `${selectedIds.length} rows ready for dry-run`
-      : impactReady
-        ? `${selectedImpactRows.length} impact summaries ready`
-        : selectedIds.length > 0
-          ? `${selectedIds.length} rows selected`
-          : messages.forensics.nextStepPending;
-  const heroBody = cleanupApplied
-    ? `${cleanupFailedCount} failed · ${stateRemovedCount} state refs updated`
-    : cleanupSelectionChanged
-      ? messages.forensics.cleanupSelectionChanged
-      : cleanupReady
-        ? messages.forensics.cleanupExecuteReadyBody
-        : impactReady
-          ? `${topImpactLabel} · ${topImpactRow?.risk_level ?? "signal"} / ${topImpactRow?.risk_score ?? 0}`
-          : selectedIds.length > 0
-            ? `${highRiskCount} flagged · run impact next`
-            : "pick rows first";
-
   const handleCopyToken = async () => {
     const token = pendingCleanup?.confirmToken ?? cleanupData?.confirm_token_expected;
     if (!token || !navigator.clipboard) return;
@@ -136,26 +113,9 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
     <section
       className={`panel impact-panel thread-review-panel ${selectedIds.length === 0 ? "is-empty-state" : ""}`.trim()}
     >
-      <PanelHeader title={messages.forensics.title} subtitle="review · next steps" />
+      <PanelHeader title={messages.forensics.title} />
       <div className="impact-body">
-        <section className="detail-hero detail-hero-forensics">
-          <div className="detail-hero-copy">
-            <strong>{heroTitle}</strong>
-            <p>{heroBody}</p>
-          </div>
-        </section>
-
         <div className="thread-review-grid">
-          <article className={`thread-review-card thread-review-card-metric ${selectedIds.length > 0 ? "thread-review-card-emphasis" : ""}`.trim()}>
-            <span>{messages.forensics.selectedThreads}</span>
-            <strong>{selectedIds.length}</strong>
-            <p>rows</p>
-          </article>
-          <article className={`thread-review-card thread-review-card-metric ${highRiskCount > 0 ? "thread-review-card-emphasis" : ""}`.trim()}>
-            <span>{messages.forensics.includesHighRisk}</span>
-            <strong>{highRiskCount}</strong>
-            <p>flagged</p>
-          </article>
           <article className={`thread-review-card thread-review-card-token ${cleanupReady || cleanupApplied ? "is-ready" : ""}`.trim()}>
             <span>{messages.forensics.cleanupToken}</span>
             <strong>{cleanupCardHeadline}</strong>
@@ -221,7 +181,7 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
               <article>
                 <span>pick</span>
                 <strong>select rows</strong>
-                <p>use visible, flagged, or pinned.</p>
+                <p>use visible rows or the header toggle.</p>
               </article>
               <article>
                 <span>inspect</span>

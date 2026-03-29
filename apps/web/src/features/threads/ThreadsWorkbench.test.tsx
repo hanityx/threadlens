@@ -12,6 +12,15 @@ const mockThreadsTable = vi.fn((props: Record<string, unknown>) => (
   </div>
 ));
 const mockThreadDetailSlot = vi.fn((props: Record<string, unknown>) => {
+  return (
+    <div data-slot="thread-detail">
+      {String(props.selectedThreadId ?? "")}
+      {"|"}
+      {String(Array.isArray(props.selectedIds) ? props.selectedIds.length : 0)}
+    </div>
+  );
+});
+const mockThreadsForensicsSlot = vi.fn((props: Record<string, unknown>) => {
   const cleanupData =
     props.cleanupData && typeof props.cleanupData === "object"
       ? (props.cleanupData as { confirm_token_expected?: string | null })
@@ -21,7 +30,7 @@ const mockThreadDetailSlot = vi.fn((props: Record<string, unknown>) => {
       ? (props.pendingCleanup as { confirmToken?: string | null })
       : null;
   return (
-    <div data-slot="thread-detail">
+    <div data-slot="thread-forensics">
       {cleanupData?.confirm_token_expected ?? ""}
       {"|"}
       {pendingCleanup?.confirmToken ?? ""}
@@ -53,6 +62,9 @@ vi.mock("./ThreadsTable", () => ({
 
 vi.mock("./ThreadDetailSlot", () => ({
   ThreadDetailSlot: (props: Record<string, unknown>) => mockThreadDetailSlot(props),
+}));
+vi.mock("./ThreadsForensicsSlot", () => ({
+  ThreadsForensicsSlot: (props: Record<string, unknown>) => mockThreadsForensicsSlot(props),
 }));
 
 const messages = getMessages("en");
@@ -121,6 +133,7 @@ function buildContext(overrides: Record<string, unknown> = {}) {
 describe("ThreadsWorkbench", () => {
   beforeEach(() => {
     mockThreadDetailSlot.mockClear();
+    mockThreadsForensicsSlot.mockClear();
     mockThreadsTable.mockClear();
     mockUseAppContext.mockReturnValue(buildContext());
   });
@@ -128,10 +141,15 @@ describe("ThreadsWorkbench", () => {
   it("forwards cleanup review state into the thread detail slot", () => {
     const html = renderToStaticMarkup(<ThreadsWorkbench />);
 
+    expect(html).toContain("ops-layout is-thread-active");
+    expect(html).toContain("thread-side-stack");
     expect(html).toContain("data-slot=\"thread-detail\"");
+    expect(html).toContain("data-slot=\"thread-forensics\"");
     expect(mockThreadDetailSlot).toHaveBeenCalledTimes(1);
+    expect(mockThreadsForensicsSlot).toHaveBeenCalledTimes(1);
     expect(mockThreadsTable).toHaveBeenCalledTimes(1);
     expect(html).toContain("data-slot=\"threads-table\">1|false</div>");
+    expect(html).toContain("data-slot=\"thread-detail\">thread-1|1</div>");
     expect(html).toContain("token-123|token-123|true|1|true|true|analysis failed|cleanup failed|execute failed");
   });
 
@@ -143,10 +161,53 @@ describe("ThreadsWorkbench", () => {
       }),
     );
 
-    renderToStaticMarkup(<ThreadsWorkbench />);
+    const html = renderToStaticMarkup(<ThreadsWorkbench />);
 
+    expect(html).not.toContain("ops-layout is-thread-active");
     expect(mockThreadsTable).toHaveBeenCalledTimes(1);
+    expect(mockThreadsForensicsSlot).toHaveBeenCalledTimes(1);
     const props = mockThreadsTable.mock.calls[0]?.[0] as { dryRunReady?: boolean };
     expect(props.dryRunReady).toBe(false);
+  });
+
+  it("prefers the highest-risk visible row for the empty cleanup candidate", () => {
+    mockUseAppContext.mockReturnValue(
+      buildContext({
+        selectedThreadId: "",
+        selectedIds: [],
+        visibleRows: [
+          {
+            thread_id: "thread-low",
+            title: "Low risk",
+            risk_score: 20,
+            risk_level: "low",
+            is_pinned: false,
+            source: "sessions",
+            timestamp: "2026-03-27T00:00:00.000Z",
+          },
+          {
+            thread_id: "thread-high",
+            title: "High risk",
+            risk_score: 91,
+            risk_level: "high",
+            is_pinned: false,
+            source: "history",
+            timestamp: "2026-03-26T00:00:00.000Z",
+          },
+        ],
+        recentThreadTitle: vi.fn((row) => String((row as { title?: string }).title ?? "")),
+      }),
+    );
+
+    renderToStaticMarkup(<ThreadsWorkbench />);
+
+    const props = mockThreadDetailSlot.mock.calls[0]?.[0] as {
+      nextThreadId?: string;
+      nextThreadTitle?: string;
+      nextThreadSource?: string;
+    };
+    expect(props.nextThreadId).toBe("thread-high");
+    expect(props.nextThreadTitle).toBe("High risk");
+    expect(props.nextThreadSource).toBe("history · risk 91 · high");
   });
 });

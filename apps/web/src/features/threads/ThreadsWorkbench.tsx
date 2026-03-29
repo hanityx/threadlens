@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppContext } from "../../app/AppContext";
 import {
   buildThreadCleanupSelectionKey,
@@ -5,6 +6,10 @@ import {
 } from "../../hooks/appDataUtils";
 import { ThreadsTable } from "./ThreadsTable";
 import { ThreadDetailSlot } from "./ThreadDetailSlot";
+import { ThreadsForensicsSlot } from "./ThreadsForensicsSlot";
+
+const THREAD_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY = "po-thread-hard-delete-skip-confirm";
+const LEGACY_THREAD_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY = "cmc-thread-hard-delete-skip-confirm";
 
 export function ThreadsWorkbench() {
   const {
@@ -82,6 +87,92 @@ export function ThreadsWorkbench() {
   const selectedImpactCount = reviewImpactRows.length;
   const highRiskVisibleCount = visibleRows.filter((r) => (r.risk_score ?? 0) >= 70).length;
   const pinnedCount = visibleRows.filter((r) => r.is_pinned).length;
+  const nextCleanupCandidate = useMemo(
+    () =>
+      [...visibleRows].sort((left, right) => {
+        const riskDiff = Number(right.risk_score || 0) - Number(left.risk_score || 0);
+        if (riskDiff !== 0) return riskDiff;
+        if (left.is_pinned !== right.is_pinned) return Number(right.is_pinned) - Number(left.is_pinned);
+        return Date.parse(right.timestamp || "") - Date.parse(left.timestamp || "");
+      })[0] ?? null,
+    [visibleRows],
+  );
+  const threadSideStackRef = useRef<HTMLDivElement | null>(null);
+  const [activePanelHeight, setActivePanelHeight] = useState<number | null>(null);
+  const [hardDeleteConfirmOpen, setHardDeleteConfirmOpen] = useState(false);
+  const [hardDeleteSkipConfirmChecked, setHardDeleteSkipConfirmChecked] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      const raw =
+        window.localStorage.getItem(THREAD_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY) ??
+        window.localStorage.getItem(LEGACY_THREAD_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY) ??
+        "";
+      return raw === "1" || raw === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        THREAD_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY,
+        hardDeleteSkipConfirmChecked ? "1" : "0",
+      );
+    } catch {
+      // ignore persistence failures
+    }
+  }, [hardDeleteSkipConfirmChecked]);
+
+  const requestHardDeleteConfirm = () => {
+    if (hardDeleteSkipConfirmChecked) {
+      cleanupExecute(selectedIds);
+      return;
+    }
+    setHardDeleteConfirmOpen(true);
+  };
+
+  const confirmHardDelete = () => {
+    setHardDeleteConfirmOpen(false);
+    cleanupExecute(selectedIds);
+  };
+
+  const cancelHardDeleteConfirm = () => {
+    setHardDeleteConfirmOpen(false);
+  };
+
+  useEffect(() => {
+    if (!showForensics || !selectedThreadId || !threadSideStackRef.current) {
+      setActivePanelHeight(null);
+      return;
+    }
+
+    const target = threadSideStackRef.current;
+    let frameId = 0;
+
+    const syncHeight = () => {
+      const nextHeight = Math.ceil(target.getBoundingClientRect().height);
+      setActivePanelHeight((current) => (current === nextHeight ? current : nextHeight));
+    };
+
+    syncHeight();
+
+    const observer = new ResizeObserver(() => {
+      if (frameId) cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(() => {
+        frameId = 0;
+        syncHeight();
+      });
+    });
+
+    observer.observe(target);
+
+    return () => {
+      if (frameId) cancelAnimationFrame(frameId);
+      observer.disconnect();
+    };
+  }, [selectedThreadId, showForensics]);
 
   return (
     <>
@@ -156,7 +247,9 @@ export function ThreadsWorkbench() {
         </div>
       </section>
 
-      <section className={`${showForensics ? "ops-layout" : "ops-layout single"}`.trim()}>
+      <section
+        className={`${showForensics ? "ops-layout" : "ops-layout single"} ${selectedThreadId ? "is-thread-active" : ""}`.trim()}
+      >
         <ThreadsTable
           messages={messages}
           visibleRows={visibleRows}
@@ -173,55 +266,75 @@ export function ThreadsWorkbench() {
           selectedIds={selectedIds}
           selectedImpactCount={selectedImpactCount}
           dryRunReady={tableDryRunReady}
+          dryRunReadyIds={pendingCleanup?.confirmToken && cleanupData?.mode !== "execute" ? pendingCleanup.ids : []}
           busy={busy}
           threadActionsDisabled={showRuntimeBackendDegraded}
-          bulkPin={bulkPin}
-          bulkUnpin={bulkUnpin}
           bulkArchive={bulkArchive}
           analyzeDelete={analyzeDelete}
           cleanupDryRun={cleanupDryRun}
+          cleanupExecute={cleanupExecute}
+          onRequestHardDeleteConfirm={requestHardDeleteConfirm}
+          hardDeleteConfirmOpen={hardDeleteConfirmOpen}
+          hardDeleteSkipConfirmChecked={hardDeleteSkipConfirmChecked}
+          onToggleHardDeleteSkipConfirmChecked={setHardDeleteSkipConfirmChecked}
+          onConfirmHardDelete={confirmHardDelete}
+          onCancelHardDeleteConfirm={cancelHardDeleteConfirm}
+          panelStyle={activePanelHeight ? { height: `${activePanelHeight}px` } : undefined}
         />
         {showForensics ? (
-          <ThreadDetailSlot
-            messages={messages}
-            selectedThread={selectedThread}
-            selectedThreadId={selectedThreadId}
-            visibleThreadCount={visibleRows.length}
-            filteredThreadCount={filteredRows.length}
-            highRiskCount={highRiskCount}
-            nextThreadTitle={selectedThreadId
-              ? recentThreadTitle(visibleRows[0] ?? { thread_id: selectedThreadId, title: "", risk_score: 0, is_pinned: false, source: "" })
-              : recentThreadTitle(visibleRows[0] ?? { thread_id: "", title: "", risk_score: 0, is_pinned: false, source: "" })}
-            nextThreadSource={visibleRows[0]?.source || "open from threads or recent review rows"}
-            searchContext={searchThreadContext}
-            threadDetailLoading={threadDetailLoading}
-            selectedThreadDetail={selectedThreadDetail}
-            threadTranscriptData={threadTranscriptData}
-            threadTranscriptLoading={threadTranscriptLoading}
-            threadTranscriptLimit={threadTranscriptLimit}
-            setThreadTranscriptLimit={setThreadTranscriptLimit}
-            busy={busy}
-            threadActionsDisabled={showRuntimeBackendDegraded}
-            bulkPin={bulkPin}
-            bulkUnpin={bulkUnpin}
-            bulkArchive={bulkArchive}
-            analyzeDelete={analyzeDelete}
-            cleanupDryRun={cleanupDryRun}
-            cleanupExecute={cleanupExecute}
-            selectedIds={reviewTargetIds}
-            rows={rows}
-            cleanupData={cleanupData}
-            pendingCleanup={pendingCleanup}
-            selectedImpactRows={reviewImpactRows}
-            analysisRaw={analysisRaw}
-            cleanupRaw={cleanupRaw}
-            analyzeDeleteError={analyzeDeleteError}
-            cleanupDryRunError={cleanupDryRunError}
-            cleanupExecuteError={cleanupExecuteError}
-            analyzeDeleteErrorMessage={analyzeDeleteErrorMessage}
-            cleanupDryRunErrorMessage={cleanupDryRunErrorMessage}
-            cleanupExecuteErrorMessage={cleanupExecuteErrorMessage}
-          />
+          <div className="thread-side-stack" ref={threadSideStackRef}>
+            <ThreadDetailSlot
+              messages={messages}
+              selectedThread={selectedThread}
+              selectedThreadId={selectedThreadId}
+              openThreadById={setSelectedThreadId}
+              visibleThreadCount={visibleRows.length}
+              filteredThreadCount={filteredRows.length}
+              nextThreadId={nextCleanupCandidate?.thread_id || ""}
+              nextThreadTitle={nextCleanupCandidate ? recentThreadTitle(nextCleanupCandidate) : ""}
+              nextThreadSource={
+                nextCleanupCandidate
+                  ? `${nextCleanupCandidate.source || "thread"} · risk ${nextCleanupCandidate.risk_score ?? 0} · ${nextCleanupCandidate.risk_level || "review"}`
+                  : "open from threads or recent review rows"
+              }
+              searchContext={searchThreadContext}
+              threadDetailLoading={threadDetailLoading}
+              selectedThreadDetail={selectedThreadDetail}
+              threadTranscriptData={threadTranscriptData}
+              threadTranscriptLoading={threadTranscriptLoading}
+              threadTranscriptLimit={threadTranscriptLimit}
+              setThreadTranscriptLimit={setThreadTranscriptLimit}
+              busy={busy}
+              threadActionsDisabled={showRuntimeBackendDegraded}
+              bulkPin={bulkPin}
+              bulkUnpin={bulkUnpin}
+              bulkArchive={bulkArchive}
+              analyzeDelete={analyzeDelete}
+              cleanupDryRun={cleanupDryRun}
+              selectedIds={reviewTargetIds}
+            />
+            <ThreadsForensicsSlot
+              messages={messages}
+              threadActionsDisabled={showRuntimeBackendDegraded}
+              selectedIds={reviewTargetIds}
+              rows={rows}
+              busy={busy}
+              analyzeDelete={analyzeDelete}
+              cleanupDryRun={cleanupDryRun}
+              cleanupExecute={cleanupExecute}
+              cleanupData={cleanupData}
+              pendingCleanup={pendingCleanup}
+              selectedImpactRows={reviewImpactRows}
+              analysisRaw={analysisRaw}
+              cleanupRaw={cleanupRaw}
+              analyzeDeleteError={analyzeDeleteError}
+              cleanupDryRunError={cleanupDryRunError}
+              cleanupExecuteError={cleanupExecuteError}
+              analyzeDeleteErrorMessage={analyzeDeleteErrorMessage}
+              cleanupDryRunErrorMessage={cleanupDryRunErrorMessage}
+              cleanupExecuteErrorMessage={cleanupExecuteErrorMessage}
+            />
+          </div>
         ) : null}
       </section>
     </>

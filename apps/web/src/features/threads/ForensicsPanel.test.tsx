@@ -64,7 +64,42 @@ describe("ForensicsPanel", () => {
     expect(html).toContain("Execute cleanup");
     expect(html).toContain("Backups stay local before delete.");
     expect(html).toContain("2 targets");
-    expect(html).toContain("Cleanup dry-run · Preview ready");
+    expect(html).toContain("Dry-run · Preview ready");
     expect(html).toContain("DEL-123");
+    expect(html).not.toContain("run impact next");
+    expect(html).not.toContain("thread-review-card-metric");
+    expect(html).not.toContain("detail-hero-forensics");
+    expect(html).not.toContain("Flagged");
+    expect(html).not.toContain("flagged");
+  });
+
+  it("does not repeat selected-row hero copy when the header already carries selection context", () => {
+    const html = renderToStaticMarkup(
+      <ForensicsPanel
+        messages={messages}
+        threadActionsDisabled={false}
+        selectedIds={["thread-1"]}
+        rows={rows}
+        busy={false}
+        analyzeDelete={vi.fn()}
+        cleanupDryRun={vi.fn()}
+        cleanupExecute={vi.fn()}
+        cleanupData={null}
+        pendingCleanup={null}
+        selectedImpactRows={[]}
+        analysisRaw={null}
+        cleanupRaw={null}
+        analyzeDeleteError={false}
+        cleanupDryRunError={false}
+        cleanupExecuteError={false}
+        analyzeDeleteErrorMessage=""
+        cleanupDryRunErrorMessage=""
+        cleanupExecuteErrorMessage=""
+      />
+    );
+
+    expect(html).not.toContain("1 Row Selected");
+    expect(html).not.toContain("detail-hero-forensics");
+    expect(html).not.toContain("run impact next");
   });
 });

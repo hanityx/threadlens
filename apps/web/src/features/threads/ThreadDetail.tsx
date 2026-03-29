@@ -1,17 +1,34 @@
+import { useEffect, useState } from "react";
 import type { Messages } from "../../i18n";
 import { Button } from "../../design-system/Button";
 import { PanelHeader } from "../../design-system/PanelHeader";
 import type { ConversationSearchHit, ThreadRow, ThreadForensicsEnvelope } from "../../types";
 import { TranscriptLog } from "../../design-system/TranscriptLog";
 import type { TranscriptPayload } from "../../types";
+import { formatDateTime, formatWorkspaceLabel } from "../../lib/helpers";
+
+function formatArtifactKindLabel(kind: string) {
+  if (kind === "session-log") return "session log";
+  if (kind === "archived-session-log") return "archived log";
+  return kind.replace(/-/g, " ");
+}
+
+function compactArtifactPath(path: string) {
+  const normalized = String(path || "").trim();
+  if (!normalized) return "";
+  const parts = normalized.split("/").filter(Boolean);
+  return parts.at(-1) ?? normalized;
+}
 
 export interface ThreadDetailProps {
   messages: Messages;
+  selectedIds: string[];
   selectedThread: ThreadRow | null;
   selectedThreadId: string;
+  openThreadById: (id: string) => void;
   visibleThreadCount: number;
   filteredThreadCount: number;
-  highRiskCount: number;
+  nextThreadId?: string;
   nextThreadTitle?: string;
   nextThreadSource?: string;
   searchContext: ConversationSearchHit | null;
@@ -33,11 +50,13 @@ export interface ThreadDetailProps {
 export function ThreadDetail(props: ThreadDetailProps) {
   const {
     messages,
+    selectedIds,
     selectedThread,
     selectedThreadId,
+    openThreadById,
     visibleThreadCount,
     filteredThreadCount,
-    highRiskCount,
+    nextThreadId,
     nextThreadTitle,
     nextThreadSource,
     searchContext,
@@ -58,6 +77,7 @@ export function ThreadDetail(props: ThreadDetailProps) {
   const disabledReason = threadActionsDisabled
     ? messages.threadDetail.backendDownHint
     : undefined;
+  const [showFullId, setShowFullId] = useState(false);
   const normalizeDisplayValue = (value?: string | null) => {
     const trimmed = String(value ?? "").trim();
     if (!trimmed) return "";
@@ -68,9 +88,10 @@ export function ThreadDetail(props: ThreadDetailProps) {
   const fallbackContext =
     searchContext?.thread_id && searchContext.thread_id === selectedThreadId ? searchContext : null;
   const hasSelection = Boolean(selectedThreadId);
-  const compactThreadId = selectedThreadId
-    ? `${selectedThreadId.slice(0, 8)}…${selectedThreadId.slice(-4)}`
-    : "";
+  const selectedRowsLabel = selectedIds.length === 1 ? "Row" : "Rows";
+  const headerSubtitle = hasSelection
+    ? `${selectedIds.length} ${selectedRowsLabel} Selected`
+    : undefined;
   const fallbackThreadTitle = selectedThreadId
     ? `thread ${selectedThreadId.slice(0, 8)}`
     : messages.threadDetail.unknownTitle;
@@ -100,50 +121,95 @@ export function ThreadDetail(props: ThreadDetailProps) {
     selectedThread?.cwd ||
     selectedThreadDetail?.cwd ||
     "";
+  const displayCwd =
+    resolvedCwd && resolvedCwd !== "/" ? resolvedCwd : "";
+  const workspaceLabel = formatWorkspaceLabel(displayCwd);
   const fallbackNotice =
     hasSelection && !selectedThread
       ? messages.threadDetail.fallbackHint
       : "";
+  const artifactCount = Number(selectedThreadDetail?.artifact_count ?? 0);
+  const artifactKindSummary = Object.entries(selectedThreadDetail?.artifact_count_by_kind ?? {})
+    .map(([kind, count]) => `${formatArtifactKindLabel(kind)} ${count}`)
+    .slice(0, 3);
+  const artifactPathPreview = (selectedThreadDetail?.artifact_paths_preview ?? [])
+    .map(compactArtifactPath)
+    .filter(Boolean)
+    .slice(0, 3);
+  const compactThreadId =
+    selectedThreadId.length > 13
+      ? `${selectedThreadId.slice(0, 8)}…${selectedThreadId.slice(-4)}`
+      : selectedThreadId;
+  const displayedThreadId = showFullId ? selectedThreadId : compactThreadId;
+  const transcriptTimestamps = (threadTranscriptData?.messages ?? [])
+    .map((message) => String(message.ts ?? "").trim())
+    .filter(Boolean)
+    .map((value) => Date.parse(value))
+    .filter((value) => Number.isFinite(value))
+    .sort((left, right) => left - right);
+  const createdAt = transcriptTimestamps.length > 0
+    ? new Date(transcriptTimestamps[0]).toISOString()
+    : "";
+  const updatedAt =
+    normalizeDisplayValue(selectedThread?.timestamp) ||
+    normalizeDisplayValue(fallbackContext?.mtime) ||
+    (transcriptTimestamps.length > 0
+      ? new Date(transcriptTimestamps[transcriptTimestamps.length - 1]).toISOString()
+      : "");
+  useEffect(() => {
+    setShowFullId(false);
+  }, [selectedThreadId]);
 
   return (
     <section className="panel thread-review-panel">
-      <PanelHeader title={messages.threadDetail.title} />
+      <PanelHeader title={messages.threadDetail.title} subtitle={headerSubtitle} />
       <div className="impact-body">
         {!hasSelection ? (
           <div className="thread-detail-empty-state">
             <div className="thread-detail-empty-copy">
-              <strong>Open after select.</strong>
-              <p>cleanup signal / transcript</p>
+              <strong>No thread selected.</strong>
+              <p>Pick one row to open the full review surface.</p>
             </div>
-            <div className="thread-detail-empty-summary" aria-label="thread detail scope">
-              <article>
-                <span>visible</span>
-                <strong>{visibleThreadCount}</strong>
-              </article>
-              <article>
-                <span>total</span>
-                <strong>{filteredThreadCount}</strong>
-              </article>
-              <article>
-                <span>flagged</span>
-                <strong>{highRiskCount}</strong>
-              </article>
-            </div>
-            <div className="thread-detail-empty-next">
-              <span className="overview-note-label">next thread</span>
-              <strong>{nextThreadTitle || "thread queue"}</strong>
-              <p>{nextThreadSource || "open from threads or recent review rows"}</p>
-            </div>
+            {nextThreadId ? (
+              <button
+                type="button"
+                className="thread-detail-empty-next thread-detail-empty-next-button"
+                onClick={() => openThreadById(nextThreadId)}
+              >
+                <span className="overview-note-label">next pick</span>
+                <strong>{nextThreadTitle || "thread queue"}</strong>
+                <p>{nextThreadSource || "open from threads or recent review rows"}</p>
+              </button>
+            ) : (
+              <div className="thread-detail-empty-next">
+                <span className="overview-note-label">next pick</span>
+                <strong>{nextThreadTitle || "thread queue"}</strong>
+                <p>{nextThreadSource || "open from threads or recent review rows"}</p>
+              </div>
+            )}
+            <p className="thread-detail-empty-opens">
+              <span className="overview-note-label">opens here</span>
+              Transcript, local files, and cleanup preview.
+            </p>
           </div>
         ) : (
           <>
             <section className="detail-hero detail-hero-thread">
               <div className="detail-hero-copy">
                 <strong>{resolvedTitle || "-"}</strong>
-                <p>{resolvedSource || messages.threadDetail.unknownSource}</p>
               </div>
               <div className="detail-hero-pills" aria-label="thread detail summary">
-                {compactThreadId ? <span className="detail-hero-pill mono-sub">{compactThreadId}</span> : null}
+                {selectedThreadId ? (
+                  <button
+                    type="button"
+                    className={`detail-hero-pill detail-hero-pill-button ${showFullId ? "is-expanded" : ""}`.trim()}
+                    aria-expanded={showFullId}
+                    title={selectedThreadId}
+                    onClick={() => setShowFullId((value) => !value)}
+                  >
+                    {displayedThreadId}
+                  </button>
+                ) : null}
                 <span className="detail-hero-pill">
                   {resolvedRiskScore}
                   {resolvedRiskLevel ? ` · ${resolvedRiskLevel}` : ""}
@@ -168,10 +234,18 @@ export function ThreadDetail(props: ThreadDetailProps) {
                   <span>{messages.threadDetail.fieldSource}</span>
                   <strong>{resolvedSource || "-"}</strong>
                 </div>
-                {resolvedCwd ? (
+                <div className="impact-kv">
+                  <span>{messages.threadDetail.fieldCreated}</span>
+                  <strong>{createdAt ? formatDateTime(createdAt) : "-"}</strong>
+                </div>
+                <div className="impact-kv">
+                  <span>{messages.threadDetail.fieldUpdated}</span>
+                  <strong>{updatedAt ? formatDateTime(updatedAt) : "-"}</strong>
+                </div>
+                {workspaceLabel ? (
                   <div className="impact-kv">
                     <span>{messages.threadDetail.fieldCwd}</span>
-                    <strong className="mono-sub">{resolvedCwd}</strong>
+                    <strong className="mono-sub" title={displayCwd}>{workspaceLabel}</strong>
                   </div>
                 ) : null}
               </div>
@@ -229,11 +303,23 @@ export function ThreadDetail(props: ThreadDetailProps) {
               <div className="detail-section-body">
                 {threadDetailLoading ? <div className="skeleton-line" /> : null}
                 {selectedThreadDetail?.summary ? <p className="sub-hint">{selectedThreadDetail.summary}</p> : null}
-                {selectedThreadDetail?.artifact_count ? (
+                {artifactCount > 0 ? (
                   <div className="impact-kv">
-                    <span>{messages.threadDetail.artifacts}</span>
-                    <strong>{selectedThreadDetail.artifact_count}</strong>
+                    <span>{messages.threadDetail.localFilesFound}</span>
+                    <strong>{artifactCount} files</strong>
                   </div>
+                ) : null}
+                {artifactKindSummary.length ? (
+                  <p className="thread-review-impact-note">
+                    <span>{messages.threadDetail.fileKinds}</span>
+                    {artifactKindSummary.join(" · ")}
+                  </p>
+                ) : null}
+                {artifactPathPreview.length ? (
+                  <p className="thread-review-impact-note">
+                    <span>{messages.threadDetail.filePreview}</span>
+                    {artifactPathPreview.join(" · ")}
+                  </p>
                 ) : null}
               </div>
             </details>
@@ -249,6 +335,7 @@ export function ThreadDetail(props: ThreadDetailProps) {
                   limit={threadTranscriptLimit}
                   maxLimit={10_000}
                   onLoadMore={() => setThreadTranscriptLimit((prev) => Math.min(prev + 250, 10_000))}
+                  onLoadFullSource={() => setThreadTranscriptLimit(10_000)}
                 />
               </div>
             </details>

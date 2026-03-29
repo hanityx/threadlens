@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { getMessages } from "../../i18n";
 import type { ThreadRow } from "../../types";
-import { ThreadsTable } from "./ThreadsTable";
+import { ThreadsTable, toggleSubsetSelectionState, toggleVisibleSelectionState } from "./ThreadsTable";
 
 const messages = getMessages("en");
 
@@ -15,6 +15,17 @@ const rows: ThreadRow[] = [
     risk_tags: ["orphan-candidate", "ctx-high"],
     is_pinned: false,
     source: "sessions",
+    timestamp: "2026-03-27T00:00:00.000Z",
+    activity_status: "stale",
+  },
+  {
+    thread_id: "thread-archived-1234",
+    title: "Archived cleanup candidate",
+    risk_score: 26,
+    risk_level: "low",
+    risk_tags: [],
+    is_pinned: false,
+    source: "archived_sessions",
     timestamp: "2026-03-27T00:00:00.000Z",
     activity_status: "stale",
   },
@@ -39,19 +50,71 @@ describe("ThreadsTable", () => {
         selectedIds={[]}
         selectedImpactCount={0}
         dryRunReady={false}
+        dryRunReadyIds={[]}
         busy={false}
         threadActionsDisabled={false}
-        bulkPin={vi.fn()}
-        bulkUnpin={vi.fn()}
         bulkArchive={vi.fn()}
         analyzeDelete={vi.fn()}
         cleanupDryRun={vi.fn()}
+        cleanupExecute={vi.fn()}
+        onRequestHardDeleteConfirm={vi.fn()}
+        hardDeleteConfirmOpen={true}
+        hardDeleteSkipConfirmChecked={false}
+        onToggleHardDeleteSkipConfirmChecked={() => undefined}
+        onConfirmHardDelete={() => undefined}
+        onCancelHardDeleteConfirm={() => undefined}
       />,
     );
 
-    expect(html).toContain("Cleanup signal");
+    expect(html).toContain("Signal");
+    expect(html).toContain("Toggle visible");
     expect(html).toContain("Select high signal only");
+    expect(html).toContain("Select dry-run ready");
+    expect(html).toContain("Select stale only");
+    expect(html).toContain("Hard delete");
+    expect(html).toContain("Delete selected thread files now?");
+    expect(html).toContain("Do not ask again for hard delete.");
+    expect(html).not.toContain("Select pinned only");
+    expect(html).not.toContain("Pin in Codex");
+    expect(html).not.toContain("Unpin in Codex");
     expect(html).toContain("table-select-target");
     expect(html).toContain("aria-label=\"Select thread Review this cleanup candidate\"");
+    expect(html).toContain(`aria-label="${messages.threadsTable.selectAllFiltered}"`);
+    expect(html).not.toContain(`>${messages.threadsTable.selectAllFiltered}</label>`);
+    expect(html).not.toContain("Clear visible selection");
+    expect(html).toContain(">archive</td>");
+  });
+
+  it("toggles visible selection when all visible rows are already selected", () => {
+    expect(toggleVisibleSelectionState(rows, {})).toEqual({
+      "thread-1234567890": true,
+      "thread-archived-1234": true,
+    });
+
+    expect(
+      toggleVisibleSelectionState(rows, {
+        "thread-1234567890": true,
+        "thread-archived-1234": true,
+      }),
+    ).toEqual({
+      "thread-1234567890": false,
+      "thread-archived-1234": false,
+    });
+  });
+
+  it("toggles subset-only selection off when the same stale subset is already active", () => {
+    expect(
+      toggleSubsetSelectionState(
+        rows,
+        {
+          "thread-1234567890": true,
+          "thread-archived-1234": true,
+        },
+        (row) => row.activity_status === "stale",
+      ),
+    ).toEqual({
+      "thread-1234567890": false,
+      "thread-archived-1234": false,
+    });
   });
 });

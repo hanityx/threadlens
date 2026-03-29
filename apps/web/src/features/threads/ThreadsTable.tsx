@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import type { Messages } from "../../i18n";
 import { Button } from "../../design-system/Button";
 import { PanelHeader } from "../../design-system/PanelHeader";
@@ -22,14 +23,21 @@ export interface ThreadsTableProps {
   selectedIds: string[];
   selectedImpactCount: number;
   dryRunReady: boolean;
+  dryRunReadyIds: string[];
 
   busy: boolean;
   threadActionsDisabled: boolean;
-  bulkPin: (ids: string[]) => void;
-  bulkUnpin: (ids: string[]) => void;
   bulkArchive: (ids: string[]) => void;
   analyzeDelete: (ids: string[]) => void;
   cleanupDryRun: (ids: string[]) => void;
+  cleanupExecute: (ids: string[]) => void;
+  onRequestHardDeleteConfirm: () => void;
+  hardDeleteConfirmOpen: boolean;
+  hardDeleteSkipConfirmChecked: boolean;
+  onToggleHardDeleteSkipConfirmChecked: (checked: boolean) => void;
+  onConfirmHardDelete: () => void;
+  onCancelHardDeleteConfirm: () => void;
+  panelStyle?: CSSProperties;
 }
 
 function compactThreadTitle(row: ThreadRow): string {
@@ -43,6 +51,50 @@ function compactThreadTitle(row: ThreadRow): string {
 function compactThreadId(threadId: string): string {
   if (threadId.length <= 18) return threadId;
   return `${threadId.slice(0, 8)}…${threadId.slice(-4)}`;
+}
+
+function compactThreadSource(row: ThreadRow): string {
+  const source = normalizeDisplayValue(row.source || row.project_bucket || "-");
+  if (!source) return "-";
+  if (/^archived[_-]/i.test(source) || /archived/i.test(source)) {
+    return "archive";
+  }
+  return source;
+}
+
+export function toggleVisibleSelectionState(
+  visibleRows: ThreadRow[],
+  selected: Record<string, boolean>,
+): Record<string, boolean> {
+  const next = { ...selected };
+  const allVisibleSelected =
+    visibleRows.length > 0 && visibleRows.every((row) => Boolean(selected[row.thread_id]));
+
+  for (const row of visibleRows) {
+    next[row.thread_id] = !allVisibleSelected;
+  }
+
+  return next;
+}
+
+export function toggleSubsetSelectionState(
+  visibleRows: ThreadRow[],
+  selected: Record<string, boolean>,
+  predicate: (row: ThreadRow) => boolean,
+): Record<string, boolean> {
+  const matchingIds = visibleRows.filter(predicate).map((row) => row.thread_id);
+  if (matchingIds.length === 0) return selected;
+
+  const next = { ...selected };
+  const onlyMatchingSelected = visibleRows.every(
+    (row) => Boolean(selected[row.thread_id]) === predicate(row),
+  );
+
+  for (const row of visibleRows) {
+    next[row.thread_id] = onlyMatchingSelected ? false : predicate(row);
+  }
+
+  return next;
 }
 
 export function ThreadsTable(props: ThreadsTableProps) {
@@ -64,11 +116,17 @@ export function ThreadsTable(props: ThreadsTableProps) {
     dryRunReady,
     busy,
     threadActionsDisabled,
-    bulkPin,
-    bulkUnpin,
     bulkArchive,
     analyzeDelete,
     cleanupDryRun,
+    cleanupExecute,
+    onRequestHardDeleteConfirm,
+    hardDeleteConfirmOpen,
+    hardDeleteSkipConfirmChecked,
+    onToggleHardDeleteSkipConfirmChecked,
+    onConfirmHardDelete,
+    onCancelHardDeleteConfirm,
+    panelStyle,
   } = props;
   const disabledReason = threadActionsDisabled
     ? messages.threadsTable.backendDownHint
@@ -78,35 +136,45 @@ export function ThreadsTable(props: ThreadsTableProps) {
       ? visibleRows.find((row) => row.thread_id === selectedThreadId) ??
         filteredRows.find((row) => row.thread_id === selectedThreadId)
       : null) ?? null;
-  const selectVisibleRows = (mode: "all" | "high-risk" | "pinned") => {
+  const dryRunReadyVisibleIds = visibleRows
+    .filter((row) => props.dryRunReadyIds.includes(row.thread_id))
+    .map((row) => row.thread_id);
+  const selectVisibleRows = (mode: "all" | "high-risk" | "pinned" | "dry-run-ready" | "stale") => {
     setSelected((prev) => {
-      const next = { ...prev };
-      for (const row of visibleRows) {
-        if (mode === "all") {
-          next[row.thread_id] = true;
-          continue;
-        }
-        if (mode === "high-risk") {
-          next[row.thread_id] = Number(row.risk_score ?? 0) >= 70;
-          continue;
-        }
-        next[row.thread_id] = Boolean(row.is_pinned);
+      if (mode === "all") {
+        return toggleVisibleSelectionState(visibleRows, prev);
       }
-      return next;
-    });
-  };
-  const clearVisibleSelection = () => {
-    setSelected((prev) => {
-      const next = { ...prev };
-      for (const row of visibleRows) {
-        next[row.thread_id] = false;
+      if (mode === "dry-run-ready") {
+        return toggleSubsetSelectionState(
+          visibleRows,
+          prev,
+          (row) => props.dryRunReadyIds.includes(row.thread_id),
+        );
       }
-      return next;
+      if (mode === "high-risk") {
+        return toggleSubsetSelectionState(
+          visibleRows,
+          prev,
+          (row) => Number(row.risk_score ?? 0) >= 70,
+        );
+      }
+      if (mode === "stale") {
+        return toggleSubsetSelectionState(
+          visibleRows,
+          prev,
+          (row) => row.activity_status === "stale",
+        );
+      }
+      return toggleSubsetSelectionState(
+        visibleRows,
+        prev,
+        (row) => Boolean(row.is_pinned),
+      );
     });
   };
 
   return (
-    <section className="panel threads-table-panel">
+    <section className="panel threads-table-panel" style={panelStyle}>
       <PanelHeader
         title={messages.threadsTable.title}
         subtitle={
@@ -138,11 +206,16 @@ export function ThreadsTable(props: ThreadsTableProps) {
               <Button variant="outline" onClick={() => selectVisibleRows("high-risk")}>
                 {messages.threadsTable.quickSelectHighRisk}
               </Button>
-              <Button variant="outline" onClick={() => selectVisibleRows("pinned")}>
-                {messages.threadsTable.quickSelectPinned}
+              <Button
+                variant="outline"
+                disabled={dryRunReadyVisibleIds.length === 0}
+                title={dryRunReadyVisibleIds.length === 0 ? messages.threadsTable.quickSelectDryRunReadyEmpty : undefined}
+                onClick={() => selectVisibleRows("dry-run-ready")}
+              >
+                {messages.threadsTable.quickSelectDryRunReady}
               </Button>
-              <Button variant="outline" onClick={clearVisibleSelection}>
-                {messages.threadsTable.quickClearVisible}
+              <Button variant="outline" onClick={() => selectVisibleRows("stale")}>
+                {messages.threadsTable.quickSelectStale}
               </Button>
             </div>
             <span className="sub-hint">
@@ -151,35 +224,11 @@ export function ThreadsTable(props: ThreadsTableProps) {
               {messages.threadsTable.rendered} {visibleRows.length}/
               {filteredRows.length}
             </span>
-            <label className="check-inline">
-              <input
-                type="checkbox"
-                checked={allFilteredSelected}
-                onChange={(e) => toggleSelectAllFiltered(e.target.checked)}
-              />
-              {messages.threadsTable.selectAllFiltered}
-            </label>
           </div>
         </div>
         <div className="sub-toolbar sticky-action-bar action-toolbar">
           <div className="thread-toolbar-group">
             <div className="thread-toolbar-inline">
-              <Button
-                variant="base"
-                disabled={selectedIds.length === 0 || busy || threadActionsDisabled}
-                title={disabledReason}
-                onClick={() => bulkPin(selectedIds)}
-              >
-                {messages.threadsTable.bulkPin}
-              </Button>
-              <Button
-                variant="base"
-                disabled={selectedIds.length === 0 || busy || threadActionsDisabled}
-                title={disabledReason}
-                onClick={() => bulkUnpin(selectedIds)}
-              >
-                {messages.threadsTable.bulkUnpin}
-              </Button>
               <Button
                 variant="accent"
                 disabled={selectedIds.length === 0 || busy || threadActionsDisabled}
@@ -204,6 +253,14 @@ export function ThreadsTable(props: ThreadsTableProps) {
               >
                 {messages.threadsTable.bulkCleanupDryRun}
               </Button>
+              <Button
+                variant="danger"
+                disabled={selectedIds.length === 0 || busy || threadActionsDisabled || !dryRunReady}
+                title={dryRunReady ? disabledReason : messages.forensics.cleanupTokenHint}
+                onClick={onRequestHardDeleteConfirm}
+              >
+                {messages.threadsTable.bulkCleanupExecute}
+              </Button>
             </div>
           </div>
           <div className="thread-toolbar-group">
@@ -214,12 +271,53 @@ export function ThreadsTable(props: ThreadsTableProps) {
             )}
           </div>
         </div>
+        {hardDeleteConfirmOpen ? (
+          <div className="provider-hard-delete-confirm" role="dialog" aria-modal="true">
+            <div className="provider-hard-delete-confirm-card">
+              <strong>{messages.threadsTable.hardDeleteConfirmTitle}</strong>
+              <p>{messages.threadsTable.hardDeleteConfirmBody}</p>
+              <label className="check-inline">
+                <input
+                  type="checkbox"
+                  checked={hardDeleteSkipConfirmChecked}
+                  onChange={(event) => onToggleHardDeleteSkipConfirmChecked(event.target.checked)}
+                />
+                {messages.threadsTable.hardDeleteConfirmSkipFuture}
+              </label>
+              <div className="provider-hard-delete-confirm-actions">
+                <Button variant="outline" onClick={onCancelHardDeleteConfirm}>
+                  {messages.threadsTable.hardDeleteConfirmCancel}
+                </Button>
+                <Button variant="danger" onClick={onConfirmHardDelete}>
+                  {messages.threadsTable.hardDeleteConfirmExecute}
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
       <div className="table-wrap">
         <table>
+          <colgroup>
+            <col className="col-select" />
+            <col className="col-title" />
+            <col className="col-risk" />
+            <col className="col-pinned" />
+            <col className="col-source" />
+          </colgroup>
           <thead>
             <tr>
-              <th className="table-select-column"></th>
+              <th className="table-select-column">
+                <label className={`table-select-target ${allFilteredSelected ? "is-checked" : ""}`.trim()}>
+                  <input
+                    className="table-select-checkbox"
+                    type="checkbox"
+                    checked={allFilteredSelected}
+                    aria-label={messages.threadsTable.selectAllFiltered}
+                    onChange={(e) => toggleSelectAllFiltered(e.target.checked)}
+                  />
+                </label>
+              </th>
               <th className="title-col">{messages.threadsTable.colTitle}</th>
               <th className="col-risk">{messages.threadsTable.colRisk}</th>
               <th className="col-pinned">{messages.threadsTable.colPinned}</th>
@@ -271,7 +369,9 @@ export function ThreadsTable(props: ThreadsTableProps) {
                   </td>
                   <td className="col-risk">{row.risk_score ?? 0}</td>
                   <td className="col-pinned">{row.is_pinned ? messages.common.yes : messages.common.no}</td>
-                  <td className="col-source">{row.source || row.project_bucket || "-"}</td>
+                  <td className="col-source" title={row.source || row.project_bucket || "-"}>
+                    {compactThreadSource(row)}
+                  </td>
                 </tr>
               );
             })}
