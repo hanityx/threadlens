@@ -75,7 +75,7 @@ export function TopShell() {
           <input
             type="search"
             className="top-search-input"
-            placeholder="Jump to sessions, threads, keywords..."
+            placeholder="Jump to thread, session, keyword..."
             value={headerSearchDraft}
             onChange={(event) => setHeaderSearchDraft(event.target.value)}
           />

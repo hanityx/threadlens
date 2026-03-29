@@ -1,8 +1,10 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState, useCallback, useTransition } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "../../api";
+import { SEARCHABLE_PROVIDER_IDS } from "@threadlens/shared-contracts";
 import type { ConversationSearchEnvelope, ConversationSearchHit } from "../../types";
 import type { Messages } from "../../i18n";
+import { SEARCH_PROVIDER_STORAGE_KEY, readStorageValue, writeStorageValue } from "../../hooks/appDataUtils";
 import { extractEnvelopeData, formatDateTime, normalizeDisplayValue } from "../../lib/helpers";
 const HOME_PATH_MARKER = `/${"Users"}/`;
 const MARKDOWN_FILE_NAME_PATTERN = /\b[\w.-]+\.md\b/i;
@@ -68,9 +70,11 @@ function formatRecentTime(ts: number): string {
 export type SearchPanelProps = {
   messages: Messages;
   providerOptions: Array<{ id: string; name: string }>;
+  sessionOpenProviderIds?: string[];
   onOpenSession: (hit: ConversationSearchHit) => void;
   onOpenThread: (hit: ConversationSearchHit) => void;
   initialQuery?: string;
+  onQueryDraftChange?: (query: string) => void;
 };
 
 function compactSessionId(sessionId?: string | null): string {
@@ -132,6 +136,20 @@ function compactSearchSnippet(hit: ConversationSearchHit): string {
   return raw.length > 200 ? `${raw.slice(0, 197)}…` : raw;
 }
 
+export function shouldIgnoreSearchCardKeyboardActivation(options: {
+  currentTarget: HTMLElement;
+  target: EventTarget | null;
+}): boolean {
+  const target = options.target;
+  if (typeof Element === "undefined" || !(target instanceof Element)) {
+    return Boolean((target as { closest?: (selector: string) => unknown } | null)?.closest?.("button"));
+  }
+  const interactiveAncestor = target.closest(
+    "button, a, input, select, textarea, summary, [role='button'], [role='link']",
+  );
+  return Boolean(interactiveAncestor && interactiveAncestor !== options.currentTarget);
+}
+
 function searchHitDedupKey(hit: ConversationSearchHit): string {
   const transcriptKey = hit.session_id || hit.file_path;
   const snippetKey = (hit.snippet || "").trim().toLowerCase();
@@ -145,17 +163,28 @@ function searchHitDedupKey(hit: ConversationSearchHit): string {
   ].join("::");
 }
 
+export function isSearchFocusShortcut(event: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey">) {
+  return (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k";
+}
+
 export function SearchPanel({
   messages,
   providerOptions,
+  sessionOpenProviderIds = [],
   onOpenSession,
   onOpenThread,
   initialQuery = "",
+  onQueryDraftChange,
 }: SearchPanelProps) {
   const initialTrimmedQuery = initialQuery.trim();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState(initialTrimmedQuery);
-  const [provider, setProvider] = useState("all");
+  const [provider, setProvider] = useState(() => {
+    const saved = readStorageValue([SEARCH_PROVIDER_STORAGE_KEY]);
+    return saved && SEARCHABLE_PROVIDER_IDS.includes(saved as (typeof SEARCHABLE_PROVIDER_IDS)[number])
+      ? saved
+      : "all";
+  });
   const [debouncedQuery, setDebouncedQuery] = useState(initialTrimmedQuery);
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(() => new Set());
   const [activeSessionKey, setActiveSessionKey] = useState<string | null>(null);
@@ -172,8 +201,16 @@ export function SearchPanel({
   }, [initialQuery]);
 
   useEffect(() => {
+    onQueryDraftChange?.(query);
+  }, [onQueryDraftChange, query]);
+
+  useEffect(() => {
+    writeStorageValue(SEARCH_PROVIDER_STORAGE_KEY, provider);
+  }, [provider]);
+
+  useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      if (isSearchFocusShortcut(e)) {
         e.preventDefault();
         inputRef.current?.focus();
       }
@@ -204,18 +241,27 @@ export function SearchPanel({
   }, [query]);
   const deferredQuery = useDeferredValue(debouncedQuery);
   const searchEnabled = deferredQuery.length >= 2;
-  const showSearchGuidance = query.trim().length < 2;
 
   useEffect(() => {
     if (debouncedQuery.length < 2) return;
     setRecentSearches(addRecentSearch(debouncedQuery));
   }, [debouncedQuery]);
 
+  const visibleRecentSearches = recentSearches.slice(0, 6);
+  const recentLayout =
+    visibleRecentSearches.length === 0
+      ? "empty"
+      : visibleRecentSearches.length <= 2
+        ? "inline"
+        : "strip";
+
   const search = useQuery({
     queryKey: ["conversation-search", deferredQuery, provider],
     queryFn: ({ signal }) => {
       const providerQuery =
-        provider === "all" ? "" : `&provider=${encodeURIComponent(provider)}`;
+        provider === "all"
+          ? `&provider=${encodeURIComponent(SEARCHABLE_PROVIDER_IDS.join(","))}`
+          : `&provider=${encodeURIComponent(provider)}`;
       return apiGet<ConversationSearchEnvelope>(
         `/api/conversation-search?q=${encodeURIComponent(
           deferredQuery,
@@ -351,10 +397,11 @@ export function SearchPanel({
   }, [provider, providerLabelById, providerOptions, results]);
   const showLoadingSkeleton = searchEnabled && search.isLoading && results.length === 0;
   const showLiveLoading = searchEnabled && search.isFetching;
-  const statusText = showLiveLoading
-    ? messages.search.loading
-    : results.length === 0
-      ? messages.search.emptyResult
+  const statusText =
+    results.length === 0
+      ? showLiveLoading
+        ? messages.search.loading
+        : messages.search.emptyResult
       : null;
 
   return (
@@ -374,11 +421,11 @@ export function SearchPanel({
           <span className="search-command-path">search</span>
           <span className="search-command-slash">/</span>
           <span className="search-command-path is-active">
-            {provider === "all" ? "all ai" : providerLabelById.get(provider) ?? provider}
+            {provider === "all" ? messages.search.allProviders : providerLabelById.get(provider) ?? provider}
           </span>
           {!searchEnabled ? <span className="search-command-runtime">idle</span> : null}
         </div>
-        <div className={`search-command-body ${showSearchGuidance ? "" : "is-condensed"}`.trim()}>
+        <div className="search-command-body">
           <div className="search-command-left">
             <div className="search-command-bar">
               <span className="search-command-prompt" aria-hidden="true">&gt;</span>
@@ -417,45 +464,51 @@ export function SearchPanel({
               </div>
             </div>
           </div>
-          {showSearchGuidance ? (
-            <div className="search-command-tips">
-              <div className="search-tips-col">
-                <div className="search-scope-label">tips</div>
-                <div className="search-tips-list">
-                  <div className="search-tip-row">
-                    <span className="search-tip-key">keywords</span>
-                    <span className="search-tip-desc">free text, any order</span>
-                  </div>
-                  <div className="search-tip-row">
-                    <span className="search-tip-key">filename</span>
-                    <span className="search-tip-desc">markdown, .jsonl</span>
-                  </div>
-                  <div className="search-tip-row">
-                    <span className="search-tip-key">scope</span>
-                    <span className="search-tip-desc">filter by provider</span>
-                  </div>
+          <div className="search-command-tips">
+            <div className="search-tips-col">
+              <div className="search-scope-label">tips</div>
+              <div className="search-tips-list">
+                <div className="search-tip-row">
+                  <span className="search-tip-key">keywords</span>
+                  <span className="search-tip-desc">free text, any order</span>
+                </div>
+                <div className="search-tip-row">
+                  <span className="search-tip-key">filename</span>
+                  <span className="search-tip-desc">markdown, .jsonl</span>
+                </div>
+                <div className="search-tip-row">
+                  <span className="search-tip-key">scope</span>
+                  <span className="search-tip-desc">filter by provider</span>
                 </div>
               </div>
-              <div className="search-tips-col">
-                <div className="search-scope-label">shortcuts</div>
-                <div className="search-tips-shortcuts">
-                  <div className="search-tip-row">
-                    <kbd className="search-tip-kbd">⌘K</kbd>
-                    <span className="search-tip-desc">focus search</span>
-                  </div>
-                  <div className="search-tip-row">
-                    <kbd className="search-tip-kbd">Esc</kbd>
-                    <span className="search-tip-desc">clear query</span>
-                  </div>
+            </div>
+            <div className="search-tips-col">
+              <div className="search-scope-label">shortcuts</div>
+              <div className="search-tips-shortcuts">
+                <div className="search-tip-row">
+                  <kbd className="search-tip-kbd">⌘K</kbd>
+                  <span className="search-tip-desc">focus search</span>
+                </div>
+                <div className="search-tip-row">
+                  <kbd className="search-tip-kbd">Esc</kbd>
+                  <span className="search-tip-desc">clear query</span>
                 </div>
               </div>
-              <div className="search-tips-recent">
+            </div>
+            {recentLayout !== "strip" ? (
+              <div
+                className={`search-tips-recent-inline${recentLayout === "empty" ? " is-empty" : ""}`.trim()}
+              >
                 <div className="search-scope-label">{messages.search.recentSearches}</div>
-                {recentSearches.length === 0 ? (
-                  <p className="search-recent-empty">{messages.search.recentEmpty}</p>
+                {recentLayout === "empty" ? (
+                  <p className="search-recent-empty search-recent-empty-inline">
+                    {messages.search.recentEmpty}
+                  </p>
                 ) : (
-                  <div className="search-recent-list">
-                    {recentSearches.slice(0, 6).map((item) => (
+                  <div
+                    className={`search-recent-list search-recent-list-inline${visibleRecentSearches.length === 2 ? " is-pair" : ""}`.trim()}
+                  >
+                    {visibleRecentSearches.map((item) => (
                       <div
                         key={item.ts}
                         className="search-recent-item"
@@ -488,9 +541,48 @@ export function SearchPanel({
                   </div>
                 )}
               </div>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
         </div>
+        {recentLayout === "strip" ? (
+        <div className="search-command-recent-strip">
+          <div className="search-scope-label">{messages.search.recentSearches}</div>
+          {
+            <div className="search-recent-list">
+              {visibleRecentSearches.map((item) => (
+                <div
+                  key={item.ts}
+                  className="search-recent-item"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setQuery(item.q)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setQuery(item.q);
+                    }
+                  }}
+                >
+                  <span className="search-recent-icon" aria-hidden="true">↺</span>
+                  <span className="search-recent-query">{item.q}</span>
+                  <span className="search-recent-time">{formatRecentTime(item.ts)}</span>
+                  <button
+                    type="button"
+                    className="search-recent-remove"
+                    aria-label={`Remove "${item.q}" from recent searches`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveRecent(item.q);
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          }
+        </div>
+        ) : null}
       </div>
 
       <div className="search-stage-layout">
@@ -558,26 +650,41 @@ export function SearchPanel({
                       const cardProviderName = providerLabelById.get(session.openHit.provider) ?? session.openHit.provider;
                       const isExpanded = expandedSessions.has(session.key);
                       const isActive = activeSessionKey === session.key;
+                      const canOpenSession = sessionOpenProviderIds.includes(session.openHit.provider);
                       const previewMatches = isExpanded ? session.matches : session.matches.slice(0, 1);
                       const remainingMatches = session.matches.length - 1;
                       const cardKey = `${group.id}:${session.key}`;
                       return (
                         <article
                           key={cardKey}
-                          className={`search-result-card search-result-card-stage${isActive ? " is-active" : ""}`}
-                          tabIndex={0}
-                          role="button"
-                          onClick={() => {
-                            setActiveSessionKey(session.key);
-                            onOpenSession(session.openHit);
-                          }}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              setActiveSessionKey(session.key);
-                              onOpenSession(session.openHit);
-                            }
-                          }}
+                          className={`search-result-card search-result-card-stage${isActive ? " is-active" : ""}${canOpenSession ? "" : " is-disabled"}`}
+                          tabIndex={canOpenSession ? 0 : undefined}
+                          role={canOpenSession ? "button" : undefined}
+                          aria-disabled={canOpenSession ? undefined : true}
+                          onClick={canOpenSession
+                            ? () => {
+                                setActiveSessionKey(session.key);
+                                onOpenSession(session.openHit);
+                              }
+                            : undefined}
+                          onKeyDown={canOpenSession
+                            ? (event) => {
+                                if (
+                                  shouldIgnoreSearchCardKeyboardActivation({
+                                    currentTarget: event.currentTarget,
+                                    target: event.target,
+                                  })
+                                ) {
+                                  return;
+                                }
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  setActiveSessionKey(session.key);
+                                  onOpenSession(session.openHit);
+                                }
+                              }
+                            : undefined}
+                          title={canOpenSession ? undefined : "This result cannot open in Sessions."}
                         >
                           <div className="search-result-main">
                             <div className="search-result-title-stack">

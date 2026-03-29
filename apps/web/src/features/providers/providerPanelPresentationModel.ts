@@ -1,7 +1,12 @@
 import type { Messages } from "../../i18n";
 import type { ProviderSessionActionResult, ProviderView, RecoveryBackupExportResponse } from "../../types";
+import { providerActionSelectionKey } from "../../hooks/appDataUtils";
 
 type ProviderFlowState = "done" | "pending" | "blocked";
+export type ProviderWorkflowStage = {
+  label: string;
+  className: "status-active" | "status-missing" | "status-preview";
+};
 
 export function getProviderStatusLabel(
   messages: Messages,
@@ -83,6 +88,61 @@ export function buildProviderSessionActionSummary(
   };
 }
 
+export function getProviderWorkflowStage(
+  messages: Messages,
+  options: {
+    action: "archive_local" | "delete_local";
+    actionResult: ProviderSessionActionResult | null;
+    actionSelection:
+      | {
+          provider: string;
+          action: "backup_local" | "archive_local" | "delete_local";
+          file_paths: string[];
+          dry_run?: boolean;
+          backup_before_delete?: boolean;
+        }
+      | null;
+    currentSelectionKey: string;
+  },
+): ProviderWorkflowStage {
+  const { action, actionResult, actionSelection, currentSelectionKey } = options;
+  const pendingStage: ProviderWorkflowStage = {
+    label: messages.forensics.stagePending,
+    className: "status-preview",
+  };
+
+  if (!actionResult || actionResult.action !== action || !actionSelection || actionSelection.action !== action) {
+    return pendingStage;
+  }
+
+  const previewSelectionKey = providerActionSelectionKey(
+    actionSelection.provider,
+    actionSelection.action,
+    actionSelection.file_paths,
+    { backup_before_delete: actionSelection.backup_before_delete },
+  );
+
+  if (!currentSelectionKey || previewSelectionKey !== currentSelectionKey) {
+    return pendingStage;
+  }
+
+  if (actionResult.applied_count > 0) {
+    return {
+      label: messages.providers.resultApplied,
+      className: "status-active",
+    };
+  }
+
+  if (actionResult.dry_run || String(actionResult.confirm_token_expected ?? "").trim()) {
+    return {
+      label: messages.forensics.stageReady,
+      className: "status-active",
+    };
+  }
+
+  return pendingStage;
+}
+
 export function buildProviderPanelPresentationModel(options: {
   messages: Messages;
   providerView: ProviderView;
@@ -90,6 +150,7 @@ export function buildProviderPanelPresentationModel(options: {
   providerActionData: ProviderSessionActionResult | null;
   recoveryBackupExportData: RecoveryBackupExportResponse | null;
   selectedProviderFilePathsCount: number;
+  providerActionProvider: string;
   providerDeleteBackupEnabled: boolean;
   hotspotScopeOrigin: ProviderView | null;
   slowOnly: boolean;
@@ -114,7 +175,7 @@ export function buildProviderPanelPresentationModel(options: {
       : "Pick sessions first, then start with backup.";
   const deleteBackupModeLabel = options.providerDeleteBackupEnabled ? "On" : "Off";
   const canRunProviderBackup =
-    options.providerView !== "all" && options.selectedProviderFilePathsCount > 0;
+    Boolean(options.providerActionProvider) && options.selectedProviderFilePathsCount > 0;
   const canReturnHotspotScope = Boolean(
     options.hotspotScopeOrigin && options.hotspotScopeOrigin !== options.providerView,
   );

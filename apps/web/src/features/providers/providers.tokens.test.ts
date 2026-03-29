@@ -76,9 +76,13 @@ describe("providers token migration", () => {
     expect(providerStyles).toMatch(/\.sub-toolbar summary\s*{[^}]*font-size:\s*var\(--text-md\);/s);
     expect(providerStyles).toMatch(/\.threads-table-panel > header h2\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
     expect(providerStyles).toMatch(/\.threads-table-panel > header span\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
+    expect(providerStyles).toMatch(/\.threads-table-panel thead th\s*{[^}]*font-size:\s*var\(--text-xs\);[^}]*letter-spacing:\s*0\.04em;[^}]*text-transform:\s*none;/s);
+    expect(providerStyles).toMatch(/\.threads-table-panel \.table-select-column,\s*\.threads-table-panel \.table-select-cell\s*{[^}]*width:\s*42px;[^}]*min-width:\s*42px;/s);
     expect(providerStyles).toMatch(/th,\s*td\s*{[^}]*font-size:\s*var\(--text-md\);/s);
     expect(providerStyles).toMatch(/\.threads-table-panel \.title-main\s*{[^}]*font-size:\s*var\(--text-md\);/s);
     expect(providerStyles).toMatch(/\.data-source-meta\s*{[^}]*font-size:\s*var\(--text-base\);/s);
+    expect(providerStyles).toMatch(/@media \(max-width:\s*1280px\)[\s\S]*?\.threads-table-panel \.col-source\s*{[^}]*display:\s*none;/s);
+    expect(providerStyles).toMatch(/@media \(max-width:\s*1280px\)[\s\S]*?\.threads-table-panel \.table-select-column,\s*\.threads-table-panel \.table-select-cell\s*{[^}]*width:\s*38px;[^}]*min-width:\s*38px;/s);
   });
 
   it("uses semantic surface tokens for shared provider cards and pills", () => {
@@ -112,7 +116,7 @@ describe("providers token migration", () => {
     expect(providerStyles).toMatch(/\.provider-session-table thead th\s*{[^}]*background:\s*var\(--surface-session-table-head\);[^}]*border-bottom:\s*1px solid var\(--surface-border-subtle\);/s);
     expect(providerStyles).toMatch(/\.provider-session-table tbody tr:nth-child\(even\) td\s*{[^}]*background:\s*var\(--surface-session-row-alt\);/s);
     expect(providerStyles).toMatch(/\.provider-session-table tbody tr:hover td\s*{[^}]*background:\s*var\(--surface-session-row-hover\);/s);
-    expect(providerStyles).toMatch(/\.sessions-control-strip,\s*\.sessions-action-strip\s*{[^}]*border-top:\s*1px solid var\(--surface-divider-strong\);/s);
+    expect(providerStyles).toMatch(/\.sessions-control-strip\s*{[^}]*border-top:\s*1px solid var\(--surface-divider-strong\);/s);
     expect(providerStyles).toMatch(/\.session-detail-empty-state\s*{[^}]*background:\s*var\(--surface-stage-subtle\);/s);
     expect(providerStyles).toMatch(/\.danger-zone\s*{[^}]*border:\s*1px solid var\(--surface-danger-panel-border\);[^}]*background:\s*var\(--surface-danger-panel-bg\);/s);
     expect(providerStyles).toMatch(/\.hotspot-card\s*{[^}]*background:\s*var\(--surface-elevated-subtle-max\);/s);

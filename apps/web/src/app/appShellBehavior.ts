@@ -128,6 +128,99 @@ export function parseDesktopRouteSearch(search: string): DesktopRouteState {
   };
 }
 
+export function buildDesktopRouteSearch(
+  currentSearch: string,
+  route: DesktopRouteState,
+): string {
+  const params = new URLSearchParams(String(currentSearch || "").replace(/^\?/, ""));
+  params.set("view", route.view || "overview");
+
+  if (route.view === "providers" && route.provider) {
+    params.set("provider", route.provider);
+  } else {
+    params.delete("provider");
+  }
+
+  if (route.view === "providers" && route.filePath) {
+    params.set("filePath", route.filePath);
+  } else {
+    params.delete("filePath");
+  }
+
+  if (route.view === "threads" && route.threadId) {
+    params.set("threadId", route.threadId);
+  } else {
+    params.delete("threadId");
+  }
+
+  const serialized = params.toString();
+  return serialized ? `?${serialized}` : "";
+}
+
+export function shouldPushDesktopRouteHistory(
+  previousRoute: DesktopRouteState | null,
+  nextRoute: DesktopRouteState,
+): boolean {
+  if (!previousRoute) return false;
+  return previousRoute.view !== nextRoute.view;
+}
+
+export function shouldDeferDesktopRouteSync(options: {
+  currentRoute: DesktopRouteState;
+  layoutView: LayoutView;
+  providerView: ProviderView;
+  selectedSessionPath: string;
+  selectedThreadId: string;
+}): boolean {
+  return Boolean(
+    (options.currentRoute.view === "providers" &&
+      options.currentRoute.filePath &&
+      (options.layoutView !== "providers" ||
+        !options.selectedSessionPath ||
+        (options.currentRoute.provider &&
+          options.currentRoute.provider !== "all" &&
+          options.selectedSessionPath === options.currentRoute.filePath &&
+          options.providerView !== options.currentRoute.provider))) ||
+      (options.currentRoute.view === "threads" &&
+        options.currentRoute.threadId &&
+        (options.layoutView !== "threads" || !options.selectedThreadId)),
+  );
+}
+
+export function shouldDeferProviderFallback(options: {
+  currentRoute: DesktopRouteState;
+  visibleProviderTabs: ProviderTab[];
+}): boolean {
+  if (options.currentRoute.view !== "providers") return false;
+  if (!options.currentRoute.provider || options.currentRoute.provider === "all") return false;
+  if (!options.currentRoute.filePath) return false;
+  const nonAllVisibleTabs = options.visibleProviderTabs.filter((tab) => tab.id !== "all");
+  return nonAllVisibleTabs.length === 0;
+}
+
+function applyDesktopRoute(options: {
+  setLayoutView: Dispatch<SetStateAction<LayoutView>>;
+  setProviderView: Dispatch<SetStateAction<ProviderView>>;
+  setSelectedSessionPath: Dispatch<SetStateAction<string>>;
+  setSelectedThreadId: Dispatch<SetStateAction<string>>;
+}, nextRoute: DesktopRouteState) {
+  const routedView = nextRoute.view;
+  if (routedView) {
+    startTransition(() => {
+      options.setLayoutView(routedView);
+    });
+  }
+
+  if (nextRoute.view === "providers") {
+    startTransition(() => {
+      options.setProviderView(nextRoute.provider || "all");
+    });
+  }
+
+  options.setSelectedSessionPath(nextRoute.view === "providers" ? nextRoute.filePath : "");
+  options.setSelectedThreadId(nextRoute.view === "threads" ? nextRoute.threadId : "");
+}
+
 export function getFallbackProviderView(
   providerView: ProviderView,
   visibleProviderTabs: ProviderTab[],
@@ -195,36 +288,7 @@ export function useAppShellBehavior(options: {
     if (!nextRoute.view && !nextRoute.provider && !nextRoute.filePath && !nextRoute.threadId) {
       return;
     }
-
-    const routedView = nextRoute.view;
-    if (routedView) {
-      startTransition(() => {
-        options.setLayoutView(routedView);
-      });
-    }
-
-    const routedProvider = nextRoute.provider;
-    if (routedProvider) {
-      startTransition(() => {
-        options.setProviderView(routedProvider);
-      });
-    }
-
-    if (nextRoute.filePath) {
-      options.setSelectedSessionPath(nextRoute.filePath);
-      if (nextRoute.view !== "threads") {
-        startTransition(() => {
-          options.setLayoutView("providers");
-        });
-      }
-    }
-
-    if (nextRoute.threadId) {
-      options.setSelectedThreadId(nextRoute.threadId);
-      startTransition(() => {
-        options.setLayoutView("threads");
-      });
-    }
+    applyDesktopRoute(options, nextRoute);
   }, [
     options.desktopRouteAppliedRef,
     options.desktopRouteRef,
@@ -232,6 +296,102 @@ export function useAppShellBehavior(options: {
     options.setProviderView,
     options.setSelectedSessionPath,
     options.setSelectedThreadId,
+  ]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const onPopState = () => {
+      const nextRoute = parseDesktopRouteSearch(window.location.search);
+      options.desktopRouteRef.current = nextRoute;
+      applyDesktopRoute(options, nextRoute);
+    };
+
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [
+    options.desktopRouteRef,
+    options.setLayoutView,
+    options.setProviderView,
+    options.setSelectedSessionPath,
+    options.setSelectedThreadId,
+  ]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!options.desktopRouteAppliedRef.current) return;
+
+    const currentRoute = parseDesktopRouteSearch(window.location.search);
+    if (
+      shouldDeferDesktopRouteSync({
+        currentRoute,
+        layoutView: options.layoutView,
+        providerView: options.providerView,
+        selectedSessionPath: options.selectedSessionPath,
+        selectedThreadId: options.selectedThreadId,
+      })
+    ) {
+      options.desktopRouteRef.current = currentRoute;
+      return;
+    }
+
+    const nextRoute: DesktopRouteState = {
+      view: options.layoutView,
+      provider: options.layoutView === "providers" ? options.providerView : "",
+      filePath: options.layoutView === "providers" ? options.selectedSessionPath : "",
+      threadId: options.layoutView === "threads" ? options.selectedThreadId : "",
+    };
+    const nextSearch = buildDesktopRouteSearch(window.location.search, nextRoute);
+    const currentSearch = window.location.search || "";
+    if (nextSearch === currentSearch) {
+      options.desktopRouteRef.current = nextRoute;
+      return;
+    }
+
+    const nextUrl = `${window.location.pathname}${nextSearch}${window.location.hash}`;
+    if (shouldPushDesktopRouteHistory(options.desktopRouteRef.current, nextRoute)) {
+      window.history.pushState(null, "", nextUrl);
+    } else {
+      window.history.replaceState(null, "", nextUrl);
+    }
+    options.desktopRouteRef.current = nextRoute;
+  }, [
+    options.desktopRouteAppliedRef,
+    options.desktopRouteRef,
+    options.layoutView,
+    options.providerView,
+    options.selectedSessionPath,
+    options.selectedThreadId,
+  ]);
+
+  useEffect(() => {
+    const routeFilePath = options.desktopRouteRef.current.filePath;
+    if (options.layoutView !== "providers") return;
+    if (!routeFilePath || options.selectedSessionPath) return;
+    const routeMatch = options.providerSessionRows.some((row) => row.file_path === routeFilePath);
+    if (!routeMatch) return;
+    options.setSelectedSessionPath(routeFilePath);
+  }, [
+    options.desktopRouteRef,
+    options.layoutView,
+    options.providerSessionRows,
+    options.selectedSessionPath,
+    options.setSelectedSessionPath,
+  ]);
+
+  useEffect(() => {
+    const routeThreadId = options.desktopRouteRef.current.threadId;
+    if (options.layoutView !== "threads") return;
+    if (!routeThreadId || options.selectedThreadId) return;
+    const routeMatch = options.visibleRows.some((row) => row.thread_id === routeThreadId);
+    if (!routeMatch) return;
+    options.setSelectedThreadId(routeThreadId);
+  }, [
+    options.desktopRouteRef,
+    options.layoutView,
+    options.selectedThreadId,
+    options.setSelectedThreadId,
+    options.visibleRows,
   ]);
 
   useEffect(() => {
@@ -248,6 +408,14 @@ export function useAppShellBehavior(options: {
   }, [options.providerView, options.setProviderView, options.visibleProviderTabs, options.desktopRouteRef]);
 
   useEffect(() => {
+    if (
+      shouldDeferProviderFallback({
+        currentRoute: options.desktopRouteRef.current,
+        visibleProviderTabs: options.visibleProviderTabs,
+      })
+    ) {
+      return;
+    }
     const fallbackProvider = getFallbackProviderView(
       options.providerView,
       options.visibleProviderTabs,

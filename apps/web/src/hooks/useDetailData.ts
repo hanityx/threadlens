@@ -8,6 +8,9 @@ import type {
 import { apiGet, apiPost } from "../api";
 import { extractEnvelopeData } from "../lib/helpers";
 
+export const THREAD_TRANSCRIPT_INITIAL_LIMIT = 250;
+export const SESSION_TRANSCRIPT_INITIAL_LIMIT = 40;
+
 export function useDetailData(options: {
   selectedThreadId: string;
   selectedSession: ProviderSessionRow | null;
@@ -27,10 +30,10 @@ export function useDetailData(options: {
   const [threadDetailLoading, setThreadDetailLoading] = useState(false);
   const [threadTranscriptRaw, setThreadTranscriptRaw] = useState<unknown>(null);
   const [threadTranscriptLoading, setThreadTranscriptLoading] = useState(false);
-  const [threadTranscriptLimit, setThreadTranscriptLimit] = useState(250);
+  const [threadTranscriptLimit, setThreadTranscriptLimit] = useState(THREAD_TRANSCRIPT_INITIAL_LIMIT);
   const [sessionTranscriptRaw, setSessionTranscriptRaw] = useState<unknown>(null);
   const [sessionTranscriptLoading, setSessionTranscriptLoading] = useState(false);
-  const [sessionTranscriptLimit, setSessionTranscriptLimit] = useState(120);
+  const [sessionTranscriptLimit, setSessionTranscriptLimit] = useState(SESSION_TRANSCRIPT_INITIAL_LIMIT);
   const threadDetailCacheRef = useRef<Map<string, unknown>>(new Map());
   const threadTranscriptCacheRef = useRef<Map<string, unknown>>(new Map());
   const sessionTranscriptCacheRef = useRef<Map<string, unknown>>(new Map());
@@ -40,7 +43,7 @@ export function useDetailData(options: {
     if (!selectedThreadId) {
       setThreadDetailRaw(null);
       setThreadTranscriptRaw(null);
-      setThreadTranscriptLimit(250);
+      setThreadTranscriptLimit(THREAD_TRANSCRIPT_INITIAL_LIMIT);
       return;
     }
     const cached = threadDetailCacheRef.current.get(selectedThreadId);
@@ -119,7 +122,7 @@ export function useDetailData(options: {
   useEffect(() => {
     if (!selectedSession) {
       setSessionTranscriptRaw(null);
-      setSessionTranscriptLimit(250);
+      setSessionTranscriptLimit(SESSION_TRANSCRIPT_INITIAL_LIMIT);
       return;
     }
     const cacheKey = `${selectedSession.provider}|${selectedSession.file_path}|${sessionTranscriptLimit}`;

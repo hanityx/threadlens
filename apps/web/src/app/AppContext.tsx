@@ -16,6 +16,7 @@ type AppLocalState = {
   headerSearchDraft: string;
   setHeaderSearchDraft: (v: string) => void;
   headerSearchSeed: string;
+  setHeaderSearchSeed: (v: string) => void;
   searchThreadContext: ConversationSearchHit | null;
   setSearchThreadContext: (hit: ConversationSearchHit | null) => void;
   acknowledgedForensicsErrorKeys: { analyze: string; cleanup: string };

@@ -11,9 +11,15 @@
   gap: 10px;
 }
 
+.transcript-shell {
+  display: grid;
+  gap: 10px;
+  min-height: 0;
+}
+
 .transcript-summary-strip {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px 12px;
@@ -24,14 +30,16 @@
 }
 
 .transcript-summary-main {
-  display: grid;
-  gap: 3px;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
   min-width: 0;
 }
 
 .transcript-summary-main strong {
   font-size: var(--text-lg);
   line-height: 1.15;
+  white-space: nowrap;
 }
 
 .transcript-summary-badge {
@@ -55,27 +63,41 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 6px;
+  margin-left: auto;
+  min-width: 0;
+}
+
+.transcript-focus-trigger {
+  min-width: 36px;
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: var(--text-sm);
+  font-weight: 700;
 }
 
 .transcript-summary-stat {
-  display: grid;
-  gap: 2px;
-  min-width: 88px;
-  padding: 7px 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+  padding: 7px 10px;
   border: 1px solid var(--surface-border-ghost);
   border-radius: var(--radius-shell-md);
   background: var(--surface-nav-ghost);
-  text-align: right;
+  white-space: nowrap;
 }
 
 .transcript-summary-stat strong {
   font-size: var(--text-base);
   line-height: 1.1;
+  white-space: nowrap;
 }
 
 .transcript-summary-stat .overview-note-label {
   color: var(--text-secondary);
   font-size: var(--text-2xs);
+  white-space: nowrap;
 }
 
 .transcript-intro-copy {
@@ -121,6 +143,118 @@
   flex-direction: column;
   gap: 10px;
   scroll-behavior: smooth;
+}
+
+.chat-log-focus {
+  max-height: none;
+  min-height: 0;
+  height: auto;
+  overflow: visible;
+}
+
+.transcript-focus-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 28px;
+  overflow: hidden;
+  background: rgba(5, 8, 13, 0.84);
+  backdrop-filter: blur(calc(var(--blur-md) * 1.35));
+}
+
+.transcript-focus-card {
+  width: min(1720px, calc(100vw - 56px));
+  height: calc(100vh - 48px);
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
+  display: grid;
+  padding: 0;
+  border: 1px solid var(--surface-stage-border);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top right, rgba(118, 146, 190, 0.08), transparent 22%),
+    linear-gradient(180deg, rgba(14, 17, 23, 0.98), rgba(9, 12, 17, 0.98));
+  box-shadow:
+    0 32px 80px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.transcript-focus-sheet {
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.transcript-focus-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--surface-divider-faint);
+  background: rgba(18, 22, 31, 0.84);
+  backdrop-filter: blur(var(--blur-sm));
+}
+
+.transcript-focus-head-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.transcript-focus-head-copy strong {
+  font-size: var(--text-xl);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.transcript-focus-head-copy p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.35;
+}
+
+.transcript-focus-close {
+  min-width: 42px;
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 999px;
+  align-self: center;
+}
+
+.transcript-focus-controls {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: grid;
+  gap: 10px;
+  padding: 14px 22px 12px;
+  border-bottom: 1px solid var(--surface-divider-faint);
+  background: rgba(13, 16, 22, 0.92);
+  backdrop-filter: blur(var(--blur-md));
+}
+
+.transcript-focus-controls .transcript-controls,
+.transcript-focus-controls .transcript-actions-row {
+  padding-top: 0;
+}
+
+.transcript-focus-body {
+  min-height: 0;
+  padding: 16px 22px 22px;
+  display: block;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.transcript-focus-body .chat-log-focus {
+  min-height: 0;
+  height: auto;
 }
 
 .chat-item {

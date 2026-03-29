@@ -1,4 +1,6 @@
+import { createPortal } from "react-dom";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import type { WheelEvent } from "react";
 import type { Messages } from "../i18n";
 import { formatDateTime } from "../lib/helpers";
 
@@ -22,6 +24,8 @@ type Props = {
   visibleStep?: number;
   emptyLabel?: string;
   onLoadMore: () => void;
+  onLoadFullSource?: () => void;
+  initialFocusViewOpen?: boolean;
 };
 
 type RoleFilter = TranscriptMessage["role"] | "all" | "dialog";
@@ -79,10 +83,15 @@ export function TranscriptLog({
   visibleStep = 24,
   emptyLabel,
   onLoadMore,
+  onLoadFullSource,
+  initialFocusViewOpen = false,
 }: Props) {
   const [searchInput, setSearchInput] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("dialog");
   const [visibleCount, setVisibleCount] = useState(initialVisibleCount);
+  const [orderMode, setOrderMode] = useState<"oldest" | "newest">("oldest");
+  const [focusViewOpen, setFocusViewOpen] = useState(initialFocusViewOpen);
+  const focusLogRef = useRef<HTMLDivElement | null>(null);
   const deferredSearch = useDeferredValue(searchInput);
   const resolvedEmptyLabel = emptyLabel ?? messages.transcript.empty;
 
@@ -106,43 +115,50 @@ export function TranscriptLog({
     });
   }, [transcript, deferredSearch, roleFilter]);
 
+  const orderedTranscript = useMemo(
+    () => (orderMode === "newest" ? [...filteredTranscript].reverse() : filteredTranscript),
+    [filteredTranscript, orderMode],
+  );
+
   useEffect(() => {
     setVisibleCount(initialVisibleCount);
   }, [transcript, deferredSearch, roleFilter, initialVisibleCount]);
 
+  useEffect(() => {
+    if (!focusViewOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setFocusViewOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [focusViewOpen]);
+
   const renderedTranscript = useMemo(
-    () => filteredTranscript.slice(0, visibleCount),
-    [filteredTranscript, visibleCount],
+    () => orderedTranscript.slice(0, visibleCount),
+    [orderedTranscript, visibleCount],
   );
-  const hasMoreRenderedTranscript = renderedTranscript.length < filteredTranscript.length;
+  const hasMoreRenderedTranscript = renderedTranscript.length < orderedTranscript.length;
   const modeLabel = truncated ? messages.transcript.partial : messages.transcript.full;
 
-  return (
+  const handleFocusBodyWheel = (event: WheelEvent<HTMLDivElement>) => {
+    const target = event.currentTarget;
+    if (target.scrollHeight <= target.clientHeight) return;
+    event.preventDefault();
+    target.scrollTop += event.deltaY;
+    if (event.deltaX !== 0) {
+      target.scrollLeft += event.deltaX;
+    }
+  };
+
+  const renderTranscriptControls = (focusMode: boolean) => (
     <>
-      <div className="transcript-summary-strip">
-        <div className="transcript-summary-main">
-          <span className="overview-note-label">{messages.transcript.title}</span>
-          <strong>
-            {messageCount} {messages.transcript.messagesUnit}
-          </strong>
-          <span className="transcript-summary-badge">{modeLabel}</span>
-        </div>
-        <div className="transcript-summary-meta">
-          <span className="transcript-summary-stat">
-            <span className="overview-note-label">{messages.transcript.loadedCount}</span>
-            <strong>{renderedTranscript.length}</strong>
-          </span>
-          <span className="transcript-summary-stat">
-            <span className="overview-note-label">{messages.transcript.matchingCount}</span>
-            <strong>{filteredTranscript.length}</strong>
-          </span>
-        </div>
-      </div>
-      <p className="sub-hint transcript-intro-copy">
-        {roleFilter === "dialog"
-          ? "Default is user and assistant only. Switch roles for system, tool, or developer logs."
-          : "Transcript is filtered by role and search."}
-      </p>
       <div className="chat-toolbar transcript-controls">
         <input
           type="search"
@@ -165,18 +181,31 @@ export function TranscriptLog({
           <option value="tool">{messages.transcript.roleTool}</option>
           <option value="unknown">{messages.transcript.roleUnknown}</option>
         </select>
-        {roleFilter === "dialog" ? (
-          <span className="sub-hint">{messages.transcript.dialogHint}</span>
-        ) : null}
       </div>
       <div className="chat-toolbar transcript-actions-row">
         <button
           type="button"
           className="btn-outline"
-          onClick={() => setVisibleCount((prev) => Math.min(prev + visibleStep, filteredTranscript.length))}
+          onClick={() => setOrderMode((prev) => (prev === "oldest" ? "newest" : "oldest"))}
+          disabled={loading || filteredTranscript.length === 0}
+        >
+          {orderMode === "oldest" ? messages.transcript.orderNewestFirst : messages.transcript.orderOldestFirst}
+        </button>
+        <button
+          type="button"
+          className="btn-outline"
+          onClick={() => setVisibleCount((prev) => Math.min(prev + visibleStep, orderedTranscript.length))}
           disabled={loading || !hasMoreRenderedTranscript}
         >
           {messages.transcript.showMoreLoaded}
+        </button>
+        <button
+          type="button"
+          className="btn-outline"
+          onClick={onLoadFullSource}
+          disabled={loading || !truncated || limit >= maxLimit || !onLoadFullSource}
+        >
+          {messages.transcript.loadFullSource}
         </button>
         <button
           type="button"
@@ -187,16 +216,111 @@ export function TranscriptLog({
           {messages.transcript.loadMoreFromSource}
         </button>
       </div>
-      <div className="chat-log">
-        {loading ? <div className="skeleton-line" /> : null}
-        {!loading && filteredTranscript.length === 0 ? <p className="sub-hint">{resolvedEmptyLabel}</p> : null}
-        {renderedTranscript.map((msg) => (
-          <ChatMessage key={`msg-${msg.idx}-${msg.ts ?? "na"}`} msg={msg} roleLabel={roleLabel} />
-        ))}
-        {!loading && hasMoreRenderedTranscript ? (
-          <p className="sub-hint">{messages.transcript.previewHint}</p>
-        ) : null}
+    </>
+  );
+
+  const renderTranscriptBody = (focusMode: boolean) => (
+      <div className={`chat-log ${focusMode ? "chat-log-focus" : ""}`.trim()}>
+      {loading ? <div className="skeleton-line" /> : null}
+      {!loading && filteredTranscript.length === 0 ? <p className="sub-hint">{resolvedEmptyLabel}</p> : null}
+      {renderedTranscript.map((msg) => (
+        <ChatMessage key={`${focusMode ? "focus" : "inline"}-msg-${msg.idx}-${msg.ts ?? "na"}`} msg={msg} roleLabel={roleLabel} />
+      ))}
+      {!loading && hasMoreRenderedTranscript ? (
+        <p className="sub-hint">{messages.transcript.previewHint}</p>
+      ) : null}
+    </div>
+  );
+
+  const renderTranscriptChrome = () => (
+    <div className="transcript-shell">
+      <div className="transcript-summary-strip">
+        <div className="transcript-summary-main">
+          <span className="overview-note-label">{messages.transcript.title}</span>
+          <strong>
+            {messageCount} {messages.transcript.messagesUnit}
+          </strong>
+        </div>
+        <div className="transcript-summary-meta">
+          <span className="transcript-summary-badge">{modeLabel}</span>
+          <span className="transcript-summary-stat">
+            <span className="overview-note-label">{messages.transcript.loadedCount}</span>
+            <strong>{renderedTranscript.length}</strong>
+          </span>
+          <span className="transcript-summary-stat">
+            <span className="overview-note-label">{messages.transcript.matchingCount}</span>
+            <strong>{filteredTranscript.length}</strong>
+          </span>
+          <button
+            type="button"
+            className="btn-outline transcript-focus-trigger"
+            aria-label={messages.transcript.openFocusView}
+            onClick={() => setFocusViewOpen(true)}
+          >
+            ⤢
+          </button>
+        </div>
       </div>
+      {renderTranscriptControls(false)}
+      {renderTranscriptBody(false)}
+    </div>
+  );
+
+  const renderFocusView = () => (
+    <section className="transcript-focus-sheet">
+      <header className="transcript-focus-head">
+        <div className="transcript-focus-head-copy">
+          <span className="overview-note-label">{messages.transcript.title}</span>
+          <strong>
+            {messageCount} {messages.transcript.messagesUnit}
+          </strong>
+          <p>
+            {modeLabel} · {messages.transcript.loadedCount} {renderedTranscript.length} · {messages.transcript.matchingCount} {filteredTranscript.length}
+          </p>
+        </div>
+        <button
+          type="button"
+          className="btn-outline transcript-focus-close"
+          aria-label={messages.transcript.closeFocusView}
+          onClick={() => setFocusViewOpen(false)}
+        >
+          ✕
+        </button>
+      </header>
+      <div className="transcript-focus-controls">
+        {renderTranscriptControls(true)}
+      </div>
+      <div ref={focusLogRef} className="transcript-focus-body" onWheel={handleFocusBodyWheel}>
+        {renderTranscriptBody(true)}
+      </div>
+    </section>
+  );
+
+  const focusViewOverlay = (
+    <div
+      className="transcript-focus-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label={messages.transcript.title}
+      onClick={() => setFocusViewOpen(false)}
+    >
+      <div
+        className="transcript-focus-card"
+        onClick={(event) => event.stopPropagation()}
+      >
+        {renderFocusView()}
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      {renderTranscriptChrome()}
+      {focusViewOpen
+        ? typeof document !== "undefined"
+          ? createPortal(focusViewOverlay, document.body)
+          : focusViewOverlay
+        : null}
     </>
   );
 }

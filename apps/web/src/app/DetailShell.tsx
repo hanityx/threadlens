@@ -23,9 +23,10 @@ export function DetailShell() {
     showForensics,
     selectedThread,
     selectedThreadId,
+    setSelectedThreadId,
+    selectedIds,
     visibleRows,
     filteredRows,
-    highRiskCount,
     recentThreadTitle,
     searchThreadContext,
     threadDetailLoading,
@@ -42,9 +43,11 @@ export function DetailShell() {
     analyzeDelete,
     cleanupDryRun,
     selectedSession,
+    setSelectedSessionPath,
     emptySessionScopeLabel,
     visibleProviderSessionSummary,
     emptySessionNextTitle,
+    emptySessionNextPath,
     sessionTranscriptData,
     sessionTranscriptLoading,
     sessionTranscriptLimit,
@@ -53,6 +56,7 @@ export function DetailShell() {
     providerDeleteBackupEnabled,
     setProviderDeleteBackupEnabled,
     runSingleProviderAction,
+    runSingleProviderHardDelete,
     rows,
   } = useAppContext();
 
@@ -78,9 +82,11 @@ export function DetailShell() {
             messages={messages}
             selectedThread={selectedThread}
             selectedThreadId={selectedThreadId}
+            selectedIds={selectedIds}
+            openThreadById={setSelectedThreadId}
             visibleThreadCount={visibleRows.length}
             filteredThreadCount={filteredRows.length}
-            highRiskCount={highRiskCount}
+            nextThreadId={visibleRows[0]?.thread_id || ""}
             nextThreadTitle={selectedThreadId
               ? recentThreadTitle(visibleRows[0] ?? { thread_id: selectedThreadId, title: "", risk_score: 0, is_pinned: false, source: "" })
               : recentThreadTitle(visibleRows[0] ?? { thread_id: "", title: "", risk_score: 0, is_pinned: false, source: "" })}
@@ -118,9 +124,12 @@ export function DetailShell() {
             messages={messages}
             selectedSession={selectedSession}
             emptyScopeLabel={emptySessionScopeLabel}
-            emptyScopeRows={visibleProviderSessionSummary.rows}
-            emptyScopeReady={visibleProviderSessionSummary.parse_ok}
-            emptyNextSessionTitle={emptySessionNextTitle}
+            emptyNextSessions={
+              emptySessionNextTitle
+                ? [{ title: emptySessionNextTitle, path: emptySessionNextPath, description: "" }]
+                : []
+            }
+            onOpenSessionPath={setSelectedSessionPath}
             sessionTranscriptData={sessionTranscriptData}
             sessionTranscriptLoading={sessionTranscriptLoading}
             sessionTranscriptLimit={sessionTranscriptLimit}
@@ -130,6 +139,7 @@ export function DetailShell() {
             providerDeleteBackupEnabled={providerDeleteBackupEnabled}
             setProviderDeleteBackupEnabled={setProviderDeleteBackupEnabled}
             runSingleProviderAction={runSingleProviderAction}
+            runSingleProviderHardDelete={runSingleProviderHardDelete}
           />
         </Suspense>
       ) : null}

@@ -28,15 +28,24 @@ const messages = {
     probeOk: "OK",
     probeFail: "Fail",
     selectAllInTab: "Select all",
+    workflowSelectedTitle: "Current selection",
+    workflowArchiveTitle: "Archive dry-run",
+    workflowDeleteTitle: "Delete dry-run",
     archiveDryRun: "Archive dry-run",
     archive: "Archive",
     deleteDryRun: "Delete dry-run",
-    delete: "Delete",
+    delete: "Hard delete",
+    hardDeleteConfirmTitle: "Delete selected session files now?",
+    hardDeleteConfirmBody: "This removes the selected session files immediately without creating a backup copy.",
+    hardDeleteConfirmSkipFuture: "Do not ask again for hard delete.",
+    hardDeleteConfirmCancel: "Cancel",
+    hardDeleteConfirmExecute: "Hard delete now",
     parserLinkedBadge: "Parser",
     parserLinkedFails: "Fails",
     parserLinkedOpen: "Open",
     sourceFilterLabel: "Source filter",
     sourceAll: "All sources",
+    filters: "Filter",
     sortLabel: "Sort",
     sortNewest: "Newest",
     sortOldest: "Oldest",
@@ -47,7 +56,8 @@ const messages = {
     slowOnlyFilter: "Slow only",
     slowOnlyActive: "Slow only active",
     slowOnlyDormant: "Slow dormant",
-    exportCsv: "Export CSV",
+    selectStaleOnly: "Stale only",
+    exportCsv: "CSV",
     csvPresetAll: "All columns",
     csvPresetCompact: "Compact columns",
     csvPresetForensics: "Forensics columns",
@@ -90,8 +100,19 @@ const messages = {
   threadDetail: {
     fieldSource: "Source",
   },
+  threadsTable: {
+    filtered: "Filtered",
+    total: "Total",
+  },
+  forensics: {
+    stageReady: "Ready",
+    stagePending: "Pending",
+  },
   sessionDetail: {
     fieldModified: "Modified",
+  },
+  setup: {
+    advancedTitle: "Tools",
   },
 } as unknown as Messages;
 
@@ -135,11 +156,10 @@ describe("SessionTable", () => {
     const onRunArchive = vi.fn();
     const onRunDeleteDryRun = vi.fn();
     const onRunDelete = vi.fn();
+    const onRequestHardDeleteConfirm = vi.fn();
     const onJumpToParserProvider = vi.fn();
     const onSourceFilterChange = vi.fn();
     const onSessionSortChange = vi.fn();
-    const onSlowOnlyChange = vi.fn();
-    const onSetProviderViewAll = vi.fn();
     const onExportCsv = vi.fn();
     const onSetCsvColumnsPreset = vi.fn();
     const onCsvColumnChange = vi.fn();
@@ -167,6 +187,12 @@ describe("SessionTable", () => {
         onRunArchive={onRunArchive}
         onRunDeleteDryRun={onRunDeleteDryRun}
         onRunDelete={onRunDelete}
+        onRequestHardDeleteConfirm={onRequestHardDeleteConfirm}
+        hardDeleteConfirmOpen={true}
+        hardDeleteSkipConfirmChecked={false}
+        onToggleHardDeleteSkipConfirmChecked={() => undefined}
+        onConfirmHardDelete={() => undefined}
+        onCancelHardDeleteConfirm={() => undefined}
         selectedSessionProvider="codex"
         selectedSessionParseFailCount={2}
         onJumpToParserProvider={onJumpToParserProvider}
@@ -175,10 +201,9 @@ describe("SessionTable", () => {
         sourceFilterOptions={[{ source: "history", count: 1 }]}
         sessionSort="mtime_desc"
         onSessionSortChange={onSessionSortChange}
-        slowOnly={false}
-        canApplySlowOnly={true}
-        onSlowOnlyChange={onSlowOnlyChange}
-        onSetProviderViewAll={onSetProviderViewAll}
+        staleOnlyActive={false}
+        canSelectStaleOnly={true}
+        onToggleSelectStaleOnly={() => undefined}
         enabledCsvColumnsCount={3}
         totalCsvColumns={10}
         onExportCsv={onExportCsv}
@@ -192,10 +217,15 @@ describe("SessionTable", () => {
         onSelectSessionPath={onSelectSessionPath}
         onSetParserDetailProvider={onSetParserDetailProvider}
         selectedProviderFiles={{ "/tmp/session.jsonl": true }}
+        allProviderRowsSelected={false}
+        allFilteredProviderRowsSelected={true}
+        toggleSelectAllProviderRows={() => undefined}
         onSelectedProviderFileChange={onSelectedProviderFileChange}
         providerSessionsLoading={false}
         onLoadMoreRows={onLoadMoreRows}
         hasMoreRows={false}
+        archiveStage={{ label: "Pending", className: "status-preview" }}
+        deleteStage={{ label: "Ready", className: "status-active" }}
         sessionFileActionResult={actionResult}
         sessionFileActionCanExecute={true}
         actionLabel={(action) => action}
@@ -206,13 +236,27 @@ describe("SessionTable", () => {
     expect(html).toContain("Open Codex Cleanup");
     expect(html).toContain("session-…7890");
     expect(html).toContain("table-select-target is-checked");
+    expect(html).toContain("aria-label=\"Select all\"");
     expect(html).toContain("aria-label=\"Select session Open Codex Cleanup\"");
     expect(html).toContain("Delete locally · Preview ready");
     expect(html).toContain("Preview ready. Execute from this card when it looks right.");
     expect(html).toContain("tok-1");
     expect(html).toContain("Execute delete_local");
     expect(html).toContain("CSV exported 1");
+    expect(html).toContain("Filter");
+    expect(html).toContain("Stale only");
+    expect(html).toContain("Hard delete");
+    expect(html).toContain("Delete selected session files now?");
+    expect(html).toContain("This removes the selected session files immediately without creating a backup copy.");
+    expect(html).toContain("Do not ask again for hard delete.");
+    expect(html).toContain("Hard delete now");
+    expect(html).toContain("Sessions");
+    expect(html).toContain("1 Filtered / 1 Total");
+    expect(html).toContain("Current selection 1");
+    expect(html).toContain("Archive dry-run Pending");
+    expect(html).toContain("Delete dry-run Ready");
     expect(onRunArchiveDryRun).not.toHaveBeenCalled();
+    expect(onRequestHardDeleteConfirm).not.toHaveBeenCalled();
   });
 
   it("renders empty and loading states", () => {
@@ -234,6 +278,12 @@ describe("SessionTable", () => {
         onRunArchive={() => undefined}
         onRunDeleteDryRun={() => undefined}
         onRunDelete={() => undefined}
+        onRequestHardDeleteConfirm={() => undefined}
+        hardDeleteConfirmOpen={false}
+        hardDeleteSkipConfirmChecked={false}
+        onToggleHardDeleteSkipConfirmChecked={() => undefined}
+        onConfirmHardDelete={() => undefined}
+        onCancelHardDeleteConfirm={() => undefined}
         selectedSessionProvider=""
         selectedSessionParseFailCount={undefined}
         onJumpToParserProvider={() => undefined}
@@ -242,10 +292,9 @@ describe("SessionTable", () => {
         sourceFilterOptions={[]}
         sessionSort="mtime_desc"
         onSessionSortChange={() => undefined}
-        slowOnly={false}
-        canApplySlowOnly={false}
-        onSlowOnlyChange={() => undefined}
-        onSetProviderViewAll={() => undefined}
+        staleOnlyActive={false}
+        canSelectStaleOnly={false}
+        onToggleSelectStaleOnly={() => undefined}
         enabledCsvColumnsCount={0}
         totalCsvColumns={10}
         onExportCsv={() => undefined}
@@ -259,10 +308,15 @@ describe("SessionTable", () => {
         onSelectSessionPath={() => undefined}
         onSetParserDetailProvider={() => undefined}
         selectedProviderFiles={{}}
+        allProviderRowsSelected={false}
+        allFilteredProviderRowsSelected={false}
+        toggleSelectAllProviderRows={() => undefined}
         onSelectedProviderFileChange={() => undefined}
         providerSessionsLoading={true}
         onLoadMoreRows={() => undefined}
         hasMoreRows={false}
+        archiveStage={{ label: "Pending", className: "status-preview" }}
+        deleteStage={{ label: "Pending", className: "status-preview" }}
         sessionFileActionResult={null}
         sessionFileActionCanExecute={false}
         actionLabel={(action) => action}
@@ -293,6 +347,12 @@ describe("SessionTable", () => {
         onRunArchive={() => undefined}
         onRunDeleteDryRun={() => undefined}
         onRunDelete={() => undefined}
+        onRequestHardDeleteConfirm={() => undefined}
+        hardDeleteConfirmOpen={false}
+        hardDeleteSkipConfirmChecked={false}
+        onToggleHardDeleteSkipConfirmChecked={() => undefined}
+        onConfirmHardDelete={() => undefined}
+        onCancelHardDeleteConfirm={() => undefined}
         selectedSessionProvider=""
         selectedSessionParseFailCount={undefined}
         onJumpToParserProvider={() => undefined}
@@ -301,10 +361,9 @@ describe("SessionTable", () => {
         sourceFilterOptions={[{ source: "history", count: 1 }]}
         sessionSort="mtime_desc"
         onSessionSortChange={() => undefined}
-        slowOnly={true}
-        canApplySlowOnly={true}
-        onSlowOnlyChange={() => undefined}
-        onSetProviderViewAll={() => undefined}
+        staleOnlyActive={false}
+        canSelectStaleOnly={false}
+        onToggleSelectStaleOnly={() => undefined}
         enabledCsvColumnsCount={0}
         totalCsvColumns={10}
         onExportCsv={() => undefined}
@@ -318,10 +377,15 @@ describe("SessionTable", () => {
         onSelectSessionPath={() => undefined}
         onSetParserDetailProvider={() => undefined}
         selectedProviderFiles={{}}
+        allProviderRowsSelected={false}
+        allFilteredProviderRowsSelected={false}
+        toggleSelectAllProviderRows={() => undefined}
         onSelectedProviderFileChange={() => undefined}
         providerSessionsLoading={false}
         onLoadMoreRows={() => undefined}
         hasMoreRows={false}
+        archiveStage={{ label: "Pending", className: "status-preview" }}
+        deleteStage={{ label: "Pending", className: "status-preview" }}
         sessionFileActionResult={null}
         sessionFileActionCanExecute={false}
         actionLabel={(action) => action}

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { SEARCHABLE_PROVIDER_IDS, SEARCHABLE_PROVIDER_LABELS } from "@threadlens/shared-contracts";
 import { formatDateTime } from "../lib/helpers";
 import type {
   DataSourceInventoryRow,
@@ -42,6 +43,13 @@ type ProviderSessionSummary = {
   parse_ok: number;
   parse_fail: number;
 };
+
+export function buildSearchProviderOptions<T extends ProviderTabLike>(providerTabs: T[]) {
+  return SEARCHABLE_PROVIDER_IDS.map((id) => ({
+    id,
+    name: SEARCHABLE_PROVIDER_LABELS[id],
+  }));
+}
 
 export function buildVisibleProviderTabs<T extends ProviderTabLike>(providerTabs: T[]): T[] {
   const filtered = providerTabs.filter((tab) => tab.id === "all" || !HIDDEN_PROVIDER_IDS.has(tab.id));
@@ -171,7 +179,7 @@ function buildRecentThreadTitle(row: ThreadRow): string {
   if (row.is_pinned && row.risk_level === "high") return "Pinned Review Thread";
   if (tags.has("orphan-candidate")) return "Archive Candidate";
   if (tags.has("ctx-medium")) return "Context Drift Note";
-  if (row.risk_level === "high") return "Flagged Session Trace";
+  if (row.risk_level === "high") return "Review Session Trace";
   if (row.risk_level === "medium") return "Review Candidate";
   return compactWorkbenchId(row.thread_id, "thread");
 }
@@ -315,10 +323,10 @@ export function useAppShellModel(options: {
         : "0 rows";
   const reviewRowsText =
     options.highRiskCount > 0
-      ? `${options.highRiskCount} flagged`
+      ? `${options.highRiskCount} review`
       : overviewCountsLoading
-        ? "... flagged"
-        : "0 flagged";
+        ? "... review"
+        : "0 review";
   const syncStatusText = options.refreshingAllData
     ? "Syncing now"
     : options.providersRefreshing
@@ -363,6 +371,7 @@ export function useAppShellModel(options: {
         compactWorkbenchId(focusSession.session_id, "session"),
       )
     : "";
+  const emptySessionNextPath = focusSession?.file_path ?? "";
   const visibleParserReports = useMemo(
     () => options.parserReports.filter((report) => visibleProviderIdSet.has(report.provider)),
     [options.parserReports, visibleProviderIdSet],
@@ -431,11 +440,8 @@ export function useAppShellModel(options: {
     visibleProviderSessionRows.length > 0 &&
     visibleProviderSessionRows.every((row) => Boolean(options.selectedProviderFiles[row.file_path]));
   const searchProviderOptions = useMemo(
-    () =>
-      visibleProviderTabs
-        .filter((tab) => tab.id !== "all")
-        .map((tab) => ({ id: tab.id, name: tab.name })),
-    [visibleProviderTabs],
+    () => buildSearchProviderOptions(options.providerTabs),
+    [options.providerTabs],
   );
   const showSearch = options.layoutView === "search";
   const showProviders = options.layoutView === "providers";
@@ -502,6 +508,7 @@ export function useAppShellModel(options: {
     focusSessionCommandId,
     focusSessionStatus,
     emptySessionNextTitle,
+    emptySessionNextPath,
     visibleParserReports,
     allVisibleParserReports,
     visibleParserSummary,

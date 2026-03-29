@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { resolveHeaderSearchTarget } from "./appShellBehavior";
+import {
+  buildDesktopRouteSearch,
+  resolveHeaderSearchTarget,
+  shouldDeferProviderFallback,
+  shouldDeferDesktopRouteSync,
+  shouldPushDesktopRouteHistory,
+} from "./appShellBehavior";
 import type { ProviderSessionRow, ThreadRow } from "../types";
 
 const providerRows: ProviderSessionRow[] = [
@@ -101,5 +107,139 @@ describe("resolveHeaderSearchTarget", () => {
     });
 
     expect(target).toBeNull();
+  });
+});
+
+describe("desktop route helpers", () => {
+  it("builds provider route search without dropping unrelated query params", () => {
+    expect(
+      buildDesktopRouteSearch("?ts=123", {
+        view: "providers",
+        provider: "claude",
+        filePath: "/tmp/claude/session.jsonl",
+        threadId: "",
+      }),
+    ).toBe(
+      "?ts=123&view=providers&provider=claude&filePath=%2Ftmp%2Fclaude%2Fsession.jsonl",
+    );
+  });
+
+  it("clears provider-only params when switching to search", () => {
+    expect(
+      buildDesktopRouteSearch(
+        "?ts=123&view=providers&provider=claude&filePath=%2Ftmp%2Fclaude%2Fsession.jsonl",
+        {
+          view: "search",
+          provider: "",
+          filePath: "",
+          threadId: "",
+        },
+      ),
+    ).toBe("?ts=123&view=search");
+  });
+
+  it("pushes history only when the surface changes", () => {
+    expect(
+      shouldPushDesktopRouteHistory(
+        { view: "search", provider: "", filePath: "", threadId: "" },
+        { view: "providers", provider: "claude", filePath: "", threadId: "" },
+      ),
+    ).toBe(true);
+    expect(
+      shouldPushDesktopRouteHistory(
+        { view: "providers", provider: "claude", filePath: "", threadId: "" },
+        { view: "providers", provider: "claude", filePath: "/tmp/a.jsonl", threadId: "" },
+      ),
+    ).toBe(false);
+  });
+
+  it("defers URL sync while a routed detail selection is still loading", () => {
+    expect(
+      shouldDeferDesktopRouteSync({
+        currentRoute: {
+          view: "providers",
+          provider: "all",
+          filePath: "/tmp/claude/session.jsonl",
+          threadId: "",
+        },
+        layoutView: "overview",
+        providerView: "all",
+        selectedSessionPath: "",
+        selectedThreadId: "",
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldDeferDesktopRouteSync({
+        currentRoute: {
+          view: "providers",
+          provider: "all",
+          filePath: "/tmp/codex/session.jsonl",
+          threadId: "",
+        },
+        layoutView: "providers",
+        selectedSessionPath: "",
+        selectedThreadId: "",
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldDeferDesktopRouteSync({
+        currentRoute: {
+          view: "providers",
+          provider: "codex",
+          filePath: "/tmp/codex/session.jsonl",
+          threadId: "",
+        },
+        layoutView: "providers",
+        providerView: "all",
+        selectedSessionPath: "/tmp/codex/session.jsonl",
+        selectedThreadId: "",
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldDeferDesktopRouteSync({
+        currentRoute: {
+          view: "threads",
+          provider: "",
+          filePath: "",
+          threadId: "thread-123",
+        },
+        layoutView: "threads",
+        providerView: "all",
+        selectedSessionPath: "",
+        selectedThreadId: "",
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldDeferDesktopRouteSync({
+        currentRoute: {
+          view: "providers",
+          provider: "all",
+          filePath: "/tmp/codex/session.jsonl",
+          threadId: "",
+        },
+        layoutView: "providers",
+        providerView: "all",
+        selectedSessionPath: "/tmp/codex/session.jsonl",
+        selectedThreadId: "",
+      }),
+    ).toBe(false);
+  });
+
+  it("defers provider fallback while a provider detail deep-link is still hydrating", () => {
+    expect(
+      shouldDeferProviderFallback({
+        currentRoute: {
+          view: "providers",
+          provider: "codex",
+          filePath: "/tmp/codex/session.jsonl",
+          threadId: "",
+        },
+        visibleProviderTabs: [{ id: "all" }],
+      }),
+    ).toBe(true);
   });
 });

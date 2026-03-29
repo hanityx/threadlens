@@ -1,7 +1,10 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import { PanelHeader } from "../../design-system/PanelHeader";
 import type { ProvidersPanelProps } from "./ProvidersPanel";
 import { useAppContext } from "../../app/AppContext";
+import type { ProviderSessionRow } from "../../types";
+import { compactSessionTitle, formatBytesCompact } from "./helpers";
+import { formatDateTime } from "../../lib/helpers";
 
 const ProvidersPanel = lazy(async () => {
   const mod = await import("./ProvidersPanel");
@@ -17,6 +20,14 @@ const RoutingPanel = lazy(async () => {
   const mod = await import("./routing/RoutingPanel");
   return { default: mod.RoutingPanel };
 });
+
+export function pickLargestSessionCandidates(rows: ProviderSessionRow[], limit = 2) {
+  return [...rows].sort((left, right) => {
+    const sizeDiff = Number(right.size_bytes || 0) - Number(left.size_bytes || 0);
+    if (sizeDiff !== 0) return sizeDiff;
+    return Date.parse(right.mtime || "") - Date.parse(left.mtime || "");
+  }).slice(0, limit);
+}
 
 export function ProvidersWorkspace() {
   const {
@@ -47,11 +58,13 @@ export function ProvidersWorkspace() {
     toggleSelectAllProviderRows,
     selectedProviderLabel,
     selectedProviderFilePaths,
+    providerActionProvider,
     canRunProviderAction,
     busy,
     providerDeleteBackupEnabled,
     setProviderDeleteBackupEnabled,
     runProviderAction,
+    runProviderHardDelete,
     providerActionData,
     providerActionSelection,
     runRecoveryBackupExport,
@@ -69,12 +82,14 @@ export function ProvidersWorkspace() {
     selectedSession,
     emptySessionScopeLabel,
     emptySessionNextTitle,
+    emptySessionNextPath,
     sessionTranscriptData,
     sessionTranscriptLoading,
     sessionTranscriptLimit,
     setSessionTranscriptLimit,
     canRunSelectedSessionAction,
     runSingleProviderAction,
+    runSingleProviderHardDelete,
     providersDiagnosticsOpen,
     setProvidersDiagnosticsOpen,
     handleDiagnosticsIntent,
@@ -83,6 +98,28 @@ export function ProvidersWorkspace() {
     executionGraphLoading,
     visibleProviderIds,
   } = useAppContext();
+
+  const largestSessionCandidates = useMemo(
+    () => pickLargestSessionCandidates(providerSessionRows, 2),
+    [providerSessionRows],
+  );
+  const selectedSessionCount = useMemo(
+    () => Object.values(selectedProviderFiles).filter(Boolean).length,
+    [selectedProviderFiles],
+  );
+
+  const emptyNextSessions = largestSessionCandidates.length
+    ? largestSessionCandidates.map((candidate) => ({
+        title: compactSessionTitle(
+          candidate.display_title || candidate.probe.detected_title,
+          candidate.session_id,
+        ),
+        path: candidate.file_path,
+        description: `${candidate.provider} · ${formatBytesCompact(candidate.size_bytes)} · ${formatDateTime(candidate.mtime)} · largest session in scope`,
+      }))
+    : emptySessionNextTitle
+      ? [{ title: emptySessionNextTitle, path: emptySessionNextPath, description: "" }]
+      : [];
 
   const panelProps: Omit<ProvidersPanelProps, "sessionDetailSlot" | "diagnosticsSlot"> = {
     messages,
@@ -111,11 +148,13 @@ export function ProvidersWorkspace() {
     toggleSelectAllProviderRows,
     selectedProviderLabel,
     selectedProviderFilePaths,
+    providerActionProvider,
     canRunProviderAction,
     busy,
     providerDeleteBackupEnabled,
     setProviderDeleteBackupEnabled,
     runProviderAction,
+    runProviderHardDelete,
     providerActionData,
     providerActionSelection,
     runRecoveryBackupExport,
@@ -143,11 +182,11 @@ export function ProvidersWorkspace() {
   const sessionDetailProps = {
     messages,
     selectedSession,
+    selectedCount: selectedSessionCount,
     sessionActionResult: selectedSessionActionResult,
     emptyScopeLabel: emptySessionScopeLabel,
-    emptyScopeRows: visibleProviderSessionSummary.rows,
-    emptyScopeReady: visibleProviderSessionSummary.parse_ok,
-    emptyNextSessionTitle: emptySessionNextTitle,
+    emptyNextSessions,
+    onOpenSessionPath: setSelectedSessionPath,
     sessionTranscriptData,
     sessionTranscriptLoading,
     sessionTranscriptLimit,
@@ -157,6 +196,7 @@ export function ProvidersWorkspace() {
     providerDeleteBackupEnabled,
     setProviderDeleteBackupEnabled,
     runSingleProviderAction,
+    runSingleProviderHardDelete,
   };
 
   const routingPanelProps = {

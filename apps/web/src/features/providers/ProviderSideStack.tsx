@@ -1,8 +1,11 @@
+import type { Ref } from "react";
+
 export interface ProviderSideStackProps {
   advancedOpen: boolean;
   sessionDetailSlot?: React.ReactNode;
   backupHubSlot?: React.ReactNode;
   parserSlot?: React.ReactNode;
+  sectionRef?: Ref<HTMLElement>;
 }
 
 export function ProviderSideStack({
@@ -10,9 +13,10 @@ export function ProviderSideStack({
   sessionDetailSlot,
   backupHubSlot,
   parserSlot,
+  sectionRef,
 }: ProviderSideStackProps) {
   return (
-    <section className="provider-side-stack">
+    <section className="provider-side-stack" ref={sectionRef}>
       {sessionDetailSlot}
       {backupHubSlot ? (
         <details className="detail-section">

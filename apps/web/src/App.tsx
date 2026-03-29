@@ -9,6 +9,7 @@ import { ThreadsWorkbench } from "./features/threads/ThreadsWorkbench";
 import { TopShell } from "./app/TopShell";
 import { useAppShellBehavior, type DesktopRouteState } from "./app/appShellBehavior";
 import { useAppShellModel } from "./app/appShellModel";
+import { readStorageValue, SEARCH_DRAFT_STORAGE_KEY, writeStorageValue } from "./hooks/appDataUtils";
 import { useAppData } from "./hooks/useAppData";
 import { useLocale } from "./i18n";
 import type { ConversationSearchHit, LayoutView, ProviderView } from "./types";
@@ -29,7 +30,9 @@ export function App() {
   const [providersDiagnosticsOpen, setProvidersDiagnosticsOpen] = useState(false);
   const [setupGuideOpen, setSetupGuideOpen] = useState(false);
   const [headerSearchDraft, setHeaderSearchDraft] = useState("");
-  const [headerSearchSeed, setHeaderSearchSeed] = useState("");
+  const [headerSearchSeed, setHeaderSearchSeed] = useState(() => {
+    return readStorageValue([SEARCH_DRAFT_STORAGE_KEY]) ?? "";
+  });
   const appData = useAppData({ providersDiagnosticsOpen });
   // Destructure only what's needed for hook calls and derived values below.
   // Everything else is available via ...appData spread into ctx.
@@ -92,6 +95,10 @@ export function App() {
     };
   }, [layoutView]);
 
+  useEffect(() => {
+    writeStorageValue(SEARCH_DRAFT_STORAGE_KEY, headerSearchSeed);
+  }, [headerSearchSeed]);
+
   const changeProviderView = (nextView: ProviderView) => {
     startTransition(() => {
       setProviderView(nextView);
@@ -137,6 +144,7 @@ export function App() {
     focusSessionCommandId,
     focusSessionStatus,
     emptySessionNextTitle,
+    emptySessionNextPath,
     visibleParserReports,
     allVisibleParserReports,
     visibleParserSummary,
@@ -246,8 +254,7 @@ export function App() {
     prefetchRoutingData,
   });
 
-  const emptySessionScopeLabel =
-    providerView === "all" ? messages.common.allAi : selectedProviderLabel;
+  const emptySessionScopeLabel = selectedProviderLabel;
 
   const ctx: AppContextValue = {
     ...appData,
@@ -257,7 +264,7 @@ export function App() {
       allVisibleProviderSessionRows, visibleProviderSessionSummary,
       overviewBooting, activeSummaryText, searchRowsText, reviewRowsText, syncStatusText,
       recentSessionPreview, focusSessionTitle, focusSessionMeta, focusSessionCommandId, focusSessionStatus,
-      emptySessionNextTitle, visibleParserReports, allVisibleParserReports, visibleParserSummary,
+      emptySessionNextTitle, emptySessionNextPath, visibleParserReports, allVisibleParserReports, visibleParserSummary,
       focusReviewTitle, focusReviewMeta, secondaryFlaggedPreview, recentThreadGroups,
       recentThreadTitle, recentThreadSummary, activeProviderSummaryLine, visibleDataSourceRows,
       visibleAllProviderRowsSelected, searchProviderOptions,
@@ -271,7 +278,7 @@ export function App() {
     providersDiagnosticsOpen, setProvidersDiagnosticsOpen,
     setupGuideOpen, setSetupGuideOpen,
     headerSearchDraft, setHeaderSearchDraft,
-    headerSearchSeed,
+    headerSearchSeed, setHeaderSearchSeed,
     searchThreadContext, setSearchThreadContext,
     acknowledgedForensicsErrorKeys, setAcknowledgedForensicsErrorKeys,
     changeLayoutView, changeProviderView,

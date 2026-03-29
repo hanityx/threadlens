@@ -6,6 +6,7 @@ import type {
   ProviderView,
 } from "../types";
 import {
+  buildSearchProviderOptions,
   buildVisibleProviderSessionSummary,
   buildVisibleParserSummary,
   buildVisibleProviderIds,
@@ -182,5 +183,17 @@ describe("appShellModel", () => {
       parse_ok: 1,
       parse_fail: 0,
     });
+  });
+
+  it("builds search provider options from searchable ids instead of visible tabs", () => {
+    const visibleTabs = buildVisibleProviderTabs(providerTabs);
+
+    expect(buildSearchProviderOptions(visibleTabs)).toEqual([
+      { id: "codex", name: "Codex" },
+      { id: "chatgpt", name: "ChatGPT" },
+      { id: "claude", name: "Claude" },
+      { id: "gemini", name: "Gemini" },
+      { id: "copilot", name: "Copilot" },
+    ]);
   });
 });

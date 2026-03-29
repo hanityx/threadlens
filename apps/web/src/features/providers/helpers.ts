@@ -119,6 +119,21 @@ export function formatBytes(value: number): string {
   return `${size.toFixed(size < 10 ? 1 : 0)} ${units[idx]}`;
 }
 
+export function formatBytesCompact(value: number): string {
+  const bytes = Number(value || 0);
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0B";
+  if (bytes < 1024) return `${Math.round(bytes)}B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let size = bytes / 1024;
+  let idx = 0;
+  while (size >= 1024 && idx < units.length - 1) {
+    size /= 1024;
+    idx += 1;
+  }
+  const digits = size >= 10 ? 0 : 1;
+  return `${size.toFixed(digits)}${units[idx]}`;
+}
+
 export function formatFetchMs(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "-";
   return `${Math.max(0, Math.round(value))}ms`;
@@ -147,6 +162,19 @@ export function compactSessionId(sessionId?: string | null): string {
   if (!sessionId) return "session";
   if (sessionId.length <= 18) return sessionId;
   return `${sessionId.slice(0, 8)}…${sessionId.slice(-4)}`;
+}
+
+export function compactSessionFileName(fileName?: string | null): string {
+  const normalized = String(fileName || "").trim();
+  if (!normalized) return "";
+  if (normalized.length <= 34) return normalized;
+  const extensionMatch = normalized.match(/(\.[a-z0-9]+)$/i);
+  const extension = extensionMatch?.[1] ?? "";
+  const stem = extension ? normalized.slice(0, -extension.length) : normalized;
+  if (stem.length <= 26) return normalized;
+  const suffixLength = extension ? 6 : 4;
+  const suffix = stem.slice(-suffixLength).replace(/^[-_.]+/, "");
+  return `${stem.slice(0, 24)}…${suffix}${extension}`;
 }
 
 export function suppressMouseFocus(event: { detail: number; preventDefault: () => void }): void {

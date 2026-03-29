@@ -6,10 +6,10 @@ const providersTabLabel = /^(Providers|Sessions|Source Sessions|Session Vault)$/
 const selectAllInTabLabel = /^(Select all in tab|Select all in current tab|Select tab)$/i;
 const selectAllFilteredLabel = /^(Select all filtered|Select all in current filter|Select filtered)$/i;
 const deleteDryRunLabel = /^(Delete dry-run|Delete source files \(dry-run\))$/i;
-const bulkPinLabel = /^(Bulk Pin|Pin selected|Pin)$/i;
+const bulkArchiveLabel = /^(Archive selected locally|Archive locally|Archive)$/i;
 const threadDetailTitle = /^(Thread Detail|Selected Thread Detail)$/i;
 const impactAnalysisLabel = /^(Impact Analysis|Impact)$/i;
-const cleanupDryRunLabel = /^(Cleanup Dry-Run|Dry-run)$/i;
+const cleanupDryRunLabel = /^(Cleanup Dry-Run|Dry-run|Run cleanup dry-run)$/i;
 const backupSelectedLabel = /^(Backup Selected Sessions|Back up selected sessions|Back up selected)$/i;
 const bundleAllBackupsLabel = /^(Bundle All Backups|Export backup bundle|Export full backup bundle|Export bundle)$/i;
 const searchTabLabel = /^(Search|Conversation Search)$/i;
@@ -42,7 +42,7 @@ async function openPrimaryView(page: Page, label: "Threads" | "Providers") {
   const button = nav.getByRole("button", { name: target }).first();
   await button.click();
   if (label === "Threads") {
-    await expect(page.getByRole("button", { name: bulkPinLabel }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: cleanupDryRunLabel }).first()).toBeVisible();
     return;
   }
   const workspaceBar = page.locator(".provider-workspace-bar").first();
@@ -472,6 +472,26 @@ test("backup action executes in one click for selected provider sessions", async
   expect(providerActionCalls[0]?.dry_run).toBe(false);
 });
 
+test("all providers view allows bulk archive dry-run when selected rows share one provider", async ({ page }) => {
+  const providerActionCalls: Array<Record<string, unknown>> = [];
+  await setupMockApi(page, { providerActionCalls });
+
+  await page.goto("/");
+  await openPrimaryView(page, "Providers");
+  await expect(page.getByRole("button", { name: /Filter/i }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /^CSV$/i }).first()).toBeVisible();
+  await page.locator("tbody input[type='checkbox']").first().check();
+
+  const archiveDryRunButton = page.getByRole("button", { name: /Archive dry-run/i }).first();
+  await expect(archiveDryRunButton).toBeEnabled();
+  await archiveDryRunButton.click();
+
+  await expect.poll(() => providerActionCalls.length).toBe(1);
+  expect(providerActionCalls[0]?.provider).toBe("codex");
+  expect(providerActionCalls[0]?.action).toBe("archive_local");
+  expect(providerActionCalls[0]?.dry_run).toBe(true);
+});
+
 test("delete action enforces dry-run token flow", async ({ page }) => {
   const providerActionCalls: Array<Record<string, unknown>> = [];
   await setupMockApi(page, { providerActionCalls });
@@ -516,7 +536,7 @@ test("providers tab switches within performance budget", async ({ page }) => {
   expect(elapsedMs).toBeLessThan(2500);
 });
 
-test("threads bulk pin action sends selected thread ids", async ({ page }) => {
+test("threads bulk archive action sends selected thread ids", async ({ page }) => {
   const bulkActionCalls: Array<Record<string, unknown>> = [];
   await setupMockApi(page, {
     bulkActionCalls,
@@ -536,10 +556,10 @@ test("threads bulk pin action sends selected thread ids", async ({ page }) => {
   await openPrimaryView(page, "Threads");
   await expect(page.getByText("Bulk pin test").first()).toBeVisible();
   await page.getByRole("checkbox", { name: selectAllFilteredLabel }).check();
-  await page.getByRole("button", { name: bulkPinLabel }).click();
+  await page.getByRole("button", { name: bulkArchiveLabel }).click();
 
   await expect.poll(() => bulkActionCalls.length).toBe(1);
-  expect(bulkActionCalls[0]?.action).toBe("pin");
+  expect(bulkActionCalls[0]?.action).toBe("archive_local");
   expect(bulkActionCalls[0]?.thread_ids).toEqual(["thread-1"]);
 });
 

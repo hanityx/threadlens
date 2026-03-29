@@ -7,9 +7,10 @@ const routingTitle = /^(AI Diagnostics|AI Diagnostics \/ Execution Flow|Executio
 const bulkImpactLabel = /^(Bulk Impact Analysis|Run impact analysis)$/i;
 const bulkCleanupDryRunLabel = /^(Bulk Cleanup Dry-Run|Run cleanup dry-run)$/i;
 const selectAllFilteredLabel = /^(Select all filtered)$/i;
-const selectedThreadsLabel = /^(Selected Threads)$/i;
 const forensicsErrorLabel = /^(Analysis\/dry-run request failed)$/i;
 const threadsHeading = /^(Cleanup|Threads|Codex Cleanup)$/i;
+const forensicsTitle = /^(Cleanup Check \/ Next Steps)$/i;
+const tokenLabel = /^(Token)$/i;
 
 test("live stack renders providers and routing views", async ({ page }, testInfo) => {
   await page.goto("/");
@@ -43,6 +44,7 @@ test("live stack executes safe forensics dry-run flow when threads exist", async
   await threadsPanel.getByRole("button", { name: bulkCleanupDryRunLabel }).click();
 
   await expect(page.locator(".impact-panel").first()).toBeVisible();
-  await expect(page.getByText(selectedThreadsLabel)).toBeVisible();
+  await expect(page.getByRole("heading", { name: forensicsTitle }).first()).toBeVisible();
+  await expect(page.getByText(tokenLabel)).toBeVisible();
   await expect(page.getByText(forensicsErrorLabel)).toHaveCount(0);
 });

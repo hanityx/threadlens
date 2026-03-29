@@ -4,6 +4,7 @@ import type { ProviderSessionActionResult } from "../../types";
 import {
   buildProviderSessionActionSummary,
   buildProviderPanelPresentationModel,
+  getProviderWorkflowStage,
   getCapabilityLevelLabel,
   getProviderActionLabel,
   getProviderFlowStateLabel,
@@ -34,6 +35,10 @@ const messages = {
     flowStatusDone: "Done",
     flowStatusBlocked: "Blocked",
     flowStatusPending: "Pending",
+  },
+  forensics: {
+    stageReady: "Ready",
+    stagePending: "Pending",
   },
 } as unknown as Messages;
 
@@ -66,6 +71,18 @@ const previewDeleteResult: ProviderSessionActionResult = {
   backup_before_delete: true,
 };
 
+const previewArchiveResult: ProviderSessionActionResult = {
+  ok: true,
+  provider: "codex",
+  action: "archive_local",
+  dry_run: true,
+  target_count: 1,
+  valid_count: 1,
+  applied_count: 0,
+  confirm_token_expected: "tok-archive",
+  confirm_token_accepted: false,
+};
+
 describe("providerPanelPresentationModel", () => {
   it("maps status, action, flow, and capability labels", () => {
     expect(getProviderStatusLabel(messages, "active")).toBe("Active");
@@ -87,6 +104,45 @@ describe("providerPanelPresentationModel", () => {
     expect(summary.previewReady).toBe(true);
   });
 
+  it("returns pending workflow stage when current selection no longer matches the preview scope", () => {
+    const stage = getProviderWorkflowStage(messages, {
+      action: "delete_local",
+      actionResult: previewDeleteResult,
+      actionSelection: {
+        provider: "codex",
+        action: "delete_local",
+        file_paths: ["/tmp/session-1.jsonl"],
+        dry_run: true,
+        backup_before_delete: true,
+      },
+      currentSelectionKey: "",
+    });
+
+    expect(stage).toEqual({
+      label: "Pending",
+      className: "status-preview",
+    });
+  });
+
+  it("returns ready workflow stage only when the current selection still matches the preview scope", () => {
+    const stage = getProviderWorkflowStage(messages, {
+      action: "archive_local",
+      actionResult: previewArchiveResult,
+      actionSelection: {
+        provider: "codex",
+        action: "archive_local",
+        file_paths: ["/tmp/session-1.jsonl"],
+        dry_run: true,
+      },
+      currentSelectionKey: "codex|archive_local|direct|/tmp/session-1.jsonl",
+    });
+
+    expect(stage).toEqual({
+      label: "Ready",
+      className: "status-active",
+    });
+  });
+
   it("builds backup summary state for a selected provider", () => {
     const model = buildProviderPanelPresentationModel({
       messages,
@@ -95,6 +151,7 @@ describe("providerPanelPresentationModel", () => {
       providerActionData: backupActionResult,
       recoveryBackupExportData: { ok: true, exported_count: 4 },
       selectedProviderFilePathsCount: 2,
+      providerActionProvider: "codex",
       providerDeleteBackupEnabled: true,
       hotspotScopeOrigin: "all",
       slowOnly: true,
@@ -123,6 +180,7 @@ describe("providerPanelPresentationModel", () => {
       providerActionData: null,
       recoveryBackupExportData: null,
       selectedProviderFilePathsCount: 0,
+      providerActionProvider: "",
       providerDeleteBackupEnabled: false,
       hotspotScopeOrigin: null,
       slowOnly: false,
@@ -139,5 +197,24 @@ describe("providerPanelPresentationModel", () => {
     expect(model.canReturnHotspotScope).toBe(false);
     expect(model.slowFocusActive).toBe(false);
     expect(model.showProviderColumn).toBe(true);
+  });
+
+  it("allows backup controls in all-provider view when selected rows resolve to one provider", () => {
+    const model = buildProviderPanelPresentationModel({
+      messages,
+      providerView: "all",
+      selectedProviderLabel: "All AI",
+      providerActionData: null,
+      recoveryBackupExportData: null,
+      selectedProviderFilePathsCount: 1,
+      providerActionProvider: "codex",
+      providerDeleteBackupEnabled: true,
+      hotspotScopeOrigin: null,
+      slowOnly: false,
+      canApplySlowOnly: true,
+    });
+
+    expect(model.canRunProviderBackup).toBe(true);
+    expect(model.providerLabel).toBe("All AI");
   });
 });

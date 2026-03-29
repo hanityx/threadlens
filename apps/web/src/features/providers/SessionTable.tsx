@@ -1,11 +1,15 @@
-import type { Ref } from "react";
+import { useState, type CSSProperties, type Ref } from "react";
 import { Button } from "../../design-system/Button";
+import { PanelHeader } from "../../design-system/PanelHeader";
 import type { Messages } from "../../i18n";
 import type { ProviderSessionActionResult, ProviderSessionRow } from "../../types";
 import { SKELETON_ROWS } from "../../types";
-import { formatDateTime, formatInteger, normalizeDisplayValue } from "../../lib/helpers";
-import { compactSessionId, compactSessionTitle, suppressMouseFocus } from "./helpers";
-import { buildProviderSessionActionSummary } from "./providerPanelPresentationModel";
+import { formatDateTime, normalizeDisplayValue } from "../../lib/helpers";
+import { compactSessionId, compactSessionTitle, formatBytesCompact, suppressMouseFocus } from "./helpers";
+import {
+  buildProviderSessionActionSummary,
+  type ProviderWorkflowStage,
+} from "./providerPanelPresentationModel";
 
 export interface SessionTableProps {
   messages: Messages;
@@ -24,6 +28,12 @@ export interface SessionTableProps {
   onRunArchive: () => void;
   onRunDeleteDryRun: () => void;
   onRunDelete: () => void;
+  onRequestHardDeleteConfirm: () => void;
+  hardDeleteConfirmOpen: boolean;
+  hardDeleteSkipConfirmChecked: boolean;
+  onToggleHardDeleteSkipConfirmChecked: (checked: boolean) => void;
+  onConfirmHardDelete: () => void;
+  onCancelHardDeleteConfirm: () => void;
   selectedSessionProvider: string;
   selectedSessionParseFailCount?: number;
   onJumpToParserProvider: (providerId: string) => void;
@@ -32,10 +42,9 @@ export interface SessionTableProps {
   sourceFilterOptions: Array<{ source: string; count: number }>;
   sessionSort: string;
   onSessionSortChange: (value: string) => void;
-  slowOnly: boolean;
-  canApplySlowOnly: boolean;
-  onSlowOnlyChange: (checked: boolean) => void;
-  onSetProviderViewAll: () => void;
+  staleOnlyActive: boolean;
+  canSelectStaleOnly: boolean;
+  onToggleSelectStaleOnly: () => void;
   enabledCsvColumnsCount: number;
   totalCsvColumns: number;
   onExportCsv: () => void;
@@ -49,18 +58,25 @@ export interface SessionTableProps {
   onSelectSessionPath: (path: string) => void;
   onSetParserDetailProvider: (providerId: string) => void;
   selectedProviderFiles: Record<string, boolean>;
+  allProviderRowsSelected: boolean;
+  allFilteredProviderRowsSelected: boolean;
+  toggleSelectAllProviderRows: (checked: boolean) => void;
   onSelectedProviderFileChange: (filePath: string, checked: boolean) => void;
   providerSessionsLoading: boolean;
   onLoadMoreRows: () => void;
   hasMoreRows: boolean;
+  archiveStage: ProviderWorkflowStage;
+  deleteStage: ProviderWorkflowStage;
   sessionFileActionResult: ProviderSessionActionResult | null;
   sessionFileActionCanExecute: boolean;
   actionLabel: (action: "backup_local" | "archive_local" | "delete_local") => string;
   csvExportedRows: number | null;
   sectionRef?: Ref<HTMLElement>;
+  panelStyle?: CSSProperties;
 }
 
 export function SessionTable(props: SessionTableProps) {
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const {
     messages,
     providerSessionSummary,
@@ -78,6 +94,12 @@ export function SessionTable(props: SessionTableProps) {
     onRunArchive,
     onRunDeleteDryRun,
     onRunDelete,
+    onRequestHardDeleteConfirm,
+    hardDeleteConfirmOpen,
+    hardDeleteSkipConfirmChecked,
+    onToggleHardDeleteSkipConfirmChecked,
+    onConfirmHardDelete,
+    onCancelHardDeleteConfirm,
     selectedSessionProvider,
     selectedSessionParseFailCount,
     onJumpToParserProvider,
@@ -86,10 +108,9 @@ export function SessionTable(props: SessionTableProps) {
     sourceFilterOptions,
     sessionSort,
     onSessionSortChange,
-    slowOnly,
-    canApplySlowOnly,
-    onSlowOnlyChange,
-    onSetProviderViewAll,
+    staleOnlyActive,
+    canSelectStaleOnly,
+    onToggleSelectStaleOnly,
     enabledCsvColumnsCount,
     totalCsvColumns,
     onExportCsv,
@@ -103,17 +124,26 @@ export function SessionTable(props: SessionTableProps) {
     onSelectSessionPath,
     onSetParserDetailProvider,
     selectedProviderFiles,
+    allProviderRowsSelected,
+    allFilteredProviderRowsSelected,
+    toggleSelectAllProviderRows,
     onSelectedProviderFileChange,
     providerSessionsLoading,
     onLoadMoreRows,
     hasMoreRows,
+    archiveStage,
+    deleteStage,
     sessionFileActionResult,
     sessionFileActionCanExecute,
     actionLabel,
     csvExportedRows,
     sectionRef,
+    panelStyle,
   } = props;
   const sessionActionSummary = buildProviderSessionActionSummary(messages, sessionFileActionResult);
+  const filteredCount = sortedProviderSessionRows.length;
+  const totalCount = providerSessionRows.length;
+  const selectedCount = Object.values(selectedProviderFiles).filter(Boolean).length;
   const sessionExecuteLabel =
     sessionFileActionResult ? `${messages.providers.executeActionPrefix} ${actionLabel(sessionFileActionResult.action)}` : "";
   const sessionExecuteVariant = sessionFileActionResult?.action === "delete_local" ? "danger" : "base";
@@ -127,7 +157,11 @@ export function SessionTable(props: SessionTableProps) {
   };
 
   return (
-    <section className="panel provider-session-stage" ref={sectionRef}>
+    <section className="panel provider-session-stage threads-table-panel" ref={sectionRef} style={panelStyle}>
+      <PanelHeader
+        title={messages.providers.sessionsTitle}
+        subtitle={`${filteredCount} ${messages.threadsTable.filtered} / ${totalCount} ${messages.threadsTable.total}`}
+      />
       {showProviderSessionsZeroState ? (
         <div className="info-box compact">
           <span className="sub-hint">
@@ -141,7 +175,21 @@ export function SessionTable(props: SessionTableProps) {
           </Button>
         </div>
       ) : null}
-      <div className="sub-toolbar sessions-action-strip">
+      <div className="sticky-action-stack">
+        <div className="sub-toolbar cleanup-status-strip session-status-strip">
+          <div className="cleanup-status-inline">
+            <span className={`status-pill ${selectedCount > 0 ? "status-active" : "status-preview"}`}>
+              {messages.providers.workflowSelectedTitle} {selectedCount}
+            </span>
+            <span className={`status-pill ${archiveStage.className}`}>
+              {messages.providers.workflowArchiveTitle} {archiveStage.label}
+            </span>
+            <span className={`status-pill ${deleteStage.className}`}>
+              {messages.providers.workflowDeleteTitle} {deleteStage.label}
+            </span>
+          </div>
+        </div>
+        <div className="sub-toolbar sessions-action-strip">
         <div className="sessions-action-main">
           <Button variant="outline" disabled={!canRunProviderAction || busy} onClick={onRunArchiveDryRun}>
             {messages.providers.archiveDryRun}
@@ -149,83 +197,78 @@ export function SessionTable(props: SessionTableProps) {
           <Button variant="outline" disabled={!canRunProviderAction || busy} onClick={onRunDeleteDryRun}>
             {messages.providers.deleteDryRun}
           </Button>
+          <Button
+            variant={staleOnlyActive ? "base" : "outline"}
+            disabled={!canSelectStaleOnly}
+            onClick={onToggleSelectStaleOnly}
+          >
+            {messages.providers.selectStaleOnly}
+          </Button>
+          <Button variant="danger" disabled={!canRunProviderAction || busy} onClick={onRequestHardDeleteConfirm}>
+            {messages.providers.delete}
+          </Button>
         </div>
         <div className="sessions-action-tools">
-          {selectedSessionProvider ? (
-            <button
-              type="button"
-              className={`status-pill status-pill-button ${Number(selectedSessionParseFailCount ?? 0) > 0 ? "status-detected" : "status-active"}`}
-              onClick={() => onJumpToParserProvider(selectedSessionProvider)}
-            >
-              {messages.providers.parserLinkedBadge} {selectedSessionProvider} · {messages.providers.parserLinkedFails}{" "}
-              {selectedSessionParseFailCount ?? messages.common.unknown}
-              <span className="status-pill-action">{messages.providers.parserLinkedOpen}</span>
-            </button>
-          ) : null}
-          <details className="inline-tools-disclosure">
-            <summary>Filters / export</summary>
-            <div className="sub-toolbar inline-tools-disclosure-body">
-              <select
-                className="filter-select"
-                aria-label={messages.providers.sourceFilterLabel}
-                value={sourceFilter}
-                onChange={(e) => onSourceFilterChange(e.target.value)}
-              >
-                <option value="all">{messages.providers.sourceAll}</option>
-                {sourceFilterOptions.map((item) => (
-                  <option key={`source-filter-${item.source}`} value={item.source}>
-                    {item.source} ({item.count})
-                  </option>
-                ))}
-              </select>
-              <select
-                className="filter-select"
-                aria-label={messages.providers.sortLabel}
-                value={sessionSort}
-                onChange={(e) => onSessionSortChange(e.target.value)}
-              >
-                <option value="mtime_desc">{messages.providers.sortNewest}</option>
-                <option value="mtime_asc">{messages.providers.sortOldest}</option>
-                <option value="size_desc">{messages.providers.sortSizeDesc}</option>
-                <option value="size_asc">{messages.providers.sortSizeAsc}</option>
-                <option value="title_asc">{messages.providers.sortTitleAsc}</option>
-                <option value="title_desc">{messages.providers.sortTitleDesc}</option>
-              </select>
-              <label className="check-inline">
-                <input
-                  type="checkbox"
-                  checked={slowOnly}
-                  disabled={!canApplySlowOnly}
-                  onChange={(e) => onSlowOnlyChange(e.target.checked)}
-                />
-                {messages.providers.slowOnlyFilter}
-              </label>
-              {!canApplySlowOnly && slowOnly ? (
-                <>
-                  <span className="sub-hint">{messages.providers.slowOnlyDormant}</span>
-                  <Button variant="outline" onClick={onSetProviderViewAll}>
-                    {messages.common.allAi}
-                  </Button>
-                </>
-              ) : null}
-              <Button
-                variant="outline"
-                disabled={sortedProviderSessionRows.length === 0 || enabledCsvColumnsCount === 0}
-                onClick={onExportCsv}
-              >
-                {messages.providers.exportCsv}
-              </Button>
-            </div>
-            <div className="sub-toolbar inline-tools-disclosure-body">
-              <Button variant="outline" onClick={() => onSetCsvColumnsPreset("all")}>
-                {messages.providers.csvPresetAll}
-              </Button>
-              <Button variant="outline" onClick={() => onSetCsvColumnsPreset("compact")}>
-                {messages.providers.csvPresetCompact}
-              </Button>
-              <Button variant="outline" onClick={() => onSetCsvColumnsPreset("forensics")}>
-                {messages.providers.csvPresetForensics}
-              </Button>
+          <Button
+            variant="outline"
+            className={`sessions-action-tool-btn${filtersOpen ? " is-active" : ""}`}
+            aria-expanded={filtersOpen}
+            aria-controls="provider-filters-panel"
+            onClick={() => setFiltersOpen((prev) => !prev)}
+          >
+            {messages.providers.filters}
+          </Button>
+          <Button
+            variant="outline"
+            className="sessions-action-tool-btn"
+            disabled={sortedProviderSessionRows.length === 0 || enabledCsvColumnsCount === 0}
+            onClick={onExportCsv}
+          >
+            {messages.providers.exportCsv}
+          </Button>
+        </div>
+        {filtersOpen ? (
+          <div id="provider-filters-panel" className="sessions-action-inline-panel">
+            <div className="sub-toolbar inline-tools-disclosure-body sessions-filter-row">
+              <div className="sessions-filter-controls">
+                <select
+                  className="filter-select"
+                  aria-label={messages.providers.sourceFilterLabel}
+                  value={sourceFilter}
+                  onChange={(e) => onSourceFilterChange(e.target.value)}
+                >
+                  <option value="all">{messages.providers.sourceAll}</option>
+                  {sourceFilterOptions.map((item) => (
+                    <option key={`source-filter-${item.source}`} value={item.source}>
+                      {item.source} ({item.count})
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="filter-select"
+                  aria-label={messages.providers.sortLabel}
+                  value={sessionSort}
+                  onChange={(e) => onSessionSortChange(e.target.value)}
+                >
+                  <option value="mtime_desc">{messages.providers.sortNewest}</option>
+                  <option value="mtime_asc">{messages.providers.sortOldest}</option>
+                  <option value="size_desc">{messages.providers.sortSizeDesc}</option>
+                  <option value="size_asc">{messages.providers.sortSizeAsc}</option>
+                  <option value="title_asc">{messages.providers.sortTitleAsc}</option>
+                  <option value="title_desc">{messages.providers.sortTitleDesc}</option>
+                </select>
+              </div>
+              <div className="sessions-filter-presets">
+                <Button variant="outline" onClick={() => onSetCsvColumnsPreset("all")}>
+                  {messages.providers.csvPresetAll}
+                </Button>
+                <Button variant="outline" onClick={() => onSetCsvColumnsPreset("compact")}>
+                  {messages.providers.csvPresetCompact}
+                </Button>
+                <Button variant="outline" onClick={() => onSetCsvColumnsPreset("forensics")}>
+                  {messages.providers.csvPresetForensics}
+                </Button>
+              </div>
             </div>
             <div className="sub-toolbar inline-tools-disclosure-body">
               {csvColumnItems.map((item) => (
@@ -242,22 +285,78 @@ export function SessionTable(props: SessionTableProps) {
                 {messages.providers.csvSelectedColumns} {enabledCsvColumnsCount}/{totalCsvColumns}
               </span>
             </div>
-          </details>
+          </div>
+        ) : null}
+        <div className="sessions-action-support">
+          {selectedSessionProvider ? (
+            <button
+              type="button"
+              className={`status-pill status-pill-button ${Number(selectedSessionParseFailCount ?? 0) > 0 ? "status-detected" : "status-active"}`}
+              onClick={() => onJumpToParserProvider(selectedSessionProvider)}
+            >
+              {messages.providers.parserLinkedBadge} {selectedSessionProvider} · {messages.providers.parserLinkedFails}{" "}
+              {selectedSessionParseFailCount ?? messages.common.unknown}
+              <span className="status-pill-action">{messages.providers.parserLinkedOpen}</span>
+            </button>
+          ) : null}
+          {showReadOnlyHint ? (
+            <span className="sub-hint">{messages.providers.readOnlyHint}</span>
+          ) : null}
+          {csvExportedRows !== null ? (
+            <span className="sub-hint">
+              {messages.providers.csvExported} {csvExportedRows}
+            </span>
+          ) : null}
         </div>
-      {showReadOnlyHint ? (
-        <span className="sub-hint">{messages.providers.readOnlyHint}</span>
-      ) : null}
+        {hardDeleteConfirmOpen ? (
+          <div className="provider-hard-delete-confirm" role="dialog" aria-modal="true">
+            <div className="provider-hard-delete-confirm-card">
+              <span className="overview-note-label">{messages.providers.delete}</span>
+              <strong>{messages.providers.hardDeleteConfirmTitle}</strong>
+              <p>{messages.providers.hardDeleteConfirmBody}</p>
+              <label className="check-inline">
+                <input
+                  type="checkbox"
+                  checked={hardDeleteSkipConfirmChecked}
+                  onChange={(event) => onToggleHardDeleteSkipConfirmChecked(event.target.checked)}
+                />
+                {messages.providers.hardDeleteConfirmSkipFuture}
+              </label>
+              <div className="chat-toolbar detail-action-bar detail-action-bar-danger provider-hard-delete-confirm-actions">
+                <Button variant="outline" onClick={onCancelHardDeleteConfirm}>
+                  {messages.providers.hardDeleteConfirmCancel}
+                </Button>
+                <Button
+                  variant="danger"
+                  disabled={busy}
+                  onClick={onConfirmHardDelete}
+                >
+                  {messages.providers.hardDeleteConfirmExecute}
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
       </div>
       <div className="provider-table-wrap">
         <table className="provider-session-table">
           <thead>
             <tr>
-              <th className="table-select-column"></th>
+              <th className="table-select-column">
+                <label className="table-select-target" aria-label={messages.providers.selectAllInTab}>
+                  <input
+                    className="table-select-checkbox"
+                    type="checkbox"
+                    checked={allFilteredProviderRowsSelected || allProviderRowsSelected}
+                    onChange={(e) => toggleSelectAllProviderRows(e.target.checked)}
+                  />
+                </label>
+              </th>
               {showProviderColumn ? <th className="col-provider">{messages.providers.colProvider}</th> : null}
-              <th>{messages.providers.colSession}</th>
+              <th className="title-col col-session">{messages.providers.colSession}</th>
               <th className="col-source">{messages.threadDetail.fieldSource}</th>
               <th className="col-format">{messages.providers.colFormat}</th>
-              <th className="col-probe">{messages.providers.colProbe}</th>
               <th className="col-modified">{messages.sessionDetail.fieldModified}</th>
               <th className="col-size">{messages.providers.colSize}</th>
             </tr>
@@ -326,15 +425,14 @@ export function SessionTable(props: SessionTableProps) {
                 </td>
                 <td className="col-source">{row.source}</td>
                 <td className="col-format">{row.probe.format}</td>
-                <td className="col-probe">{row.probe.ok ? messages.common.ok : messages.common.fail}</td>
                 <td className="col-modified">{formatDateTime(row.mtime)}</td>
-                <td className="col-size">{formatInteger(row.size_bytes)}</td>
+                <td className="col-size">{formatBytesCompact(row.size_bytes)}</td>
               </tr>
             )})}
             {providerSessionsLoading
               ? Array.from({ length: SKELETON_ROWS }).map((_, idx) => (
                   <tr key={`provider-session-skeleton-${idx}`}>
-                    <td colSpan={showProviderColumn ? 8 : 7}>
+                    <td colSpan={showProviderColumn ? 7 : 6}>
                       <div className="skeleton-line" />
                     </td>
                   </tr>
@@ -342,7 +440,7 @@ export function SessionTable(props: SessionTableProps) {
               : null}
             {sortedProviderSessionRows.length === 0 && !providerSessionsLoading ? (
               <tr>
-                <td colSpan={showProviderColumn ? 8 : 7} className="sub-hint">
+                <td colSpan={showProviderColumn ? 7 : 6} className="sub-hint">
                   {providerSessionRows.length === 0
                     ? messages.providers.sessionsEmpty
                     : messages.providers.sessionsEmptyFiltered}
@@ -398,13 +496,6 @@ export function SessionTable(props: SessionTableProps) {
             </article>
           ) : null}
         </section>
-      ) : null}
-      {csvExportedRows !== null ? (
-        <div className="sub-toolbar">
-          <span className="sub-hint">
-            {messages.providers.csvExported} {csvExportedRows}
-          </span>
-        </div>
       ) : null}
     </section>
   );

@@ -8,7 +8,6 @@ import type {
   LayoutView,
   ProviderActionSelection,
   ProviderSessionActionResult,
-  ProviderView,
   RecoveryBackupExportResponse,
   RecoveryResponse,
   RuntimeEnvelope,
@@ -27,13 +26,53 @@ import {
   THREAD_CLEANUP_DEFAULT_OPTIONS,
 } from "./appDataUtils";
 
+type ProviderSessionActionInput = {
+  provider: string;
+  action: "backup_local" | "archive_local" | "delete_local";
+  file_paths: string[];
+  dry_run: boolean;
+  confirm_token?: string;
+  backup_before_delete?: boolean;
+};
+
+type ProviderHardDeleteInput = {
+  provider: string;
+  file_paths: string[];
+};
+
+export async function performProviderHardDeleteFlow(
+  runAction: (input: ProviderSessionActionInput) => Promise<ProviderSessionActionResult>,
+  input: ProviderHardDeleteInput,
+): Promise<ProviderSessionActionResult> {
+  const preview = await runAction({
+    provider: input.provider,
+    action: "delete_local",
+    file_paths: input.file_paths,
+    dry_run: true,
+    confirm_token: "",
+    backup_before_delete: false,
+  });
+  const confirmToken = String(preview.confirm_token_expected ?? "").trim();
+  if (!confirmToken) {
+    throw new Error("provider-hard-delete-preview-required");
+  }
+  return runAction({
+    provider: input.provider,
+    action: "delete_local",
+    file_paths: input.file_paths,
+    dry_run: false,
+    confirm_token: confirmToken,
+    backup_before_delete: false,
+  });
+}
+
 export function useMutations(options: {
   layoutView: LayoutView;
-  providerView: ProviderView;
+  providerActionProvider: string;
   selectedProviderFilePaths: string[];
   providerDeleteBackupEnabled?: boolean;
 }) {
-  const { layoutView, providerView, selectedProviderFilePaths } = options;
+  const { layoutView, providerActionProvider, selectedProviderFilePaths } = options;
   const queryClient = useQueryClient();
 
   /* ---- action result state ---- */
@@ -286,11 +325,11 @@ export function useMutations(options: {
 
   /* ---- action dispatchers ---- */
   const runProviderAction = (action: "backup_local" | "archive_local" | "delete_local", dryRun: boolean, actionOptions?: { backup_before_delete?: boolean }) => {
-    if (providerView === "all" || selectedProviderFilePaths.length === 0) return;
+    if (!providerActionProvider || selectedProviderFilePaths.length === 0) return;
     if (providerSessionAction.isError) providerSessionAction.reset();
-    const key = providerActionSelectionKey(providerView, action, selectedProviderFilePaths, actionOptions);
+    const key = providerActionSelectionKey(providerActionProvider, action, selectedProviderFilePaths, actionOptions);
     const scopedToken = providerActionTokens[key] ?? "";
-    providerSessionAction.mutate({ provider: providerView, action, file_paths: selectedProviderFilePaths, dry_run: dryRun, confirm_token: dryRun ? "" : scopedToken, backup_before_delete: actionOptions?.backup_before_delete });
+    providerSessionAction.mutate({ provider: providerActionProvider, action, file_paths: selectedProviderFilePaths, dry_run: dryRun, confirm_token: dryRun ? "" : scopedToken, backup_before_delete: actionOptions?.backup_before_delete });
   };
 
   const runSingleProviderAction = (provider: string, filePath: string, action: "backup_local" | "archive_local" | "delete_local", dryRun: boolean, actionOptions?: { backup_before_delete?: boolean }) => {
@@ -298,6 +337,29 @@ export function useMutations(options: {
     const key = providerActionSelectionKey(provider, action, [filePath], actionOptions);
     const scopedToken = providerActionTokens[key] ?? "";
     providerSessionAction.mutate({ provider, action, file_paths: [filePath], dry_run: dryRun, confirm_token: dryRun ? "" : scopedToken, backup_before_delete: actionOptions?.backup_before_delete });
+  };
+
+  const runSingleProviderHardDelete = async (provider: string, filePath: string) => {
+    if (providerSessionAction.isError) providerSessionAction.reset();
+    return performProviderHardDeleteFlow(
+      (input) => providerSessionAction.mutateAsync(input),
+      {
+        provider,
+        file_paths: [filePath],
+      },
+    );
+  };
+
+  const runProviderHardDelete = async () => {
+    if (!providerActionProvider || selectedProviderFilePaths.length === 0) return null;
+    if (providerSessionAction.isError) providerSessionAction.reset();
+    return performProviderHardDeleteFlow(
+      (input) => providerSessionAction.mutateAsync(input),
+      {
+        provider: providerActionProvider,
+        file_paths: selectedProviderFilePaths,
+      },
+    );
   };
 
   const runRecoveryBackupExport = (backupIds: string[]) => {
@@ -331,6 +393,6 @@ export function useMutations(options: {
     recoveryBackupExportErrorMessage,
     busy,
     runtimeLoading, smokeStatusLoading, recoveryLoading,
-    runProviderAction, runSingleProviderAction, runRecoveryBackupExport,
+    runProviderAction, runProviderHardDelete, runSingleProviderAction, runSingleProviderHardDelete, runRecoveryBackupExport,
   };
 }

@@ -5,7 +5,7 @@ import { ProviderWorkspaceBar } from "./ProviderWorkspaceBar";
 
 const messages = {
   common: {
-    allAi: "All AI",
+    allAi: "All Providers",
   },
   providers: {
     hubTitle: "Provider hub",
@@ -43,13 +43,14 @@ describe("ProviderWorkspaceBar", () => {
     expect(html).toContain("Codex");
     expect(html).toContain("Sessions");
     expect(html).toContain("Transcript");
+    expect(html).toContain('class="provider-workspace-title"');
   });
 
   it("renders parse-fail warning when parseFail > 0", () => {
     const html = renderToStaticMarkup(
       <ProviderWorkspaceBar
         messages={messages}
-        providerLabel="All providers"
+        providerLabel="All Providers"
         providerView="all"
         coreProviderTabs={[]}
         optionalProviderTabs={[]}
@@ -59,13 +60,15 @@ describe("ProviderWorkspaceBar", () => {
     );
 
     expect(html).toContain("Parse fail");
+    expect(html).toContain("Review, back up, export, and delete session files.");
+    expect(html).toContain('class="provider-workspace-title"');
   });
 
   it("renders archived count when > 0", () => {
     const html = renderToStaticMarkup(
       <ProviderWorkspaceBar
         messages={messages}
-        providerLabel="All providers"
+        providerLabel="All Providers"
         providerView="all"
         coreProviderTabs={[]}
         optionalProviderTabs={[]}

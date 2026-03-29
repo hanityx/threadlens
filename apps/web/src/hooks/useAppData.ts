@@ -53,7 +53,7 @@ export function useAppData(options?: { providersDiagnosticsOpen?: boolean }) {
 
   const mutations = useMutations({
     layoutView: prefs.layoutView,
-    providerView: prefs.providerView,
+    providerActionProvider: providersData.providerActionProvider,
     selectedProviderFilePaths: providersData.selectedProviderFilePaths,
   });
 
@@ -156,6 +156,7 @@ export function useAppData(options?: { providersDiagnosticsOpen?: boolean }) {
     allProviderRowsSelected: providersData.allProviderRowsSelected,
     selectedProviderLabel: providersData.selectedProviderLabel,
     selectedProviderFilePaths: providersData.selectedProviderFilePaths,
+    providerActionProvider: providersData.providerActionProvider,
     canRunProviderAction: providersData.canRunProviderAction,
     canRunSelectedSessionAction: detailData.canRunSelectedSessionAction,
     providerActionData: mutations.providerActionData,
@@ -198,7 +199,9 @@ export function useAppData(options?: { providersDiagnosticsOpen?: boolean }) {
     toggleSelectAllFiltered: threadsData.toggleSelectAllFiltered,
     toggleSelectAllProviderRows: providersData.toggleSelectAllProviderRows,
     runProviderAction: mutations.runProviderAction,
+    runProviderHardDelete: mutations.runProviderHardDelete,
     runSingleProviderAction: mutations.runSingleProviderAction,
+    runSingleProviderHardDelete: mutations.runSingleProviderHardDelete,
     runRecoveryBackupExport: mutations.runRecoveryBackupExport,
     recoveryBackupExportError: mutations.recoveryBackupExportError,
     recoveryBackupExportErrorMessage: mutations.recoveryBackupExportErrorMessage,

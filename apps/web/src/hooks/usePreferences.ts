@@ -7,6 +7,8 @@ import {
   LEGACY_THEME_STORAGE_KEY,
   DENSITY_STORAGE_KEY,
   LEGACY_DENSITY_STORAGE_KEY,
+  LAYOUT_VIEW_STORAGE_KEY,
+  LEGACY_LAYOUT_VIEW_STORAGE_KEY,
   PROVIDER_VIEW_STORAGE_KEY,
   LEGACY_PROVIDER_VIEW_STORAGE_KEY,
   PROVIDER_DEPTH_STORAGE_KEY,
@@ -29,7 +31,14 @@ export function usePreferences() {
     const saved = readStorageValue([DENSITY_STORAGE_KEY, LEGACY_DENSITY_STORAGE_KEY]);
     return saved === "compact" ? "compact" : "comfortable";
   });
-  const [layoutView, setLayoutView] = useState<LayoutView>("overview");
+  const [layoutView, setLayoutView] = useState<LayoutView>(() => {
+    if (typeof window === "undefined") return "overview";
+    const saved = readStorageValue([LAYOUT_VIEW_STORAGE_KEY, LEGACY_LAYOUT_VIEW_STORAGE_KEY]);
+    if (saved === "overview" || saved === "search" || saved === "threads" || saved === "providers") {
+      return saved;
+    }
+    return "overview";
+  });
   const [providerView, setProviderView] = useState<ProviderView>(() => {
     if (typeof window === "undefined") return "all";
     const saved = readStorageValue([PROVIDER_VIEW_STORAGE_KEY, LEGACY_PROVIDER_VIEW_STORAGE_KEY]);
@@ -70,6 +79,10 @@ export function usePreferences() {
     document.documentElement.setAttribute("data-density", density);
     writeStorageValue(DENSITY_STORAGE_KEY, density);
   }, [density]);
+
+  useEffect(() => {
+    writeStorageValue(LAYOUT_VIEW_STORAGE_KEY, layoutView);
+  }, [layoutView]);
 
   useEffect(() => {
     writeStorageValue(PROVIDER_VIEW_STORAGE_KEY, providerView);

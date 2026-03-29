@@ -10,6 +10,7 @@ import type {
   ProviderSessionActionResult,
   RecoveryBackupExportResponse,
 } from "../../types";
+import { CHUNK_SIZE, INITIAL_CHUNK } from "../../types";
 import {
   COMPACT_CSV_COLUMNS,
   CSV_COLUMN_KEYS,
@@ -59,15 +60,35 @@ import {
   buildProviderCsvColumnItems,
   buildProviderCsvExportData,
 } from "./providerCsvModel";
-import { providerActionSelectionKey } from "../../hooks/appDataUtils";
+import {
+  providerActionSelectionKey,
+  readStorageValue,
+  writeStorageValue,
+} from "../../hooks/appDataUtils";
 import {
   buildProviderPanelPresentationModel,
   getCapabilityLevelLabel,
   getProviderActionLabel,
   getProviderFlowStateLabel,
   getProviderStatusLabel,
+  getProviderWorkflowStage,
 } from "./providerPanelPresentationModel";
 type ProviderFlowState = "done" | "pending" | "blocked";
+
+const SESSION_PANEL_ACTIVE_MIN_HEIGHT = 640;
+const PROVIDER_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY = "po-provider-hard-delete-skip-confirm";
+const LEGACY_PROVIDER_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY = "cmc-provider-hard-delete-skip-confirm";
+
+export function resolveSessionPanelHeight(options: {
+  detailHeight?: number | null;
+  stackHeight?: number | null;
+  baselineHeight?: number | null;
+  minHeight?: number;
+}) {
+  const { detailHeight = null, stackHeight = null, baselineHeight = null, minHeight = SESSION_PANEL_ACTIVE_MIN_HEIGHT } = options;
+  const measuredHeight = Math.max(Number(stackHeight || 0), Number(detailHeight || 0));
+  return Math.max(minHeight, Number(baselineHeight || 0), Math.ceil(measuredHeight));
+}
 
 export interface ProvidersPanelProps {
   messages: Messages;
@@ -113,6 +134,7 @@ export interface ProvidersPanelProps {
   toggleSelectAllProviderRows: (checked: boolean, scopeFilePaths?: string[]) => void;
   selectedProviderLabel: string;
   selectedProviderFilePaths: string[];
+  providerActionProvider: string;
   canRunProviderAction: boolean;
   busy: boolean;
   providerDeleteBackupEnabled: boolean;
@@ -122,6 +144,7 @@ export interface ProvidersPanelProps {
     dryRun: boolean,
     options?: { backup_before_delete?: boolean },
   ) => void;
+  runProviderHardDelete: () => Promise<ProviderSessionActionResult | null>;
   providerActionData: ProviderSessionActionResult | null;
   providerActionSelection: ProviderActionSelection | null;
   runRecoveryBackupExport: (backupIds: string[]) => void;
@@ -203,11 +226,13 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     toggleSelectAllProviderRows,
     selectedProviderLabel,
     selectedProviderFilePaths,
+    providerActionProvider,
     canRunProviderAction,
     busy,
     providerDeleteBackupEnabled,
     setProviderDeleteBackupEnabled,
     runProviderAction,
+    runProviderHardDelete,
     providerActionData,
     providerActionSelection,
     runRecoveryBackupExport,
@@ -228,7 +253,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const [sessionSort, setSessionSort] = useState<ProviderSessionSort>("mtime_desc");
   const [probeFilter, setProbeFilter] = useState<ProviderProbeFilter>("all");
   const [sourceFilter, setSourceFilter] = useState<ProviderSourceFilter>("all");
-  const [renderLimit, setRenderLimit] = useState(120);
+  const [renderLimit, setRenderLimit] = useState(INITIAL_CHUNK);
   const [csvExportedRows, setCsvExportedRows] = useState<number | null>(null);
   const [parserDetailProvider, setParserDetailProvider] = useState<string>("");
   const [parserFailOnly, setParserFailOnly] = useState(false);
@@ -237,11 +262,23 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const [hotspotScopeOrigin, setHotspotScopeOrigin] = useState<ProviderView | null>(null);
   const [csvColumns, setCsvColumns] = useState<Record<CsvColumnKey, boolean>>(readCsvColumnPrefs);
   const providerSessionsSectionRef = useRef<HTMLElement | null>(null);
+  const providerSideStackRef = useRef<HTMLElement | null>(null);
+  const activeSessionPanelBaselineRef = useRef<number | null>(null);
   const parserSectionRef = useRef<HTMLDetailsElement | null>(null);
   const [pendingSessionJump, setPendingSessionJump] = useState<PendingSessionJump | null>(null);
   const [pendingParserFocusProvider, setPendingParserFocusProvider] = useState<string>("");
   const [parserJumpStatus, setParserJumpStatus] = useState<ParserJumpStatus>("idle");
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [activeSessionPanelHeight, setActiveSessionPanelHeight] = useState<number | null>(null);
+  const [hardDeleteConfirmOpen, setHardDeleteConfirmOpen] = useState(false);
+  const [hardDeleteSkipConfirmChecked, setHardDeleteSkipConfirmChecked] = useState(false);
+  const [hardDeleteSkipConfirmPref, setHardDeleteSkipConfirmPref] = useState(() => {
+    const raw = readStorageValue([
+      PROVIDER_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY,
+      LEGACY_PROVIDER_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY,
+    ]);
+    return raw === "true";
+  });
 
   const statusLabel = (status: "active" | "detected" | "missing") =>
     getProviderStatusLabel(messages, status);
@@ -347,15 +384,27 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     [providerSessionRows],
   );
   useEffect(() => {
-    setRenderLimit(120);
+    setRenderLimit(INITIAL_CHUNK);
   }, [providerView, sessionFilter, sessionSort, probeFilter, sourceFilter]);
   const filteredProviderFilePaths = useMemo(
     () => sortedProviderSessionRows.map((row) => row.file_path),
     [sortedProviderSessionRows],
   );
+  const staleProviderFilePaths = useMemo(() => {
+    const staleCutoffMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    return sortedProviderSessionRows
+      .filter((row) => {
+        const ts = providerSessionComputedIndex.mtimeTs.get(row.file_path) ?? 0;
+        return ts > 0 && ts <= staleCutoffMs;
+      })
+      .map((row) => row.file_path);
+  }, [providerSessionComputedIndex.mtimeTs, sortedProviderSessionRows]);
   const allFilteredProviderRowsSelected =
     sortedProviderSessionRows.length > 0 &&
     sortedProviderSessionRows.every((row) => Boolean(selectedProviderFiles[row.file_path]));
+  const allStaleProviderRowsSelected =
+    staleProviderFilePaths.length > 0 &&
+    staleProviderFilePaths.every((filePath) => Boolean(selectedProviderFiles[filePath]));
   const enabledCsvColumns = useMemo(
     () => CSV_COLUMN_KEYS.filter((key) => Boolean(csvColumns[key])),
     [csvColumns],
@@ -460,6 +509,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
         providerActionData,
         recoveryBackupExportData,
         selectedProviderFilePathsCount: selectedProviderFilePaths.length,
+        providerActionProvider,
         providerDeleteBackupEnabled,
         hotspotScopeOrigin,
         slowOnly,
@@ -472,6 +522,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
       providerActionData,
       recoveryBackupExportData,
       selectedProviderFilePaths.length,
+      providerActionProvider,
       providerDeleteBackupEnabled,
       hotspotScopeOrigin,
       slowOnly,
@@ -501,13 +552,22 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
           { backup_before_delete: providerActionSelection.backup_before_delete },
         )
       : "";
-  const sessionFileActionCurrentKey =
-    providerView !== "all" && sessionFileActionResult
-      ? providerActionSelectionKey(providerView, sessionFileActionResult.action, selectedProviderFilePaths, {
-          backup_before_delete:
-            sessionFileActionResult.action === "delete_local" ? providerDeleteBackupEnabled : undefined,
+  const archiveSelectionKey =
+    providerActionProvider && selectedProviderFilePaths.length > 0
+      ? providerActionSelectionKey(providerActionProvider, "archive_local", selectedProviderFilePaths)
+      : "";
+  const deleteSelectionKey =
+    providerActionProvider && selectedProviderFilePaths.length > 0
+      ? providerActionSelectionKey(providerActionProvider, "delete_local", selectedProviderFilePaths, {
+          backup_before_delete: providerDeleteBackupEnabled,
         })
       : "";
+  const sessionFileActionCurrentKey =
+    sessionFileActionResult?.action === "archive_local"
+      ? archiveSelectionKey
+      : sessionFileActionResult?.action === "delete_local"
+        ? deleteSelectionKey
+        : "";
   const sessionFileActionCanExecute = Boolean(
     sessionFileActionResult &&
       providerActionSelection &&
@@ -515,6 +575,18 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
       sessionFileActionPreviewKey &&
       sessionFileActionPreviewKey === sessionFileActionCurrentKey,
   );
+  const archiveStage = getProviderWorkflowStage(messages, {
+    action: "archive_local",
+    actionResult: sessionFileActionResult,
+    actionSelection: providerActionSelection,
+    currentSelectionKey: archiveSelectionKey,
+  });
+  const deleteStage = getProviderWorkflowStage(messages, {
+    action: "delete_local",
+    actionResult: sessionFileActionResult,
+    actionSelection: providerActionSelection,
+    currentSelectionKey: deleteSelectionKey,
+  });
   const providerSupportsCleanup =
     providerView !== "all" &&
     Boolean(providers.find((provider) => provider.provider === providerView)?.capabilities.safe_cleanup);
@@ -540,6 +612,34 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     anchor.click();
     URL.revokeObjectURL(url);
     setCsvExportedRows(exportData.exportedRows);
+  };
+
+  const resetHardDeleteConfirmState = () => {
+    setHardDeleteConfirmOpen(false);
+    setHardDeleteSkipConfirmChecked(false);
+  };
+
+  const openHardDeleteConfirm = () => {
+    if (!canRunProviderAction || busy) return;
+    if (hardDeleteSkipConfirmPref) {
+      void runProviderHardDelete();
+      return;
+    }
+    setHardDeleteSkipConfirmChecked(false);
+    setHardDeleteConfirmOpen(true);
+  };
+
+  const confirmHardDelete = () => {
+    if (busy) return;
+    writeStorageValue(
+      PROVIDER_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY,
+      hardDeleteSkipConfirmChecked ? "true" : "false",
+    );
+    setHardDeleteSkipConfirmPref(hardDeleteSkipConfirmChecked);
+    setHardDeleteConfirmOpen(false);
+    void runProviderHardDelete().finally(() => {
+      setHardDeleteSkipConfirmChecked(false);
+    });
   };
 
   const jumpToProviderSessions = (
@@ -645,6 +745,48 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     scrollToParserProviderRow(pendingParserFocusProvider);
     setPendingParserFocusProvider("");
   }, [pendingParserFocusProvider, sortedParserReports]);
+  useEffect(() => {
+    if (!selectedSessionPath || !providerSideStackRef.current) {
+      setActiveSessionPanelHeight(null);
+      activeSessionPanelBaselineRef.current = null;
+      return;
+    }
+
+    const stackTarget = providerSideStackRef.current;
+    const detailTarget = stackTarget.querySelector<HTMLElement>(".session-detail-panel");
+    let frameId = 0;
+
+    const syncHeight = () => {
+      const nextHeight = resolveSessionPanelHeight({
+        stackHeight: stackTarget.getBoundingClientRect().height,
+        detailHeight: detailTarget?.getBoundingClientRect().height ?? null,
+        baselineHeight: activeSessionPanelBaselineRef.current,
+      });
+      activeSessionPanelBaselineRef.current = Math.max(activeSessionPanelBaselineRef.current ?? 0, nextHeight);
+      const resolvedHeight = Math.max(nextHeight, activeSessionPanelBaselineRef.current);
+      setActiveSessionPanelHeight((current) => (current === resolvedHeight ? current : resolvedHeight));
+    };
+
+    syncHeight();
+
+    const observer = new ResizeObserver(() => {
+      if (frameId) cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(() => {
+        frameId = 0;
+        syncHeight();
+      });
+    });
+
+    observer.observe(stackTarget);
+    if (detailTarget && detailTarget !== stackTarget) {
+      observer.observe(detailTarget);
+    }
+
+    return () => {
+      if (frameId) cancelAnimationFrame(frameId);
+      observer.disconnect();
+    };
+  }, [selectedSessionPath]);
   const hotspotOriginLabel = useMemo(
     () =>
       buildHotspotOriginLabel({
@@ -686,28 +828,6 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
         <option value="ok">{messages.providers.probeOk}</option>
         <option value="fail">{messages.providers.probeFail}</option>
       </select>
-      <div className="sessions-control-meta">
-        <span className="sub-hint">
-          rows {sortedProviderSessionRows.length}/{providerSessionRows.length}
-          {sortedProviderSessionRows.length > renderedProviderSessionRows.length
-            ? ` · window ${renderedProviderSessionRows.length}/${sortedProviderSessionRows.length}`
-            : ""}
-        </span>
-        <label className="check-inline">
-          <input
-            type="checkbox"
-            checked={allFilteredProviderRowsSelected || allProviderRowsSelected}
-            onChange={(e) => toggleSelectAllProviderRows(e.target.checked, filteredProviderFilePaths)}
-          />
-          {messages.providers.selectAllInTab}
-        </label>
-        <span className="sub-hint">
-          {providerLabel} · selected {selectedProviderFilePaths.length}
-        </span>
-        {effectiveSlowOnly ? (
-          <span className="sub-hint">{messages.providers.slowOnlyActive}</span>
-        ) : null}
-      </div>
     </div>
   );
 
@@ -731,7 +851,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
         searchSlot={searchSlot}
       />
 
-      <section className="provider-ops-layout">
+      <section className={`provider-ops-layout ${selectedSessionPath ? "is-session-active" : ""}`.trim()}>
         <SessionTable
           messages={messages}
           providerSessionSummary={{
@@ -763,6 +883,12 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
               backup_before_delete: providerDeleteBackupEnabled,
             })
           }
+          onRequestHardDeleteConfirm={openHardDeleteConfirm}
+          hardDeleteConfirmOpen={hardDeleteConfirmOpen}
+          hardDeleteSkipConfirmChecked={hardDeleteSkipConfirmChecked}
+          onToggleHardDeleteSkipConfirmChecked={setHardDeleteSkipConfirmChecked}
+          onConfirmHardDelete={confirmHardDelete}
+          onCancelHardDeleteConfirm={resetHardDeleteConfirmState}
           selectedSessionProvider={selectedSessionProvider}
           selectedSessionParseFailCount={selectedSessionParseFailCount}
           onJumpToParserProvider={jumpToParserProvider}
@@ -771,10 +897,23 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
           sourceFilterOptions={sourceFilterOptions}
           sessionSort={sessionSort}
           onSessionSortChange={(value) => setSessionSort(value as ProviderSessionSort)}
-          slowOnly={slowOnly}
-          canApplySlowOnly={canApplySlowOnly}
-          onSlowOnlyChange={setSlowOnly}
-          onSetProviderViewAll={() => setProviderView("all")}
+          staleOnlyActive={allStaleProviderRowsSelected}
+          canSelectStaleOnly={staleProviderFilePaths.length > 0}
+          onToggleSelectStaleOnly={() =>
+            setSelectedProviderFiles((prev) => {
+              const next = { ...prev };
+              if (allStaleProviderRowsSelected) {
+                staleProviderFilePaths.forEach((filePath) => {
+                  delete next[filePath];
+                });
+              } else {
+                staleProviderFilePaths.forEach((filePath) => {
+                  next[filePath] = true;
+                });
+              }
+              return next;
+            })
+          }
           enabledCsvColumnsCount={enabledCsvColumns.length}
           totalCsvColumns={CSV_COLUMN_KEYS.length}
           onExportCsv={exportFilteredSessionsCsv}
@@ -800,21 +939,28 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
           onSelectSessionPath={setSelectedSessionPath}
           onSetParserDetailProvider={setParserDetailProvider}
           selectedProviderFiles={selectedProviderFiles}
+          allProviderRowsSelected={allProviderRowsSelected}
+          allFilteredProviderRowsSelected={allFilteredProviderRowsSelected}
+          toggleSelectAllProviderRows={(checked) => toggleSelectAllProviderRows(checked, filteredProviderFilePaths)}
           onSelectedProviderFileChange={(filePath, checked) =>
             setSelectedProviderFiles((prev) => ({ ...prev, [filePath]: checked }))
           }
           providerSessionsLoading={providerSessionsLoading}
-          onLoadMoreRows={() => setRenderLimit((prev) => prev + 120)}
+          onLoadMoreRows={() => setRenderLimit((prev) => prev + CHUNK_SIZE)}
           hasMoreRows={sortedProviderSessionRows.length > renderedProviderSessionRows.length}
+          archiveStage={archiveStage}
+          deleteStage={deleteStage}
           sessionFileActionResult={sessionFileActionResult}
           sessionFileActionCanExecute={sessionFileActionCanExecute}
           actionLabel={actionLabel}
           csvExportedRows={csvExportedRows}
           sectionRef={providerSessionsSectionRef}
+          panelStyle={activeSessionPanelHeight ? { height: `${activeSessionPanelHeight}px` } : undefined}
         />
 
         <ProviderSideStack
           advancedOpen={advancedOpen}
+          sectionRef={providerSideStackRef}
           sessionDetailSlot={sessionDetailSlot}
           backupHubSlot={
             <BackupHub

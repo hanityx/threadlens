@@ -16,10 +16,14 @@ export const THEME_STORAGE_KEY = "po-theme";
 export const LEGACY_THEME_STORAGE_KEY = "cmc-theme";
 export const DENSITY_STORAGE_KEY = "po-density";
 export const LEGACY_DENSITY_STORAGE_KEY = "cmc-density";
+export const LAYOUT_VIEW_STORAGE_KEY = "po-layout-view";
+export const LEGACY_LAYOUT_VIEW_STORAGE_KEY = "cmc-layout-view";
 export const PROVIDER_VIEW_STORAGE_KEY = "po-provider-view";
 export const LEGACY_PROVIDER_VIEW_STORAGE_KEY = "cmc-provider-view";
 export const PROVIDER_DEPTH_STORAGE_KEY = "po-provider-depth";
 export const LEGACY_PROVIDER_DEPTH_STORAGE_KEY = "cmc-provider-depth";
+export const SEARCH_DRAFT_STORAGE_KEY = "po-search-draft";
+export const SEARCH_PROVIDER_STORAGE_KEY = "po-search-provider";
 export const FORENSICS_RETRY_DELAY_MS = 450;
 export const RUNTIME_BACKEND_DOWN_CACHED = "runtime-backend-down-cached";
 export const THREAD_CLEANUP_DEFAULT_OPTIONS = {
@@ -50,6 +54,31 @@ export function providerActionSelectionKey(
   ).sort();
   const backupBeforeDelete = options?.backup_before_delete ? "backup-first" : "direct";
   return `${provider}|${action}|${backupBeforeDelete}|${normalized.join("||")}`;
+}
+
+export function pruneProviderSelectionForView(
+  selectedProviderFiles: Record<string, boolean>,
+  providerView: string,
+  visibleFilePaths: string[],
+): Record<string, boolean> {
+  if (providerView === "all") return selectedProviderFiles;
+
+  const visible = new Set(
+    visibleFilePaths.map((item) => String(item || "").trim()).filter(Boolean),
+  );
+  let changed = false;
+  const next: Record<string, boolean> = {};
+
+  for (const [filePath, selected] of Object.entries(selectedProviderFiles)) {
+    if (!selected) continue;
+    if (visible.has(filePath)) {
+      next[filePath] = true;
+      continue;
+    }
+    changed = true;
+  }
+
+  return changed ? next : selectedProviderFiles;
 }
 
 export function normalizeThreadIds(threadIds: string[]): string[] {

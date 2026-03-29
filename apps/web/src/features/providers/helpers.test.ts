@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  compactSessionFileName,
   compactSessionId,
   compactSessionTitle,
   csvCell,
@@ -34,6 +35,10 @@ describe("provider helpers", () => {
     expect(compactSessionTitle("Clean title", "abcd1234")).toBe("Clean title");
     expect(compactSessionId("1234567890abcdefghijkl")).toBe("12345678…ijkl");
     expect(compactSessionId("short-id")).toBe("short-id");
+    expect(compactSessionFileName("rollout-2026-03-29T03-15-34-session-notes.jsonl")).toBe(
+      "rollout-2026-03-29T03-15…notes.jsonl",
+    );
+    expect(compactSessionFileName("session.jsonl")).toBe("session.jsonl");
   });
 
   it("maps provider data sources and readable labels", () => {

@@ -51,6 +51,17 @@ export function compactPath(value: string | null | undefined, keep = 28): string
   return `${normalized.slice(0, keep)}…${normalized.slice(-keep)}`;
 }
 
+export function formatWorkspaceLabel(value: string | null | undefined): string {
+  const raw = String(value ?? "").trim();
+  if (!raw || raw === "/") return "";
+  const normalized = raw.replace(HOME_PREFIX_PATTERN, "~");
+  const parts = normalized.split("/").filter(Boolean);
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return parts[0] ?? "";
+  const tail = parts.slice(-2).join("/");
+  return normalized.startsWith("~") ? `~/${tail}` : tail;
+}
+
 export function normalizeDisplayValue(value: unknown): string {
   const trimmed = String(value ?? "").trim();
   if (!trimmed) return "";

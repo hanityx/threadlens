@@ -1,3 +1,4 @@
+import { SEARCHABLE_PROVIDER_IDS } from "@threadlens/shared-contracts";
 import { lazy, Suspense } from "react";
 import { PanelHeader } from "../../design-system/PanelHeader";
 import type { ConversationSearchHit, ProviderView } from "../../types";
@@ -8,17 +9,19 @@ const SearchPanel = lazy(async () => {
   return { default: mod.SearchPanel };
 });
 
+const SESSION_OPENABLE_SEARCH_PROVIDER_IDS = SEARCHABLE_PROVIDER_IDS.filter((id) => id !== "chatgpt");
+
 export function SearchRoute() {
   const {
     messages,
     searchProviderOptions,
     headerSearchSeed,
-    visibleProviderIdSet,
+    setHeaderSearchSeed,
     setSearchThreadContext,
     setSelectedThreadId,
     setSelectedSessionPath,
     changeLayoutView,
-    changeProviderView,
+    setProviderView,
   } = useAppContext();
 
   return (
@@ -35,13 +38,11 @@ export function SearchRoute() {
       <SearchPanel
         messages={messages}
         providerOptions={searchProviderOptions}
+        sessionOpenProviderIds={SESSION_OPENABLE_SEARCH_PROVIDER_IDS}
         initialQuery={headerSearchSeed}
+        onQueryDraftChange={setHeaderSearchSeed}
         onOpenSession={(hit: ConversationSearchHit) => {
-          if (visibleProviderIdSet.has(hit.provider)) {
-            changeProviderView(hit.provider as ProviderView);
-          } else {
-            changeProviderView("all");
-          }
+          setProviderView((hit.provider as ProviderView) || "all");
           setSearchThreadContext(null);
           setSelectedThreadId("");
           setSelectedSessionPath(hit.file_path);

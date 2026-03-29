@@ -13,7 +13,7 @@ import type {
 } from "../types";
 import { apiGet } from "../api";
 import { extractEnvelopeData, parseNum } from "../lib/helpers";
-import type { ProviderFetchMetrics } from "./appDataUtils";
+import { pruneProviderSelectionForView, type ProviderFetchMetrics } from "./appDataUtils";
 
 export function useProvidersData(options: {
   layoutView: LayoutView;
@@ -297,6 +297,10 @@ export function useProvidersData(options: {
     () => providerView === "all" ? allProviderSessionRows : currentProviderSessionRows,
     [providerView, allProviderSessionRows, currentProviderSessionRows],
   );
+  const providerScopedFilePaths = useMemo(
+    () => providerSessionRows.map((row) => row.file_path).filter(Boolean),
+    [providerSessionRows],
+  );
   const availableProviderFilePaths = useMemo(
     () => new Set(allProviderSessionRows.map((row) => row.file_path).filter(Boolean)),
     [allProviderSessionRows],
@@ -365,6 +369,11 @@ export function useProvidersData(options: {
     setSelectedSessionPath("");
   }, [availableProviderFilePaths, selectedSessionPath]);
   useEffect(() => {
+    setSelectedProviderFiles((prev) =>
+      pruneProviderSelectionForView(prev, providerView, providerScopedFilePaths),
+    );
+  }, [providerScopedFilePaths, providerView]);
+  useEffect(() => {
     setSelectedProviderFiles((prev) => {
       let changed = false;
       const next: Record<string, boolean> = {};
@@ -380,19 +389,40 @@ export function useProvidersData(options: {
     });
   }, [availableProviderFilePaths]);
 
-  const selectedProviderLabel = providerView === "all" ? "All AI" : providerById.get(providerView)?.name ?? providerView;
+  const selectedProviderLabel =
+    providerView === "all"
+      ? "All local AI"
+      : providerById.get(providerView)?.name ?? providerView;
   const selectedProviderFilePaths = useMemo(
     () => providerSessionRows.filter((row) => Boolean(selectedProviderFiles[row.file_path])).map((row) => row.file_path),
     [providerSessionRows, selectedProviderFiles],
   );
+  const selectedProviderIds = useMemo(() => {
+    return Array.from(
+      new Set(
+        providerSessionRows
+          .filter((row) => Boolean(selectedProviderFiles[row.file_path]))
+          .map((row) => String(row.provider || "").trim())
+          .filter(Boolean),
+      ),
+    );
+  }, [providerSessionRows, selectedProviderFiles]);
   const allProviderRowsSelected = providerSessionRows.length > 0 && providerSessionRows.every((row) => Boolean(selectedProviderFiles[row.file_path]));
   const providerRowsSampled = useMemo(() => {
     if (providerView === "all") return allProviderSessionProviders.some((row) => Boolean(row.truncated));
     const hit = currentProviderSessionProviders.find((row) => row.provider === providerView) ?? allProviderSessionProviders.find((row) => row.provider === providerView);
     return Boolean(hit?.truncated);
   }, [providerView, allProviderSessionProviders, currentProviderSessionProviders]);
-  const selectedProviderMeta = providerView === "all" ? null : providerById.get(providerView);
-  const canRunProviderAction = providerView !== "all" && selectedProviderFilePaths.length > 0 && Boolean(selectedProviderMeta?.capabilities?.safe_cleanup);
+  const providerActionProvider = useMemo(() => {
+    if (providerView !== "all") return providerView;
+    if (selectedProviderIds.length !== 1) return "";
+    return selectedProviderIds[0] ?? "";
+  }, [providerView, selectedProviderIds]);
+  const selectedProviderMeta = providerActionProvider ? providerById.get(providerActionProvider) ?? null : null;
+  const canRunProviderAction =
+    Boolean(providerActionProvider) &&
+    selectedProviderFilePaths.length > 0 &&
+    Boolean(selectedProviderMeta?.capabilities?.safe_cleanup);
   const readOnlyProviders = useMemo(() => providers.filter((p) => p.capability_level === "read-only").map((p) => p.name), [providers]);
   const cleanupReadyProviders = useMemo(() => providers.filter((p) => p.capabilities.safe_cleanup).map((p) => p.name), [providers]);
 
@@ -480,7 +510,7 @@ export function useProvidersData(options: {
     allProviderSessionRows, slowProviderIds, providerSessionSummary,
     providerSessionsLimit, providerRowsSampled, dataSourceRows,
     allProviderRowsSelected, selectedProviderLabel, selectedProviderFilePaths,
-    canRunProviderAction, selectedProviderMeta,
+    providerActionProvider, canRunProviderAction, selectedProviderMeta,
     allParserReports, parserReports, parserSummary,
     readOnlyProviders, cleanupReadyProviders,
     executionGraphData,

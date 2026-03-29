@@ -21,7 +21,6 @@ export function OverviewWorkbench() {
     focusSessionCommandId,
     focusSessionStatus,
     visibleProviderSessionSummary,
-    highRiskCount,
     syncStatusText,
     focusSessionTitle,
     focusSessionMeta,
@@ -153,9 +152,6 @@ export function OverviewWorkbench() {
                     <span>
                       <strong>{visibleProviderSessionSummary.parse_ok}</strong> ready
                     </span>
-                    <span>
-                      <strong>{highRiskCount}</strong> flagged
-                    </span>
                     <span>{syncStatusText}</span>
                   </div>
                 </div>
@@ -270,7 +266,7 @@ export function OverviewWorkbench() {
                         ))}
                       </div>
                     ) : (
-                      <p>No additional flagged threads.</p>
+                      <p>No additional review threads.</p>
                     )}
                   </article>
                   <div className="overview-support-mini-grid">
