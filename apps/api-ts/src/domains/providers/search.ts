@@ -1,5 +1,6 @@
 import { stat } from "node:fs/promises";
 import path from "node:path";
+import { SEARCHABLE_PROVIDER_IDS } from "@threadlens/shared-contracts";
 
 import { buildSessionTranscript } from "./transcript.js";
 import type {
@@ -34,17 +35,22 @@ import {
 } from "../../lib/utils.js";
 
 const PROVIDER_SCAN_CACHE_TTL_MS = 60_000;
-const DEFAULT_CONVERSATION_SEARCH_PROVIDERS: ProviderId[] = [
-  "codex",
-  "claude",
-  "gemini",
-];
+const DEFAULT_CONVERSATION_SEARCH_PROVIDERS: ProviderId[] = [...SEARCHABLE_PROVIDER_IDS];
 const DEFAULT_CONVERSATION_SEARCH_LIMIT = 40;
 const MAX_CONVERSATION_SEARCH_LIMIT = 200;
 const DEFAULT_CONVERSATION_SEARCH_TRANSCRIPT_LIMIT = 10_000;
 const MAX_CONVERSATION_SEARCH_SCAN_LIMIT = 1_200;
-const SEARCH_TRANSCRIPT_CONCURRENCY = 8;
+const SEARCH_TRANSCRIPT_CONCURRENCY = 4;
 const SEARCH_TRANSCRIPT_CACHE_MAX_ENTRIES = 2_000;
+const DEFAULT_CONVERSATION_SEARCH_SCAN_MULTIPLIER = 4;
+const DEFAULT_CONVERSATION_SEARCH_SCAN_FLOOR = 160;
+const PROVIDER_SCAN_BUDGET_WEIGHTS: Record<ProviderId, number> = {
+  codex: 1.35,
+  chatgpt: 0.6,
+  claude: 1.35,
+  gemini: 1,
+  copilot: 0.85,
+};
 
 type ProviderScanCacheEntry = {
   expires_at: number;
@@ -124,16 +130,67 @@ export function resolveConversationSearchLimits(options?: {
     ),
   );
   const scanLimit = Math.max(
-    80,
+    DEFAULT_CONVERSATION_SEARCH_SCAN_FLOOR,
     Math.min(
       MAX_CONVERSATION_SEARCH_SCAN_LIMIT,
-      Number(options?.sessionLimitPerProvider) || Math.max(resultLimit * 8, 240),
+      Number(options?.sessionLimitPerProvider) ||
+        Math.max(
+          resultLimit * DEFAULT_CONVERSATION_SEARCH_SCAN_MULTIPLIER,
+          DEFAULT_CONVERSATION_SEARCH_SCAN_FLOOR,
+        ),
     ),
   );
   return {
     resultLimit,
     scanLimit,
   };
+}
+
+export function buildConversationSearchProviderBudgets(
+  providers: ProviderId[],
+  totalBudget: number,
+): Array<{ provider: ProviderId; limit: number }> {
+  const uniqueProviders = Array.from(new Set(providers));
+  const safeBudget = Math.max(1, Math.floor(totalBudget));
+  if (!uniqueProviders.length) return [];
+  if (uniqueProviders.length === 1) {
+    return [{ provider: uniqueProviders[0], limit: safeBudget }];
+  }
+
+  const weightedProviders = uniqueProviders.map((provider) => ({
+    provider,
+    weight: PROVIDER_SCAN_BUDGET_WEIGHTS[provider] ?? 1,
+  }));
+  const totalWeight = weightedProviders.reduce(
+    (sum, entry) => sum + entry.weight,
+    0,
+  );
+
+  const provisional = weightedProviders.map((entry) => {
+    const exact = (safeBudget * entry.weight) / totalWeight;
+    return {
+      provider: entry.provider,
+      exact,
+      limit: Math.max(1, Math.floor(exact)),
+    };
+  });
+
+  let remaining = safeBudget - provisional.reduce((sum, entry) => sum + entry.limit, 0);
+  provisional
+    .sort((a, b) => (b.exact - b.limit) - (a.exact - a.limit))
+    .forEach((entry) => {
+      if (remaining <= 0) return;
+      entry.limit += 1;
+      remaining -= 1;
+    });
+
+  const limitByProvider = new Map(
+    provisional.map((entry) => [entry.provider, entry.limit] as const),
+  );
+  return uniqueProviders.map((provider) => ({
+    provider,
+    limit: limitByProvider.get(provider) ?? 1,
+  }));
 }
 
 export function createCachedConversationTranscriptLoader(
@@ -392,6 +449,63 @@ function buildSearchIdentity(row: ProviderSessionRow): {
   };
 }
 
+export function isMetadataOnlyConversationQuery(query: string): boolean {
+  const normalized = normalizeSearchText(query);
+  if (!normalized) return false;
+  if (/[\\/]/.test(normalized)) return true;
+  if (/\.(jsonl|json|data|md|txt)\b/i.test(normalized)) return true;
+  if (/^rollout-\d{4}-\d{2}-\d{2}/i.test(normalized)) return true;
+  if (
+    /^[0-9a-f]{8}-[0-9a-f]{4,}(?:-[0-9a-f]{4,}){2,}$/i.test(normalized)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function buildBaseSearchResult(
+  row: ProviderSessionRow,
+  identity: ReturnType<typeof buildSearchIdentity>,
+) {
+  return {
+    provider: row.provider,
+    session_id: identity.sessionId,
+    title: identity.title,
+    file_path: row.file_path,
+    mtime: row.mtime,
+    ...(identity.threadId ? { thread_id: identity.threadId } : {}),
+  };
+}
+
+function buildMetadataSearchResult(
+  row: ProviderSessionRow,
+  identity: ReturnType<typeof buildSearchIdentity>,
+  normalizedQuery: string,
+  tokens: string[],
+): ConversationSearchResult | null {
+  const metadataCandidates = [
+    identity.title,
+    identity.sessionId,
+    row.source,
+    path.basename(row.file_path),
+    providerName(row.provider),
+    row.file_path,
+  ]
+    .map((value) => normalizeSearchText(value))
+    .filter(Boolean);
+
+  for (const candidate of metadataCandidates) {
+    if (!matchesConversationSearch(candidate, normalizedQuery, tokens)) continue;
+    return {
+      ...buildBaseSearchResult(row, identity),
+      match_kind: "title",
+      snippet: buildSearchSnippet(candidate, normalizedQuery, tokens, 140),
+    };
+  }
+
+  return null;
+}
+
 export async function searchConversationRows(
   rows: ProviderSessionRow[],
   q: string,
@@ -424,6 +538,7 @@ export async function searchConversationRows(
     options?.transcriptLoader ??
     ((provider: ProviderId, filePath: string) =>
       buildSessionTranscript(provider, filePath, transcriptLimit));
+  const metadataOnlyQuery = isMetadataOnlyConversationQuery(trimmedQuery);
   const cachedTranscriptLoader =
     createCachedConversationTranscriptLoader(transcriptLoader);
   const seenPaths = new Set<string>();
@@ -438,57 +553,100 @@ export async function searchConversationRows(
       seenPaths.add(key);
       return true;
     });
+  const metadataResults: ConversationSearchResult[] = [];
+  const transcriptRows: Array<{
+    row: ProviderSessionRow;
+    identity: ReturnType<typeof buildSearchIdentity>;
+  }> = [];
 
-  const perRowResults = await mapWithConcurrency(
-    sortedRows,
-    SEARCH_TRANSCRIPT_CONCURRENCY,
-    async (row) => {
-      const rowResults: ConversationSearchResult[] = [];
-      const identity = buildSearchIdentity(row);
-      const baseResult = {
-        provider: row.provider,
-        session_id: identity.sessionId,
-        title: identity.title,
-        file_path: row.file_path,
-        mtime: row.mtime,
-        ...(identity.threadId ? { thread_id: identity.threadId } : {}),
-      };
+  for (const row of sortedRows) {
+    const identity = buildSearchIdentity(row);
+    const metadataResult = buildMetadataSearchResult(
+      row,
+      identity,
+      normalizedQuery,
+      tokens,
+    );
+    if (metadataResult) {
+      metadataResults.push(metadataResult);
+      continue;
+    }
+    transcriptRows.push({ row, identity });
+  }
 
-      if (matchesConversationSearch(identity.title, normalizedQuery, tokens)) {
-        rowResults.push({
-          ...baseResult,
-          match_kind: "title",
-          snippet: buildSearchSnippet(identity.title, normalizedQuery, tokens, 140),
-        });
+  let results = dedupeConversationSearchResults(metadataResults);
+  const metadataSatisfiesLimit = results.length >= safeLimit;
+  const metadataOnlyTruncated =
+    results.length > safeLimit ||
+    (metadataSatisfiesLimit && transcriptRows.length > 0);
+
+  if (!metadataSatisfiesLimit && !metadataOnlyQuery) {
+    let transcriptStoppedEarly = false;
+    for (
+      let offset = 0;
+      offset < transcriptRows.length && results.length < safeLimit;
+      offset += SEARCH_TRANSCRIPT_CONCURRENCY
+    ) {
+      const chunk = transcriptRows.slice(
+        offset,
+        offset + SEARCH_TRANSCRIPT_CONCURRENCY,
+      );
+      const chunkResults = await mapWithConcurrency(
+        chunk,
+        SEARCH_TRANSCRIPT_CONCURRENCY,
+        async ({ row, identity }) => {
+          const rowResults: ConversationSearchResult[] = [];
+          const baseResult = buildBaseSearchResult(row, identity);
+          const transcript = await cachedTranscriptLoader(row);
+          if (!transcript?.messages?.length) return rowResults;
+
+          for (let i = 0; i < transcript.messages.length; i += 1) {
+            const message = transcript.messages[i];
+            if (message.role === "system" || message.role === "tool") continue;
+            if (isPolicyInjectionMessage(message.text)) continue;
+            if (
+              !matchesConversationSearch(message.text, normalizedQuery, tokens)
+            ) {
+              continue;
+            }
+            rowResults.push({
+              ...baseResult,
+              match_kind: "message",
+              snippet: buildSearchSnippet(message.text, normalizedQuery, tokens),
+              role: message.role,
+            });
+          }
+
+          return rowResults;
+        },
+      );
+
+      results = dedupeConversationSearchResults([
+        ...results,
+        ...chunkResults.flat(),
+      ]);
+      if (
+        results.length >= safeLimit &&
+        offset + chunk.length < transcriptRows.length
+      ) {
+        transcriptStoppedEarly = true;
       }
 
-      const transcript = await cachedTranscriptLoader(row);
-      if (!transcript?.messages?.length) return rowResults;
-
-      for (let i = 0; i < transcript.messages.length; i += 1) {
-        const message = transcript.messages[i];
-        if (message.role === "system" || message.role === "tool") continue;
-        if (isPolicyInjectionMessage(message.text)) continue;
-        if (!matchesConversationSearch(message.text, normalizedQuery, tokens)) {
-          continue;
-        }
-        rowResults.push({
-          ...baseResult,
-          match_kind: "message",
-          snippet: buildSearchSnippet(message.text, normalizedQuery, tokens),
-          role: message.role,
-        });
+      if (results.length >= safeLimit) {
+        return {
+          searched_sessions: sortedRows.length,
+          available_sessions: sortedRows.length,
+          truncated: results.length > safeLimit || transcriptStoppedEarly,
+          results: results.slice(0, safeLimit),
+        };
       }
-
-      return rowResults;
-    },
-  );
-  const results = dedupeConversationSearchResults(perRowResults.flat());
+    }
+  }
 
   return {
     searched_sessions: sortedRows.length,
     available_sessions: sortedRows.length,
-    truncated: results.length > safeLimit,
+    truncated: metadataOnlyTruncated || results.length > safeLimit,
     results: results.slice(0, safeLimit),
   };
 }
@@ -511,9 +669,20 @@ export async function searchLocalConversationsTs(
     sessionLimitPerProvider: options?.sessionLimitPerProvider,
   });
   const forceRefresh = Boolean(options?.forceRefresh);
+  const explicitPerProviderLimit = Math.max(
+    0,
+    Math.floor(Number(options?.sessionLimitPerProvider) || 0),
+  );
+  const providerBudgets =
+    explicitPerProviderLimit > 0
+      ? providers.map((provider) => ({
+          provider,
+          limit: explicitPerProviderLimit,
+        }))
+      : buildConversationSearchProviderBudgets(providers, scanLimit);
   const scans = await Promise.all(
-    providers.map((provider) =>
-      getProviderSessionScan(provider, scanLimit, { forceRefresh }),
+    providerBudgets.map(({ provider, limit }) =>
+      getProviderSessionScan(provider, limit, { forceRefresh }),
     ),
   );
   const rows = scans.flatMap((scan) => scan.rows);

@@ -1,3 +1,5 @@
+import { execFile } from "node:child_process";
+import path from "node:path";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { ProviderId } from "../../lib/providers.js";
@@ -41,6 +43,29 @@ export async function registerProviderRoutes(
     confirm_token: z.string().optional().default(""),
     backup_before_delete: z.boolean().optional().default(false),
   });
+  const providerOpenFolderSchema = z.object({
+    provider: z.enum(providerIdTuple),
+    file_path: z.string().min(1),
+  });
+
+  const openDirectoryInOs = async (directoryPath: string): Promise<void> => {
+    const [command, args] =
+      process.platform === "darwin"
+        ? ["open", [directoryPath]]
+        : process.platform === "win32"
+          ? ["explorer", [directoryPath]]
+          : ["xdg-open", [directoryPath]];
+
+    await new Promise<void>((resolve, reject) => {
+      execFile(command, args, (error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve();
+      });
+    });
+  };
 
   app.post<{ Body: unknown }>(
     "/api/provider-session-action",
@@ -66,6 +91,51 @@ export async function registerProviderRoutes(
           .send(
             envelope(null, `provider-session-action-error: ${String(error)}`),
           );
+      }
+    },
+  );
+
+  app.post<{ Body: unknown }>(
+    "/api/provider-open-folder",
+    async (req, reply) => {
+      const parsed = providerOpenFolderSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.code(400).send(envelope(null, parsed.error.message));
+      }
+
+      try {
+        const safeFilePath = await resolveAllowedProviderFilePath(
+          parsed.data.provider,
+          parsed.data.file_path,
+        );
+        if (!safeFilePath) {
+          return reply
+            .code(400)
+            .send(envelope(null, "file_path outside provider roots"));
+        }
+
+        const exists = await pathExists(safeFilePath);
+        if (!exists) {
+          return reply.code(404).send(envelope(null, "session file not found"));
+        }
+
+        const directoryPath = path.dirname(safeFilePath);
+        const directoryExists = await pathExists(directoryPath);
+        if (!directoryExists) {
+          return reply.code(404).send(envelope(null, "session folder not found"));
+        }
+
+        await openDirectoryInOs(directoryPath);
+        return reply.code(200).send(
+          withSchemaVersion({
+            ok: true,
+            directory_path: directoryPath,
+          }),
+        );
+      } catch (error) {
+        return reply
+          .code(500)
+          .send(envelope(null, `provider-open-folder-error: ${String(error)}`));
       }
     },
   );

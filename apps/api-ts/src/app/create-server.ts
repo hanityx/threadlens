@@ -49,7 +49,7 @@ type DataSourcesCacheEntry = {
   payload: unknown;
 };
 
-function parseConversationSearchProviders(
+export function parseConversationSearchProviders(
   raw: string | string[] | undefined,
 ): { providers?: ProviderId[]; invalid: string[] } {
   const tokens = (Array.isArray(raw) ? raw : [raw])
