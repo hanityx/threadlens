@@ -124,8 +124,8 @@ export async function runProviderAction(
   });
 }
 
-export async function listThreads(): Promise<NonNullable<ThreadsResponse["data"]>> {
-  return apiGet("/api/threads?offset=0&limit=80&q=&sort=updated_desc");
+export async function listThreads(limit = 240): Promise<NonNullable<ThreadsResponse["data"]>> {
+  return apiGet(`/api/threads?offset=0&limit=${limit}&q=&sort=updated_desc`);
 }
 
 export async function analyzeDelete(ids: string[]): Promise<NonNullable<AnalyzeDeleteResponse["data"]>> {

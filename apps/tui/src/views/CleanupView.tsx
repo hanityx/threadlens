@@ -3,6 +3,7 @@ import { Box, Text, useInput } from "ink";
 import { analyzeDelete, cleanupApply, cleanupDryRun, listThreads } from "../api.js";
 import type { ThreadRow } from "../types.js";
 import { getWindowedItems, truncate } from "../lib/format.js";
+import { filterCleanupRows } from "../lib/cleanupFilter.js";
 
 const RISK_COLOR: Record<string, string> = {
   high: "red",
@@ -89,19 +90,7 @@ export function CleanupView(props: {
   }, []);
 
   const filteredRows = useMemo(() => {
-    const needle = filterQuery.trim().toLowerCase();
-    if (!needle) return rows;
-    return rows.filter((row) =>
-      [
-        row.title,
-        row.thread_id,
-        row.cwd,
-        row.source,
-        row.risk_level,
-        ...(row.risk_tags ?? []),
-      ]
-        .some((value) => typeof value === "string" && value.toLowerCase().includes(value)),
-    );
+    return filterCleanupRows(rows, filterQuery);
   }, [filterQuery, rows]);
 
   useEffect(() => {

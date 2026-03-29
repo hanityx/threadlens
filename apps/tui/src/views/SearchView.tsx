@@ -4,6 +4,7 @@ import { searchConversations } from "../api.js";
 import { PROVIDERS, type ProviderScope } from "../config.js";
 import type { SearchHit } from "../types.js";
 import { formatDateLabel, getWindowedItems, truncate } from "../lib/format.js";
+import { shouldLeaveSearchQueryMode } from "../lib/searchFocus.js";
 
 type SearchSessionGroup = {
   key: string;
@@ -166,7 +167,7 @@ export function SearchView(props: {
     if (key.ctrl && input.toLowerCase() === "n") { if (groupedResults.length > 0) setFocusMode("results"); return; }
     if (key.ctrl && input.toLowerCase() === "p") { setFocusMode("query"); return; }
     if (focusMode === "query") {
-      if (key.tab || key.return || key.escape) { if (groupedResults.length > 0) setFocusMode("results"); return; }
+      if (shouldLeaveSearchQueryMode(key)) { setFocusMode("results"); return; }
       if (key.backspace || key.delete) { setQuery((p) => p.slice(0, -1)); return; }
       if (!key.ctrl && !key.meta && !key.escape && !key.return && !key.tab && !key.upArrow && !key.downArrow && !key.leftArrow && !key.rightArrow && input.length > 0) {
         setQuery((p) => p + input);

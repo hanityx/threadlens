@@ -11,6 +11,7 @@
     "dev": "tsx watch src/cli.tsx",
     "build": "pnpm --filter @threadlens/shared-contracts build && tsc -p tsconfig.json",
     "start": "node dist/cli.js",
+    "test": "pnpm --filter @threadlens/shared-contracts build && tsx --test test/*.test.ts",
     "lint": "pnpm --filter @threadlens/shared-contracts build && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from "react";
-import { Box, Text, useApp, useInput } from "ink";
+import { Box, Text, useApp, useInput, useStdout } from "ink";
 import { getApiBaseUrl } from "./api.js";
 import { AppBootstrapProps, type ProviderScope, VIEWS } from "./config.js";
+import { resolveHeaderLayout } from "./lib/headerLayout.js";
 import { SearchView } from "./views/SearchView.js";
 import { SessionsView } from "./views/SessionsView.js";
 import { CleanupView } from "./views/CleanupView.js";
@@ -9,7 +10,7 @@ import { CleanupView } from "./views/CleanupView.js";
 const VIEW_SHORTCUTS: Record<string, string[]> = {
   search: [
     "type  search query",
-    "Enter/Tab  results",
+    "Esc/Enter/Tab  results",
     "j/k  navigate",
     "n/p  snippet",
     "Ctrl+O  cleanup",
@@ -50,7 +51,7 @@ function HelpOverlay() {
       </Box>
       <Box flexDirection="column" gap={0}>
         <Text color="cyan">Search:</Text>
-        <Text color="gray">  type to search (min 2 chars)  ·  Enter/Ctrl+N/Tab → results  ·  /·Esc·i → edit query</Text>
+        <Text color="gray">  type to search (min 2 chars)  ·  Esc/Enter/Ctrl+N/Tab → results  ·  /·Esc·i → edit query</Text>
         <Text color="gray">  j/k ↑↓ navigate  ·  J/K page  ·  g/G top/bottom  ·  n/p next/prev snippet</Text>
         <Text color="gray">  Enter open in Sessions  ·  Ctrl+O open in Cleanup  ·  [ ] switch provider</Text>
       </Box>
@@ -72,6 +73,7 @@ function HelpOverlay() {
 export function App(props: AppBootstrapProps) {
   const { initialProvider, initialQuery, initialView, initialFilter, initialSearchFocus } = props;
   const { exit } = useApp();
+  const { stdout } = useStdout();
   const [viewIndex, setViewIndex] = useState(
     Math.max(
       0,
@@ -103,6 +105,12 @@ export function App(props: AppBootstrapProps) {
     const shortcuts = VIEW_SHORTCUTS[activeView] ?? [];
     return shortcuts.join("  ·  ");
   }, [activeView]);
+  const headerLayout = useMemo(() => {
+    return resolveHeaderLayout({
+      columns: stdout?.columns ?? process.stdout.columns ?? 120,
+      apiLabel: getApiBaseUrl().replace("http://127.0.0.1:", "api:"),
+    });
+  }, [stdout]);
 
   useInput((input, key) => {
     if (key.ctrl && input === "c") {
@@ -138,20 +146,26 @@ export function App(props: AppBootstrapProps) {
         borderStyle="round"
         borderColor="green"
         paddingX={2}
-        justifyContent="space-between"
-        alignItems="center"
+        flexDirection="column"
       >
-        <Box gap={3} alignItems="center">
-          <Text color="green" bold>ThreadLens</Text>
-          {VIEWS.map((view, index) => (
-            <Text key={view.id} color={index === viewIndex ? "white" : "gray"} bold={index === viewIndex}>
-              {index === viewIndex ? `[${index + 1}·${view.label}]` : `${index + 1}·${view.label}`}
-            </Text>
-          ))}
+        <Box justifyContent="space-between" alignItems="center">
+          <Box gap={3} alignItems="center">
+            <Text color="green" bold>ThreadLens</Text>
+            {VIEWS.map((view, index) => (
+              <Text key={view.id} color={index === viewIndex ? "white" : "gray"} bold={index === viewIndex}>
+                {index === viewIndex ? `[${index + 1}·${view.label}]` : `${index + 1}·${view.label}`}
+              </Text>
+            ))}
+          </Box>
+          {headerLayout.stacked ? null : (
+            <Text color="gray" dimColor>{headerLayout.metaText}</Text>
+          )}
         </Box>
-        <Text color="gray" dimColor>
-          {getApiBaseUrl().replace("http://127.0.0.1:", "api:")}  ·  ? help  ·  q quit
-        </Text>
+        {headerLayout.stacked ? (
+          <Box justifyContent="flex-end">
+            <Text color="gray" dimColor>{headerLayout.metaText}</Text>
+          </Box>
+        ) : null}
       </Box>
 
       {showHelp ? <HelpOverlay /> : null}
