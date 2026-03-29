@@ -194,6 +194,8 @@ export interface ProvidersPanelProps {
     parser: number | null;
   };
   refreshProvidersData: () => void;
+  providerProbeFilterIntent: ProviderProbeFilter | null;
+  setProviderProbeFilterIntent: (value: ProviderProbeFilter | null) => void;
 }
 
 export function ProvidersPanel(props: ProvidersPanelProps) {
@@ -247,6 +249,8 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     providersLastRefreshAt,
     providerFetchMetrics,
     refreshProvidersData,
+    providerProbeFilterIntent,
+    setProviderProbeFilterIntent,
   } = props;
   const [sessionFilter, setSessionFilter] = useState("");
   const deferredSessionFilter = useDeferredValue(sessionFilter);
@@ -386,6 +390,11 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   useEffect(() => {
     setRenderLimit(INITIAL_CHUNK);
   }, [providerView, sessionFilter, sessionSort, probeFilter, sourceFilter]);
+  useEffect(() => {
+    if (providerProbeFilterIntent === null) return;
+    setProbeFilter(providerProbeFilterIntent);
+    setProviderProbeFilterIntent(null);
+  }, [providerProbeFilterIntent, setProviderProbeFilterIntent]);
   const filteredProviderFilePaths = useMemo(
     () => sortedProviderSessionRows.map((row) => row.file_path),
     [sortedProviderSessionRows],

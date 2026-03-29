@@ -589,21 +589,27 @@ export function SearchPanel({
         <div className="search-results-column">
           {searchEnabled ? (
             <div className="search-summary-strip" role="status" aria-live="polite">
-              <span>
-                <strong>{resultCount}</strong> matches
+              <span className="search-summary-item">
+                <strong className="search-summary-value">{resultCount}</strong>
+                <span className="search-summary-label">matches</span>
               </span>
-              <span>
-                <strong>
+              <span className="search-summary-item">
+                <strong className="search-summary-value">
                   {searchedSessions}/{availableSessions}
-                </strong>{" "}
-                scanned
+                </strong>
+                <span className="search-summary-label">scanned</span>
               </span>
-              <span>
-                <strong>{providerHitCount}</strong> AI · <strong>{messageMatches}</strong> messages
+              <span className="search-summary-item">
+                <strong className="search-summary-value">{providerHitCount}</strong>
+                <span className="search-summary-label">AI</span>
+                <span className="search-summary-divider" aria-hidden="true">·</span>
+                <strong className="search-summary-value">{messageMatches}</strong>
+                <span className="search-summary-label">messages</span>
               </span>
               {collapsedDuplicateCount > 0 ? (
-                <span>
-                  <strong>{collapsedDuplicateCount}</strong> deduped
+                <span className="search-summary-item">
+                  <strong className="search-summary-value">{collapsedDuplicateCount}</strong>
+                  <span className="search-summary-label">deduped</span>
                 </span>
               ) : null}
               {statusText ? (

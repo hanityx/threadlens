@@ -459,19 +459,32 @@
   color: var(--text);
 }
 
-.search-match-item {
-  grid-template-columns: 86px minmax(0, 1fr);
-}
-
 .search-summary-strip span {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  white-space: nowrap;
 }
 
-.search-summary-strip strong {
+.search-summary-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.search-summary-value {
   color: var(--text);
   font-size: var(--text-base);
+  font-weight: 700;
+}
+
+.search-summary-label {
+  color: var(--text-secondary);
+}
+
+.search-summary-divider {
+  color: var(--text-search-muted);
 }
 
 .search-dedupe-strip,
@@ -576,8 +589,8 @@
 
 .search-match-item {
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3px;
   align-items: start;
   padding-top: 4px;
   border-top: 1px solid var(--surface-divider-soft);
@@ -593,6 +606,7 @@
   font-size: var(--text-sm);
   line-height: 1.32;
   white-space: nowrap;
+  display: block;
 }
 
 .search-result-card {

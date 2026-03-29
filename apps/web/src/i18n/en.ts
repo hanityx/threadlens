@@ -3,7 +3,7 @@ export const en = {
   nav: {
     overview: "Overview",
     search: "Search",
-    threads: "Cleanup",
+    threads: "Thread",
     providers: "Sessions",
     forensics: "Cleanup Check / Next Steps",
     routing: "AI Diagnostics",
@@ -93,7 +93,7 @@ export const en = {
     fail: "Fail",
   },
   threadsTable: {
-    title: "Threads",
+    title: "Thread",
     filtered: "Filtered",
     total: "Total",
     workflowTitle: "Codex cleanup flow",

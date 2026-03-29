@@ -1,18 +1,29 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "../../design-system/Button";
 import { PanelHeader } from "../../design-system/PanelHeader";
+import {
+  PROVIDER_VIEW_STORAGE_KEY,
+  SETUP_PREFERRED_PROVIDER_STORAGE_KEY,
+  SETUP_SELECTION_STORAGE_KEY,
+  SEARCH_PROVIDER_STORAGE_KEY,
+  writeStorageValue,
+} from "../../hooks/appDataUtils";
 import type {
   DataSourceInventoryRow,
   ProviderMatrixProvider,
   ProviderParserHealthReport,
   ProviderSessionRow,
 } from "../../types";
+import { formatProviderDisplayName } from "../../lib/helpers";
+import { formatBytes } from "../providers/helpers";
 
-const WIZARD_STEP_STORAGE_KEY = "po-setup-wizard-step";
-const WIZARD_SELECTION_STORAGE_KEY = "po-setup-wizard-selection";
 const WIZARD_COMPLETED_AT_STORAGE_KEY = "po-setup-wizard-completed-at";
 
-type WizardStep = 1 | 2 | 3;
+export type SetupPreferredSelection = {
+  preferredProviderId: string;
+  providerView: string;
+  searchProvider: string;
+};
 
 export type SetupWizardProps = {
   providers: ProviderMatrixProvider[];
@@ -23,7 +34,9 @@ export type SetupWizardProps = {
   providersLastRefreshAt: string;
   onRefresh: () => void;
   onOpenProviders: (providerId?: string) => void;
-  onOpenDiagnostics: () => void;
+  onOpenSearch: () => void;
+  onClose: () => void;
+  onApplyPreferredSelection?: (selection: SetupPreferredSelection) => void;
 };
 
 type WizardProviderCard = {
@@ -32,6 +45,7 @@ type WizardProviderCard = {
   status: "active" | "detected" | "missing";
   sourceCount: number;
   sessionCount: number;
+  totalBytes: number;
   parseScore: number | null;
   canRead: boolean;
   canAnalyze: boolean;
@@ -57,16 +71,10 @@ function providerFromDataSource(sourceKey: string): string | null {
   return null;
 }
 
-function readStoredStep(): WizardStep {
-  if (typeof window === "undefined") return 1;
-  const raw = Number(window.localStorage.getItem(WIZARD_STEP_STORAGE_KEY));
-  return raw === 2 || raw === 3 ? raw : 1;
-}
-
 function readStoredSelection(): string[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(WIZARD_SELECTION_STORAGE_KEY);
+    const raw = window.localStorage.getItem(SETUP_SELECTION_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
@@ -91,15 +99,43 @@ function formatTimestamp(raw: string): string {
   }).format(time);
 }
 
-function stepState(
-  currentStep: WizardStep,
-  step: WizardStep,
-  completed: boolean,
-): "current" | "done" | "upcoming" {
-  if (completed) return "done";
-  if (currentStep === step) return "current";
-  if (currentStep > step) return "done";
-  return "upcoming";
+function normalizeSelectedProviderIds(selectedProviderIds: string[]): string[] {
+  return Array.from(
+    new Set(
+      selectedProviderIds
+        .map((item) => String(item || "").trim())
+        .filter((item) => Boolean(item) && item !== "chatgpt"),
+    ),
+  );
+}
+
+export function resolveSetupPreferredSelection(options: {
+  selectedProviderIds: string[];
+  visibleProviderIds: Iterable<string>;
+}): SetupPreferredSelection {
+  const normalizedSelection = normalizeSelectedProviderIds(options.selectedProviderIds);
+  const visibleProviderIdSet = new Set(
+    Array.from(options.visibleProviderIds, (item) => String(item || "").trim()).filter(Boolean),
+  );
+  const preferredProviderId =
+    normalizedSelection.find((providerId) => visibleProviderIdSet.has(providerId)) ??
+    normalizedSelection[0] ??
+    "all";
+
+  return {
+    preferredProviderId,
+    providerView:
+      preferredProviderId !== "all" && visibleProviderIdSet.has(preferredProviderId)
+        ? preferredProviderId
+        : "all",
+    searchProvider: preferredProviderId,
+  };
+}
+
+export function persistSetupPreferredSelection(selection: SetupPreferredSelection) {
+  writeStorageValue(PROVIDER_VIEW_STORAGE_KEY, selection.providerView);
+  writeStorageValue(SEARCH_PROVIDER_STORAGE_KEY, selection.searchProvider);
+  writeStorageValue(SETUP_PREFERRED_PROVIDER_STORAGE_KEY, selection.preferredProviderId);
 }
 
 export function SetupWizard({
@@ -107,24 +143,41 @@ export function SetupWizard({
   dataSourceRows,
   providerSessionRows,
   parserReports,
-  providersRefreshing,
-  providersLastRefreshAt,
-  onRefresh,
-  onOpenProviders,
-  onOpenDiagnostics,
+  onClose,
+  onApplyPreferredSelection,
 }: SetupWizardProps) {
-  const [currentStep, setCurrentStep] = useState<WizardStep>(readStoredStep);
   const [selectedProviderIds, setSelectedProviderIds] = useState<string[]>(readStoredSelection);
   const [completedAt, setCompletedAt] = useState<string>(readStoredCompletedAt);
-  const [expandedAfterComplete, setExpandedAfterComplete] = useState(false);
+  const [expandedAfterComplete] = useState(false);
 
   const sessionCountByProvider = useMemo(() => {
     const map = new Map<string, number>();
+    providers.forEach((provider) => {
+      const sessionLogCount = Number(provider.evidence?.session_log_count ?? 0);
+      if (sessionLogCount > 0) {
+        map.set(provider.provider, sessionLogCount);
+      }
+    });
     providerSessionRows.forEach((row) => {
+      if (map.has(row.provider)) return;
       map.set(row.provider, (map.get(row.provider) ?? 0) + 1);
     });
     return map;
-  }, [providerSessionRows]);
+  }, [providerSessionRows, providers]);
+
+  const sessionBytesByProvider = useMemo(() => {
+    const map = new Map<string, number>();
+    dataSourceRows.forEach((row) => {
+      const providerId = providerFromDataSource(row.source_key);
+      if (!providerId || !row.present) return;
+      map.set(providerId, (map.get(providerId) ?? 0) + Number(row.total_bytes || 0));
+    });
+    providerSessionRows.forEach((row) => {
+      if ((map.get(row.provider) ?? 0) > 0) return;
+      map.set(row.provider, (map.get(row.provider) ?? 0) + Number(row.size_bytes || 0));
+    });
+    return map;
+  }, [dataSourceRows, providerSessionRows]);
 
   const sourceCountByProvider = useMemo(() => {
     const map = new Map<string, number>();
@@ -145,34 +198,27 @@ export function SetupWizard({
   }, [parserReports]);
 
   const providerCards = useMemo<WizardProviderCard[]>(() => {
-    return providers.map((provider) => ({
+    return providers
+      .filter((provider) => provider.provider !== "chatgpt")
+      .map((provider) => ({
       providerId: provider.provider,
-      name: provider.name,
+      name: formatProviderDisplayName(provider.name),
       status: provider.status,
       sourceCount: sourceCountByProvider.get(provider.provider) ?? 0,
       sessionCount: sessionCountByProvider.get(provider.provider) ?? 0,
+      totalBytes: sessionBytesByProvider.get(provider.provider) ?? 0,
       parseScore: parserScoreByProvider.get(provider.provider) ?? null,
       canRead: provider.capabilities.read_sessions,
       canAnalyze: provider.capabilities.analyze_context,
       canSafeCleanup: provider.capabilities.safe_cleanup,
       rootCount: provider.evidence?.roots?.length ?? 0,
     }));
-  }, [parserScoreByProvider, providers, sessionCountByProvider, sourceCountByProvider]);
-
-  const recommendedProviderIds = useMemo(() => {
-    return providerCards
-      .filter((card) => card.sourceCount > 0 || card.sessionCount > 0 || card.status === "active")
-      .map((card) => card.providerId);
-  }, [providerCards]);
+  }, [parserScoreByProvider, providers, sessionBytesByProvider, sessionCountByProvider, sourceCountByProvider]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem(WIZARD_STEP_STORAGE_KEY, String(currentStep));
-  }, [currentStep]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(WIZARD_SELECTION_STORAGE_KEY, JSON.stringify(selectedProviderIds));
+    const nextSelection = JSON.stringify(selectedProviderIds);
+    window.localStorage.setItem(SETUP_SELECTION_STORAGE_KEY, nextSelection);
   }, [selectedProviderIds]);
 
   useEffect(() => {
@@ -187,8 +233,33 @@ export function SetupWizard({
   const detectedSourceCount = dataSourceRows.filter((row) => row.present).length;
   const selectedCards = providerCards.filter((card) => selectedProviderIds.includes(card.providerId));
   const primaryProviderId = selectedCards[0]?.providerId;
-  const currentStepState = completedAt ? 3 : currentStep;
+  const watchingCards = selectedCards.slice(1);
   const activeProviderCount = providerCards.filter((card) => card.status === "active").length;
+  const savedSelection = completedAt
+    ? resolveSetupPreferredSelection({
+        selectedProviderIds,
+        visibleProviderIds: providerCards.map((card) => card.providerId),
+      })
+    : null;
+  const savedFocusLabel =
+    selectedCards[0]?.name ||
+    providerCards.find((card) => card.providerId === savedSelection?.preferredProviderId)?.name ||
+    "No default selected";
+  const savedWatchingLabel = watchingCards.map((card) => card.name).join(", ");
+  const savedProviderViewLabel = savedSelection
+    ? savedSelection.providerView === "all"
+      ? "All local AI"
+      : formatProviderDisplayName(savedSelection.providerView)
+    : "all";
+  const savedSearchLabel = savedSelection
+    ? savedSelection.searchProvider === "all"
+      ? "All local AI"
+      : formatProviderDisplayName(savedSelection.searchProvider)
+    : "all";
+  const primaryProviderBytes =
+    selectedCards[0]?.totalBytes ??
+    providerCards.find((card) => card.providerId === savedSelection?.preferredProviderId)?.totalBytes ??
+    0;
 
   const toggleProvider = (providerId: string) => {
     setSelectedProviderIds((current) => {
@@ -199,335 +270,119 @@ export function SetupWizard({
     });
   };
 
-  const goToProviders = (providerId?: string) => {
-    onOpenProviders(providerId || primaryProviderId);
-  };
-
   const markComplete = () => {
+    const preferredSelection = resolveSetupPreferredSelection({
+      selectedProviderIds,
+      visibleProviderIds: providerCards.map((card) => card.providerId),
+    });
+    persistSetupPreferredSelection(preferredSelection);
+    onApplyPreferredSelection?.(preferredSelection);
     const now = new Date().toISOString();
     setCompletedAt(now);
-    setCurrentStep(3);
-  };
-
-  const rerunWizard = () => {
-    setCompletedAt("");
-    setCurrentStep(1);
-    setExpandedAfterComplete(true);
-  };
-
-  const applyRecommendedSelection = () => {
-    setSelectedProviderIds(recommendedProviderIds);
-  };
-
-  const clearSelection = () => {
-    setSelectedProviderIds([]);
   };
 
   return (
     <section className="panel setup-wizard-panel">
-      <PanelHeader title="Setup" subtitle="detect / focus / ready" />
+      <PanelHeader
+        title="Setup"
+        subtitle="ready state / default ai"
+        actions={
+          <>
+            <Button variant="accent" onClick={markComplete} disabled={selectedProviderIds.length === 0}>
+              Save as default
+            </Button>
+            <button type="button" className="setup-wizard-close" onClick={onClose}>
+              Close setup
+            </button>
+          </>
+        }
+      />
 
       <div className="setup-wizard-shell">
         <section className="setup-wizard-stage">
           <div className="setup-wizard-stage-copy">
-            <span className="overview-note-label">setup stage</span>
-            <strong>detect / focus / save</strong>
-            <p>sources / focus / status</p>
+            <span className="overview-note-label">ready state</span>
+            <strong>Choose one default AI</strong>
+            <p>Choose one default first. Keep extras as watched providers for overview lists.</p>
           </div>
           <div className="setup-wizard-stage-pills" aria-label="setup wizard summary">
             <span className="setup-wizard-stage-pill">active · {activeProviderCount}</span>
-            <span className="setup-wizard-stage-pill">detected · {detectedSourceCount}</span>
-            <span className="setup-wizard-stage-pill">recommended · {recommendedProviderIds.length}</span>
-            <span className="setup-wizard-stage-pill">selected · {selectedCards.length || selectedProviderIds.length}</span>
-          </div>
-          <div className="setup-wizard-stage-summary">
-            <article className="setup-wizard-stage-card">
-              <span>sources</span>
-              <strong>{detectedSourceCount}</strong>
-              <p>local traces</p>
-            </article>
-            <article className="setup-wizard-stage-card">
-              <span>focus</span>
-              <strong>{selectedCards.length || selectedProviderIds.length}</strong>
-              <p>active set</p>
-            </article>
-            <article className="setup-wizard-stage-card">
-              <span>status</span>
-              <strong>{completedAt ? "saved" : `step ${currentStepState}`}</strong>
-              <p>save state</p>
-            </article>
+            <span className="setup-wizard-stage-pill">sources · {detectedSourceCount}</span>
+            <span className="setup-wizard-stage-pill">
+              default · {savedSelection?.searchProvider === "all" ? "not saved" : savedSearchLabel || "not saved"}
+            </span>
+            <span className="setup-wizard-stage-pill">watching · {watchingCards.length}</span>
+            <span className="setup-wizard-stage-pill">size · {formatBytes(primaryProviderBytes)}</span>
           </div>
         </section>
-
-        <ol className="setup-wizard-steps" aria-label="provider setup steps">
-          {[
-            {
-              step: 1 as WizardStep,
-              title: "Detect",
-              body: "local traces",
-            },
-            {
-              step: 2 as WizardStep,
-              title: "Focus",
-              body: "pick ai",
-            },
-            {
-              step: 3 as WizardStep,
-              title: "Ready",
-              body: "save state",
-            },
-          ].map((item) => {
-            const state = stepState(currentStepState, item.step, Boolean(completedAt));
-            return (
-              <li
-                key={item.step}
-                className={`setup-wizard-step setup-wizard-step-${state}`}
-              >
-                <div className="setup-wizard-step-top">
-                  <span className="setup-wizard-step-index">Step {item.step}</span>
-                  <span className={`status-pill status-${state === "done" ? "active" : state === "current" ? "preview" : "missing"}`}>
-                    {state === "done" ? "Done" : state === "current" ? "Active" : "Next"}
-                  </span>
-                </div>
-                <strong>{item.title}</strong>
-                <p>{item.body}</p>
-              </li>
-            );
-          })}
-        </ol>
-
-        {completedAt && !expandedAfterComplete ? (
-          <div className="setup-wizard-complete setup-wizard-complete-compact">
-            <div className="setup-wizard-complete-copy">
-              <strong>focus saved</strong>
-              <p>open sessions</p>
-            </div>
-            <div className="setup-wizard-metric-row">
-              <article className="setup-wizard-metric">
-                <span>focus</span>
-                <strong>{selectedCards.length || selectedProviderIds.length || providerCards.length}</strong>
-              </article>
-              <article className="setup-wizard-metric">
-                <span>traces</span>
-                <strong>{detectedSourceCount}</strong>
-              </article>
-              <article className="setup-wizard-metric">
-                <span>saved</span>
-                <strong>{formatTimestamp(completedAt)}</strong>
-              </article>
-            </div>
-            <div className="setup-wizard-actions">
-              <Button variant="accent" onClick={() => goToProviders()}>
-                Sessions
-              </Button>
-              <Button variant="outline" onClick={() => setExpandedAfterComplete(true)}>
-                Reopen
-              </Button>
-            </div>
+        <div className="setup-wizard-body">
+          <div className="setup-wizard-copy">
+            <strong>Preferred AI</strong>
+            <p>The first selected provider becomes the default. Any others stay in watch mode for overview.</p>
           </div>
-        ) : completedAt ? (
-          <div className="setup-wizard-complete">
-            <div className="setup-wizard-complete-copy">
-              <strong>focus saved</strong>
-              <p>{selectedCards.length || selectedProviderIds.length || providerCards.length} providers ready</p>
-            </div>
-            <div className="setup-wizard-metric-row">
-              <article className="setup-wizard-metric">
-                <span>Saved</span>
-                <strong>{formatTimestamp(completedAt)}</strong>
-              </article>
-              <article className="setup-wizard-metric">
-                <span>Traces</span>
-                <strong>{detectedSourceCount}</strong>
-              </article>
-              <article className="setup-wizard-metric">
-                <span>Last refresh</span>
-                <strong>{providersLastRefreshAt || "No refresh yet"}</strong>
-              </article>
-            </div>
-            <div className="setup-wizard-actions">
-              <Button variant="accent" onClick={() => goToProviders()}>
-                Sessions
-              </Button>
-              <Button variant="outline" onClick={onOpenDiagnostics}>
-                Diagnostics
-              </Button>
-              <Button variant="outline" onClick={() => setExpandedAfterComplete(false)}>
-                Collapse
-              </Button>
-              <Button variant="outline" onClick={rerunWizard}>
-                Rerun
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="setup-wizard-body">
-            {currentStep === 1 ? (
-              <>
-                <div className="setup-wizard-copy">
-                  <strong>Step 1: detect</strong>
-                  <p>read sources</p>
-                </div>
-                <div className="setup-wizard-metric-row">
-                  <article className="setup-wizard-metric">
-                    <span>Sources</span>
-                    <strong>{detectedSourceCount}</strong>
-                  </article>
-                  <article className="setup-wizard-metric">
-                    <span>Providers</span>
-                    <strong>{providerCards.length}</strong>
-                  </article>
-                  <article className="setup-wizard-metric">
-                    <span>Last refresh</span>
-                    <strong>{providersLastRefreshAt || "No refresh yet"}</strong>
-                  </article>
-                </div>
-                <div className="setup-wizard-actions">
-                  <Button
-                    variant="accent"
-                    onClick={onRefresh}
-                    disabled={providersRefreshing}
-                  >
-                    {providersRefreshing ? "Refreshing..." : "Refresh"}
-                  </Button>
-                  <Button variant="outline" onClick={() => setCurrentStep(2)}>
-                    {detectedSourceCount > 0 ? "Continue" : "Skip detect"}
-                  </Button>
-                  <Button variant="outline" onClick={() => goToProviders()}>
-                    Sessions
-                  </Button>
-                </div>
-              </>
-            ) : null}
-
-            {currentStep === 2 ? (
-              <>
-                <div className="setup-wizard-copy">
-                  <strong>Step 2: focus</strong>
-                  <p>pick ai</p>
-                </div>
-                <div className="info-box">
-                  <strong>recommended</strong>
-                  <p>
-                    {recommendedProviderIds.length > 0
-                      ? recommendedProviderIds
-                          .map((providerId) => providerCards.find((card) => card.providerId === providerId)?.name ?? providerId)
-                          .join(", ")
-                      : "detect first."}
-                  </p>
-                </div>
-                <div className="setup-wizard-choice-grid">
-                  {providerCards.map((card) => {
-                    const selected = selectedProviderIds.includes(card.providerId);
-                    return (
-                      <button
-                        key={card.providerId}
-                        type="button"
-                        className={`setup-wizard-choice ${selected ? "is-selected" : ""}`}
-                        onClick={() => toggleProvider(card.providerId)}
-                        aria-pressed={selected}
-                      >
-                        <div className="setup-wizard-choice-head">
-                          <strong>{card.name}</strong>
-                          <span className={`status-pill status-${card.status === "missing" ? "missing" : card.status === "active" ? "active" : "detected"}`}>
-                            {card.status === "active" ? "Active" : card.status === "detected" ? "Detected" : "Missing"}
-                          </span>
-                        </div>
-                        <div className="setup-wizard-choice-meta">
-                          <span>{card.sourceCount} traces</span>
-                          <span>{card.sessionCount} sessions</span>
-                          <span>{card.rootCount} roots</span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="setup-wizard-actions">
-                  <Button
-                    variant="outline"
-                    onClick={applyRecommendedSelection}
-                    disabled={recommendedProviderIds.length === 0}
-                  >
-                    Pick recommended
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={clearSelection}
-                    disabled={selectedProviderIds.length === 0}
-                  >
-                    Clear
-                  </Button>
-                  <Button variant="outline" onClick={() => setCurrentStep(1)}>
-                    Back
-                  </Button>
-                  <Button
-                    variant="accent"
-                    onClick={() => setCurrentStep(3)}
-                    disabled={selectedProviderIds.length === 0}
-                  >
-                    Continue
-                  </Button>
-                </div>
-              </>
-            ) : null}
-
-            {currentStep === 3 ? (
-              <>
-                <div className="setup-wizard-copy">
-                  <strong>Step 3: ready</strong>
-                  <p>review state</p>
-                </div>
-                {selectedCards.length > 0 ? (
-                  <div className="setup-wizard-summary-grid">
-                    {selectedCards.map((card) => (
-                      <article key={card.providerId} className="setup-wizard-summary-card">
-                        <div className="setup-wizard-choice-head">
-                          <h3>{card.name}</h3>
-                          <span className={`status-pill status-${card.status === "missing" ? "missing" : card.status === "active" ? "active" : "detected"}`}>
-                            {card.status === "active" ? "Active" : card.status === "detected" ? "Detected" : "Missing"}
-                          </span>
-                        </div>
-                        <div className="setup-wizard-summary-list">
-                          <span>Traces: {card.sourceCount > 0 ? `${card.sourceCount} detected` : "none"}</span>
-                          <span>Sessions: {card.sessionCount}</span>
-                          <span>Parser score: {card.parseScore === null ? "not scanned" : `${card.parseScore}%`}</span>
-                          <span>Read access: {card.canRead ? "ready" : "blocked"}</span>
-                          <span>Safe cleanup: {card.canSafeCleanup ? "ready" : "blocked"}</span>
-                          <span>Analyze: {card.canAnalyze ? "ready" : "blocked"}</span>
-                        </div>
-                        <div className="setup-wizard-actions">
-                          <Button variant="outline" onClick={() => goToProviders(card.providerId)}>
-                            Open {card.name}
-                          </Button>
-                        </div>
-                      </article>
-                    ))}
+          <div className="setup-wizard-choice-grid">
+            {providerCards.map((card) => {
+              const selected = selectedProviderIds.includes(card.providerId);
+              const roleLabel =
+                selected && primaryProviderId === card.providerId
+                  ? "Default"
+                  : selected
+                    ? "Watching"
+                    : card.status === "active"
+                      ? "Active"
+                      : card.status === "detected"
+                        ? "Detected"
+                        : "Missing";
+              return (
+                <button
+                  key={card.providerId}
+                  type="button"
+                  className={`setup-wizard-choice ${selected ? "is-selected" : ""}`}
+                  onClick={() => toggleProvider(card.providerId)}
+                  aria-pressed={selected}
+                >
+                  <div className="setup-wizard-choice-head">
+                    <h3>{card.name}</h3>
+                    <span
+                      className={`status-pill ${
+                        selected
+                          ? primaryProviderId === card.providerId
+                            ? "status-active"
+                            : "status-preview"
+                          : `status-${card.status === "missing" ? "missing" : card.status === "active" ? "active" : "detected"}`
+                      }`}
+                    >
+                      {roleLabel}
+                    </span>
                   </div>
-                ) : (
-                  <article className="setup-wizard-empty">
-                    <strong>no focus ai</strong>
-                    <p>pick one.</p>
-                  </article>
-                )}
-                <div className="setup-wizard-actions">
-                  <Button variant="outline" onClick={() => setCurrentStep(2)}>
-                    Back
-                  </Button>
-                  <Button variant="outline" onClick={onRefresh} disabled={providersRefreshing}>
-                    {providersRefreshing ? "Refreshing..." : "Refresh"}
-                  </Button>
-                  <Button
-                    variant="accent"
-                    onClick={markComplete}
-                    disabled={selectedCards.length === 0}
-                  >
-                    Mark ready
-                  </Button>
-                </div>
-              </>
-            ) : null}
+                  <div className="setup-wizard-choice-meta">
+                    <span>{card.sessionCount} sessions</span>
+                    <span>{formatBytes(card.totalBytes)}</span>
+                    <span>{card.rootCount} roots</span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
-        )}
+
+          {completedAt || expandedAfterComplete ? (
+            <div className="setup-wizard-complete setup-wizard-complete-compact">
+              <div className="setup-wizard-complete-copy">
+                <strong>Saved default</strong>
+                <p>
+                  {savedFocusLabel} · {formatBytes(primaryProviderBytes)} · {completedAt ? formatTimestamp(completedAt) : "pending"}
+                </p>
+                <span className="setup-wizard-complete-note">
+                  Sessions → {savedProviderViewLabel} · Search → {savedSearchLabel}
+                </span>
+                {savedWatchingLabel ? (
+                  <span className="setup-wizard-complete-note">Watching → {savedWatchingLabel}</span>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+        </div>
       </div>
     </section>
   );

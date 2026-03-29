@@ -19,7 +19,6 @@ const messages = getMessages("en");
 
 const providerOptions = [
   { id: "codex", name: "Codex" },
-  { id: "chatgpt", name: "ChatGPT" },
   { id: "claude", name: "Claude" },
   { id: "gemini", name: "Gemini" },
   { id: "copilot", name: "Copilot" },
@@ -176,56 +175,23 @@ describe("SearchPanel", () => {
     await options.queryFn({ signal: new AbortController().signal });
 
     expect(mockApiGet).toHaveBeenCalledWith(
-      `/api/conversation-search?q=cleanup&limit=120&provider=${encodeURIComponent("codex,chatgpt,claude,gemini,copilot")}`,
+      `/api/conversation-search?q=cleanup&limit=120&provider=${encodeURIComponent("codex,claude,gemini,copilot")}`,
       { signal: expect.any(AbortSignal) },
     );
   });
 
-  it("renders session cards as disabled when the provider cannot open in sessions", () => {
-    const envelope = {
-      ok: true,
-      schema_version: "2026-02-27",
-      error: null,
-      data: {
-        results: [
-          {
-            provider: "chatgpt",
-            session_id: "15A87249-12D5-4BF7-AAB1-9285671C752C",
-            title: "15A87249-12D5-4BF7-AAB1-9285671C752C",
-            file_path: "/tmp/chatgpt/15A87249.data",
-            mtime: "2026-03-29T00:00:00.000Z",
-            match_kind: "title",
-            snippet: "",
-            role: null,
-            source: "ChatGPT Desktop",
-          },
-        ],
-        searched_sessions: 2,
-        available_sessions: 2,
-      },
-    } as ConversationSearchEnvelope;
-
-    mockUseQuery.mockReturnValue({
-      data: envelope,
-      isLoading: false,
-      isFetching: false,
-      isError: false,
-    });
-
+  it("does not render a ChatGPT search scope once raw hits are no longer openable", () => {
     const html = renderToStaticMarkup(
       <SearchPanel
         messages={messages}
         providerOptions={providerOptions}
-        sessionOpenProviderIds={["codex", "claude", "gemini", "copilot"]}
         onOpenSession={() => undefined}
         onOpenThread={() => undefined}
-        initialQuery="desktop"
       />,
     );
 
-    expect(html).toContain("search-result-card-stage is-disabled");
-    expect(html).toContain('aria-disabled="true"');
-    expect(html).not.toContain('tabindex="0"');
+    expect(html).toContain("Codex");
+    expect(html).not.toContain("ChatGPT");
   });
 
   it("keeps copilot session cards openable", () => {

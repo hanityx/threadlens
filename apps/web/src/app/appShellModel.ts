@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { SEARCHABLE_PROVIDER_IDS, SEARCHABLE_PROVIDER_LABELS } from "@threadlens/shared-contracts";
-import { formatDateTime } from "../lib/helpers";
+import { formatDateTime, formatProviderDisplayName } from "../lib/helpers";
 import type {
   DataSourceInventoryRow,
   ProviderMatrixProvider,
@@ -351,7 +351,7 @@ export function useAppShellModel(options: {
       ? "Syncing sessions"
       : "Live archive ready";
   const focusSessionMeta = focusSession
-    ? `${focusSession.provider} / ${formatWorkbenchRailTime(focusSession.mtime)} / ready`
+    ? `${formatProviderDisplayName(focusSession.provider)} / ${formatWorkbenchRailTime(focusSession.mtime)} / ready`
     : overviewBooting
       ? "providers / parser / runtime"
       : "archive / live / ready";
@@ -361,7 +361,7 @@ export function useAppShellModel(options: {
       ? "session sync"
       : "session live";
   const focusSessionStatus = focusSession
-    ? `${focusSession.provider} active · ${formatWorkbenchRailTime(focusSession.mtime)}`
+    ? `${formatProviderDisplayName(focusSession.provider)} active · ${formatWorkbenchRailTime(focusSession.mtime)}`
     : overviewBooting
       ? "hydrating providers"
       : "archive ready";
@@ -503,6 +503,7 @@ export function useAppShellModel(options: {
     reviewRowsText,
     syncStatusText,
     recentSessionPreview,
+    focusSession,
     focusSessionTitle,
     focusSessionMeta,
     focusSessionCommandId,
@@ -512,6 +513,7 @@ export function useAppShellModel(options: {
     visibleParserReports,
     allVisibleParserReports,
     visibleParserSummary,
+    focusReviewThread,
     focusReviewTitle,
     focusReviewMeta,
     secondaryFlaggedPreview,

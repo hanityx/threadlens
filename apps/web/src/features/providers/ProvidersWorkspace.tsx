@@ -4,7 +4,7 @@ import type { ProvidersPanelProps } from "./ProvidersPanel";
 import { useAppContext } from "../../app/AppContext";
 import type { ProviderSessionRow } from "../../types";
 import { compactSessionTitle, formatBytesCompact } from "./helpers";
-import { formatDateTime } from "../../lib/helpers";
+import { formatDateTime, formatProviderDisplayName } from "../../lib/helpers";
 
 const ProvidersPanel = lazy(async () => {
   const mod = await import("./ProvidersPanel");
@@ -97,6 +97,8 @@ export function ProvidersWorkspace() {
     executionGraphData,
     executionGraphLoading,
     visibleProviderIds,
+    providerProbeFilterIntent,
+    setProviderProbeFilterIntent,
   } = useAppContext();
 
   const largestSessionCandidates = useMemo(
@@ -115,7 +117,7 @@ export function ProvidersWorkspace() {
           candidate.session_id,
         ),
         path: candidate.file_path,
-        description: `${candidate.provider} · ${formatBytesCompact(candidate.size_bytes)} · ${formatDateTime(candidate.mtime)} · largest session in scope`,
+        description: `${formatProviderDisplayName(candidate.provider)} · ${formatBytesCompact(candidate.size_bytes)} · ${formatDateTime(candidate.mtime)} · largest session in scope`,
       }))
     : emptySessionNextTitle
       ? [{ title: emptySessionNextTitle, path: emptySessionNextPath, description: "" }]
@@ -169,6 +171,8 @@ export function ProvidersWorkspace() {
     providersLastRefreshAt,
     providerFetchMetrics,
     refreshProvidersData,
+    providerProbeFilterIntent,
+    setProviderProbeFilterIntent,
   };
 
   const selectedSessionActionResult =

@@ -28,7 +28,6 @@ describe("overview token migration", () => {
     expect(overviewStyles).toMatch(/\.overview-insight-card\.is-mini strong\s*{[^}]*font-size:\s*var\(--text-xl\);/s);
     expect(overviewStyles).toMatch(/\.overview-insight-card\.is-mini p\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
     expect(overviewStyles).toMatch(/\.overview-review-pill\s*{[^}]*background:\s*var\(--surface-card-bg-subtle\);[^}]*font-size:\s*var\(--text-xs\);/s);
-    expect(overviewStyles).toMatch(/\.overview-review-kicker\s*{[^}]*font-size:\s*var\(--text-3xs\);/s);
     expect(overviewStyles).toMatch(/\.overview-review-meta\s*{[^}]*font-size:\s*var\(--text-3xs\);/s);
     expect(overviewStyles).toMatch(/\.overview-side-status-item span\s*{[^}]*font-size:\s*var\(--text-3xs\);/s);
     expect(overviewStyles).toMatch(/\.overview-side-status-item strong\s*{[^}]*font-size:\s*var\(--text-md\);/s);
@@ -49,7 +48,7 @@ describe("overview token migration", () => {
     expect(overviewStyles).toMatch(/\.overview-primary-focus-meta\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
     expect(overviewStyles).toMatch(/\.overview-primary-focus-kpis span\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
     expect(overviewStyles).toMatch(/\.overview-insight-card\.is-review strong\s*{[^}]*font-size:\s*var\(--text-2xl\);/s);
-    expect(overviewStyles).toMatch(/\.overview-review-title\s*{[^}]*font-size:\s*var\(--text-xl\);/s);
+    expect(overviewStyles).toMatch(/\.overview-review-title\s*{[^}]*font-size:\s*var\(--text-2xl\);/s);
     expect(overviewStyles).toMatch(/\.overview-review-list-item strong\s*{[^}]*font-size:\s*var\(--text-base\);/s);
     expect(overviewStyles).toMatch(/\.overview-review-list-item span\s*{[^}]*font-size:\s*var\(--text-3xs\);/s);
     expect(overviewStyles).toMatch(/\.overview-side-head strong\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
@@ -102,8 +101,8 @@ describe("overview token migration", () => {
     expect(overviewStyles).toMatch(/\.overview-demo-step\s*{[^}]*border:\s*1px solid var\(--surface-overview-demo-border\);[^}]*background:\s*var\(--surface-overview-demo-bg\);/s);
     expect(overviewStyles).toMatch(/\.overview-demo-step::before\s*{[^}]*box-shadow:\s*var\(--shadow-overview-demo-step\);/s);
     expect(overviewStyles).toMatch(/\.overview-kick-card\s*{[^}]*border:\s*1px solid var\(--surface-overview-kick-border\);[^}]*background:\s*var\(--surface-overview-kick-bg\);/s);
-    expect(overviewStyles).toMatch(/\.overview-secondary-panel\s*{[^}]*background:\s*var\(--surface-overview-secondary-panel\);/s);
-    expect(overviewStyles).toMatch(/\.overview-secondary-close\s*{[^}]*background:\s*var\(--surface-overview-secondary-close\);/s);
+    expect(overviewStyles).toMatch(/\.overview-secondary-panel\s*{[^}]*background:\s*var\(--surface-card-bg-subtle\);/s);
+    expect(overviewStyles).toMatch(/\.overview-secondary-close\s*{[^}]*background:\s*transparent;/s);
     expect(overviewStyles).toMatch(/\.overview-provider-card,\s*\.overview-note-card\s*{[^}]*background:\s*var\(--surface-panel-subtle-max\);/s);
   });
 });

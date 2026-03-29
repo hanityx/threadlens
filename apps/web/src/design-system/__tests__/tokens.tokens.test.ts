@@ -43,8 +43,8 @@ describe("tokens surface migration", () => {
     expect(tokensStyles).toMatch(/--surface-form-field-border:\s*color-mix\(in srgb, var\(--line\) 70%, var\(--accent\) 18%\);/);
     expect(tokensStyles).toMatch(/--surface-form-field-bg:\s*linear-gradient\(180deg, color-mix\(in srgb, var\(--bg-elev\) 96%, var\(--glass-mid\)\), color-mix\(in srgb, var\(--panel\) 94%, transparent\)\),\s*linear-gradient\(135deg, transparent 0 52%, color-mix\(in srgb, var\(--accent\) 12%, transparent\) 52% 100%\);/);
     expect(tokensStyles).toMatch(/--btn-base-bg:\s*rgba\(31, 39, 46, 0\.96\);/);
-    expect(tokensStyles).toMatch(/--btn-accent-bg:\s*rgba\(82, 103, 121, 0\.9\);/);
-    expect(tokensStyles).toMatch(/--btn-accent-hover-bg:\s*rgba\(98, 118, 136, 0\.96\);/);
+    expect(tokensStyles).toMatch(/--btn-accent-bg:\s*rgba\(24, 28, 33, 0\.99\);/);
+    expect(tokensStyles).toMatch(/--btn-accent-hover-bg:\s*rgba\(35, 40, 47, 1\);/);
     expect(tokensStyles).toMatch(/--btn-danger-bg:\s*rgba\(98, 35, 35, 0\.94\);/);
     expect(tokensStyles).toMatch(/--btn-danger-hover-bg:\s*rgba\(122, 43, 43, 0\.98\);/);
     expect(tokensStyles).toMatch(/--surface-btn-outline:\s*color-mix\(in srgb, var\(--surface-pill-bg\) 90%, transparent\);/);
@@ -176,6 +176,10 @@ describe("tokens surface migration", () => {
     expect(tokensStyles).toMatch(/--surface-setup-choice-selected-bg:\s*color-mix\(in srgb, var\(--accent\) 16%, var\(--panel\)\);/);
     expect(tokensStyles).toMatch(/--text-top-search-placeholder:\s*color-mix\(in srgb, var\(--muted\) 86%, transparent\);/);
     expect(tokensStyles).toMatch(/--text-top-surface-btn:\s*color-mix\(in srgb, var\(--text\) 72%, transparent\);/);
+    expect(tokensStyles).toMatch(/--surface-active-bg:\s*#181c21;/);
+    expect(tokensStyles).toMatch(/--surface-active-text:\s*#f3f6f8;/);
+    expect(tokensStyles).toMatch(/--surface-active-border:\s*rgba\(230, 236, 240, 0\.18\);/);
+    expect(tokensStyles).toMatch(/--surface-active-shadow:\s*0 0 0 1px rgba\(230, 236, 240, 0\.06\), 0 18px 34px rgba\(0, 0, 0, 0\.42\);/);
     expect(tokensStyles).toMatch(/--surface-provider-select-border:\s*color-mix\(in srgb, var\(--line\) 68%, var\(--accent\) 20%\);/);
     expect(tokensStyles).toMatch(/--surface-provider-select-bg:\s*linear-gradient\(180deg,\s*color-mix\(in srgb, var\(--bg-elev\) 94%, var\(--glass-low\)\),\s*color-mix\(in srgb, var\(--panel\) 96%, transparent\)\),\s*linear-gradient\(135deg, transparent 0 52%, color-mix\(in srgb, var\(--accent\) 14%, transparent\) 52% 100%\);/);
     expect(tokensStyles).toMatch(/--surface-provider-select-sheen:\s*inset 0 1px 0 color-mix\(in srgb, white 7%, transparent\);/);

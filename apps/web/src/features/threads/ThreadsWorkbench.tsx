@@ -19,8 +19,6 @@ export function ThreadsWorkbench() {
     setQuery,
     filterMode,
     setFilterMode,
-    threadsFetchMs,
-    threadsFastBooting,
     visibleRows,
     filteredRows,
     selectedIds,
@@ -180,11 +178,10 @@ export function ThreadsWorkbench() {
         <div className="cleanup-command-body">
           <div className="thread-workflow-copy">
             <div className="thread-workflow-copy-eyebrow">
-              <span className="overview-note-label">cleanup</span>
-              <span className="scope-badge">Codex</span>
+              <span className="overview-note-label">thread</span>
             </div>
-            <strong>Review &amp; archive</strong>
-            <p>Select, analyze, clean up.</p>
+            <strong>Review &amp; Archive</strong>
+            <p>Select, analyze, clean up in Codex.</p>
           </div>
           <div className="thread-status-grid">
             <article className="thread-status-card">
@@ -236,13 +233,6 @@ export function ThreadsWorkbench() {
               <option value="high-risk">{messages.toolbar.highRisk}</option>
               <option value="pinned">{messages.toolbar.pinned}</option>
             </select>
-            <span className="sub-hint">
-              fetch {threadsFetchMs !== null ? `${threadsFetchMs}ms` : "-"}
-            </span>
-            {threadsFastBooting ? (
-              <span className="sub-hint">fast boot</span>
-            ) : null}
-            <span className="sub-hint">{selectedCount} selected</span>
           </section>
         </div>
       </section>

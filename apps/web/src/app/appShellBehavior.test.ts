@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   buildDesktopRouteSearch,
+  shouldApplyProviderFallback,
+  resolvePreferredProvidersEntry,
   resolveHeaderSearchTarget,
   shouldDeferProviderFallback,
   shouldDeferDesktopRouteSync,
@@ -158,14 +160,31 @@ describe("desktop route helpers", () => {
       shouldDeferDesktopRouteSync({
         currentRoute: {
           view: "providers",
-          provider: "all",
-          filePath: "/tmp/claude/session.jsonl",
+          provider: "codex",
+          filePath: "/tmp/codex/session.jsonl",
           threadId: "",
         },
         layoutView: "overview",
         providerView: "all",
         selectedSessionPath: "",
         selectedThreadId: "",
+        routeHydrating: true,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldDeferDesktopRouteSync({
+        currentRoute: {
+          view: "providers",
+          provider: "all",
+          filePath: "/tmp/claude/session.jsonl",
+          threadId: "",
+        },
+        layoutView: "providers",
+        providerView: "all",
+        selectedSessionPath: "",
+        selectedThreadId: "",
+        routeHydrating: true,
       }),
     ).toBe(true);
 
@@ -181,6 +200,7 @@ describe("desktop route helpers", () => {
         providerView: "all",
         selectedSessionPath: "",
         selectedThreadId: "",
+        routeHydrating: true,
       }),
     ).toBe(true);
 
@@ -196,6 +216,7 @@ describe("desktop route helpers", () => {
         providerView: "all",
         selectedSessionPath: "/tmp/codex/session.jsonl",
         selectedThreadId: "",
+        routeHydrating: true,
       }),
     ).toBe(true);
 
@@ -211,6 +232,7 @@ describe("desktop route helpers", () => {
         providerView: "all",
         selectedSessionPath: "",
         selectedThreadId: "",
+        routeHydrating: true,
       }),
     ).toBe(true);
 
@@ -226,6 +248,23 @@ describe("desktop route helpers", () => {
         providerView: "all",
         selectedSessionPath: "/tmp/codex/session.jsonl",
         selectedThreadId: "",
+        routeHydrating: true,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldDeferDesktopRouteSync({
+        currentRoute: {
+          view: "providers",
+          provider: "codex",
+          filePath: "/tmp/codex/session.jsonl",
+          threadId: "",
+        },
+        layoutView: "threads",
+        providerView: "codex",
+        selectedSessionPath: "/tmp/codex/session.jsonl",
+        selectedThreadId: "",
+        routeHydrating: false,
       }),
     ).toBe(false);
   });
@@ -242,5 +281,53 @@ describe("desktop route helpers", () => {
         visibleProviderTabs: [{ id: "all" }],
       }),
     ).toBe(true);
+  });
+
+  it("only applies provider fallback inside the sessions surface", () => {
+    expect(
+      shouldApplyProviderFallback({
+        layoutView: "overview",
+        providerView: "gemini",
+        visibleProviderTabs: [{ id: "all" }, { id: "codex" }],
+        visibleProviderIdSet: new Set(["all", "codex"]),
+        currentRoute: { view: "overview", provider: "", filePath: "", threadId: "" },
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldApplyProviderFallback({
+        layoutView: "providers",
+        providerView: "gemini",
+        visibleProviderTabs: [{ id: "all" }, { id: "codex" }],
+        visibleProviderIdSet: new Set(["all", "codex"]),
+        currentRoute: { view: "providers", provider: "", filePath: "", threadId: "" },
+      }),
+    ).toBe(true);
+  });
+
+  it("uses the stored preferred provider when it is visible", () => {
+    expect(
+      resolvePreferredProvidersEntry({
+        preferredProviderId: "gemini",
+        storedProviderView: "codex",
+        visibleProviderIdSet: new Set(["all", "codex", "claude"]),
+      }),
+    ).toBe("codex");
+
+    expect(
+      resolvePreferredProvidersEntry({
+        preferredProviderId: "codex",
+        storedProviderView: "all",
+        visibleProviderIdSet: new Set(["all", "codex", "claude"]),
+      }),
+    ).toBe("codex");
+
+    expect(
+      resolvePreferredProvidersEntry({
+        preferredProviderId: "chatgpt",
+        storedProviderView: "chatgpt",
+        visibleProviderIdSet: new Set(["all", "codex", "claude"]),
+      }),
+    ).toBe("all");
   });
 });

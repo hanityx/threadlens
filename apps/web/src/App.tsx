@@ -7,16 +7,28 @@ import { RuntimeFeedbackStack } from "./app/RuntimeFeedbackStack";
 import { SearchRoute } from "./features/search/SearchRoute";
 import { ThreadsWorkbench } from "./features/threads/ThreadsWorkbench";
 import { TopShell } from "./app/TopShell";
-import { useAppShellBehavior, type DesktopRouteState } from "./app/appShellBehavior";
+import {
+  resolvePreferredProvidersEntry,
+  useAppShellBehavior,
+  type DesktopRouteState,
+} from "./app/appShellBehavior";
 import { useAppShellModel } from "./app/appShellModel";
-import { readStorageValue, SEARCH_DRAFT_STORAGE_KEY, writeStorageValue } from "./hooks/appDataUtils";
+import {
+  PROVIDER_VIEW_STORAGE_KEY,
+  readStorageValue,
+  SEARCH_DRAFT_STORAGE_KEY,
+  SETUP_PREFERRED_PROVIDER_STORAGE_KEY,
+  writeStorageValue,
+} from "./hooks/appDataUtils";
 import { useAppData } from "./hooks/useAppData";
 import { useLocale } from "./i18n";
 import type { ConversationSearchHit, LayoutView, ProviderView } from "./types";
+import type { ProviderProbeFilter } from "./features/providers/sessionTableModel";
 
 export function App() {
   const panelChunkWarmupStartedRef = useRef(false);
   const desktopRouteAppliedRef = useRef(false);
+  const desktopRouteHydratingRef = useRef(false);
   const desktopRouteRef = useRef<DesktopRouteState>({
     view: "",
     provider: "",
@@ -27,6 +39,7 @@ export function App() {
   const detailLayoutRef = useRef<HTMLElement | null>(null);
   const pendingLayoutScrollRestoreRef = useRef<number | null>(null);
   const [searchThreadContext, setSearchThreadContext] = useState<ConversationSearchHit | null>(null);
+  const [providerProbeFilterIntent, setProviderProbeFilterIntent] = useState<ProviderProbeFilter | null>(null);
   const [providersDiagnosticsOpen, setProvidersDiagnosticsOpen] = useState(false);
   const [setupGuideOpen, setSetupGuideOpen] = useState(false);
   const [headerSearchDraft, setHeaderSearchDraft] = useState("");
@@ -105,6 +118,18 @@ export function App() {
     });
   };
 
+  const openProvidersHome = () => {
+    const preferredProvider = resolvePreferredProvidersEntry({
+      preferredProviderId: readStorageValue([SETUP_PREFERRED_PROVIDER_STORAGE_KEY]),
+      storedProviderView: readStorageValue([PROVIDER_VIEW_STORAGE_KEY]),
+      visibleProviderIdSet,
+    });
+    startTransition(() => {
+      setProviderView(preferredProvider);
+    });
+    changeLayoutView("providers");
+  };
+
   const { messages } = useLocale();
   const runtimeBackend = runtime.data?.data?.runtime_backend;
   const showRuntimeBackendDegraded =
@@ -139,6 +164,7 @@ export function App() {
     reviewRowsText,
     syncStatusText,
     recentSessionPreview,
+    focusSession,
     focusSessionTitle,
     focusSessionMeta,
     focusSessionCommandId,
@@ -148,6 +174,7 @@ export function App() {
     visibleParserReports,
     allVisibleParserReports,
     visibleParserSummary,
+    focusReviewThread,
     focusReviewTitle,
     focusReviewMeta,
     secondaryFlaggedPreview,
@@ -241,6 +268,7 @@ export function App() {
     detailLayoutRef,
     panelChunkWarmupStartedRef,
     desktopRouteAppliedRef,
+    desktopRouteHydratingRef,
     desktopRouteRef,
     changeLayoutView,
     setLayoutView,
@@ -263,9 +291,9 @@ export function App() {
       visibleProviderSummary, visibleSlowProviderIds, visibleProviderSessionRows,
       allVisibleProviderSessionRows, visibleProviderSessionSummary,
       overviewBooting, activeSummaryText, searchRowsText, reviewRowsText, syncStatusText,
-      recentSessionPreview, focusSessionTitle, focusSessionMeta, focusSessionCommandId, focusSessionStatus,
+      recentSessionPreview, focusSession, focusSessionTitle, focusSessionMeta, focusSessionCommandId, focusSessionStatus,
       emptySessionNextTitle, emptySessionNextPath, visibleParserReports, allVisibleParserReports, visibleParserSummary,
-      focusReviewTitle, focusReviewMeta, secondaryFlaggedPreview, recentThreadGroups,
+      focusReviewThread, focusReviewTitle, focusReviewMeta, secondaryFlaggedPreview, recentThreadGroups,
       recentThreadTitle, recentThreadSummary, activeProviderSummaryLine, visibleDataSourceRows,
       visibleAllProviderRowsSelected, searchProviderOptions,
       showSearch, showProviders, showThreadsTable, showForensics, showRouting,
@@ -280,8 +308,9 @@ export function App() {
     headerSearchDraft, setHeaderSearchDraft,
     headerSearchSeed, setHeaderSearchSeed,
     searchThreadContext, setSearchThreadContext,
+    providerProbeFilterIntent, setProviderProbeFilterIntent,
     acknowledgedForensicsErrorKeys, setAcknowledgedForensicsErrorKeys,
-    changeLayoutView, changeProviderView,
+    changeLayoutView, changeProviderView, openProvidersHome,
     showRuntimeBackendDegraded,
     emptySessionScopeLabel,
     analyzeErrorKey, cleanupErrorKey,

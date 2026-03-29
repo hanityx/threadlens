@@ -170,6 +170,8 @@ describe("ProvidersPanel", () => {
         slowProviderIds={[]}
         slowProviderThresholdMs={1200}
         setSlowProviderThresholdMs={() => undefined}
+        providerProbeFilterIntent={null}
+        setProviderProbeFilterIntent={() => undefined}
         providerView="codex"
         setProviderView={() => undefined}
         providerDataDepth="balanced"
@@ -235,6 +237,8 @@ describe("ProvidersPanel", () => {
         slowProviderIds={[]}
         slowProviderThresholdMs={1200}
         setSlowProviderThresholdMs={() => undefined}
+        providerProbeFilterIntent={null}
+        setProviderProbeFilterIntent={() => undefined}
         providerView="all"
         setProviderView={() => undefined}
         providerDataDepth="balanced"
@@ -306,6 +310,8 @@ describe("ProvidersPanel", () => {
         slowProviderIds={[]}
         slowProviderThresholdMs={1200}
         setSlowProviderThresholdMs={() => undefined}
+        providerProbeFilterIntent={null}
+        setProviderProbeFilterIntent={() => undefined}
         providerView="all"
         setProviderView={() => undefined}
         providerDataDepth="balanced"
@@ -371,6 +377,8 @@ describe("ProvidersPanel", () => {
         slowProviderIds={[]}
         slowProviderThresholdMs={1200}
         setSlowProviderThresholdMs={() => undefined}
+        providerProbeFilterIntent={null}
+        setProviderProbeFilterIntent={() => undefined}
         providerView="codex"
         setProviderView={() => undefined}
         providerDataDepth="balanced"
@@ -440,6 +448,8 @@ describe("ProvidersPanel", () => {
         slowProviderIds={[]}
         slowProviderThresholdMs={1200}
         setSlowProviderThresholdMs={() => undefined}
+        providerProbeFilterIntent={null}
+        setProviderProbeFilterIntent={() => undefined}
         providerView="codex"
         setProviderView={() => undefined}
         providerDataDepth="balanced"
@@ -508,6 +518,8 @@ describe("ProvidersPanel", () => {
         slowProviderIds={[]}
         slowProviderThresholdMs={1200}
         setSlowProviderThresholdMs={() => undefined}
+        providerProbeFilterIntent={null}
+        setProviderProbeFilterIntent={() => undefined}
         providerView="all"
         setProviderView={() => undefined}
         providerDataDepth="balanced"

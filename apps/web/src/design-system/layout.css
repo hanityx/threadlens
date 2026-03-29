@@ -93,12 +93,10 @@
 }
 
 .shell-rail-btn.is-active {
-  background: #496177;
-  border-color: rgba(73, 97, 119, 0.18);
-  color: rgba(244, 248, 255, 0.96);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 14px 28px rgba(73, 97, 119, 0.16);
+  background: var(--surface-active-bg);
+  border-color: var(--surface-active-border);
+  color: var(--surface-active-text);
+  box-shadow: var(--surface-active-shadow);
 }
 
 .shell-rail-btn-key,
@@ -220,12 +218,30 @@
   min-width: 0;
   border: 0;
   outline: 0;
+  appearance: none;
+  -webkit-appearance: none;
   background: transparent;
   color: var(--text);
   font: inherit;
   font-family: var(--font-label);
   font-size: var(--text-sm);
   letter-spacing: -0.01em;
+  box-shadow: none;
+}
+
+.top-search-input:focus,
+.top-search-input:focus-visible {
+  outline: 0;
+  box-shadow: none;
+}
+
+.top-search-input::-webkit-search-decoration,
+.top-search-input::-webkit-search-cancel-button,
+.top-search-input::-webkit-search-results-button,
+.top-search-input::-webkit-search-results-decoration {
+  display: none;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .top-search-input::placeholder {
@@ -258,10 +274,8 @@
 .top-surface-btn.is-active {
   background: var(--surface-active-bg);
   color: var(--surface-active-text);
-  border-color: color-mix(in srgb, var(--surface-active-bg) 78%, rgba(255, 255, 255, 0.18));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    0 10px 20px rgba(17, 22, 27, 0.12);
+  border-color: var(--surface-active-border);
+  box-shadow: var(--surface-active-shadow);
 }
 
 .top-controls {
@@ -303,10 +317,8 @@
   border-radius: 999px;
   background: var(--surface-pill-bg);
   color: var(--text);
-  border: 1px solid color-mix(in srgb, var(--surface-nav-border) 84%, rgba(255, 255, 255, 0.12));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    0 8px 16px rgba(17, 22, 27, 0.08);
+  border: none;
+  box-shadow: 0 8px 16px rgba(17, 22, 27, 0.05);
 }
 
 .provider-quick-switch {

@@ -18,7 +18,7 @@ describe("search token migration", () => {
     expect(searchStyles).toMatch(/\.search-scope-label\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
     expect(searchStyles).toMatch(/\.search-guide-grid article p\s*{[^}]*font-size:\s*var\(--text-base\);/s);
     expect(searchStyles).toMatch(/\.search-result-title-stack strong\s*{[^}]*font-size:\s*var\(--text-base\);/s);
-    expect(searchStyles).toMatch(/\.search-summary-strip strong\s*{[^}]*font-size:\s*var\(--text-base\);/s);
+    expect(searchStyles).toMatch(/\.search-summary-value\s*{[^}]*font-size:\s*var\(--text-base\);/s);
     expect(searchStyles).toMatch(/\.search-dedupe-strip p,\s*\.search-empty-strip p\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
     expect(searchStyles).toMatch(/\.search-command-slash\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
     expect(searchStyles).toMatch(/\.search-command-prompt\s*{[^}]*font-size:\s*var\(--text-md\);/s);

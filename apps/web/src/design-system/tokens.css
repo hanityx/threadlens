@@ -46,8 +46,8 @@
   --table-head-bg: rgba(18, 20, 22, 0.94);
   --btn-bg: rgba(22, 26, 30, 0.9);
   --btn-base-bg: rgba(31, 39, 46, 0.96);
-  --btn-accent-bg: rgba(82, 103, 121, 0.9);
-  --btn-accent-hover-bg: rgba(98, 118, 136, 0.96);
+  --btn-accent-bg: rgba(24, 28, 33, 0.99);
+  --btn-accent-hover-bg: rgba(35, 40, 47, 1);
   --btn-danger-bg: rgba(98, 35, 35, 0.94);
   --btn-danger-hover-bg: rgba(122, 43, 43, 0.98);
   --chat-log-bg: #0f1112;
@@ -300,9 +300,10 @@
   --surface-pill-bg: rgba(191, 208, 221, 0.06);
   --surface-pill-border: rgba(203, 220, 232, 0.11);
   --surface-pill-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  --surface-active-bg: #708796;
-  --surface-active-text: #f4f8ff;
-  --surface-active-shadow: 0 16px 30px rgba(61, 78, 89, 0.28);
+  --surface-active-bg: #181c21;
+  --surface-active-text: #f3f6f8;
+  --surface-active-border: rgba(230, 236, 240, 0.18);
+  --surface-active-shadow: 0 0 0 1px rgba(230, 236, 240, 0.06), 0 18px 34px rgba(0, 0, 0, 0.42);
 
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -359,8 +360,8 @@
   --table-head-bg: rgba(241, 244, 247, 0.96);
   --btn-bg: rgba(243, 246, 249, 0.98);
   --btn-base-bg: rgba(231, 237, 242, 0.98);
-  --btn-accent-bg: rgba(73, 97, 119, 0.94);
-  --btn-accent-hover-bg: rgba(61, 82, 99, 0.98);
+  --btn-accent-bg: rgba(24, 28, 33, 0.99);
+  --btn-accent-hover-bg: rgba(35, 40, 47, 1);
   --btn-danger-bg: rgba(147, 53, 53, 0.94);
   --btn-danger-hover-bg: rgba(124, 36, 36, 0.98);
   --chat-log-bg: #f8f9fb;
@@ -404,9 +405,10 @@
   --surface-pill-bg: rgba(241, 244, 247, 0.9);
   --surface-pill-border: rgba(170, 179, 185, 0.16);
   --surface-pill-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
-  --surface-active-bg: #496177;
-  --surface-active-text: #f4f8ff;
-  --surface-active-shadow: 0 16px 30px rgba(73, 97, 119, 0.16);
+  --surface-active-bg: #181c21;
+  --surface-active-text: #f3f6f8;
+  --surface-active-border: transparent;
+  --surface-active-shadow: 0 10px 22px rgba(0, 0, 0, 0.16);
 }
 
 :root:not([data-theme="light"]) .overview-command-shell,

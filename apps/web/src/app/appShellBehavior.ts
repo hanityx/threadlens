@@ -171,19 +171,47 @@ export function shouldDeferDesktopRouteSync(options: {
   providerView: ProviderView;
   selectedSessionPath: string;
   selectedThreadId: string;
+  routeHydrating?: boolean;
 }): boolean {
+  if (options.routeHydrating) {
+    if (options.currentRoute.view === "providers") {
+      const providerReady =
+        options.layoutView === "providers" &&
+        (!options.currentRoute.provider ||
+          options.currentRoute.provider === "all" ||
+          options.providerView === options.currentRoute.provider);
+      const detailReady =
+        !options.currentRoute.filePath ||
+        options.selectedSessionPath === options.currentRoute.filePath;
+      if (!providerReady || !detailReady) {
+        return true;
+      }
+    }
+
+    if (options.currentRoute.view === "threads") {
+      const threadReady =
+        options.layoutView === "threads" &&
+        (!options.currentRoute.threadId ||
+          options.selectedThreadId === options.currentRoute.threadId);
+      if (!threadReady) {
+        return true;
+      }
+    }
+  }
+
   return Boolean(
     (options.currentRoute.view === "providers" &&
+      options.layoutView === "providers" &&
       options.currentRoute.filePath &&
-      (options.layoutView !== "providers" ||
-        !options.selectedSessionPath ||
+      (!options.selectedSessionPath ||
         (options.currentRoute.provider &&
           options.currentRoute.provider !== "all" &&
           options.selectedSessionPath === options.currentRoute.filePath &&
           options.providerView !== options.currentRoute.provider))) ||
       (options.currentRoute.view === "threads" &&
+        options.layoutView === "threads" &&
         options.currentRoute.threadId &&
-        (options.layoutView !== "threads" || !options.selectedThreadId)),
+        !options.selectedThreadId),
   );
 }
 
@@ -196,6 +224,31 @@ export function shouldDeferProviderFallback(options: {
   if (!options.currentRoute.filePath) return false;
   const nonAllVisibleTabs = options.visibleProviderTabs.filter((tab) => tab.id !== "all");
   return nonAllVisibleTabs.length === 0;
+}
+
+export function shouldApplyProviderFallback(options: {
+  layoutView: LayoutView;
+  providerView: ProviderView;
+  visibleProviderTabs: ProviderTab[];
+  visibleProviderIdSet: Set<string>;
+  currentRoute: DesktopRouteState;
+}): boolean {
+  if (options.layoutView !== "providers") return false;
+  if (
+    shouldDeferProviderFallback({
+      currentRoute: options.currentRoute,
+      visibleProviderTabs: options.visibleProviderTabs,
+    })
+  ) {
+    return false;
+  }
+  return Boolean(
+    getFallbackProviderView(
+      options.providerView,
+      options.visibleProviderTabs,
+      options.visibleProviderIdSet,
+    ),
+  );
 }
 
 function applyDesktopRoute(options: {
@@ -233,6 +286,27 @@ export function getFallbackProviderView(
   );
 }
 
+export function resolvePreferredProvidersEntry(options: {
+  preferredProviderId?: string | null | undefined;
+  storedProviderView: string | null | undefined;
+  visibleProviderIdSet: Set<string>;
+}): ProviderView {
+  const preferred = String(options.preferredProviderId || "").trim();
+  if (
+    preferred &&
+    preferred !== "all" &&
+    VALID_PROVIDER_VIEWS.has(preferred) &&
+    options.visibleProviderIdSet.has(preferred)
+  ) {
+    return preferred as ProviderView;
+  }
+  const stored = String(options.storedProviderView || "").trim();
+  if (stored && stored !== "all" && VALID_PROVIDER_VIEWS.has(stored) && options.visibleProviderIdSet.has(stored)) {
+    return stored as ProviderView;
+  }
+  return "all";
+}
+
 export function shouldAutoScrollDetailIntoView(options: {
   detailVisible: boolean;
   previousSelection: string;
@@ -265,6 +339,7 @@ export function useAppShellBehavior(options: {
   detailLayoutRef: MutableRefObject<HTMLElement | null>;
   panelChunkWarmupStartedRef: MutableRefObject<boolean>;
   desktopRouteAppliedRef: MutableRefObject<boolean>;
+  desktopRouteHydratingRef: MutableRefObject<boolean>;
   desktopRouteRef: MutableRefObject<DesktopRouteState>;
   changeLayoutView: (nextView: LayoutView) => void;
   setLayoutView: Dispatch<SetStateAction<LayoutView>>;
@@ -284,6 +359,9 @@ export function useAppShellBehavior(options: {
     options.desktopRouteAppliedRef.current = true;
     const nextRoute = parseDesktopRouteSearch(window.location.search);
     options.desktopRouteRef.current = nextRoute;
+    options.desktopRouteHydratingRef.current = Boolean(
+      nextRoute.view || nextRoute.provider || nextRoute.filePath || nextRoute.threadId,
+    );
 
     if (!nextRoute.view && !nextRoute.provider && !nextRoute.filePath && !nextRoute.threadId) {
       return;
@@ -304,6 +382,9 @@ export function useAppShellBehavior(options: {
     const onPopState = () => {
       const nextRoute = parseDesktopRouteSearch(window.location.search);
       options.desktopRouteRef.current = nextRoute;
+      options.desktopRouteHydratingRef.current = Boolean(
+        nextRoute.view || nextRoute.provider || nextRoute.filePath || nextRoute.threadId,
+      );
       applyDesktopRoute(options, nextRoute);
     };
 
@@ -329,11 +410,14 @@ export function useAppShellBehavior(options: {
         providerView: options.providerView,
         selectedSessionPath: options.selectedSessionPath,
         selectedThreadId: options.selectedThreadId,
+        routeHydrating: options.desktopRouteHydratingRef.current,
       })
     ) {
       options.desktopRouteRef.current = currentRoute;
       return;
     }
+
+    options.desktopRouteHydratingRef.current = false;
 
     const nextRoute: DesktopRouteState = {
       view: options.layoutView,
@@ -357,6 +441,7 @@ export function useAppShellBehavior(options: {
     options.desktopRouteRef.current = nextRoute;
   }, [
     options.desktopRouteAppliedRef,
+    options.desktopRouteHydratingRef,
     options.desktopRouteRef,
     options.layoutView,
     options.providerView,
@@ -409,9 +494,12 @@ export function useAppShellBehavior(options: {
 
   useEffect(() => {
     if (
-      shouldDeferProviderFallback({
-        currentRoute: options.desktopRouteRef.current,
+      !shouldApplyProviderFallback({
+        layoutView: options.layoutView,
+        providerView: options.providerView,
         visibleProviderTabs: options.visibleProviderTabs,
+        visibleProviderIdSet: options.visibleProviderIdSet,
+        currentRoute: options.desktopRouteRef.current,
       })
     ) {
       return;

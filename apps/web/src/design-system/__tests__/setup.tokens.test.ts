@@ -24,10 +24,10 @@ describe("setup token migration", () => {
   });
 
   it("uses semantic surface tokens for setup stages and cards", () => {
-    expect(setupStyles).toMatch(/\.setup-wizard-stage\s*{[^}]*background:\s*var\(--surface-stage-subtle\);/s);
+    expect(setupStyles).toMatch(/\.setup-wizard-stage\s*{[^}]*background:\s*var\(--surface-card-bg-subtle\);/s);
     expect(setupStyles).toMatch(/\.setup-wizard-stage-pill\s*{[^}]*border:\s*1px solid var\(--surface-setup-stage-pill-border\);[^}]*background:\s*var\(--surface-pill-ghost\);/s);
     expect(setupStyles).toMatch(/\.setup-wizard-stage-card\s*{[^}]*background:\s*var\(--surface-card-bg-subtle\);/s);
-    expect(setupStyles).toMatch(/\.setup-wizard-complete-compact\s*{[^}]*border:\s*1px solid var\(--surface-setup-complete-compact-border\);[^}]*background:\s*var\(--surface-setup-complete-compact-bg\);/s);
+    expect(setupStyles).toMatch(/\.setup-wizard-complete-compact\s*{[^}]*border:\s*1px solid var\(--line-soft\);[^}]*background:\s*var\(--surface-card-bg-subtle\);/s);
     expect(setupStyles).toMatch(/\.setup-wizard-step\s*{[^}]*background:\s*var\(--surface-panel-subtle\);/s);
     expect(setupStyles).toMatch(/\.setup-wizard-step-current\s*{[^}]*border-color:\s*var\(--surface-setup-active-border\);/s);
     expect(setupStyles).toMatch(/\.setup-wizard-step-done\s*{[^}]*border-color:\s*var\(--surface-setup-step-done-border\);/s);

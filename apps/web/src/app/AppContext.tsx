@@ -4,6 +4,7 @@ import type { useAppShellModel } from "./appShellModel";
 import type { useAppShellBehavior } from "./appShellBehavior";
 import type { Messages } from "../i18n";
 import type { ConversationSearchHit, LayoutView, ProviderView } from "../types";
+import type { ProviderProbeFilter } from "../features/providers/sessionTableModel";
 
 type RuntimeBackend = { reachable?: boolean; latency_ms?: number | null; url?: string };
 
@@ -19,10 +20,13 @@ type AppLocalState = {
   setHeaderSearchSeed: (v: string) => void;
   searchThreadContext: ConversationSearchHit | null;
   setSearchThreadContext: (hit: ConversationSearchHit | null) => void;
+  providerProbeFilterIntent: ProviderProbeFilter | null;
+  setProviderProbeFilterIntent: (value: ProviderProbeFilter | null) => void;
   acknowledgedForensicsErrorKeys: { analyze: string; cleanup: string };
   setAcknowledgedForensicsErrorKeys: React.Dispatch<React.SetStateAction<{ analyze: string; cleanup: string }>>;
   changeLayoutView: (view: LayoutView) => void;
   changeProviderView: (view: ProviderView) => void;
+  openProvidersHome: () => void;
   showRuntimeBackendDegraded: boolean;
   emptySessionScopeLabel: string;
   analyzeErrorKey: string;

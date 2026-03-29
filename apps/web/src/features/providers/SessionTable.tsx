@@ -4,7 +4,7 @@ import { PanelHeader } from "../../design-system/PanelHeader";
 import type { Messages } from "../../i18n";
 import type { ProviderSessionActionResult, ProviderSessionRow } from "../../types";
 import { SKELETON_ROWS } from "../../types";
-import { formatDateTime, normalizeDisplayValue } from "../../lib/helpers";
+import { formatDateTime, formatProviderDisplayName, normalizeDisplayValue } from "../../lib/helpers";
 import { compactSessionId, compactSessionTitle, formatBytesCompact, suppressMouseFocus } from "./helpers";
 import {
   buildProviderSessionActionSummary,
@@ -400,7 +400,7 @@ export function SessionTable(props: SessionTableProps) {
                     />
                   </label>
                 </td>
-                {showProviderColumn ? <td className="col-provider">{row.provider}</td> : null}
+                {showProviderColumn ? <td className="col-provider">{formatProviderDisplayName(row.provider)}</td> : null}
                 <td className="title-col">
                   <button
                     type="button"

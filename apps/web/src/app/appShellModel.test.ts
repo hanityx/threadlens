@@ -190,7 +190,6 @@ describe("appShellModel", () => {
 
     expect(buildSearchProviderOptions(visibleTabs)).toEqual([
       { id: "codex", name: "Codex" },
-      { id: "chatgpt", name: "ChatGPT" },
       { id: "claude", name: "Claude" },
       { id: "gemini", name: "Gemini" },
       { id: "copilot", name: "Copilot" },

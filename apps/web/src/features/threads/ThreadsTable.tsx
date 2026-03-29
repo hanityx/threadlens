@@ -63,37 +63,28 @@ function compactThreadSource(row: ThreadRow): string {
 }
 
 export function toggleVisibleSelectionState(
-  visibleRows: ThreadRow[],
+  rows: ThreadRow[],
   selected: Record<string, boolean>,
 ): Record<string, boolean> {
   const next = { ...selected };
-  const allVisibleSelected =
-    visibleRows.length > 0 && visibleRows.every((row) => Boolean(selected[row.thread_id]));
-
-  for (const row of visibleRows) {
+  const allVisibleSelected = rows.length > 0 && rows.every((row) => Boolean(selected[row.thread_id]));
+  for (const row of rows) {
     next[row.thread_id] = !allVisibleSelected;
   }
-
   return next;
 }
 
 export function toggleSubsetSelectionState(
-  visibleRows: ThreadRow[],
+  rows: ThreadRow[],
   selected: Record<string, boolean>,
   predicate: (row: ThreadRow) => boolean,
 ): Record<string, boolean> {
-  const matchingIds = visibleRows.filter(predicate).map((row) => row.thread_id);
-  if (matchingIds.length === 0) return selected;
-
+  const subset = rows.filter(predicate);
+  const allSubsetSelected = subset.length > 0 && subset.every((row) => Boolean(selected[row.thread_id]));
   const next = { ...selected };
-  const onlyMatchingSelected = visibleRows.every(
-    (row) => Boolean(selected[row.thread_id]) === predicate(row),
-  );
-
-  for (const row of visibleRows) {
-    next[row.thread_id] = onlyMatchingSelected ? false : predicate(row);
+  for (const row of subset) {
+    next[row.thread_id] = !allSubsetSelected;
   }
-
   return next;
 }
 
@@ -131,48 +122,6 @@ export function ThreadsTable(props: ThreadsTableProps) {
   const disabledReason = threadActionsDisabled
     ? messages.threadsTable.backendDownHint
     : undefined;
-  const selectedRow =
-    (selectedThreadId
-      ? visibleRows.find((row) => row.thread_id === selectedThreadId) ??
-        filteredRows.find((row) => row.thread_id === selectedThreadId)
-      : null) ?? null;
-  const dryRunReadyVisibleIds = visibleRows
-    .filter((row) => props.dryRunReadyIds.includes(row.thread_id))
-    .map((row) => row.thread_id);
-  const selectVisibleRows = (mode: "all" | "high-risk" | "pinned" | "dry-run-ready" | "stale") => {
-    setSelected((prev) => {
-      if (mode === "all") {
-        return toggleVisibleSelectionState(visibleRows, prev);
-      }
-      if (mode === "dry-run-ready") {
-        return toggleSubsetSelectionState(
-          visibleRows,
-          prev,
-          (row) => props.dryRunReadyIds.includes(row.thread_id),
-        );
-      }
-      if (mode === "high-risk") {
-        return toggleSubsetSelectionState(
-          visibleRows,
-          prev,
-          (row) => Number(row.risk_score ?? 0) >= 70,
-        );
-      }
-      if (mode === "stale") {
-        return toggleSubsetSelectionState(
-          visibleRows,
-          prev,
-          (row) => row.activity_status === "stale",
-        );
-      }
-      return toggleSubsetSelectionState(
-        visibleRows,
-        prev,
-        (row) => Boolean(row.is_pinned),
-      );
-    });
-  };
-
   return (
     <section className="panel threads-table-panel" style={panelStyle}>
       <PanelHeader
@@ -196,33 +145,6 @@ export function ThreadsTable(props: ThreadsTableProps) {
             <span className={`status-pill ${dryRunReady ? "status-active" : "status-preview"}`}>
               {messages.threadsTable.workflowDryRunTitle}{" "}
               {dryRunReady ? messages.forensics.stageReady : messages.forensics.stagePending}
-            </span>
-          </div>
-          <div className="thread-toolbar-group thread-toolbar-group-inline cleanup-inline-tools">
-            <div className="thread-toolbar-inline">
-              <Button variant="outline" onClick={() => selectVisibleRows("all")}>
-                {messages.threadsTable.quickSelectAllVisible}
-              </Button>
-              <Button variant="outline" onClick={() => selectVisibleRows("high-risk")}>
-                {messages.threadsTable.quickSelectHighRisk}
-              </Button>
-              <Button
-                variant="outline"
-                disabled={dryRunReadyVisibleIds.length === 0}
-                title={dryRunReadyVisibleIds.length === 0 ? messages.threadsTable.quickSelectDryRunReadyEmpty : undefined}
-                onClick={() => selectVisibleRows("dry-run-ready")}
-              >
-                {messages.threadsTable.quickSelectDryRunReady}
-              </Button>
-              <Button variant="outline" onClick={() => selectVisibleRows("stale")}>
-                {messages.threadsTable.quickSelectStale}
-              </Button>
-            </div>
-            <span className="sub-hint">
-              {selectedRow ? selectedRow.title || selectedRow.thread_id : messages.forensics.stagePending}
-              {" · "}
-              {messages.threadsTable.rendered} {visibleRows.length}/
-              {filteredRows.length}
             </span>
           </div>
         </div>
@@ -262,13 +184,6 @@ export function ThreadsTable(props: ThreadsTableProps) {
                 {messages.threadsTable.bulkCleanupExecute}
               </Button>
             </div>
-          </div>
-          <div className="thread-toolbar-group">
-            {threadActionsDisabled ? (
-              <span className="sub-hint">{messages.threadsTable.backendDownHint}</span>
-            ) : (
-              <span className="sub-hint">{messages.threadsTable.resultHint}</span>
-            )}
           </div>
         </div>
         {hardDeleteConfirmOpen ? (

@@ -5,6 +5,7 @@ export function TopShell() {
   const {
     layoutView,
     changeLayoutView,
+    openProvidersHome,
     handleSearchIntent,
     handleProvidersIntent,
     headerSearchDraft,
@@ -53,7 +54,7 @@ export function TopShell() {
             type="button"
             className={`top-surface-btn ${layoutView === "providers" ? "is-active" : ""}`}
             onMouseDown={(event) => event.preventDefault()}
-            onClick={() => changeLayoutView("providers")}
+            onClick={openProvidersHome}
             onMouseEnter={handleProvidersIntent}
             onFocus={handleProvidersIntent}
           >

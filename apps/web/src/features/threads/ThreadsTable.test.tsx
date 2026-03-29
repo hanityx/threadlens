@@ -67,13 +67,13 @@ describe("ThreadsTable", () => {
     );
 
     expect(html).toContain("Signal");
-    expect(html).toContain("Toggle visible");
-    expect(html).toContain("Select high signal only");
-    expect(html).toContain("Select dry-run ready");
-    expect(html).toContain("Select stale only");
     expect(html).toContain("Hard delete");
     expect(html).toContain("Delete selected thread files now?");
     expect(html).toContain("Do not ask again for hard delete.");
+    expect(html).not.toContain("Toggle visible");
+    expect(html).not.toContain("Select high signal only");
+    expect(html).not.toContain("Select dry-run ready");
+    expect(html).not.toContain("Select stale only");
     expect(html).not.toContain("Select pinned only");
     expect(html).not.toContain("Pin in Codex");
     expect(html).not.toContain("Unpin in Codex");

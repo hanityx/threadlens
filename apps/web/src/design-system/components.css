@@ -229,12 +229,14 @@ button:disabled {
 .btn-accent {
   background: var(--btn-accent-bg);
   color: var(--surface-active-text);
+  border: none;
   font-weight: 600;
-  box-shadow: none;
+  box-shadow: var(--surface-active-shadow);
 }
 
 .btn-accent:hover {
   background: var(--btn-accent-hover-bg);
+  box-shadow: var(--surface-active-shadow);
   filter: none;
 }
 

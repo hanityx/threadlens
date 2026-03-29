@@ -1846,23 +1846,24 @@
 }
 
 .threads-table-panel > header {
-  padding: 9px 12px 8px;
-  border-bottom: 1px solid var(--surface-divider-muted);
-  background: var(--surface-table-header);
+  padding: 15px 18px 13px;
+  border-bottom: 1px solid var(--surface-divider-faint);
+  background: var(--surface-review-panel-header);
 }
 
 .threads-table-panel > header h2 {
-  font-size: var(--text-sm);
-  font-family: var(--font-label);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted);
+  font-size: var(--text-lg);
+  font-family: inherit;
+  letter-spacing: -0.03em;
+  text-transform: none;
+  color: inherit;
 }
 
 .threads-table-panel > header span {
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--text-secondary);
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .provider-session-stage.threads-table-panel > header {

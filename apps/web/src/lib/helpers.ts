@@ -62,6 +62,18 @@ export function formatWorkspaceLabel(value: string | null | undefined): string {
   return normalized.startsWith("~") ? `~/${tail}` : tail;
 }
 
+export function formatProviderDisplayName(value: string | null | undefined): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  const normalized = raw.toLowerCase().replace(/\s+/g, "-");
+  if (normalized === "codex") return "Codex";
+  if (normalized === "chatgpt" || normalized === "chatgpt-desktop") return "ChatGPT";
+  if (normalized === "claude" || normalized === "claude-cli") return "Claude";
+  if (normalized === "gemini" || normalized === "gemini-cli") return "Gemini";
+  if (normalized === "copilot" || normalized === "copilot-chat") return "Copilot";
+  return raw;
+}
+
 export function normalizeDisplayValue(value: unknown): string {
   const trimmed = String(value ?? "").trim();
   if (!trimmed) return "";

@@ -15,6 +15,27 @@ import { apiGet } from "../api";
 import { extractEnvelopeData, parseNum } from "../lib/helpers";
 import { pruneProviderSelectionForView, type ProviderFetchMetrics } from "./appDataUtils";
 
+export function shouldResetProviderView(options: {
+  layoutView: LayoutView;
+  providerView: ProviderView;
+  providerTabs: Array<{ id: ProviderView }>;
+  providerMatrixLoading: boolean;
+  providerSessionsLoading: boolean;
+  parserLoading: boolean;
+}): boolean {
+  if (options.layoutView !== "providers") return false;
+  if (options.providerView === "all") return false;
+  if (options.providerTabs.length <= 1) return false;
+  if (
+    options.providerMatrixLoading ||
+    options.providerSessionsLoading ||
+    options.parserLoading
+  ) {
+    return false;
+  }
+  return !options.providerTabs.some((tab) => tab.id === options.providerView);
+}
+
 export function useProvidersData(options: {
   layoutView: LayoutView;
   providerView: ProviderView;
@@ -358,11 +379,33 @@ export function useProvidersData(options: {
   }, [providers, allProviderSessionRows, providerById, scannedByProvider, sessionCountByProvider, scanMsByProvider, slowProviderThresholdMs]);
 
   useEffect(() => {
-    if (providerView === "all") return;
-    if (providerTabs.length <= 1) return;
-    const exists = providerTabs.some((tab) => tab.id === providerView);
-    if (!exists) setProviderView("all");
-  }, [providerView, providerTabs, setProviderView]);
+    if (
+      !shouldResetProviderView({
+        layoutView,
+        providerView,
+        providerTabs,
+        providerMatrixLoading: providerMatrix.isLoading || providerMatrix.isFetching,
+        providerSessionsLoading:
+          providerSessions.isLoading || providerSessions.isFetching,
+        parserLoading:
+          providerParserHealth.isLoading || providerParserHealth.isFetching,
+      })
+    ) {
+      return;
+    }
+    setProviderView("all");
+  }, [
+    layoutView,
+    providerMatrix.isFetching,
+    providerMatrix.isLoading,
+    providerParserHealth.isFetching,
+    providerParserHealth.isLoading,
+    providerSessions.isFetching,
+    providerSessions.isLoading,
+    providerTabs,
+    providerView,
+    setProviderView,
+  ]);
   useEffect(() => {
     if (!selectedSessionPath) return;
     if (availableProviderFilePaths.has(selectedSessionPath)) return;
