@@ -7,10 +7,12 @@ ThreadLens is organized around a small set of workflows instead of a single flat
 Use `Search` when you remember a phrase, filename, or session note but do not
 yet know where it lives.
 
-- Searches raw conversation text across Codex, Claude, Gemini, and Copilot
+- Searches raw conversation text across the shared web search scope: Codex, Claude, Gemini, and Copilot
 - Groups repeated hits by session
 - Lets you jump into `Sessions`
 - Lets you jump into `Thread` when a Codex thread match is available
+
+ChatGPT desktop cache stays in `Sessions` and diagnostics. It is not exposed as a standalone web search scope.
 
 Use this first when the question is "where did that conversation happen?"
 
@@ -42,7 +44,7 @@ thread-review surface.
 Use `Overview` and diagnostics panels when you need runtime and storage evidence.
 
 - Runtime health and smoke status
-- Setup can save one default AI so `Search` and `Sessions` open from the same provider starting point
+- Setup can save one default AI so `Search` and `Sessions` reopen from the same provider starting point
 - Recovery center and backup status
 - Provider data-source inventory
 - Parser health and execution graph

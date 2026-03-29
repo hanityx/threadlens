@@ -37,7 +37,7 @@ Before filing:
 
 Open a GitHub feature request when:
 - you want a new provider workflow
-- you want dashboard or cleanup UX changes
+- you want overview, search, thread, or sessions UX changes
 - you want packaging or release-surface improvements
 
 ### Security reports

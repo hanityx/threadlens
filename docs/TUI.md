@@ -31,6 +31,9 @@ pnpm start:tui -- --view cleanup --filter risk
 - Open the matching session
 - Jump into cleanup when a Codex thread match exists
 
+The TUI follows the shared searchable-provider contract. ChatGPT desktop cache
+stays in the web session and diagnostics surfaces.
+
 ### Sessions
 
 - Browse provider session rows

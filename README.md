@@ -5,31 +5,37 @@
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D10-orange)](https://pnpm.io)
 [![CI](https://github.com/threadlens/threadlens/actions/workflows/ci.yml/badge.svg)](https://github.com/threadlens/threadlens/actions/workflows/ci.yml)
 
-ThreadLens is a local-first workbench for AI session search, session-file review, and safe Codex cleanup.
+ThreadLens is a local-first workbench for AI conversation search, provider-session review, and safe thread cleanup.
 
-Search local conversations across Codex, Claude, Gemini, and Copilot, inspect transcripts, back up session files, and run cleanup behind dry-run guardrails.
+Search local conversations across Codex, Claude, Gemini, and Copilot, inspect transcripts, back up session files, and stop destructive work behind dry-run guardrails.
+
+## Overview
 
 <p align="center">
-  <img src="docs/assets/readme-overview.png" alt="ThreadLens overview surface" width="100%"/>
+  <img src="docs/assets/readme-overview.png" alt="ThreadLens overview dashboard" />
 </p>
 
-## Screen Preview
+<p align="center">
+  <sub>Start in Overview for recent activity, provider health, runtime recovery signals, and the default-AI setup that drives the rest of the workbench.</sub>
+</p>
 
-Temporary gallery structure. Replace these placeholder images with final captures for the current web surfaces.
+## Core Workflows
 
-| Overview | Search |
-| --- | --- |
-| ![ThreadLens overview placeholder](docs/assets/readme-overview.png) | ![ThreadLens search placeholder](docs/assets/readme-overview.png) |
-| Main workbench and readiness view | Cross-provider conversation lookup |
+<p align="center">
+  <sub>Start in Search when you know the phrase, then switch to Sessions when you need raw provider files and transcript detail.</sub>
+</p>
 
-| Thread | Sessions |
-| --- | --- |
-| ![ThreadLens thread placeholder](docs/assets/readme-overview.png) | ![ThreadLens sessions placeholder](docs/assets/readme-overview.png) |
-| Codex thread review, impact analysis, and cleanup dry-run | Session inspection, transcript preview, and provider actions |
+<p align="center">
+  <img src="docs/assets/readme-search-sessions-composite.png" alt="ThreadLens search and sessions surfaces" />
+</p>
+
+<p align="center">
+  <sub>Search keeps phrase-first lookup readable, while Sessions keeps raw provider files and transcript detail open in the same workbench.</sub>
+</p>
 
 ## Highlights
 
-- `Conversation Search` finds the right session before you decide whether it belongs in `Sessions` or `Thread`.
+- `Conversation Search` finds the right session or thread before you pick a workflow.
 - `Sessions` opens provider session files, transcript previews, and backup-first file actions.
 - `Thread` gives Codex thread review, impact analysis, and dry-run token execution in a dedicated workflow.
 - `Overview Setup` can save one default AI so `Sessions` and `Search` reopen from the same starting point.
@@ -53,6 +59,13 @@ Optional surfaces:
 - `pnpm dev:tui` starts the terminal workbench
 - `pnpm dev:desktop` starts the Electron shell in development mode
 - `sync-lens` is available as an optional read-only comparison surface for Codex state across machines
+
+## Desktop Build Note
+
+- Electron packaging is wired for unsigned local macOS builds.
+- First launch can trigger Gatekeeper. Use `Open` from the context menu once, or allow the app in `System Settings > Privacy & Security`.
+- Packaged outputs land in `apps/desktop-electron/dist/mac-arm64/ThreadLens.app` and `apps/desktop-electron/dist/*.zip`.
+- Desktop-specific build details live in `apps/desktop-electron/README.md`.
 
 ## Documentation
 

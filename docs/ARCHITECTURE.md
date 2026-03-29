@@ -19,10 +19,12 @@ ThreadLens uses one local Fastify backend shared by web, TUI, and desktop.
 
 ## Workflow Split
 
-- `Conversation Search`: cross-provider raw conversation lookup
+- `Conversation Search`: raw conversation lookup for the shared searchable-provider contract, currently `Codex`, `Claude`, `Gemini`, and `Copilot`
 - `Sessions`: provider session files, transcripts, and file-level actions
 - `Thread`: Codex thread review, impact analysis, and cleanup execution
 - `Diagnostics`: runtime, parser, data-source, recovery, and execution-flow views
+
+ChatGPT desktop cache stays in the read-first session and diagnostics path. It is not exposed as a web `Search` scope.
 
 ## Route Groups
 

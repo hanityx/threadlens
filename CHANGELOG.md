@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Search now follows the shared web search contract for Codex, Claude, Gemini, and Copilot, while ChatGPT desktop cache stays in the read-first session path
+- Overview setup now saves a default AI so Search and Sessions reopen from the same starting point
+- Thread and Sessions now keep richer detail rails open beside the active record, so transcript review, dry-run state, and follow-up actions stay in one workspace
+
 ### Documentation
-- Refresh public docs around product workflows, provider support, and terminal usage
-- Align README and architecture docs with the current web, TUI, desktop, and shared API surface
+- Refresh public docs, screenshots, provider support notes, and terminal usage around the current web, TUI, desktop, and shared API surface
 
 ## [0.1.0] - 2026-03-01
 
