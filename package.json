@@ -33,7 +33,6 @@
     }
   },
   "scripts": {
-    "check:public-markdown-hygiene": "bash ./tools/check-public-markdown-hygiene.sh",
     "dev:api": "pnpm --filter @threadlens/api dev",
     "dev:tui": "pnpm --filter @threadlens/tui dev",
     "dev:web": "pnpm --filter @threadlens/web dev",

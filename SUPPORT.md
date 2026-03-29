@@ -11,6 +11,7 @@ pnpm --filter @threadlens/api test
 pnpm --filter @threadlens/api build
 pnpm --filter @threadlens/web test
 pnpm --filter @threadlens/web build
+pnpm --filter @threadlens/tui test
 pnpm --filter @threadlens/tui build
 ```
 
@@ -29,7 +30,7 @@ Open a GitHub bug issue when:
 Before filing:
 - include the failing command output when possible
 - include OS, Node, and pnpm versions
-- say whether the issue happened in `Overview`, `Search`, `Sessions`, `Cleanup`, `TUI`, or packaged desktop mode
+- say whether the issue happened in `Overview`, `Search`, `Thread`, `Sessions`, `TUI`, or packaged desktop mode
 - if the issue is provider-specific, include the provider name and the action you were attempting
 
 ### Feature requests
@@ -61,6 +62,7 @@ pnpm --filter @threadlens/api test
 pnpm --filter @threadlens/api build
 pnpm --filter @threadlens/web test
 pnpm --filter @threadlens/web build
+pnpm --filter @threadlens/tui test
 pnpm --filter @threadlens/tui build
 pnpm package:desktop:dir
 ```

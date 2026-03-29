@@ -26,7 +26,7 @@ pnpm start:tui -- --view cleanup --filter risk
 
 ### Search
 
-- Search raw conversation text across supported providers
+- Search raw conversation text across Codex, Claude, Gemini, and Copilot
 - Group repeated hits by session
 - Open the matching session
 - Jump into cleanup when a Codex thread match exists
@@ -51,7 +51,7 @@ pnpm start:tui -- --view cleanup --filter risk
 - `1 / 2 / 3`: Search / Sessions / Cleanup
 - `?`: help overlay
 - `q`: quit
-- Search: `Enter`, `Ctrl+N`, `Tab`, `Ctrl+O`
+- Search: `Esc`, `Enter`, `Ctrl+N`, `Tab`, `Ctrl+O`
 - Sessions: `b`, `a`, `A`, `d`, `D`
 - Cleanup: `space`, `a`, `d`, `D`, `x`
 

@@ -11,7 +11,7 @@ ThreadLens uses one local Fastify backend shared by web, TUI, and desktop.
 
 ## Surfaces
 
-- `apps/web`: React workbench for `Overview`, `Search`, `Sessions`, and `Cleanup`
+- `apps/web`: React workbench for `Overview`, `Search`, `Thread`, and `Sessions`
 - `apps/tui`: Ink terminal workbench for `Search`, `Sessions`, and `Cleanup`
 - `apps/desktop-electron`: Electron shell that starts the bundled local API
 - `apps/api-ts`: Fastify runtime and domain logic
@@ -21,7 +21,7 @@ ThreadLens uses one local Fastify backend shared by web, TUI, and desktop.
 
 - `Conversation Search`: cross-provider raw conversation lookup
 - `Sessions`: provider session files, transcripts, and file-level actions
-- `Cleanup`: Codex thread review, impact analysis, and cleanup execution
+- `Thread`: Codex thread review, impact analysis, and cleanup execution
 - `Diagnostics`: runtime, parser, data-source, recovery, and execution-flow views
 
 ## Route Groups

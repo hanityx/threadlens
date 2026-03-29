@@ -23,6 +23,7 @@ We welcome all contributions! However, to avoid wasted effort, please **open an 
 - Run API build: `pnpm --filter @threadlens/api build`
 - Run Web tests: `pnpm --filter @threadlens/web test`
 - Run Web build: `pnpm --filter @threadlens/web build`
+- Run TUI tests when terminal surface changes: `pnpm --filter @threadlens/tui test`
 - Run TUI build when terminal surface changes: `pnpm --filter @threadlens/tui build`
 
 These checks must pass before a PR is accepted.

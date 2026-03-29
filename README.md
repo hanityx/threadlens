@@ -7,7 +7,7 @@
 
 ThreadLens is a local-first workbench for AI session search, session-file review, and safe Codex cleanup.
 
-Search local conversations across providers, inspect transcripts, back up session files, and run cleanup behind dry-run guardrails.
+Search local conversations across Codex, Claude, Gemini, and Copilot, inspect transcripts, back up session files, and run cleanup behind dry-run guardrails.
 
 <p align="center">
   <img src="docs/assets/readme-overview.png" alt="ThreadLens overview surface" width="100%"/>
@@ -15,23 +15,24 @@ Search local conversations across providers, inspect transcripts, back up sessio
 
 ## Screen Preview
 
-Temporary gallery structure. Replace these placeholder images with final captures for each screen.
+Temporary gallery structure. Replace these placeholder images with final captures for the current web surfaces.
 
 | Overview | Search |
 | --- | --- |
 | ![ThreadLens overview placeholder](docs/assets/readme-overview.png) | ![ThreadLens search placeholder](docs/assets/readme-overview.png) |
 | Main workbench and readiness view | Cross-provider conversation lookup |
 
-| Sessions | Cleanup |
+| Thread | Sessions |
 | --- | --- |
-| ![ThreadLens sessions placeholder](docs/assets/readme-overview.png) | ![ThreadLens cleanup placeholder](docs/assets/readme-overview.png) |
-| Session inspection, transcript preview, and provider actions | Codex thread review, impact analysis, and cleanup dry-run |
+| ![ThreadLens thread placeholder](docs/assets/readme-overview.png) | ![ThreadLens sessions placeholder](docs/assets/readme-overview.png) |
+| Codex thread review, impact analysis, and cleanup dry-run | Session inspection, transcript preview, and provider actions |
 
 ## Highlights
 
-- `Conversation Search` finds the right session before you decide whether it belongs in `Sessions` or `Cleanup`.
+- `Conversation Search` finds the right session before you decide whether it belongs in `Sessions` or `Thread`.
 - `Sessions` opens provider session files, transcript previews, and backup-first file actions.
-- `Cleanup` gives Codex thread review, impact analysis, and dry-run token execution in a dedicated workflow.
+- `Thread` gives Codex thread review, impact analysis, and dry-run token execution in a dedicated workflow.
+- `Overview Setup` can save one default AI so `Sessions` and `Search` reopen from the same starting point.
 - `Diagnostics` exposes runtime, parser, data-source, recovery, and execution-flow signals from the same local runtime.
 - Web, TUI, and desktop all reuse the same Fastify API surface.
 
