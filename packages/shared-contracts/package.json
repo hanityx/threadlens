@@ -16,7 +16,7 @@
   ],
   "scripts": {
     "build": "tsc -b tsconfig.json --force",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "lint": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

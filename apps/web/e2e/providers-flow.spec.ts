@@ -1,7 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 
 const SCHEMA_VERSION = "2026-02-27";
-const threadsTabLabel = /^(Threads|Review|Cleanup|Codex Cleanup)$/i;
+const threadsTabLabel = /^(Thread|Threads|Review|Cleanup|Codex Cleanup)$/i;
 const providersTabLabel = /^(Providers|Sessions|Source Sessions|Session Vault)$/i;
 const selectAllInTabLabel = /^(Select all in tab|Select all in current tab|Select tab)$/i;
 const selectAllFilteredLabel = /^(Select all filtered|Select all in current filter|Select filtered)$/i;

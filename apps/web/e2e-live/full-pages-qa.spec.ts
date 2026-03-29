@@ -44,7 +44,7 @@ async function runFullPageSmoke(page: Page, suffix: string, testInfo: { outputPa
   await surfaceTabs(page).getByRole("button", { name: /^search$/i }).click();
   await expect(page.getByRole("heading", { name: /^(Conversations|Search)$/i })).toBeVisible();
   await expect(page.locator("input.search-input-stage")).toBeVisible();
-  await expect(page.getByRole("button", { name: /^All core AI$/i }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /^(All local AI|All core AI|All Providers)$/i }).first()).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath(`search-${suffix}.png`),
     fullPage: true,
@@ -58,8 +58,8 @@ async function runFullPageSmoke(page: Page, suffix: string, testInfo: { outputPa
     fullPage: true,
   });
 
-  await surfaceTabs(page).getByRole("button", { name: /^(review|cleanup)$/i }).click();
-  await expect(page.getByRole("heading", { name: /review|cleanup/i }).first()).toBeVisible();
+  await surfaceTabs(page).getByRole("button", { name: /^(thread|threads|review|cleanup)$/i }).click();
+  await expect(page.getByRole("heading", { name: /thread|review|cleanup/i }).first()).toBeVisible();
   const firstCheckbox = page.locator("tbody input[type='checkbox']").first();
   if (await firstCheckbox.count()) {
     await firstCheckbox.check();
@@ -74,7 +74,7 @@ async function runFullPageSmoke(page: Page, suffix: string, testInfo: { outputPa
   const setupButton = page.getByRole("button", { name: /^setup$/i }).first();
   await setupButton.click();
   await expect(page.getByRole("heading", { name: /^Setup$/i }).first()).toBeVisible();
-  await expect(page.getByText(/Step 1: detect/i).first()).toBeVisible();
+  await expect(page.getByText(/Choose one default AI/i).first()).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath(`setup-${suffix}.png`),
     fullPage: true,

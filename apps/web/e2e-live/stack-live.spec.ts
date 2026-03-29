@@ -1,14 +1,14 @@
 import { expect, test } from "@playwright/test";
 
 const providersTabLabel = /^(Providers|Sessions|Source Sessions|Session Vault)$/i;
-const threadsTabLabel = /^(Threads|Cleanup|Codex Cleanup)$/i;
+const threadsTabLabel = /^(Thread|Threads|Cleanup|Codex Cleanup)$/i;
 const providersHubTitle = /^(Sessions|Original Sessions|Source Sessions|Session Vault)$/i;
 const routingTitle = /^(AI Diagnostics|AI Diagnostics \/ Execution Flow|Execution Routing Graph|Diagnostics map)$/i;
 const bulkImpactLabel = /^(Bulk Impact Analysis|Run impact analysis)$/i;
 const bulkCleanupDryRunLabel = /^(Bulk Cleanup Dry-Run|Run cleanup dry-run)$/i;
 const selectAllFilteredLabel = /^(Select all filtered)$/i;
 const forensicsErrorLabel = /^(Analysis\/dry-run request failed)$/i;
-const threadsHeading = /^(Cleanup|Threads|Codex Cleanup)$/i;
+const threadsHeading = /^(Thread|Cleanup|Threads|Codex Cleanup)$/i;
 const forensicsTitle = /^(Cleanup Check \/ Next Steps)$/i;
 const tokenLabel = /^(Token)$/i;
 
