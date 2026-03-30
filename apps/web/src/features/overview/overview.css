@@ -440,7 +440,7 @@
 }
 
 .overview-primary-focus-kpis strong {
-  color: #f2f2ef;
+  color: var(--text);
   font-size: var(--text-md);
   line-height: 1.08;
   letter-spacing: -0.04em;
@@ -602,7 +602,7 @@
   font-size: var(--text-2xl);
   line-height: 1.02;
   letter-spacing: -0.04em;
-  color: #f2f2ef;
+  color: var(--text);
   font-family: var(--font-heading);
   font-weight: 700;
   width: 100%;

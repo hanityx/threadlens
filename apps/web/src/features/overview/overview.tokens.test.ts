@@ -47,8 +47,9 @@ describe("overview token migration", () => {
     expect(overviewStyles).toMatch(/\.overview-command-metrics strong\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
     expect(overviewStyles).toMatch(/\.overview-primary-focus-meta\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
     expect(overviewStyles).toMatch(/\.overview-primary-focus-kpis span\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
+    expect(overviewStyles).toMatch(/\.overview-primary-focus-kpis strong\s*{[^}]*color:\s*var\(--text\);/s);
     expect(overviewStyles).toMatch(/\.overview-insight-card\.is-review strong\s*{[^}]*font-size:\s*var\(--text-2xl\);/s);
-    expect(overviewStyles).toMatch(/\.overview-review-title\s*{[^}]*font-size:\s*var\(--text-2xl\);/s);
+    expect(overviewStyles).toMatch(/\.overview-review-title\s*{[^}]*font-size:\s*var\(--text-2xl\);[^}]*color:\s*var\(--text\);/s);
     expect(overviewStyles).toMatch(/\.overview-review-list-item strong\s*{[^}]*font-size:\s*var\(--text-base\);/s);
     expect(overviewStyles).toMatch(/\.overview-review-list-item span\s*{[^}]*font-size:\s*var\(--text-3xs\);/s);
     expect(overviewStyles).toMatch(/\.overview-side-head strong\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
