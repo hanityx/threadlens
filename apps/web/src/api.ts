@@ -7,6 +7,11 @@ async function resolveApiBaseUrl(): Promise<string> {
   return import.meta.env.DEV ? "" : "http://127.0.0.1:8788";
 }
 
+export async function buildApiUrl(path: string): Promise<string> {
+  const apiBaseUrl = await resolveApiBaseUrl();
+  return `${apiBaseUrl}${path}`;
+}
+
 async function buildApiError(path: string, res: Response): Promise<Error> {
   const contentType = res.headers.get("content-type") || "";
   try {
@@ -25,8 +30,7 @@ async function buildApiError(path: string, res: Response): Promise<Error> {
 }
 
 export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
-  const apiBaseUrl = await resolveApiBaseUrl();
-  const res = await fetch(`${apiBaseUrl}${path}`, init);
+  const res = await fetch(await buildApiUrl(path), init);
   if (!res.ok) throw await buildApiError(path, res);
   return res.json() as Promise<T>;
 }
@@ -36,10 +40,9 @@ export async function apiPost<T>(
   body: unknown,
   init?: RequestInit,
 ): Promise<T> {
-  const apiBaseUrl = await resolveApiBaseUrl();
   const headers = new Headers(init?.headers ?? undefined);
   if (!headers.has("content-type")) headers.set("content-type", "application/json");
-  const res = await fetch(`${apiBaseUrl}${path}`, {
+  const res = await fetch(await buildApiUrl(path), {
     ...init,
     method: "POST",
     headers,
@@ -54,10 +57,9 @@ export async function apiPostJsonAllowError<T>(
   body: unknown,
   init?: RequestInit,
 ): Promise<{ ok: boolean; status: number; data: T }> {
-  const apiBaseUrl = await resolveApiBaseUrl();
   const headers = new Headers(init?.headers ?? undefined);
   if (!headers.has("content-type")) headers.set("content-type", "application/json");
-  const res = await fetch(`${apiBaseUrl}${path}`, {
+  const res = await fetch(await buildApiUrl(path), {
     ...init,
     method: "POST",
     headers,

@@ -3,6 +3,7 @@
  * related-tools status, and roadmap operations.
  */
 
+import { createReadStream } from "node:fs";
 import {
   cp,
   mkdir,
@@ -359,6 +360,20 @@ function recoveryExportRoot(override?: string): string {
   return override ?? path.join(PROJECT_ROOT, ".run", "recovery-exports");
 }
 
+export function resolveRecoveryBackupArchivePath(
+  archivePath: string,
+  overrideExportRoot?: string,
+): string | null {
+  const requested = String(archivePath || "").trim();
+  if (!requested) return null;
+  const exportRoot = path.resolve(recoveryExportRoot(overrideExportRoot));
+  const resolved = path.resolve(requested);
+  const relative = path.relative(exportRoot, resolved);
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) return null;
+  if (!resolved.endsWith(".zip")) return null;
+  return resolved;
+}
+
 function sanitizeBackupExportSegment(backupId: string): string {
   return String(backupId || "")
     .replace(/[\\/]+/g, "__")
@@ -373,6 +388,21 @@ async function defaultRecoveryArchiveWriter(sourceDir: string, archivePath: stri
     ["-c", "-k", "--sequesterRsrc", "--keepParent", sourceDir, archivePath],
     { stdio: "ignore" },
   );
+}
+
+export async function openRecoveryBackupArchiveReadStream(
+  archivePath: string,
+  overrideExportRoot?: string,
+) {
+  const resolved = resolveRecoveryBackupArchivePath(archivePath, overrideExportRoot);
+  if (!resolved) return null;
+  try {
+    const archiveStat = await stat(resolved);
+    if (!archiveStat.isFile()) return null;
+  } catch {
+    return null;
+  }
+  return { archivePath: resolved, stream: createReadStream(resolved) };
 }
 
 async function buildRestorePlan(

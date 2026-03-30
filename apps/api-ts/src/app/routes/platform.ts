@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import {
@@ -21,6 +22,7 @@ import {
   exportRecoveryBackupsTs,
   getCompareAppsStatusTs,
   getLatestSmokeStatusTs,
+  openRecoveryBackupArchiveReadStream,
   getRecoveryCenterDataTs,
   getRelatedToolsStatusTs,
   getRuntimeHealthTs,
@@ -65,6 +67,10 @@ export async function registerPlatformRoutes(
 
   const recoveryBackupExportSchema = z.object({
     backup_ids: z.array(z.string().min(1)).max(200).optional().default([]),
+  });
+
+  const recoveryBackupDownloadSchema = z.object({
+    archive_path: z.string().min(1),
   });
 
   const alertConfigSchema = z.object({
@@ -188,6 +194,23 @@ export async function registerPlatformRoutes(
       return reply.code(result.ok ? 200 : 400).send(withSchemaVersion(result));
     } catch (error) {
       return reply.code(500).send(envelope(null, `recovery-backup-export-error: ${String(error)}`));
+    }
+  });
+
+  app.get<{ Querystring: QueryMap }>("/api/recovery-backup-export/download", async (req, reply) => {
+    const archivePathRaw = Array.isArray(req.query.archive_path) ? req.query.archive_path[0] : req.query.archive_path;
+    const parsed = recoveryBackupDownloadSchema.safeParse({ archive_path: archivePathRaw ?? "" });
+    if (!parsed.success) return reply.code(400).send(envelope(null, parsed.error.message));
+    try {
+      const opened = await openRecoveryBackupArchiveReadStream(parsed.data.archive_path);
+      if (!opened) {
+        return reply.code(400).send(envelope(null, "recovery-backup-export-download-not-found"));
+      }
+      reply.header("content-type", "application/zip");
+      reply.header("content-disposition", `attachment; filename=\"${path.basename(opened.archivePath)}\"`);
+      return reply.send(opened.stream);
+    } catch (error) {
+      return reply.code(500).send(envelope(null, `recovery-backup-export-download-error: ${String(error)}`));
     }
   });
 

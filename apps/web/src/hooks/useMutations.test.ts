@@ -1,5 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
-import { performProviderHardDeleteFlow } from "./useMutations";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  performProviderHardDeleteFlow,
+  startRecoveryBackupDownload,
+} from "./useMutations";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("performProviderHardDeleteFlow", () => {
   it("requests a preview token and then executes the real delete", async () => {
@@ -74,5 +81,49 @@ describe("performProviderHardDeleteFlow", () => {
         file_paths: ["/tmp/a.jsonl"],
       }),
     ).rejects.toThrow("provider-hard-delete-preview-required");
+  });
+});
+
+describe("startRecoveryBackupDownload", () => {
+  it("creates and clicks a download link for exported archives", async () => {
+    const click = vi.fn();
+    const anchor = { href: "", download: "", click } as unknown as HTMLAnchorElement;
+    const createElement = vi.fn().mockReturnValue(anchor);
+
+    vi.stubGlobal("document", {
+      createElement,
+    });
+
+    await startRecoveryBackupDownload("/tmp/threadlens/backups/export-20260330.zip");
+
+    expect(createElement).toHaveBeenCalledWith("a");
+    expect(anchor.href).toBe(
+      "/api/recovery-backup-export/download?archive_path=%2Ftmp%2Fthreadlens%2Fbackups%2Fexport-20260330.zip",
+    );
+    expect(anchor.download).toBe("export-20260330.zip");
+    expect(click).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the desktop api base url when the runtime bridge is available", async () => {
+    const click = vi.fn();
+    const anchor = { href: "", download: "", click } as unknown as HTMLAnchorElement;
+    const createElement = vi.fn().mockReturnValue(anchor);
+
+    vi.stubGlobal("document", {
+      createElement,
+    });
+    vi.stubGlobal("window", {
+      threadLensDesktop: {
+        getApiBaseUrl: vi.fn().mockResolvedValue("http://127.0.0.1:8788"),
+      },
+    });
+
+    await startRecoveryBackupDownload("/tmp/threadlens/backups/export-20260330.zip");
+
+    expect(anchor.href).toBe(
+      "http://127.0.0.1:8788/api/recovery-backup-export/download?archive_path=%2Ftmp%2Fthreadlens%2Fbackups%2Fexport-20260330.zip",
+    );
+    expect(anchor.download).toBe("export-20260330.zip");
+    expect(click).toHaveBeenCalledTimes(1);
   });
 });

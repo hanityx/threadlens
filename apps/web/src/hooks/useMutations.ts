@@ -13,7 +13,7 @@ import type {
   RuntimeEnvelope,
   SmokeStatusEnvelope,
 } from "../types";
-import { apiGet, apiPost, apiPostJsonAllowError } from "../api";
+import { apiGet, apiPost, apiPostJsonAllowError, buildApiUrl } from "../api";
 import { extractEnvelopeData } from "../lib/helpers";
 import {
   RUNTIME_BACKEND_DOWN_CACHED,
@@ -64,6 +64,18 @@ export async function performProviderHardDeleteFlow(
     confirm_token: confirmToken,
     backup_before_delete: false,
   });
+}
+
+export async function startRecoveryBackupDownload(archivePath: string) {
+  if (typeof document === "undefined") return;
+  const normalized = String(archivePath || "").trim();
+  if (!normalized) return;
+  const anchor = document.createElement("a");
+  anchor.href = await buildApiUrl(
+    `/api/recovery-backup-export/download?archive_path=${encodeURIComponent(normalized)}`,
+  );
+  anchor.download = normalized.split("/").pop() || "threadlens-backup.zip";
+  anchor.click();
 }
 
 export function useMutations(options: {
@@ -291,7 +303,14 @@ export function useMutations(options: {
 
   const recoveryBackupExport = useMutation({
     mutationFn: (backupIds: string[]) => apiPost<RecoveryBackupExportResponse>("/api/recovery-backup-export", { backup_ids: backupIds }),
-    onSuccess: (data) => { setRecoveryBackupExportRaw(data); queryClient.invalidateQueries({ queryKey: ["recovery"] }); },
+    onSuccess: (data) => {
+      setRecoveryBackupExportRaw(data);
+      const exportData = extractEnvelopeData<RecoveryBackupExportResponse>(data);
+      if (exportData?.ok && exportData.archive_path) {
+        void startRecoveryBackupDownload(exportData.archive_path);
+      }
+      queryClient.invalidateQueries({ queryKey: ["recovery"] });
+    },
   });
 
   /* ---- auto-reset on backend reconnect ---- */

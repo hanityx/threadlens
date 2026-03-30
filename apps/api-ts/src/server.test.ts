@@ -1,5 +1,8 @@
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { FastifyInstance } from "fastify";
+import { PROJECT_ROOT } from "./lib/constants";
 import { createServer } from "./server";
 
 describe("api-ts direct endpoints", () => {
@@ -178,6 +181,37 @@ describe("api-ts direct endpoints", () => {
     const root = payload.data ?? payload;
     expect(root.backup_root).toBeTypeOf("string");
     expect(Array.isArray(root.checklist)).toBe(true);
+  });
+
+  it("GET /api/recovery-backup-export/download streams an exported archive", async () => {
+    const exportRoot = path.join(PROJECT_ROOT, ".run", "recovery-exports");
+    const archivePath = path.join(exportRoot, `vitest-export-${Date.now()}.zip`);
+    await mkdir(exportRoot, { recursive: true });
+    await writeFile(archivePath, "fake-zip", "utf-8");
+
+    try {
+      const downloadRes = await app.inject({
+        method: "GET",
+        url: `/api/recovery-backup-export/download?archive_path=${encodeURIComponent(archivePath)}`,
+      });
+
+      expect(downloadRes.statusCode).toBe(200);
+      expect(String(downloadRes.headers["content-type"] ?? "")).toContain("application/zip");
+      expect(String(downloadRes.headers["content-disposition"] ?? "")).toContain("attachment;");
+      expect(downloadRes.body.length).toBeGreaterThan(0);
+    } finally {
+      await rm(archivePath, { force: true });
+    }
+  }, 15000);
+
+  it("GET /api/recovery-backup-export/download rejects paths outside the export root", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/recovery-backup-export/download?archive_path=${encodeURIComponent("/tmp/not-allowed.zip")}`,
+    });
+    expect(res.statusCode).toBe(400);
+    const payload = res.json();
+    expect(payload.ok).toBe(false);
   });
 
   it("GET /api/related-tools returns tool summary", async () => {
