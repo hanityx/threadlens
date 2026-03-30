@@ -1,8 +1,5 @@
 blank_issues_enabled: false
 contact_links:
   - name: Security reports
-    url: https://github.com/threadlens/threadlens/security/advisories/new
-    about: Use private security reporting instead of a public issue.
-  - name: First public push guide
-    url: https://github.com/threadlens/threadlens/blob/main/docs/FIRST_PUBLIC_PUSH.md
-    about: Follow this guide before opening issues about public export or first release setup.
+    url: https://github.com/hanityx/threadlens/security/policy
+    about: Review the security policy and use private vulnerability reporting instead of a public issue.

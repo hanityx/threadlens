@@ -1,9 +1,12 @@
-# ThreadLens
+<h1>
+  <img src="apps/web/public/favicon.svg" alt="ThreadLens icon" width="28" />
+  ThreadLens
+</h1>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/Node-%3E%3D20-blue)](https://nodejs.org)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D10-orange)](https://pnpm.io)
-[![CI](https://github.com/threadlens/threadlens/actions/workflows/ci.yml/badge.svg)](https://github.com/threadlens/threadlens/actions/workflows/ci.yml)
+[![CI](https://github.com/hanityx/threadlens/actions/workflows/ci.yml/badge.svg)](https://github.com/hanityx/threadlens/actions/workflows/ci.yml)
 
 ThreadLens is a local-first workbench for AI conversation search, provider-session review, and safe thread cleanup.
 
