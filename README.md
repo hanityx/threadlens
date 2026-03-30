@@ -1,5 +1,5 @@
 <h1>
-  <img src="apps/web/public/favicon.svg" alt="ThreadLens icon" width="28" />
+  <img src="apps/web/public/favicon.svg" alt="ThreadLens icon" width="24" />
   ThreadLens
 </h1>
 
@@ -79,15 +79,15 @@ Optional surfaces:
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
+[Contributing guide](CONTRIBUTING.md)
 
 ## Security
 
-See [SECURITY.md](SECURITY.md) for vulnerability reporting.
+[Security policy](SECURITY.md)
 
 ## Support
 
-See [SUPPORT.md](SUPPORT.md) for bug-report, feature-request, and release-support guidance.
+[Support guide](SUPPORT.md)
 
 ## License
 
