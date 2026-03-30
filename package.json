@@ -33,11 +33,11 @@
     }
   },
   "scripts": {
-    "dev:api": "pnpm --filter @threadlens/api dev",
+    "dev:api": "pnpm --filter @threadlens/shared-contracts build && pnpm --filter @threadlens/api dev",
     "dev:tui": "pnpm --filter @threadlens/tui dev",
     "dev:web": "pnpm --filter @threadlens/web dev",
     "dev:desktop": "ELECTRON_RENDERER_URL=http://127.0.0.1:5174 pnpm --filter @threadlens/desktop-electron dev",
-    "dev": "pnpm -r --parallel --filter @threadlens/api --filter @threadlens/web dev",
+    "dev": "pnpm --filter @threadlens/shared-contracts build && pnpm -r --parallel --filter @threadlens/api --filter @threadlens/web dev",
     "build": "pnpm --filter @threadlens/shared-contracts build && pnpm --filter @threadlens/api build && pnpm --filter @threadlens/web build",
     "build:tui": "pnpm --filter @threadlens/tui build",
     "start:tui": "pnpm --filter @threadlens/tui start",
