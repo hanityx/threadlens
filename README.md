@@ -15,7 +15,7 @@ Search local conversations across Codex, Claude, Gemini, and Copilot, inspect tr
 ## Overview
 
 <p align="center">
-  <img src="docs/assets/readme-overview.png" alt="ThreadLens overview dashboard" />
+  <img src="docs/assets/readme-overview-v4.png" alt="ThreadLens overview dashboard" />
 </p>
 
 <p align="center">
