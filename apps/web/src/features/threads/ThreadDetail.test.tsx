@@ -146,4 +146,84 @@ describe("ThreadDetail", () => {
     expect(html).not.toContain("<p>sessions</p>");
     expect(html).not.toContain(">Artifacts<");
   });
+
+  it("treats a focused thread as detail context, not as an explicit row selection", () => {
+    const html = renderToStaticMarkup(
+      <ThreadDetail
+        messages={messages}
+        selectedThread={{
+          thread_id: "019d2f65-1111-2222-3333-4444444d4d85",
+          title: "Cleanup candidate",
+          risk_score: 82,
+          risk_level: "high",
+          is_pinned: false,
+          source: "sessions",
+          cwd: "/workspace/threadlens",
+          timestamp: "2026-03-28T12:30:00.000Z",
+        }}
+        selectedThreadId="019d2f65-1111-2222-3333-4444444d4d85"
+        openThreadById={vi.fn()}
+        visibleThreadCount={3}
+        filteredThreadCount={8}
+        nextThreadId="thread-2"
+        nextThreadTitle="next"
+        nextThreadSource="sessions"
+        searchContext={null}
+        threadDetailLoading={false}
+        selectedThreadDetail={null}
+        threadTranscriptData={null}
+        threadTranscriptLoading={false}
+        threadTranscriptLimit={250}
+        setThreadTranscriptLimit={vi.fn()}
+        busy={false}
+        threadActionsDisabled={false}
+        selectedIds={[]}
+        bulkPin={vi.fn()}
+        bulkUnpin={vi.fn()}
+        bulkArchive={vi.fn()}
+        analyzeDelete={vi.fn()}
+        cleanupDryRun={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("Thread Detail");
+    expect(html).not.toContain("Selected Thread Detail");
+    expect(html).not.toContain("1 Row Selected");
+  });
+
+  it("shows a selection-ready state when rows are checked but detail focus is still closed", () => {
+    const html = renderToStaticMarkup(
+      <ThreadDetail
+        messages={messages}
+        selectedThread={null}
+        selectedThreadId=""
+        openThreadById={vi.fn()}
+        visibleThreadCount={3}
+        filteredThreadCount={8}
+        nextThreadId="thread-2"
+        nextThreadTitle="next"
+        nextThreadSource="sessions"
+        searchContext={null}
+        threadDetailLoading={false}
+        selectedThreadDetail={null}
+        threadTranscriptData={null}
+        threadTranscriptLoading={false}
+        threadTranscriptLimit={250}
+        setThreadTranscriptLimit={vi.fn()}
+        busy={false}
+        threadActionsDisabled={false}
+        selectedIds={["thread-1"]}
+        bulkPin={vi.fn()}
+        bulkUnpin={vi.fn()}
+        bulkArchive={vi.fn()}
+        analyzeDelete={vi.fn()}
+        cleanupDryRun={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("1 Row Selected");
+    expect(html).toContain("Selection ready");
+    expect(html).toContain("Open selected row");
+    expect(html).not.toContain("No thread selected.");
+  });
 });

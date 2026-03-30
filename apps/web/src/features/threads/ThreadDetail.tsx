@@ -87,11 +87,12 @@ export function ThreadDetail(props: ThreadDetailProps) {
   };
   const fallbackContext =
     searchContext?.thread_id && searchContext.thread_id === selectedThreadId ? searchContext : null;
-  const hasSelection = Boolean(selectedThreadId);
+  const hasFocusedThread = Boolean(selectedThreadId);
+  const hasExplicitSelection = selectedIds.length > 0;
+  const firstSelectedThreadId = selectedIds[0] ?? "";
   const selectedRowsLabel = selectedIds.length === 1 ? "Row" : "Rows";
-  const headerSubtitle = hasSelection
-    ? `${selectedIds.length} ${selectedRowsLabel} Selected`
-    : undefined;
+  const headerSubtitle =
+    selectedIds.length > 0 ? `${selectedIds.length} ${selectedRowsLabel} Selected` : undefined;
   const fallbackThreadTitle = selectedThreadId
     ? `thread ${selectedThreadId.slice(0, 8)}`
     : messages.threadDetail.unknownTitle;
@@ -125,7 +126,7 @@ export function ThreadDetail(props: ThreadDetailProps) {
     resolvedCwd && resolvedCwd !== "/" ? resolvedCwd : "";
   const workspaceLabel = formatWorkspaceLabel(displayCwd);
   const fallbackNotice =
-    hasSelection && !selectedThread
+    hasFocusedThread && !selectedThread
       ? messages.threadDetail.fallbackHint
       : "";
   const artifactCount = Number(selectedThreadDetail?.artifact_count ?? 0);
@@ -164,7 +165,7 @@ export function ThreadDetail(props: ThreadDetailProps) {
     <section className="panel thread-review-panel">
       <PanelHeader title={messages.threadDetail.title} subtitle={headerSubtitle} />
       <div className="impact-body">
-        {!hasSelection ? (
+        {!hasFocusedThread && !hasExplicitSelection ? (
           <div className="thread-detail-empty-state">
             <div className="thread-detail-empty-copy">
               <strong>No thread selected.</strong>
@@ -190,6 +191,28 @@ export function ThreadDetail(props: ThreadDetailProps) {
             <p className="thread-detail-empty-opens">
               <span className="overview-note-label">opens here</span>
               Transcript, local files, and cleanup preview.
+            </p>
+          </div>
+        ) : !hasFocusedThread ? (
+          <div className="thread-detail-empty-state">
+            <div className="thread-detail-empty-copy">
+              <strong>{messages.threadDetail.selectionTitle}</strong>
+              <p>{messages.threadDetail.selectionHint}</p>
+            </div>
+            {firstSelectedThreadId ? (
+              <button
+                type="button"
+                className="thread-detail-empty-next thread-detail-empty-next-button"
+                onClick={() => openThreadById(firstSelectedThreadId)}
+              >
+                <span className="overview-note-label">focus detail</span>
+                <strong>{messages.threadDetail.openSelected}</strong>
+                <p>{firstSelectedThreadId}</p>
+              </button>
+            ) : null}
+            <p className="thread-detail-empty-opens">
+              <span className="overview-note-label">bulk actions</span>
+              Selection and impact totals already reflect the checked rows.
             </p>
           </div>
         ) : (

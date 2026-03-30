@@ -149,8 +149,14 @@ describe("ThreadsWorkbench", () => {
     expect(mockThreadsForensicsSlot).toHaveBeenCalledTimes(1);
     expect(mockThreadsTable).toHaveBeenCalledTimes(1);
     expect(html).toContain("data-slot=\"threads-table\">1|false</div>");
-    expect(html).toContain("data-slot=\"thread-detail\">thread-1|1</div>");
+    expect(html).toContain("data-slot=\"thread-detail\">thread-1|0</div>");
     expect(html).toContain("token-123|token-123|true|1|true|true|analysis failed|cleanup failed|execute failed");
+  });
+
+  it("does not count the focused thread as an explicit selection", () => {
+    const html = renderToStaticMarkup(<ThreadsWorkbench />);
+
+    expect(html).not.toMatch(/<span>selected<\/span><strong>1<\/strong>/i);
   });
 
   it("marks dry-run as not ready when the selected ids no longer match the pending token", () => {

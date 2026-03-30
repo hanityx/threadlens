@@ -571,7 +571,7 @@ export const en = {
     kindRuntime: "Runtime",
   },
   threadDetail: {
-    title: "Selected Thread Detail",
+    title: "Thread Detail",
     clickHint: "Click a thread to open this panel automatically.",
     sectionOverview: "Overview",
     sectionActions: "Actions",
@@ -584,6 +584,10 @@ export const en = {
     fieldUpdated: "Updated",
     fieldRisk: "Risk",
     fieldCwd: "Workspace",
+    selectionTitle: "Selection ready",
+    selectionHint:
+      "Rows are selected for bulk actions, but detail focus is still closed. Open one selected row to inspect it here.",
+    openSelected: "Open selected row",
     fallbackTitle: "Thread opened directly from Search",
     fallbackHint:
       "This thread is not present in the current cleanup index, but Search found its raw transcript and ID so you can still inspect it directly.",

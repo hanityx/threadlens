@@ -71,7 +71,7 @@ export function ThreadsWorkbench() {
   const reviewSelectionKey = buildThreadCleanupSelectionKey(reviewTargetIds, THREAD_CLEANUP_DEFAULT_OPTIONS);
   const visibleCount = visibleRows.length;
   const filteredCount = filteredRows.length;
-  const selectedCount = reviewTargetIds.length;
+  const selectedCount = selectedIds.length;
   const dryRunReady = Boolean(
     pendingCleanup?.confirmToken &&
     pendingCleanup.selectionKey === reviewSelectionKey &&
@@ -301,7 +301,7 @@ export function ThreadsWorkbench() {
               bulkArchive={bulkArchive}
               analyzeDelete={analyzeDelete}
               cleanupDryRun={cleanupDryRun}
-              selectedIds={reviewTargetIds}
+              selectedIds={selectedIds}
             />
             <ThreadsForensicsSlot
               messages={messages}
