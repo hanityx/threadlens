@@ -79,15 +79,15 @@ Optional surfaces:
 
 ## Contributing
 
-[Contributing guide](CONTRIBUTING.md)
+For development guidelines, read [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Security
 
-[Security policy](SECURITY.md)
+For vulnerability reporting, read [SECURITY.md](SECURITY.md).
 
 ## Support
 
-[Support guide](SUPPORT.md)
+For bug reports, feature requests, and release support, read [SUPPORT.md](SUPPORT.md).
 
 ## License
 
