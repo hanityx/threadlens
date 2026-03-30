@@ -3,7 +3,7 @@ import {
   CHAT_DIR,
   CODEX_GLOBAL_STATE_FILE,
   CODEX_HOME,
-  LABS_DIR,
+  PROJECTS_DIR,
 } from "../../lib/constants.js";
 import {
   pathExists,
@@ -163,20 +163,24 @@ function calcRisk(
   };
 }
 
-async function listLabsProjects(limit = 30) {
-  const exists = await pathExists(LABS_DIR);
+async function listProjectDirs(limit = 30) {
+  if (!PROJECTS_DIR) return [];
+  const exists = await pathExists(PROJECTS_DIR);
   if (!exists) return [];
   try {
-    const entries = await (await import("node:fs/promises")).readdir(LABS_DIR, {
-      withFileTypes: true,
-    });
+    const entries = await (await import("node:fs/promises")).readdir(
+      PROJECTS_DIR,
+      {
+        withFileTypes: true,
+      },
+    );
     return entries
       .filter((entry) => entry.isDirectory())
       .sort((a, b) => a.name.localeCompare(b.name))
       .slice(0, limit)
       .map((entry) => ({
         name: entry.name,
-        path: path.join(LABS_DIR, entry.name),
+        path: path.join(PROJECTS_DIR, entry.name),
         is_git: false,
       }));
   } catch {
@@ -344,18 +348,18 @@ async function buildOverview(includeThreads: boolean, forceRefresh: boolean) {
       thread_with_session_log: rows.filter((row) => row.has_session_log).length,
       workspace_total: workspaces.length,
       workspace_active: workspaces.filter((row) => row.active).length,
-      labs_project_total: (await listLabsProjects()).length,
+      project_dir_total: (await listProjectDirs()).length,
       project_bucket_total: 0,
       high_context_threads: rows.filter((row) => row.context_score >= 70).length,
       high_risk_threads: riskSummary.high,
     },
     workspaces,
     project_buckets: [],
-    labs_projects: await listLabsProjects(),
+    project_dirs: await listProjectDirs(),
     paths: {
       codex_global_state: CODEX_GLOBAL_STATE_FILE,
       chat_root: CHAT_DIR,
-      labs_root: LABS_DIR,
+      projects_root: PROJECTS_DIR || null,
       codex_sessions_root: path.join(CODEX_HOME, "sessions"),
       codex_archived_sessions_root: path.join(CODEX_HOME, "archived_sessions"),
     },

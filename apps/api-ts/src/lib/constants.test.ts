@@ -31,6 +31,8 @@ async function loadConstants(env: Record<string, EnvValue>) {
 afterEach(() => {
   delete process.env.THREADLENS_PROJECT_ROOT;
   delete process.env.THREADLENS_STATE_DIR;
+  delete process.env.THREADLENS_PROJECTS_DIR;
+  delete process.env.PROJECTS_DIR;
   vi.resetModules();
 });
 
@@ -94,5 +96,33 @@ describe("runtime state paths", () => {
         XDG_CONFIG_HOME: "/home/example/.config",
       }),
     ).toBe("/home/example/.config");
+  });
+
+  it("defaults project discovery to an empty optional directory", async () => {
+    const mod = await loadConstants({
+      THREADLENS_PROJECTS_DIR: undefined,
+      PROJECTS_DIR: undefined,
+    });
+
+    expect(mod.PROJECTS_DIR).toBe("");
+  });
+
+  it("accepts THREADLENS_PROJECTS_DIR overrides for overview project discovery", async () => {
+    const customProjectsDir = path.join(os.tmpdir(), "threadlens-projects");
+    const mod = await loadConstants({
+      THREADLENS_PROJECTS_DIR: customProjectsDir,
+    });
+
+    expect(mod.PROJECTS_DIR).toBe(customProjectsDir);
+  });
+
+  it("falls back to PROJECTS_DIR when the threadlens-specific override is missing", async () => {
+    const customProjectsDir = path.join(os.tmpdir(), "threadlens-projects-fallback");
+    const mod = await loadConstants({
+      THREADLENS_PROJECTS_DIR: undefined,
+      PROJECTS_DIR: customProjectsDir,
+    });
+
+    expect(mod.PROJECTS_DIR).toBe(customProjectsDir);
   });
 });

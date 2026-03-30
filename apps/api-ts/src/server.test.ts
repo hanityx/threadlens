@@ -541,7 +541,13 @@ describe("api-ts direct endpoints", () => {
       const root = payload.data ?? payload;
       expect(root.summary).toBeTruthy();
       expect(typeof root.summary.thread_total).toBe("number");
+      expect(typeof root.summary.project_dir_total).toBe("number");
       expect(root.risk_summary).toBeTruthy();
+      expect(Array.isArray(root.project_dirs)).toBe(true);
+      expect(root.paths?.projects_root).toBeDefined();
+      expect(root.summary?.labs_project_total).toBeUndefined();
+      expect(root.labs_projects).toBeUndefined();
+      expect(root.paths?.labs_root).toBeUndefined();
       expect(fetchMock).not.toHaveBeenCalled();
     } finally {
       vi.unstubAllGlobals();

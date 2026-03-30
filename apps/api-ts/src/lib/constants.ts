@@ -67,7 +67,9 @@ export const THREADS_BOOT_CACHE_FILE = path.join(
 /* ── Provider storage roots ───────────────────────────────────────── */
 
 export const HOME_DIR = process.env.HOME ?? "";
-export const LABS_DIR = path.join(HOME_DIR, "Labs");
+export const PROJECTS_DIR = String(
+  process.env.THREADLENS_PROJECTS_DIR ?? process.env.PROJECTS_DIR ?? "",
+).trim();
 
 export function resolvePlatformAppDataDir(
   platform = process.platform,
