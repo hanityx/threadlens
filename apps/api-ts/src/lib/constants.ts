@@ -68,6 +68,22 @@ export const THREADS_BOOT_CACHE_FILE = path.join(
 
 export const HOME_DIR = process.env.HOME ?? "";
 export const LABS_DIR = path.join(HOME_DIR, "Labs");
+
+export function resolvePlatformAppDataDir(
+  platform = process.platform,
+  env: Record<string, string | undefined> = process.env,
+) {
+  const homeDir = env.HOME ?? "";
+  if (platform === "darwin") {
+    return path.join(homeDir, "Library", "Application Support");
+  }
+  if (platform === "win32") {
+    return env.APPDATA ?? path.join(homeDir, "AppData", "Roaming");
+  }
+  return env.XDG_CONFIG_HOME ?? path.join(homeDir, ".config");
+}
+
+export const APP_DATA_DIR = resolvePlatformAppDataDir();
 export const CHAT_DIR = path.join(
   HOME_DIR,
   "Library",
@@ -86,35 +102,27 @@ export const GEMINI_ANTIGRAVITY_CONVERSATIONS_DIR = path.join(
   "conversations",
 );
 export const COPILOT_VSCODE_GLOBAL = path.join(
-  HOME_DIR,
-  "Library",
-  "Application Support",
+  APP_DATA_DIR,
   "Code",
   "User",
   "globalStorage",
   "github.copilot-chat",
 );
 export const COPILOT_VSCODE_WORKSPACE_STORAGE = path.join(
-  HOME_DIR,
-  "Library",
-  "Application Support",
+  APP_DATA_DIR,
   "Code",
   "User",
   "workspaceStorage",
 );
 export const COPILOT_CURSOR_GLOBAL = path.join(
-  HOME_DIR,
-  "Library",
-  "Application Support",
+  APP_DATA_DIR,
   "Cursor",
   "User",
   "globalStorage",
   "github.copilot-chat",
 );
 export const COPILOT_CURSOR_WORKSPACE_STORAGE = path.join(
-  HOME_DIR,
-  "Library",
-  "Application Support",
+  APP_DATA_DIR,
   "Cursor",
   "User",
   "workspaceStorage",

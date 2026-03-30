@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildProviderActionToken,
+  codexTranscriptSearchRoots,
   listProviderIds,
   parseProviderId,
   providerRootSpecs,
@@ -88,7 +89,25 @@ describe("provider registry", () => {
           spec.source === "cursor_workspace_chats" &&
           spec.exts.includes(".json"),
       ),
-    ).toBe(true);
+        ).toBe(true);
+  });
+
+  it("keeps Codex and dot-home providers separate from desktop app-data cache roots", () => {
+    const codexRoots = providerRootSpecs("codex");
+    const claudeRoots = providerRootSpecs("claude");
+    const geminiRoots = providerRootSpecs("gemini");
+    const chatGptRoots = providerRootSpecs("chatgpt");
+    const copilotRoots = providerRootSpecs("copilot");
+
+    expect(codexRoots.every((spec) => !spec.root.includes("Library/Application Support"))).toBe(true);
+    expect(codexTranscriptSearchRoots().some((spec) => spec.root.includes(".codex"))).toBe(true);
+    expect(claudeRoots.every((spec) => spec.root.includes(".claude"))).toBe(true);
+    expect(geminiRoots.every((spec) => spec.root.includes(".gemini"))).toBe(true);
+    expect(chatGptRoots.some((spec) => spec.root.includes("Library/Application Support/com.openai.chat"))).toBe(true);
+    expect(copilotRoots.some((spec) => spec.root.endsWith(path.join("Code", "User", "globalStorage", "github.copilot-chat")))).toBe(true);
+    expect(copilotRoots.some((spec) => spec.root.endsWith(path.join("Cursor", "User", "globalStorage", "github.copilot-chat")))).toBe(true);
+    expect(copilotRoots.some((spec) => spec.root.endsWith(path.join("Code", "User", "workspaceStorage")))).toBe(true);
+    expect(copilotRoots.some((spec) => spec.root.endsWith(path.join("Cursor", "User", "workspaceStorage")))).toBe(true);
   });
 });
 

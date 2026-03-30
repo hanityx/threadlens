@@ -14,6 +14,14 @@ The shared web search contract currently covers `Codex`, `Claude`, `Gemini`, and
 | Gemini | Yes | Yes, when local session data is detected | No |
 | Copilot | Yes | Yes, when local session data is detected | No |
 
+## Local Path Notes
+
+- `Codex` reads session logs from `CODEX_HOME` plus detected Codex home mirrors such as `~/.codex` and `~/.codex-cli`; it is not tied to macOS app-data paths.
+- `Claude` and `Gemini` are read from dot-home stores such as `~/.claude` and `~/.gemini`.
+- `Copilot` resolves local app-data roots by platform: macOS `~/Library/Application Support`, Windows `%APPDATA%`, and Linux `XDG_CONFIG_HOME` or `~/.config`.
+- `ChatGPT` currently reads the desktop cache from the macOS app-data path under `~/Library/Application Support/com.openai.chat`.
+- On Windows or Linux, `ChatGPT` can appear empty unless its local data is mirrored into a compatible root.
+
 ## Provider Notes
 
 ### Codex

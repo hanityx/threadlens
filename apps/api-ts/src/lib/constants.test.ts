@@ -73,4 +73,26 @@ describe("runtime state paths", () => {
     expect(mod.STATE_DIR).toBe(absoluteStateDir);
     expect(mod.RECOVERY_PLAN_DIR).toBe(path.join(absoluteStateDir, "recovery_plans"));
   });
+
+  it("resolves platform app-data roots for Copilot storage", async () => {
+    const mod = await loadConstants({});
+
+    expect(
+      mod.resolvePlatformAppDataDir("darwin", {
+        HOME: "/Users/example",
+      }),
+    ).toBe("/Users/example/Library/Application Support");
+    expect(
+      mod.resolvePlatformAppDataDir("win32", {
+        HOME: "C:/Users/example",
+        APPDATA: "C:/Users/example/AppData/Roaming",
+      }),
+    ).toBe("C:/Users/example/AppData/Roaming");
+    expect(
+      mod.resolvePlatformAppDataDir("linux", {
+        HOME: "/home/example",
+        XDG_CONFIG_HOME: "/home/example/.config",
+      }),
+    ).toBe("/home/example/.config");
+  });
 });
