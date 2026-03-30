@@ -10,7 +10,6 @@ The shared web search contract currently covers `Codex`, `Claude`, `Gemini`, and
 | Provider | Search scope / transcript read | Session backup / archive / delete | Dedicated thread review |
 | --- | --- | --- | --- |
 | Codex | Yes | Yes | Yes |
-| ChatGPT Desktop cache | Transcript inspection only when local cache is detected; not exposed as a web Search scope | No, read-only by policy | No |
 | Claude | Yes | Yes, when local session data is detected | No |
 | Gemini | Yes | Yes, when local session data is detected | No |
 | Copilot | Yes | Yes, when local session data is detected | No |
@@ -22,13 +21,6 @@ The shared web search contract currently covers `Codex`, `Claude`, `Gemini`, and
 - Central thread model with pinned state, archives, and cleanup review
 - `Thread` is the main Codex workflow
 - Session transcripts also appear in `Sessions`
-
-### ChatGPT Desktop Cache
-
-- Read-first integration for local desktop cache artifacts
-- Transcript and session inspection are supported when cache artifacts are detected
-- ChatGPT is not exposed as a public web `Search` scope
-- Destructive actions are disabled by policy
 
 ### Claude
 
@@ -57,5 +49,4 @@ The shared web search contract currently covers `Codex`, `Claude`, `Gemini`, and
 ## TUI Note
 
 The terminal workbench follows the same core search scope used in the web workbench:
-`Codex`, `Claude`, `Gemini`, and `Copilot`. ChatGPT desktop cache remains a
-read-first web session surface.
+`Codex`, `Claude`, `Gemini`, and `Copilot`.

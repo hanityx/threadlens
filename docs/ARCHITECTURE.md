@@ -24,8 +24,6 @@ ThreadLens uses one local Fastify backend shared by web, TUI, and desktop.
 - `Thread`: Codex thread review, impact analysis, and cleanup execution
 - `Diagnostics`: runtime, parser, data-source, recovery, and execution-flow views
 
-ChatGPT desktop cache stays in the read-first session and diagnostics path. It is not exposed as a web `Search` scope.
-
 ## Route Groups
 
 `apps/api-ts/src/app/routes`

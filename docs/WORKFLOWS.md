@@ -12,8 +12,6 @@ yet know where it lives.
 - Lets you jump into `Sessions`
 - Lets you jump into `Thread` when a Codex thread match is available
 
-ChatGPT desktop cache stays in `Sessions` and diagnostics. It is not exposed as a standalone web search scope.
-
 Use this first when the question is "where did that conversation happen?"
 
 ## 2. Sessions
