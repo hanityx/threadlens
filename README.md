@@ -19,21 +19,17 @@ Search local conversations across Codex, Claude, Gemini, and Copilot, inspect tr
 </p>
 
 <p align="center">
-  <sub>Start in Overview for recent activity, provider health, runtime recovery signals, and the default-AI setup that drives the rest of the workbench.</sub>
+  <sub>Start in Overview for recent activity, provider health, runtime recovery, and the default AI.</sub>
 </p>
 
 ## Core Workflows
-
-<p align="center">
-  <sub>Start in Search when you know the phrase, then switch to Sessions when you need raw provider files and transcript detail.</sub>
-</p>
 
 <p align="center">
   <img src="docs/assets/readme-search-sessions-composite.png" alt="ThreadLens search and sessions surfaces" />
 </p>
 
 <p align="center">
-  <sub>Search keeps phrase-first lookup readable, while Sessions keeps raw provider files and transcript detail open in the same workbench.</sub>
+  <sub>Start in Search when you know the phrase, then switch to Sessions for raw provider files and transcript detail.</sub>
 </p>
 
 ## Highlights
