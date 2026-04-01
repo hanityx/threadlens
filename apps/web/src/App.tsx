@@ -1,4 +1,6 @@
 import { startTransition, useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import type { ApiEnvelope, UpdateCheckStatus } from "@threadlens/shared-contracts";
 import { AppContext, type AppContextValue } from "./app/AppContext";
 import { DetailShell } from "./app/DetailShell";
 import { OverviewWorkbench } from "./features/overview/OverviewWorkbench";
@@ -22,8 +24,11 @@ import {
 } from "./hooks/appDataUtils";
 import { useAppData } from "./hooks/useAppData";
 import { useLocale } from "./i18n";
+import { apiGet } from "./api";
+import { extractEnvelopeData } from "./lib/helpers";
 import type { ConversationSearchHit, LayoutView, ProviderView } from "./types";
 import type { ProviderProbeFilter } from "./features/providers/sessionTableModel";
+import { UpdateBanner } from "./app/UpdateBanner";
 
 export function App() {
   const panelChunkWarmupStartedRef = useRef(false);
@@ -42,11 +47,19 @@ export function App() {
   const [providerProbeFilterIntent, setProviderProbeFilterIntent] = useState<ProviderProbeFilter | null>(null);
   const [providersDiagnosticsOpen, setProvidersDiagnosticsOpen] = useState(false);
   const [setupGuideOpen, setSetupGuideOpen] = useState(false);
+  const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState("");
   const [headerSearchDraft, setHeaderSearchDraft] = useState("");
   const [headerSearchSeed, setHeaderSearchSeed] = useState(() => {
     return readStorageValue([SEARCH_DRAFT_STORAGE_KEY]) ?? "";
   });
   const appData = useAppData({ providersDiagnosticsOpen });
+  const updateCheck = useQuery({
+    queryKey: ["update-check"],
+    queryFn: ({ signal }) =>
+      apiGet<ApiEnvelope<UpdateCheckStatus>>("/api/update-check", { signal }),
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
   // Destructure only what's needed for hook calls and derived values below.
   // Everything else is available via ...appData spread into ctx.
   const {
@@ -131,6 +144,12 @@ export function App() {
   };
 
   const { messages } = useLocale();
+  const updateCheckData = extractEnvelopeData<UpdateCheckStatus>(updateCheck.data);
+  const showUpdateBanner = Boolean(
+    updateCheckData?.has_update &&
+      updateCheckData.latest_version &&
+      updateCheckData.latest_version !== dismissedUpdateVersion,
+  );
   const runtimeBackend = runtime.data?.data?.runtime_backend;
   const showRuntimeBackendDegraded =
     runtime.isError || (!runtimeLoading && runtimeBackend?.reachable === false);
@@ -332,6 +351,16 @@ export function App() {
                 {messages.alerts.runtimeBackendDownHint} {runtimeBackend?.url ?? "ts-native"}
               </span>
             </section>
+          ) : null}
+          {showUpdateBanner && updateCheckData?.latest_version ? (
+            <UpdateBanner
+              messages={messages.alerts}
+              currentVersion={updateCheckData.current_version}
+              latestVersion={updateCheckData.latest_version}
+              releaseSummary={updateCheckData.release_summary}
+              releaseUrl={updateCheckData.release_url}
+              onDismiss={() => setDismissedUpdateVersion(updateCheckData.latest_version ?? "")}
+            />
           ) : null}
           {layoutView === "overview" ? <OverviewWorkbench /> : null}
           {showSearch ? <SearchRoute /> : null}

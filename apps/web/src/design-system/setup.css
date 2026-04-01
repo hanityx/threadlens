@@ -344,3 +344,22 @@
   color: rgba(217, 204, 176, 0.62);
   font-size: var(--text-base);
 }
+
+.update-banner-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.update-banner-actions a,
+.update-banner-actions button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: rgba(255, 230, 173, 0.96);
+  cursor: pointer;
+  text-decoration: underline;
+}

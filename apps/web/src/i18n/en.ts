@@ -64,6 +64,10 @@ export const en = {
     runtimeBackendDownBody:
       "Some actions are running in degraded mode until the local TS API is reachable again.",
     runtimeBackendDownHint: "Check backend URL:",
+    updateAvailableTitle: "Update available",
+    updateAvailableBody: "A newer ThreadLens release is available.",
+    updateAvailableOpen: "Open release",
+    updateAvailableDismiss: "Dismiss",
   },
   errors: {
     runtime: "Failed to load runtime state",

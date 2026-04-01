@@ -5,6 +5,14 @@ import { FastifyInstance } from "fastify";
 import { PROJECT_ROOT } from "./lib/constants";
 import { createServer } from "./server";
 
+vi.mock("./domains/threads/state.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./domains/threads/state.js")>();
+  return {
+    ...actual,
+    setThreadPinnedTs: vi.fn().mockResolvedValue({ ok: true, results: [{ thread_id: "thread-1", ok: true }] }),
+  };
+});
+
 describe("api-ts direct endpoints", () => {
   let app: FastifyInstance;
 
@@ -34,6 +42,36 @@ describe("api-ts direct endpoints", () => {
     expect(payload.data.desktop).toBe("electron");
   });
 
+  it("GET /api/update-check returns release metadata", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          tag_name: "v0.1.1",
+          name: "ThreadLens v0.1.1",
+          body: "Codex rename sync now reflects immediately.",
+          html_url: "https://github.com/hanityx/threadlens/releases/tag/v0.1.1",
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const res = await app.inject({ method: "GET", url: "/api/update-check" });
+      expect(res.statusCode).toBe(200);
+      const payload = res.json();
+      expect(payload.ok).toBe(true);
+      expect(payload.data.status).toBe("available");
+      expect(payload.data.latest_version).toBe("0.1.1");
+      expect(payload.data.release_summary).toBe("Codex rename sync now reflects immediately.");
+      expect(payload.data.has_update).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("GET /api/roadmap-status returns roadmap keys", async () => {
     const res = await app.inject({ method: "GET", url: "/api/roadmap-status" });
     expect(res.statusCode).toBe(200);
@@ -60,8 +98,8 @@ describe("api-ts direct endpoints", () => {
       payload: { action: "pin", thread_ids: ["thread-1"] },
     });
 
-    expect(res.statusCode).toBe(200);
     const payload = res.json();
+    expect(res.statusCode).toBe(200);
     expect(payload.data.success).toBe(1);
     expect(payload.data.failed).toBe(0);
     expect(payload.data.results[0]).toMatchObject({

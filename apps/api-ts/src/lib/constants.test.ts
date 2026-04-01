@@ -81,21 +81,21 @@ describe("runtime state paths", () => {
 
     expect(
       mod.resolvePlatformAppDataDir("darwin", {
-        HOME: "/Users/example",
+        HOME: "/mock_dir",
       }),
-    ).toBe("/Users/example/Library/Application Support");
+    ).toBe("/mock_dir/Library/Application Support");
     expect(
       mod.resolvePlatformAppDataDir("win32", {
-        HOME: "C:/Users/example",
-        APPDATA: "C:/Users/example/AppData/Roaming",
+        HOME: "C:/mock_dir",
+        APPDATA: "C:/mock_dir/AppData/Roaming",
       }),
-    ).toBe("C:/Users/example/AppData/Roaming");
+    ).toBe("C:/mock_dir/AppData/Roaming");
     expect(
       mod.resolvePlatformAppDataDir("linux", {
-        HOME: "/home/example",
-        XDG_CONFIG_HOME: "/home/example/.config",
+        HOME: "/mock_linux",
+        XDG_CONFIG_HOME: "/mock_linux/.config",
       }),
-    ).toBe("/home/example/.config");
+    ).toBe("/mock_linux/.config");
   });
 
   it("defaults project discovery to an empty optional directory", async () => {

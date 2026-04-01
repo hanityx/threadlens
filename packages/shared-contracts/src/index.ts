@@ -23,6 +23,19 @@ export type ApiEnvelope<T> = {
   error: string | null;
 };
 
+export type UpdateCheckStatus = {
+  source: "github-releases";
+  status: "available" | "up-to-date" | "unavailable";
+  checked_at: string;
+  current_version: string;
+  latest_version: string | null;
+  release_title: string | null;
+  release_summary: string | null;
+  has_update: boolean;
+  release_url: string;
+  error: string | null;
+};
+
 export type AgentRuntimeState = {
   ts: string;
   runtime_backend: {

@@ -1,8 +1,11 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { spawn } from "node:child_process";
+import type { UpdateCheckStatus } from "@threadlens/shared-contracts";
 import { Box, Text, useApp, useInput, useStdout } from "ink";
-import { getApiBaseUrl } from "./api.js";
+import { fetchUpdateCheck, getApiBaseUrl } from "./api.js";
 import { AppBootstrapProps, type ProviderScope, VIEWS } from "./config.js";
 import { resolveHeaderLayout } from "./lib/headerLayout.js";
+import { buildUpdateNoticeLine, buildUpdateNoticeSummary } from "./lib/updateNotice.js";
 import { SearchView } from "./views/SearchView.js";
 import { SessionsView } from "./views/SessionsView.js";
 import { CleanupView } from "./views/CleanupView.js";
@@ -98,19 +101,58 @@ export function App(props: AppBootstrapProps) {
   const [sessionsFilePath, setSessionsFilePath] = useState<string | null>(null);
   const [cleanupInitialThreadId, setCleanupInitialThreadId] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [updateCheck, setUpdateCheck] = useState<UpdateCheckStatus | null>(null);
 
   const activeView = VIEWS[viewIndex]!.id;
 
   const footerShortcuts = useMemo(() => {
-    const shortcuts = VIEW_SHORTCUTS[activeView] ?? [];
+    const shortcuts = [...(VIEW_SHORTCUTS[activeView] ?? [])];
+    if (updateCheck?.has_update) shortcuts.push("u  release");
     return shortcuts.join("  ·  ");
-  }, [activeView]);
+  }, [activeView, updateCheck?.has_update]);
+  const updateNotice = useMemo(
+    () => buildUpdateNoticeLine(updateCheck),
+    [updateCheck],
+  );
+  const updateSummary = useMemo(
+    () => buildUpdateNoticeSummary(updateCheck),
+    [updateCheck],
+  );
   const headerLayout = useMemo(() => {
     return resolveHeaderLayout({
       columns: stdout?.columns ?? process.stdout.columns ?? 120,
       apiLabel: getApiBaseUrl().replace("http://127.0.0.1:", "api:"),
     });
   }, [stdout]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchUpdateCheck()
+      .then((next) => {
+        if (!cancelled) setUpdateCheck(next);
+      })
+      .catch(() => {
+        if (!cancelled) setUpdateCheck(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const openReleaseUrl = () => {
+    const releaseUrl = updateCheck?.release_url;
+    if (!releaseUrl) return;
+    const opener = process.platform === "darwin"
+      ? { command: "open", args: [releaseUrl] }
+      : process.platform === "win32"
+        ? { command: "cmd", args: ["/c", "start", "", releaseUrl] }
+        : { command: "xdg-open", args: [releaseUrl] };
+    const child = spawn(opener.command, opener.args, {
+      detached: true,
+      stdio: "ignore",
+    });
+    child.unref();
+  };
 
   useInput((input, key) => {
     if (key.ctrl && input === "c") {
@@ -124,6 +166,10 @@ export function App(props: AppBootstrapProps) {
     }
     if (input === "?") {
       setShowHelp((prev) => !prev);
+      return;
+    }
+    if (input === "u" && updateCheck?.has_update) {
+      openReleaseUrl();
       return;
     }
     if (input === "1") {
@@ -169,6 +215,12 @@ export function App(props: AppBootstrapProps) {
       </Box>
 
       {showHelp ? <HelpOverlay /> : null}
+      {updateNotice ? (
+        <Box borderStyle="round" borderColor="yellow" paddingX={2} flexDirection="column">
+          <Text color="yellow">{updateNotice}</Text>
+          {updateSummary ? <Text color="gray">{updateSummary}</Text> : null}
+        </Box>
+      ) : null}
 
       {activeView === "search" ? (
         <SearchView

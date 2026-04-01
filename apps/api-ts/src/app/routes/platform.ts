@@ -11,6 +11,7 @@ import {
   CODEX_HOME,
   START_TS,
 } from "../../lib/constants.js";
+import { checkForUpdates } from "../../lib/update-check.js";
 import {
   cleanTitleText,
   envelope,
@@ -122,6 +123,8 @@ export async function registerPlatformRoutes(
       migration_mode: "incremental-ts",
     }),
   );
+
+  app.get("/api/update-check", async () => envelope(await checkForUpdates()));
 
   app.get("/api/agent-runtime", async () => envelope(await deps.getAgentRuntimeState()));
 

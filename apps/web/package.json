@@ -1,6 +1,6 @@
 {
   "name": "@threadlens/web",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "React workbench UI for ThreadLens",
   "license": "MIT",
   "private": true,

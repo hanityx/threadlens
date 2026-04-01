@@ -24,6 +24,13 @@ export const PROJECT_ROOT =
 export const DEFAULT_PORT = Number(process.env.API_TS_PORT ?? 8788);
 export const APP_VERSION = process.env.APP_VERSION ?? "0.1.0";
 export const START_TS = Date.now();
+export const THREADLENS_RELEASE_REPO = String(
+  process.env.THREADLENS_RELEASE_REPO ?? "hanityx/threadlens",
+).trim();
+export const THREADLENS_RELEASES_URL = `https://github.com/${THREADLENS_RELEASE_REPO}/releases`;
+export const THREADLENS_LATEST_RELEASE_URL = `${THREADLENS_RELEASES_URL}/latest`;
+export const THREADLENS_GITHUB_RELEASE_API_URL =
+  `https://api.github.com/repos/${THREADLENS_RELEASE_REPO}/releases/latest`;
 
 const STATE_DIR_OVERRIDE = String(
   process.env.THREADLENS_STATE_DIR ?? "",
@@ -135,6 +142,7 @@ export const COPILOT_CURSOR_WORKSPACE_STORAGE = path.join(
 export const directApiPaths = new Set([
   "/api/healthz",
   "/api/version",
+  "/api/update-check",
   "/api/agent-runtime",
   "/api/bulk-thread-action",
   "/api/roadmap-status",
