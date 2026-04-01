@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Text, useInput } from "ink";
 import { backupSession, listProviderSessions, loadSessionTranscript, runProviderAction } from "../api.js";
 import { PROVIDERS, type ProviderScope } from "../config.js";
 import type { ProviderScanEntry, ProviderSessionRow, TranscriptMessage } from "../types.js";
 import { formatBytes, formatDateLabel, getWindowedItems, truncate } from "../lib/format.js";
+import { getSessionsFetchLimit, shouldRefetchSessions } from "../lib/sessionFetchWindow.js";
 
 const PROVIDER_COLOR: Record<string, string> = {
   codex: "yellow",
@@ -55,6 +56,8 @@ export function SessionsView(props: {
   const [transcriptLoading, setTranscriptLoading] = useState(false);
   const [filterQuery, setFilterQuery] = useState(initialFilter ?? "");
   const [focusMode, setFocusMode] = useState<"list" | "filter">("list");
+  const [fetchedLimit, setFetchedLimit] = useState(0);
+  const previousProviderRef = useRef<ProviderScope>(provider);
   const [actionStatus, setActionStatus] = useState<string | null>(null);
   const [pendingInitialPath, setPendingInitialPath] = useState<string | null>(initialFilePath);
   const [pendingAction, setPendingAction] = useState<{
@@ -85,14 +88,15 @@ export function SessionsView(props: {
     onFilterChange?.(filterQuery);
   }, [filterQuery, onFilterChange]);
 
-  const fetchRows = (refresh = false) => {
+  const fetchRows = (refresh = false, limit = getSessionsFetchLimit(filterQuery)) => {
     setLoading(true);
     setError(null);
-    void listProviderSessions(provider, refresh)
+    void listProviderSessions(provider, refresh, limit)
       .then((data) => {
         const nextRows: ProviderSessionRow[] = data.rows ?? [];
         const nextProviders: ProviderScanEntry[] = data.providers ?? [];
         setRows(nextRows);
+        setFetchedLimit(limit);
         setSummary(
           data.summary
             ? {
@@ -128,8 +132,13 @@ export function SessionsView(props: {
   };
 
   useEffect(() => {
-    fetchRows(false);
-  }, [provider]);
+    const targetLimit = getSessionsFetchLimit(filterQuery);
+    const providerChanged = previousProviderRef.current !== provider;
+    if (shouldRefetchSessions(providerChanged, fetchedLimit, filterQuery)) {
+      fetchRows(false, targetLimit);
+    }
+    previousProviderRef.current = provider;
+  }, [fetchedLimit, filterQuery, provider]);
 
   const filteredRows = useMemo(() => {
     const needle = filterQuery.trim().toLowerCase();

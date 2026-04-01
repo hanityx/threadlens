@@ -1,4 +1,4 @@
-import type { ApiEnvelope } from "@threadlens/shared-contracts";
+import type { ApiEnvelope, UpdateCheckStatus } from "@threadlens/shared-contracts";
 import type {
   AnalyzeDeleteResponse,
   CleanupPreviewResponse,
@@ -8,6 +8,7 @@ import type {
   ThreadsResponse,
   TranscriptResponse,
 } from "./types.js";
+import { DEFAULT_PROVIDER_SESSIONS_LIMIT } from "./lib/sessionFetchWindow.js";
 
 const API_BASE_URL = process.env.THREADLENS_API_URL ?? "http://127.0.0.1:8788";
 
@@ -68,6 +69,10 @@ export function getApiBaseUrl(): string {
   return API_BASE_URL;
 }
 
+export async function fetchUpdateCheck(): Promise<UpdateCheckStatus> {
+  return apiGet("/api/update-check");
+}
+
 export async function searchConversations(
   query: string,
   provider: string,
@@ -79,10 +84,11 @@ export async function searchConversations(
 export async function listProviderSessions(
   provider: string,
   refresh = false,
+  limit = DEFAULT_PROVIDER_SESSIONS_LIMIT,
 ): Promise<NonNullable<ProviderSessionsResponse["data"]>> {
   const providerQuery = provider === "all" ? "" : `&provider=${encodeURIComponent(provider)}`;
   const refreshQuery = refresh ? "&refresh=1" : "";
-  return apiGet(`/api/provider-sessions?limit=80${providerQuery}${refreshQuery}`);
+  return apiGet(`/api/provider-sessions?limit=${limit}${providerQuery}${refreshQuery}`);
 }
 
 export async function loadSessionTranscript(
