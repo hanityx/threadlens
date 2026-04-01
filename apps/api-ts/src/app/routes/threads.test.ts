@@ -10,6 +10,7 @@ const mockExecuteLocalCleanupTs = vi.hoisted(() => vi.fn());
 const mockGetThreadForensicsTs = vi.hoisted(() => vi.fn());
 const mockGetThreadsTs = vi.hoisted(() => vi.fn());
 const mockBuildSessionTranscript = vi.hoisted(() => vi.fn());
+const mockInvalidateCodexThreadTitleMapCache = vi.hoisted(() => vi.fn());
 const mockResolveCodexSessionPathByThreadId = vi.hoisted(() => vi.fn());
 
 vi.mock("../../domains/threads/state.js", () => ({
@@ -34,6 +35,7 @@ vi.mock("../../domains/threads/query.js", () => ({
 
 vi.mock("../../lib/providers.js", () => ({
   buildSessionTranscript: mockBuildSessionTranscript,
+  invalidateCodexThreadTitleMapCache: mockInvalidateCodexThreadTitleMapCache,
 }));
 
 vi.mock("../../domains/providers/search.js", () => ({
@@ -105,5 +107,28 @@ describe("registerThreadRoutes cleanup invalidation", () => {
     expect(res.statusCode).toBe(200);
     expect(invalidateOverviewCache).not.toHaveBeenCalled();
     expect(invalidateProviderSessionCache).not.toHaveBeenCalled();
+  });
+
+  it("invalidates overview, provider session cache, and codex title cache after rename", async () => {
+    mockRenameThreadTitleTs.mockResolvedValue({
+      ok: true,
+      thread_id: "thread-1",
+      title: "Renamed thread",
+    });
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/rename-thread",
+      payload: {
+        id: "thread-1",
+        title: "Renamed thread",
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(invalidateOverviewCache).toHaveBeenCalledTimes(1);
+    expect(invalidateProviderSessionCache).toHaveBeenCalledTimes(1);
+    expect(invalidateProviderSessionCache).toHaveBeenCalledWith("codex");
+    expect(mockInvalidateCodexThreadTitleMapCache).toHaveBeenCalledTimes(1);
   });
 });

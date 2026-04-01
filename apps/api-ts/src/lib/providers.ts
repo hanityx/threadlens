@@ -33,6 +33,7 @@ import {
 import {
   pathExists,
   readFileHead,
+  readFileTail,
   walkFilesByExt,
   countFilesRecursiveByExt,
   countJsonlFilesRecursive,
@@ -213,6 +214,10 @@ let providerMatrixCache: ProviderMatrixCacheEntry | null = null;
 let providerMatrixInflight: Promise<ProviderMatrixData> | null = null;
 let codexTitleMapCache: CodexTitleMapCacheEntry | null = null;
 let chatGptRootsCache: ChatGptRootsCacheEntry | null = null;
+
+export function invalidateCodexThreadTitleMapCache() {
+  codexTitleMapCache = null;
+}
 
 /* ─────────────────────────────────────────────────────────────────── *
  *  Internal helpers (not exported)                                    *
@@ -615,6 +620,8 @@ export async function probeSessionFile(
     }
   }
   const detected = detectSessionTitleFromHead(head, format);
+  const claudeRenamedTitle = await detectClaudeRenamedTitle(filePath, format);
+  const effectiveDetected = claudeRenamedTitle ?? detected;
   if (!head.trim()) {
     // Empty legacy/session placeholder files are common in Copilot/CLI caches.
     // Treat them as ignorable (not parse-fail) to avoid false alarms in health views.
@@ -622,8 +629,8 @@ export async function probeSessionFile(
       ok: true,
       format,
       error: null,
-      detected_title: detected.title,
-      title_source: detected.source,
+      detected_title: effectiveDetected.title,
+      title_source: effectiveDetected.source,
     };
   }
 
@@ -637,8 +644,8 @@ export async function probeSessionFile(
         ok: false,
         format,
         error: "no json line found",
-        detected_title: detected.title,
-        title_source: detected.source,
+        detected_title: effectiveDetected.title,
+        title_source: effectiveDetected.source,
       };
     }
     try {
@@ -647,16 +654,16 @@ export async function probeSessionFile(
         ok: true,
         format,
         error: null,
-        detected_title: detected.title,
-        title_source: detected.source,
+        detected_title: effectiveDetected.title,
+        title_source: effectiveDetected.source,
       };
     } catch (error) {
       return {
         ok: false,
         format,
         error: `invalid json line: ${String(error)}`,
-        detected_title: detected.title,
-        title_source: detected.source,
+        detected_title: effectiveDetected.title,
+        title_source: effectiveDetected.source,
       };
     }
   }
@@ -667,17 +674,54 @@ export async function probeSessionFile(
       ok: false,
       format,
       error: "json prefix not found",
-      detected_title: detected.title,
-      title_source: detected.source,
+      detected_title: effectiveDetected.title,
+      title_source: effectiveDetected.source,
     };
   }
   return {
     ok: true,
     format,
     error: null,
-    detected_title: detected.title,
-    title_source: detected.source,
+    detected_title: effectiveDetected.title,
+    title_source: effectiveDetected.source,
   };
+}
+
+async function detectClaudeRenamedTitle(
+  filePath: string,
+  format: "jsonl" | "json" | "unknown",
+): Promise<{ title: string; source: string | null } | null> {
+  if (
+    format !== "jsonl" ||
+    !isPathInsideRoot(filePath, CLAUDE_PROJECTS_DIR)
+  ) {
+    return null;
+  }
+  const tail = await readFileTail(filePath, 262_144);
+  if (!tail.text.trim()) return null;
+  let customTitle = "";
+  let agentName = "";
+  for (const line of tail.text.split(/\r?\n/)) {
+    const parsed = safeJsonParse(line);
+    if (!isRecord(parsed)) continue;
+    const type = String(parsed.type ?? "");
+    if (type === "custom-title") {
+      const value = normalizeDetectedTitle(String(parsed.customTitle ?? ""));
+      if (value) customTitle = value;
+      continue;
+    }
+    if (type === "agent-name") {
+      const value = normalizeDetectedTitle(String(parsed.agentName ?? ""));
+      if (value) agentName = value;
+    }
+  }
+  if (customTitle) {
+    return { title: customTitle, source: "claude-custom-title" };
+  }
+  if (agentName) {
+    return { title: agentName, source: "claude-agent-name" };
+  }
+  return null;
 }
 
 /* ── Codex title map ──────────────────────────────────────────────── */
@@ -688,6 +732,7 @@ export async function getCodexThreadTitleMap(): Promise<Map<string, string>> {
     return codexTitleMapCache.map;
   }
   const titleMap = new Map<string, string>();
+  const globalStateTitleIds = new Set<string>();
   try {
     const raw = await readFile(
       path.join(CODEX_HOME, ".codex-global-state.json"),
@@ -706,7 +751,24 @@ export async function getCodexThreadTitleMap(): Promise<Map<string, string>> {
       for (const [id, title] of Object.entries(titles)) {
         const tid = extractUuidFromText(id);
         const txt = normalizeDetectedTitle(String(title ?? ""));
-        if (tid && txt) titleMap.set(tid, txt);
+        if (tid && txt) {
+          titleMap.set(tid, txt);
+          globalStateTitleIds.add(tid);
+        }
+      }
+    }
+  } catch {
+    // no-op
+  }
+  try {
+    const raw = await readFile(path.join(CODEX_HOME, "session_index.jsonl"), "utf-8");
+    for (const line of raw.split(/\r?\n/)) {
+      const parsed = safeJsonParse(line);
+      if (!isRecord(parsed)) continue;
+      const tid = extractUuidFromText(String(parsed.id ?? ""));
+      const txt = normalizeDetectedTitle(String(parsed.thread_name ?? ""));
+      if (tid && txt && !globalStateTitleIds.has(tid)) {
+        titleMap.set(tid, txt);
       }
     }
   } catch {

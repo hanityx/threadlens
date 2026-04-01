@@ -19,6 +19,7 @@ import {
   fallbackDisplayTitle,
   getCodexThreadTitleMap,
   inferSessionId,
+  invalidateCodexThreadTitleMapCache,
   isCopilotGlobalSessionLikeFile,
   isWorkspaceChatSessionPath,
   matchesConversationSearch,
@@ -399,7 +400,10 @@ export async function getProviderSessionScan(
     const cached = providerScanCache.get(key);
     if (cached && cached.expires_at > now) return cached.scan;
   } else {
-    providerScanCache.delete(key);
+    invalidateProviderSearchCaches(provider);
+    if (provider === "codex") {
+      invalidateCodexThreadTitleMapCache();
+    }
   }
 
   const inflight = providerScanInflight.get(key);

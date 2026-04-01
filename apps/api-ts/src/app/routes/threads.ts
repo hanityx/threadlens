@@ -16,7 +16,10 @@ import {
 } from "../../domains/threads/cleanup.js";
 import { getThreadForensicsTs } from "../../domains/threads/forensics.js";
 import { getThreadsTs } from "../../domains/threads/query.js";
-import { buildSessionTranscript } from "../../lib/providers.js";
+import {
+  buildSessionTranscript,
+  invalidateCodexThreadTitleMapCache,
+} from "../../lib/providers.js";
 import { resolveCodexSessionPathByThreadId } from "../../domains/providers/search.js";
 import {
   bulkRequestSchema,
@@ -263,6 +266,8 @@ export async function registerThreadRoutes(
         return reply.code(400).send(withSchemaVersion(data));
       }
       deps.invalidateOverviewCache();
+      deps.invalidateProviderSessionCache("codex");
+      invalidateCodexThreadTitleMapCache();
       return reply.code(200).send(withSchemaVersion(data));
     } catch (error) {
       return reply.code(500).send(envelope(null, `rename-thread-error: ${String(error)}`));
