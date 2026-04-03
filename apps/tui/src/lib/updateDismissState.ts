@@ -28,18 +28,23 @@ export function persistDismissedUpdateVersion(
   version: string,
   statePath = resolveUpdateDismissStatePath(),
 ) {
-  mkdirSync(path.dirname(statePath), { recursive: true });
-  writeFileSync(
-    statePath,
-    JSON.stringify({ dismissed_version: version }, null, 2),
-    "utf8",
-  );
+  if (!version) return;
+  try {
+    mkdirSync(path.dirname(statePath), { recursive: true });
+    writeFileSync(
+      statePath,
+      JSON.stringify({ dismissed_version: version }, null, 2),
+      "utf8",
+    );
+  } catch {
+    // Keep dismiss failures non-fatal in restricted environments.
+  }
 }
 
 export function shouldDisplayUpdateNotice(
   updateCheck: Pick<UpdateCheckStatus, "has_update" | "latest_version"> | null,
   dismissedVersion: string,
 ) {
-  if (!updateCheck?.has_update) return false;
+  if (!updateCheck?.has_update || !updateCheck.latest_version) return false;
   return updateCheck.latest_version !== dismissedVersion;
 }

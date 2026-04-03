@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
@@ -36,6 +36,27 @@ test("persistDismissedUpdateVersion stores the latest dismissed version", () => 
   assert.match(readFileSync(statePath, "utf8"), /0.1.1/);
 });
 
+test("persistDismissedUpdateVersion ignores empty versions", () => {
+  const stateDir = mkdtempSync(path.join(os.tmpdir(), "threadlens-tui-state-"));
+  const statePath = path.join(stateDir, "update-notice.json");
+
+  persistDismissedUpdateVersion("", statePath);
+
+  assert.equal(readDismissedUpdateVersion(statePath), "");
+});
+
+test("persistDismissedUpdateVersion swallows filesystem write errors", () => {
+  const stateDir = mkdtempSync(path.join(os.tmpdir(), "threadlens-tui-state-"));
+  const blockedDir = path.join(stateDir, "blocked");
+  const statePath = path.join(blockedDir, "update-notice.json");
+  writeFileSync(blockedDir, "not-a-directory", "utf8");
+
+  assert.doesNotThrow(() => {
+    persistDismissedUpdateVersion("0.1.1", statePath);
+  });
+  assert.equal(readDismissedUpdateVersion(statePath), "");
+});
+
 test("shouldDisplayUpdateNotice hides only the dismissed version", () => {
   assert.equal(
     shouldDisplayUpdateNotice({
@@ -50,5 +71,12 @@ test("shouldDisplayUpdateNotice hides only the dismissed version", () => {
       latest_version: "0.1.2",
     }, "0.1.1"),
     true,
+  );
+  assert.equal(
+    shouldDisplayUpdateNotice({
+      has_update: true,
+      latest_version: null,
+    }, "0.1.1"),
+    false,
   );
 });
