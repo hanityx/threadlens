@@ -19,11 +19,69 @@ import {
   SETUP_SELECTION_STORAGE_KEY,
 } from "../../hooks/appDataUtils";
 
-function describeOverviewSessionSource(source: string): string {
-  if (source === "sessions") return "Local archive";
-  if (source === "projects") return "Project trace";
-  if (source === "tmp") return "Workspace temp";
-  return "Session trace";
+type OverviewMessageMap = {
+  sourceLocalArchive: string;
+  sourceProjectTrace: string;
+  sourceWorkspaceTemp: string;
+  sourceSessionTrace: string;
+  reviewMetaFallbackSource: string;
+  reviewMetaFallbackRisk: string;
+  reviewSourceSessions: string;
+  reviewSourceProjects: string;
+  reviewSourceTmp: string;
+  reviewRiskHigh: string;
+  reviewRiskMedium: string;
+  reviewRiskLow: string;
+  dotReadableSession: string;
+  dotProbeIssue: string;
+  dotProbeIssueWithError: string;
+  dotUnknownRecency: string;
+  dotFreshLast24Hours: string;
+  dotStaleMoreThan7Days: string;
+  dotRecentWithinWeek: string;
+  dotHeavySessionFootprint: string;
+  dotLightSessionFootprint: string;
+  dotMediumSessionFootprint: string;
+};
+
+function formatOverviewMessage(
+  template: string,
+  replacements: Record<string, string | number>,
+): string {
+  return Object.entries(replacements).reduce(
+    (result, [key, value]) => result.replaceAll(`{${key}}`, String(value)),
+    template,
+  );
+}
+
+function describeOverviewSessionSource(
+  source: string,
+  overviewMessages: OverviewMessageMap,
+): string {
+  if (source === "sessions") return overviewMessages.sourceLocalArchive;
+  if (source === "projects") return overviewMessages.sourceProjectTrace;
+  if (source === "tmp") return overviewMessages.sourceWorkspaceTemp;
+  return overviewMessages.sourceSessionTrace;
+}
+
+function formatOverviewReviewSource(
+  source: string | null | undefined,
+  overviewMessages: OverviewMessageMap,
+): string {
+  if (source === "sessions") return overviewMessages.reviewSourceSessions;
+  if (source === "projects") return overviewMessages.reviewSourceProjects;
+  if (source === "tmp") return overviewMessages.reviewSourceTmp;
+  return source || overviewMessages.reviewMetaFallbackSource;
+}
+
+function formatOverviewReviewRisk(
+  risk: string | null | undefined,
+  overviewMessages: OverviewMessageMap,
+): string {
+  if (risk === "high") return overviewMessages.reviewRiskHigh;
+  if (risk === "medium") return overviewMessages.reviewRiskMedium;
+  if (risk === "low") return overviewMessages.reviewRiskLow;
+  return risk || overviewMessages.reviewMetaFallbackRisk;
 }
 
 function providerFromDataSource(sourceKey: string): string | null {
@@ -62,37 +120,68 @@ function readStoredSetupSelectionIds(allProviderIdSet: Set<string>): string[] {
   }
 }
 
-function describeSessionHealthDot(row: ProviderSessionRow) {
+function describeSessionHealthDot(
+  row: ProviderSessionRow,
+  overviewMessages: OverviewMessageMap,
+) {
   if (row.probe.ok) {
-    return { label: "Readable session", className: "is-active" };
+    return { label: overviewMessages.dotReadableSession, className: "is-active" };
   }
-  return { label: row.probe.error ? `Probe issue: ${row.probe.error}` : "Probe issue", className: "is-warn" };
+  return {
+    label: row.probe.error
+      ? formatOverviewMessage(overviewMessages.dotProbeIssueWithError, {
+          error: row.probe.error,
+        })
+      : overviewMessages.dotProbeIssue,
+    className: "is-warn",
+  };
 }
 
-function describeSessionFreshnessDot(row: ProviderSessionRow) {
+function describeSessionFreshnessDot(
+  row: ProviderSessionRow,
+  overviewMessages: OverviewMessageMap,
+) {
   const timestamp = Date.parse(row.mtime || "");
   if (Number.isNaN(timestamp)) {
-    return { label: "Unknown recency", className: "" };
+    return { label: overviewMessages.dotUnknownRecency, className: "" };
   }
   const ageMs = Date.now() - timestamp;
   if (ageMs <= 24 * 60 * 60 * 1000) {
-    return { label: "Fresh in the last 24 hours", className: "is-active" };
+    return { label: overviewMessages.dotFreshLast24Hours, className: "is-active" };
   }
   if (ageMs >= 7 * 24 * 60 * 60 * 1000) {
-    return { label: "Stale for more than 7 days", className: "is-warn" };
+    return { label: overviewMessages.dotStaleMoreThan7Days, className: "is-warn" };
   }
-  return { label: "Recent within the last week", className: "" };
+  return { label: overviewMessages.dotRecentWithinWeek, className: "" };
 }
 
-function describeSessionWeightDot(row: ProviderSessionRow) {
+function describeSessionWeightDot(
+  row: ProviderSessionRow,
+  overviewMessages: OverviewMessageMap,
+) {
   const bytes = Number(row.size_bytes || 0);
   if (bytes >= 25 * 1024 * 1024) {
-    return { label: `Heavy session footprint ${formatBytesCompact(bytes)}`, className: "is-active" };
+    return {
+      label: formatOverviewMessage(overviewMessages.dotHeavySessionFootprint, {
+        size: formatBytesCompact(bytes),
+      }),
+      className: "is-active",
+    };
   }
   if (bytes <= 512 * 1024) {
-    return { label: `Light session footprint ${formatBytesCompact(bytes)}`, className: "" };
+    return {
+      label: formatOverviewMessage(overviewMessages.dotLightSessionFootprint, {
+        size: formatBytesCompact(bytes),
+      }),
+      className: "",
+    };
   }
-  return { label: `Medium session footprint ${formatBytesCompact(bytes)}`, className: "" };
+  return {
+    label: formatOverviewMessage(overviewMessages.dotMediumSessionFootprint, {
+      size: formatBytesCompact(bytes),
+    }),
+    className: "",
+  };
 }
 
 function buildInterleavedSessionPreview(
@@ -165,6 +254,7 @@ export function OverviewWorkbench() {
     activeProviderSummaryLine,
     parserScoreText,
     backupSetsCount,
+    messages,
     recentThreadGroups,
     recentThreadTitle,
     recentThreadSummary,
@@ -185,6 +275,7 @@ export function OverviewWorkbench() {
     setSelectedThreadId,
     setProviderProbeFilterIntent,
   } = useAppContext();
+  const overviewMessages = messages.overview;
 
   const onToggleSetupGuide = () => setSetupGuideOpen(!setupGuideOpen);
   const onCloseSetupGuide = () => setSetupGuideOpen(false);
@@ -355,7 +446,10 @@ export function OverviewWorkbench() {
     .map((providerId) => formatProviderDisplayName(providerId))
     .filter(Boolean);
   const overviewActiveSummary = overviewSelectedProviderIds.length
-    ? `active ${overviewActiveProviderCount}/${overviewSelectedProviderIds.length}`
+    ? formatOverviewMessage(overviewMessages.activeSummary, {
+        active: overviewActiveProviderCount,
+        total: overviewSelectedProviderIds.length,
+      })
     : activeSummaryText;
   const overviewActiveSummaryLine = overviewSelectedProviderIds.length
     ? overviewSelectedProviderLabels.join(" · ")
@@ -400,7 +494,7 @@ export function OverviewWorkbench() {
             <div className="overview-stage-header overview-main-head">
               <div className="overview-stage-title overview-main-title">
                 <h1>ThreadLens</h1>
-                <p>Review sessions. Clear backup queue.</p>
+                <p>{messages.overview.heroBody}</p>
               </div>
               <div className="overview-header-actions">
                 <button
@@ -408,14 +502,14 @@ export function OverviewWorkbench() {
                   className="overview-header-btn is-primary"
                   onClick={onToggleSetupGuide}
                 >
-                  {setupGuideOpen ? "Close setup" : "Setup"}
+                  {setupGuideOpen ? messages.overview.closeSetup : messages.overview.openSetup}
                 </button>
                 <button
                   type="button"
                   className="overview-header-btn"
                   onClick={onOpenThreads}
                 >
-                  Thread
+                  {messages.overview.openThreads}
                 </button>
                 <button
                   type="button"
@@ -424,13 +518,13 @@ export function OverviewWorkbench() {
                   onMouseEnter={onProvidersIntent}
                   onFocus={onProvidersIntent}
                 >
-                  Sessions
+                  {messages.overview.openSessions}
                 </button>
               </div>
             </div>
 
             <div className="overview-stage-layout overview-stage-layout-workbench">
-              <section className="overview-command-shell" aria-label="workbench command shell">
+              <section className="overview-command-shell" aria-label={overviewMessages.commandShellLabel}>
                 <div className="overview-window-dots" aria-hidden="true">
                   <span />
                   <span />
@@ -439,9 +533,9 @@ export function OverviewWorkbench() {
                 <div className="overview-command-breadcrumb">
                   <span className="overview-command-path is-brand">threadlens</span>
                   <span className="overview-command-slash">/</span>
-                  <span className="overview-command-path">sessions</span>
+                  <span className="overview-command-path">{overviewMessages.commandPathSessions}</span>
                   <span className="overview-command-slash">/</span>
-                  <span className="overview-command-path is-active">active</span>
+                  <span className="overview-command-path is-active">{overviewMessages.commandPathActive}</span>
                   <span className="overview-command-runtime">{runtimeLatencyText}</span>
                 </div>
                 <div className="overview-command-strip">
@@ -455,7 +549,7 @@ export function OverviewWorkbench() {
                         {compactWorkbenchId(overviewFocusSession.session_id, "session")}
                       </strong>
                       <span>
-                        {formatProviderDisplayName(overviewFocusSession.provider)} active · {formatWorkbenchRailTime(overviewFocusSession.mtime)}
+                        {formatProviderDisplayName(overviewFocusSession.provider)} {overviewMessages.activeMetaReady} · {formatWorkbenchRailTime(overviewFocusSession.mtime)}
                       </span>
                     </button>
                   ) : (
@@ -464,14 +558,14 @@ export function OverviewWorkbench() {
                       <span>{focusSessionStatus}</span>
                     </div>
                   )}
-                  <div className="overview-command-metrics" aria-label="workbench status">
+                  <div className="overview-command-metrics" aria-label={overviewMessages.commandStatusLabel}>
                     <span>
                       <button
                         type="button"
                         className="overview-command-status-button"
                         onClick={() => onOpenProvidersWithProbeFilter("all")}
                       >
-                        <strong>{overviewSelectedProviderIds.length ? overviewParseOk : visibleProviderSessionSummary.parse_ok}</strong> ready
+                        <strong>{overviewSelectedProviderIds.length ? overviewParseOk : visibleProviderSessionSummary.parse_ok}</strong> {messages.overview.readyLabel}
                       </button>
                     </span>
                     <span>
@@ -480,7 +574,7 @@ export function OverviewWorkbench() {
                         className="overview-command-status-button"
                         onClick={() => onOpenProvidersWithProbeFilter("fail")}
                       >
-                        <strong>{overviewSelectedProviderIds.length ? overviewParseFail : visibleProviderSessionSummary.parse_fail}</strong> fail
+                        <strong>{overviewSelectedProviderIds.length ? overviewParseFail : visibleProviderSessionSummary.parse_fail}</strong> {messages.overview.failLabel}
                       </button>
                     </span>
                   </div>
@@ -491,7 +585,7 @@ export function OverviewWorkbench() {
                 <article className="overview-insight-card is-primary">
                   <div className="overview-primary-panel-grid">
                     <div className="overview-primary-copy">
-                      <span className="overview-note-label">active session</span>
+                      <span className="overview-note-label">{messages.overview.activeSession}</span>
                       {overviewFocusSession ? (
                         <button
                           type="button"
@@ -505,12 +599,22 @@ export function OverviewWorkbench() {
                             )}
                           </strong>
                           <div className="overview-primary-focus-meta">
-                            {formatProviderDisplayName(overviewFocusSession.provider)} / {formatWorkbenchRailTime(overviewFocusSession.mtime)} / ready
+                            {formatProviderDisplayName(overviewFocusSession.provider)} / {formatWorkbenchRailTime(overviewFocusSession.mtime)} / {overviewMessages.readyLabel}
                           </div>
                           <p className="overview-primary-summary">
                             {overviewBooting
-                              ? "Loading recent sessions, parser health, and active providers."
-                              : `${overviewSelectedProviderIds.length ? overviewParseOk : visibleProviderSessionSummary.parse_ok}/${overviewSelectedProviderIds.length ? overviewSessionCount : visibleProviderSessionSummary.rows || "..."} ready across ${overviewActiveProviderCount || "..."} active AI. Search, review, or open the archive next.`}
+                              ? overviewMessages.loadingPrimarySummary
+                              : formatOverviewMessage(overviewMessages.primarySummary, {
+                                  ready:
+                                    overviewSelectedProviderIds.length
+                                      ? overviewParseOk
+                                      : visibleProviderSessionSummary.parse_ok,
+                                  rows:
+                                    overviewSelectedProviderIds.length
+                                      ? overviewSessionCount
+                                      : visibleProviderSessionSummary.rows || "...",
+                                  active: overviewActiveProviderCount || "...",
+                                })}
                           </p>
                         </button>
                       ) : (
@@ -519,31 +623,51 @@ export function OverviewWorkbench() {
                           <div className="overview-primary-focus-meta">{focusSessionMeta}</div>
                           <p className="overview-primary-summary">
                             {overviewBooting
-                              ? "Loading recent sessions, parser health, and active providers."
-                              : `${overviewSelectedProviderIds.length ? overviewParseOk : visibleProviderSessionSummary.parse_ok}/${overviewSelectedProviderIds.length ? overviewSessionCount : visibleProviderSessionSummary.rows || "..."} ready across ${overviewActiveProviderCount || "..."} active AI. Search, review, or open the archive next.`}
+                              ? overviewMessages.loadingPrimarySummary
+                              : formatOverviewMessage(overviewMessages.primarySummary, {
+                                  ready:
+                                    overviewSelectedProviderIds.length
+                                      ? overviewParseOk
+                                      : visibleProviderSessionSummary.parse_ok,
+                                  rows:
+                                    overviewSelectedProviderIds.length
+                                      ? overviewSessionCount
+                                      : visibleProviderSessionSummary.rows || "...",
+                                  active: overviewActiveProviderCount || "...",
+                                })}
                           </p>
                         </>
                       )}
-                      <div className="overview-primary-focus-kpis" aria-label="focus session summary">
+                      <div className="overview-primary-focus-kpis" aria-label={overviewMessages.focusSessionSummaryLabel}>
                         <article>
-                          <span>rows</span>
-                          <strong>{overviewSelectedProviderIds.length ? `${overviewSessionCount} rows` : searchRowsText}</strong>
+                          <span>{overviewMessages.rowsLabel}</span>
+                          <strong>
+                            {overviewSelectedProviderIds.length
+                              ? formatOverviewMessage(overviewMessages.rowsValue, {
+                                  count: overviewSessionCount,
+                                })
+                              : searchRowsText}
+                          </strong>
                         </article>
                         <article>
-                          <span>size</span>
+                          <span>{overviewMessages.sizeLabel}</span>
                           <strong>{formatBytes(overviewSelectedProviderIds.length ? overviewSessionBytes : totalVisibleSessionBytes)}</strong>
                         </article>
                       </div>
                       {overviewFocusSession ? (
-                        <div className="overview-primary-facts" aria-label="active session facts">
-                          <span>{describeOverviewSessionSource(overviewFocusSession.source)}</span>
-                          <span>Updated {formatWorkbenchRailTime(overviewFocusSession.mtime)}</span>
+                        <div className="overview-primary-facts" aria-label={overviewMessages.activeSessionFactsLabel}>
+                          <span>{describeOverviewSessionSource(overviewFocusSession.source, overviewMessages)}</span>
+                          <span>
+                            {formatOverviewMessage(overviewMessages.updatedAt, {
+                              time: formatWorkbenchRailTime(overviewFocusSession.mtime),
+                            })}
+                          </span>
                           <span>{formatBytesCompact(overviewFocusSession.size_bytes)}</span>
                         </div>
                       ) : null}
                     </div>
                     <div className="overview-primary-list">
-                      <span className="overview-note-label">ready now</span>
+                      <span className="overview-note-label">{messages.overview.readyNow}</span>
                       <div className="overview-primary-list-items">
                         {overviewRecentSessionPreview.length ? (
                           overviewRecentSessionPreview.slice(0, 3).map((row) => (
@@ -566,7 +690,7 @@ export function OverviewWorkbench() {
                           ))
                         ) : (
                           <div className="overview-primary-list-empty">
-                            {overviewBooting ? "Syncing recent rows." : "No recent sessions yet."}
+                            {overviewBooting ? syncStatusText : messages.overview.noRecentSessions}
                           </div>
                         )}
                       </div>
@@ -587,7 +711,7 @@ export function OverviewWorkbench() {
                     }}
                   >
                     <div className="overview-review-head">
-                      <span className="overview-note-label">review queue</span>
+                      <span className="overview-note-label">{messages.overview.reviewQueue}</span>
                       <span className="overview-review-pill">{reviewRowsText}</span>
                     </div>
                     {focusReviewThread ? (
@@ -627,28 +751,31 @@ export function OverviewWorkbench() {
                               )}
                             </strong>
                             <span>
-                              {row.source || "thread"} / {row.risk_level || compactWorkbenchId(row.thread_id, "thread")}
+                              {formatOverviewReviewSource(row.source, overviewMessages)} / {formatOverviewReviewRisk(row.risk_level, overviewMessages)}
                             </span>
                           </button>
                         ))}
                       </div>
                     ) : (
-                      <p>No additional review threads.</p>
+                      <p>{messages.overview.noAdditionalReviewThreads}</p>
                     )}
                   </article>
                   <div className="overview-support-mini-grid">
                     <article className="overview-insight-card is-mini">
-                      <span className="overview-note-label">providers</span>
+                      <span className="overview-note-label">{messages.overview.providersLabel}</span>
                       <strong>{overviewActiveSummary}</strong>
                       <p>{overviewActiveSummaryLine}</p>
                     </article>
                     <article className="overview-insight-card is-mini">
-                      <span className="overview-note-label">sync</span>
+                      <span className="overview-note-label">{messages.overview.syncLabel}</span>
                       <strong>{parserScoreText}</strong>
                       <p>
                         {overviewBooting
-                          ? "Loading parser and runtime."
-                          : `${backupSetsCount} backups · runtime ${runtimeLatencyText}`}
+                          ? messages.overview.loadingParserRuntime
+                          : formatOverviewMessage(overviewMessages.backupsRuntimeSummary, {
+                              backups: backupSetsCount,
+                              runtime: runtimeLatencyText,
+                            })}
                       </p>
                     </article>
                   </div>
@@ -673,7 +800,7 @@ export function OverviewWorkbench() {
                       />
                     </svg>
                   </span>
-                  <strong>Recent Activity</strong>
+                  <strong>{messages.overview.recentActivity}</strong>
                 </div>
               </div>
               <div className="overview-side-list overview-side-list-history">
@@ -681,13 +808,13 @@ export function OverviewWorkbench() {
                   overviewRecentSessionPreview.length ? (
                     <section className="overview-side-group">
                       <div className="overview-side-group-head">
-                        <span>Today</span>
+                        <span>{overviewMessages.today}</span>
                       </div>
                       <div className="overview-side-group-list">
                         {overviewRecentSessionPreview.slice(0, 4).map((row) => {
-                          const healthDot = describeSessionHealthDot(row);
-                          const freshnessDot = describeSessionFreshnessDot(row);
-                          const weightDot = describeSessionWeightDot(row);
+                          const healthDot = describeSessionHealthDot(row, overviewMessages);
+                          const freshnessDot = describeSessionFreshnessDot(row, overviewMessages);
+                          const weightDot = describeSessionWeightDot(row, overviewMessages);
                           return (
                           <button
                             key={`overview-session-${row.file_path}`}
@@ -706,7 +833,7 @@ export function OverviewWorkbench() {
                                 )}
                               </strong>
                               <p>
-                                {formatProviderDisplayName(row.provider)} / {describeOverviewSessionSource(row.source)}
+                                {formatProviderDisplayName(row.provider)} / {describeOverviewSessionSource(row.source, overviewMessages)}
                               </p>
                             </div>
                             <div
@@ -724,7 +851,7 @@ export function OverviewWorkbench() {
                     </section>
                   ) : (
                     <div className="overview-side-empty">
-                      {overviewBooting ? "Syncing recent rows." : "No recent sessions yet."}
+                      {overviewBooting ? syncStatusText : messages.overview.noRecentSessions}
                     </div>
                   )
                 ) : recentThreadGroups.length ? (
@@ -759,7 +886,7 @@ export function OverviewWorkbench() {
                     </section>
                   ))
                 ) : (
-                  <div className="overview-side-empty">Waiting for threads.</div>
+                  <div className="overview-side-empty">{messages.overview.waitingThreads}</div>
                 )}
               </div>
             </section>
@@ -767,7 +894,10 @@ export function OverviewWorkbench() {
           </aside>
         </div>
       ) : (
-        <section className="overview-secondary-panel overview-setup-stage" aria-label="setup stage">
+        <section
+          className="overview-secondary-panel overview-setup-stage"
+          aria-label={messages.overview.setupStageAriaLabel}
+        >
           <div className="overview-secondary-body">{setupStageContent}</div>
         </section>
       )}

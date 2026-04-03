@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { useLocale } from "../../i18n";
 import type { SetupWizardProps } from "./SetupWizard";
 
 const SetupWizard = lazy(async () => {
@@ -7,12 +8,12 @@ const SetupWizard = lazy(async () => {
 });
 
 export function OverviewSetupStage(props: SetupWizardProps) {
+  const { messages } = useLocale();
   return (
     <Suspense
       fallback={
         <div className="info-box compact">
-          <strong>Loading</strong>
-          <p>Loading setup stage.</p>
+          <strong>{messages.common.loading}</strong>
         </div>
       }
     >
