@@ -9,10 +9,6 @@ const preloadProvidersPanel = () => {
   void import("../features/providers/ProvidersPanel");
 };
 
-const preloadSearchPanel = () => {
-  void import("../features/search/SearchPanel");
-};
-
 const preloadThreadDetail = () => {
   void import("../features/threads/ThreadDetail");
 };
@@ -348,6 +344,7 @@ export function useAppShellBehavior(options: {
   setSelectedThreadId: Dispatch<SetStateAction<string>>;
   setAcknowledgedForensicsErrorKeys: Dispatch<SetStateAction<AcknowledgedForensicsErrorKeys>>;
   setSearchThreadContext: Dispatch<SetStateAction<ConversationSearchHit | null>>;
+  setHeaderSearchDraft: Dispatch<SetStateAction<string>>;
   setHeaderSearchSeed: Dispatch<SetStateAction<string>>;
   prefetchProvidersData: () => void;
   prefetchRoutingData: () => void;
@@ -657,7 +654,7 @@ export function useAppShellBehavior(options: {
   };
 
   const handleSearchIntent = () => {
-    preloadSearchPanel();
+    // SearchPanel is statically imported to avoid dev-only lazy import stalls.
   };
 
   const handleDiagnosticsIntent = () => {
@@ -668,6 +665,7 @@ export function useAppShellBehavior(options: {
   const handleHeaderSearchSubmit = () => {
     const nextQuery = options.headerSearchDraft.trim();
     if (!nextQuery) return;
+    options.setHeaderSearchDraft("");
     const jumpTarget = resolveHeaderSearchTarget({
       query: nextQuery,
       visibleProviderIdSet: options.visibleProviderIdSet,

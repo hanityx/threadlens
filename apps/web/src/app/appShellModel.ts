@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { SEARCHABLE_PROVIDER_IDS, SEARCHABLE_PROVIDER_LABELS } from "@threadlens/shared-contracts";
 import { formatDateTime, formatProviderDisplayName } from "../lib/helpers";
+import type { Messages } from "../i18n";
 import type {
   DataSourceInventoryRow,
   ProviderMatrixProvider,
@@ -43,6 +44,48 @@ type ProviderSessionSummary = {
   parse_ok: number;
   parse_fail: number;
 };
+
+type OverviewReviewMessageMap = {
+  recentDay: string;
+  today: string;
+  yesterday: string;
+  recentThreadSummaryRunning: string;
+  recentThreadSummaryNoWorkspace: string;
+  recentThreadSummaryOrphanCandidate: string;
+  recentThreadSummaryPinned: string;
+  recentThreadSummaryContextDrift: string;
+  recentThreadSummarySessionArchive: string;
+  recentThreadSummaryRecentArchive: string;
+  recentThreadTitleRunning: string;
+  recentThreadTitleNoWorkspace: string;
+  recentThreadTitlePinned: string;
+  recentThreadTitleArchiveCandidate: string;
+  recentThreadTitleContextDrift: string;
+  recentThreadTitleReviewTrace: string;
+  recentThreadTitleReviewCandidate: string;
+  reviewMetaFallbackSource: string;
+  reviewMetaFallbackRisk: string;
+  reviewSourceSessions: string;
+  reviewSourceProjects: string;
+  reviewSourceTmp: string;
+  reviewRiskHigh: string;
+  reviewRiskMedium: string;
+  reviewRiskLow: string;
+};
+
+function formatReviewSource(source: string | null | undefined, overviewMessages: OverviewReviewMessageMap) {
+  if (source === "sessions") return overviewMessages.reviewSourceSessions;
+  if (source === "projects") return overviewMessages.reviewSourceProjects;
+  if (source === "tmp") return overviewMessages.reviewSourceTmp;
+  return source || overviewMessages.reviewMetaFallbackSource;
+}
+
+function formatReviewRisk(risk: string | null | undefined, overviewMessages: OverviewReviewMessageMap) {
+  if (risk === "high") return overviewMessages.reviewRiskHigh;
+  if (risk === "medium") return overviewMessages.reviewRiskMedium;
+  if (risk === "low") return overviewMessages.reviewRiskLow;
+  return risk || overviewMessages.reviewMetaFallbackRisk;
+}
 
 export function buildSearchProviderOptions<T extends ProviderTabLike>(providerTabs: T[]) {
   return SEARCHABLE_PROVIDER_IDS.map((id) => ({
@@ -132,7 +175,10 @@ export function buildVisibleParserSummary(
   };
 }
 
-function buildRecentThreadSummary(row: ThreadRow): string {
+export function buildRecentThreadSummary(
+  row: ThreadRow,
+  overviewMessages?: OverviewReviewMessageMap,
+): string {
   const tags = new Set(row.risk_tags ?? []);
   const noWorkspace = tags.has("no-cwd");
   const orphanCandidate = tags.has("orphan-candidate");
@@ -141,27 +187,30 @@ function buildRecentThreadSummary(row: ThreadRow): string {
   const activity = row.activity_status || "recent";
 
   if (activity === "running" && contextHigh) {
-    return "High-context session with active review work.";
+    return overviewMessages?.recentThreadSummaryRunning ?? "High-context session with active review work.";
   }
   if (row.risk_level === "high" && noWorkspace) {
-    return "No cwd found. Check archive safety before cleanup.";
+    return overviewMessages?.recentThreadSummaryNoWorkspace ?? "No cwd found. Check archive safety before cleanup.";
   }
   if (row.risk_level === "medium" && orphanCandidate) {
-    return "Older session trail with weak workspace links.";
+    return overviewMessages?.recentThreadSummaryOrphanCandidate ?? "Older session trail with weak workspace links.";
   }
   if (row.is_pinned) {
-    return "Pinned for follow-up before archive or cleanup.";
+    return overviewMessages?.recentThreadSummaryPinned ?? "Pinned for follow-up before archive or cleanup.";
   }
   if (contextMedium) {
-    return "Workspace context drifted, but the thread still resolves.";
+    return overviewMessages?.recentThreadSummaryContextDrift ?? "Workspace context drifted, but the thread still resolves.";
   }
   if (row.source === "sessions") {
-    return "Session archive trace with local review context.";
+    return overviewMessages?.recentThreadSummarySessionArchive ?? "Session archive trace with local review context.";
   }
-  return "Recent review trail from the local archive.";
+  return overviewMessages?.recentThreadSummaryRecentArchive ?? "Recent review trail from the local archive.";
 }
 
-function buildRecentThreadTitle(row: ThreadRow): string {
+export function buildRecentThreadTitle(
+  row: ThreadRow,
+  overviewMessages?: OverviewReviewMessageMap,
+): string {
   const normalized = normalizeWorkbenchTitle(row.title, "");
   if (normalized) {
     // If the title looks like a file path, show only the last two segments
@@ -174,20 +223,41 @@ function buildRecentThreadTitle(row: ThreadRow): string {
     return normalized;
   }
   const tags = new Set(row.risk_tags ?? []);
-  if (row.activity_status === "running" && tags.has("ctx-high")) return "Running Review Session";
-  if (row.risk_level === "high" && tags.has("no-cwd")) return "No-Workspace Review";
-  if (row.is_pinned && row.risk_level === "high") return "Pinned Review Thread";
-  if (tags.has("orphan-candidate")) return "Archive Candidate";
-  if (tags.has("ctx-medium")) return "Context Drift Note";
-  if (row.risk_level === "high") return "Review Session Trace";
-  if (row.risk_level === "medium") return "Review Candidate";
+  if (row.activity_status === "running" && tags.has("ctx-high")) {
+    return overviewMessages?.recentThreadTitleRunning ?? "Running Review Session";
+  }
+  if (row.risk_level === "high" && tags.has("no-cwd")) {
+    return overviewMessages?.recentThreadTitleNoWorkspace ?? "No-Workspace Review";
+  }
+  if (row.is_pinned && row.risk_level === "high") {
+    return overviewMessages?.recentThreadTitlePinned ?? "Pinned Review Thread";
+  }
+  if (tags.has("orphan-candidate")) {
+    return overviewMessages?.recentThreadTitleArchiveCandidate ?? "Archive Candidate";
+  }
+  if (tags.has("ctx-medium")) {
+    return overviewMessages?.recentThreadTitleContextDrift ?? "Context Drift Note";
+  }
+  if (row.risk_level === "high") {
+    return overviewMessages?.recentThreadTitleReviewTrace ?? "Review Session Trace";
+  }
+  if (row.risk_level === "medium") {
+    return overviewMessages?.recentThreadTitleReviewCandidate ?? "Review Candidate";
+  }
   return compactWorkbenchId(row.thread_id, "thread");
 }
 
-function buildRecentThreadGroups(recentThreadPreview: ThreadRow[]) {
+function buildRecentThreadGroups(
+  recentThreadPreview: ThreadRow[],
+  overviewMessages?: Pick<OverviewReviewMessageMap, "recentDay" | "today" | "yesterday">,
+) {
   const groups: Array<{ label: string; rows: ThreadRow[] }> = [];
   for (const row of recentThreadPreview) {
-    const label = formatWorkbenchGroupLabel(row.timestamp);
+    const label = formatWorkbenchGroupLabel(row.timestamp, {
+      recent: overviewMessages?.recentDay,
+      today: overviewMessages?.today,
+      yesterday: overviewMessages?.yesterday,
+    });
     const last = groups[groups.length - 1];
     if (last && last.label === label) {
       last.rows.push(row);
@@ -230,7 +300,7 @@ export function useAppShellModel(options: {
   providersLastRefreshAt: string;
   highRiskCount: number;
   visibleRows: ThreadRow[];
-  selectedProviderLabel: string;
+  selectedProviderLabel: string | null;
   runtimeBackendReachable: boolean | null | undefined;
   runtimeBackendLatencyMs: number | null | undefined;
   analyzeErrorKey: string;
@@ -246,6 +316,7 @@ export function useAppShellModel(options: {
   bulkActionError: boolean;
   showRuntimeBackendDegraded: boolean;
   recoveryBackupSets: number;
+  messages: Messages;
 }) {
   const visibleProviderTabs = useMemo(
     () => buildVisibleProviderTabs(options.providerTabs),
@@ -309,31 +380,44 @@ export function useAppShellModel(options: {
     visibleProviderSessionSummary.rows === 0;
   const activeSummaryText =
     visibleProviderSummary.total > 0
-      ? `active ${visibleProviderSummary.active}/${visibleProviderSummary.total}`
+      ? options.messages.overview.activeSummary
+          .replace("{active}", String(visibleProviderSummary.active))
+          .replace("{total}", String(visibleProviderSummary.total))
       : overviewBooting
-        ? "syncing"
+        ? options.messages.overview.statusSyncing
         : overviewCountsLoading
-          ? "active ..."
-          : "active 0/0";
+          ? options.messages.overview.activeSummaryLoading
+          : options.messages.overview.activeSummary
+              .replace("{active}", "0")
+              .replace("{total}", "0");
   const searchRowsText =
     visibleProviderSessionSummary.rows > 0
-      ? `${visibleProviderSessionSummary.rows} rows`
+      ? options.messages.overview.rowsValue.replace(
+          "{count}",
+          String(visibleProviderSessionSummary.rows),
+        )
       : overviewCountsLoading
-        ? "... rows"
-        : "0 rows";
+        ? options.messages.overview.rowsLoading
+        : options.messages.overview.rowsValue.replace("{count}", "0");
   const reviewRowsText =
     options.highRiskCount > 0
-      ? `${options.highRiskCount} review`
+      ? options.messages.overview.reviewCountValue.replace(
+          "{count}",
+          String(options.highRiskCount),
+        )
       : overviewCountsLoading
-        ? "... review"
-        : "0 review";
+        ? options.messages.overview.reviewCountLoading
+        : options.messages.overview.reviewCountValue.replace("{count}", "0");
   const syncStatusText = options.refreshingAllData
-    ? "Syncing now"
+    ? options.messages.overview.syncStatusSyncingNow
     : options.providersRefreshing
-      ? "Refreshing providers"
+      ? options.messages.overview.syncStatusRefreshingProviders
       : options.providersLastRefreshAt
-        ? `Updated ${formatDateTime(options.providersLastRefreshAt)}`
-        : "Idle";
+        ? options.messages.overview.syncStatusUpdated.replace(
+            "{time}",
+            formatDateTime(options.providersLastRefreshAt),
+          )
+        : options.messages.overview.syncStatusIdle;
   const recentSessionPreview = useMemo(
     () =>
       [...visibleProviderSessionRows]
@@ -348,23 +432,23 @@ export function useAppShellModel(options: {
         compactWorkbenchId(focusSession.session_id, "session"),
       )
     : overviewBooting
-      ? "Syncing sessions"
-      : "Live archive ready";
+      ? options.messages.overview.focusSessionSyncingTitle
+      : options.messages.overview.focusSessionReadyTitle;
   const focusSessionMeta = focusSession
-    ? `${formatProviderDisplayName(focusSession.provider)} / ${formatWorkbenchRailTime(focusSession.mtime)} / ready`
+    ? `${formatProviderDisplayName(focusSession.provider)} / ${formatWorkbenchRailTime(focusSession.mtime)} / ${options.messages.overview.readyLabel}`
     : overviewBooting
-      ? "providers / parser / runtime"
-      : "archive / live / ready";
+      ? options.messages.overview.focusSessionSyncingMeta
+      : options.messages.overview.focusSessionReadyMeta;
   const focusSessionCommandId = focusSession
     ? compactWorkbenchId(focusSession.session_id, "session")
     : overviewBooting
-      ? "session sync"
-      : "session live";
+      ? options.messages.overview.focusSessionSyncingCommandId
+      : options.messages.overview.focusSessionReadyCommandId;
   const focusSessionStatus = focusSession
-    ? `${formatProviderDisplayName(focusSession.provider)} active · ${formatWorkbenchRailTime(focusSession.mtime)}`
+    ? `${formatProviderDisplayName(focusSession.provider)} ${options.messages.overview.activeMetaReady} · ${formatWorkbenchRailTime(focusSession.mtime)}`
     : overviewBooting
-      ? "hydrating providers"
-      : "archive ready";
+      ? options.messages.overview.focusSessionSyncingStatus
+      : options.messages.overview.focusSessionReadyStatus;
   const emptySessionNextTitle = focusSession
     ? normalizeWorkbenchSessionTitle(
         focusSession.display_title,
@@ -399,12 +483,16 @@ export function useAppShellModel(options: {
   const focusReviewTitle = focusReviewThread
     ? normalizeWorkbenchTitle(
         focusReviewThread.title,
-        compactWorkbenchId(focusReviewThread.thread_id, "thread"),
+        buildRecentThreadTitle(focusReviewThread, options.messages.overview),
       )
-    : "Review queue idle";
+    : options.messages.overview.reviewQueueIdleTitle;
   const focusReviewMeta = focusReviewThread
-    ? `${focusReviewThread.source || "thread"} / ${focusReviewThread.risk_level || "review"} / ${formatWorkbenchRailDay(focusReviewThread.timestamp)}`
-    : "review / quiet / recent";
+    ? `${formatReviewSource(focusReviewThread.source, options.messages.overview)} / ${formatReviewRisk(focusReviewThread.risk_level, options.messages.overview)} / ${formatWorkbenchRailDay(focusReviewThread.timestamp, {
+        recent: options.messages.overview.recentDay,
+        today: options.messages.overview.today,
+        yesterday: options.messages.overview.yesterday,
+      })}`
+    : options.messages.overview.reviewQueueIdleMeta;
   const secondaryFlaggedPreview = flaggedThreadPreview.slice(1, 3);
   const recentThreadPreview = useMemo(
     () =>
@@ -414,8 +502,8 @@ export function useAppShellModel(options: {
     [options.visibleRows],
   );
   const recentThreadGroups = useMemo(
-    () => buildRecentThreadGroups(recentThreadPreview),
-    [recentThreadPreview],
+    () => buildRecentThreadGroups(recentThreadPreview, options.messages.overview),
+    [recentThreadPreview, options.messages.overview],
   );
   const activeProviderPreview = useMemo(
     () => visibleProviders.filter((provider) => provider.status === "active").slice(0, 4),
@@ -424,10 +512,13 @@ export function useAppShellModel(options: {
   const activeProviderSummaryLine = activeProviderPreview.length
     ? activeProviderPreview.map((provider) => provider.name).join(" · ")
     : visibleProviderSummary.active > 0
-      ? `${visibleProviderSummary.active} active providers`
+      ? options.messages.overview.activeProvidersCountLine.replace(
+          "{count}",
+          String(visibleProviderSummary.active),
+        )
       : overviewBooting
-        ? "Loading provider status."
-        : "Waiting for live providers.";
+        ? options.messages.overview.loadingProviderStatus
+        : options.messages.overview.waitingForLiveProviders;
   const visibleDataSourceRows = useMemo(
     () =>
       options.dataSourceRows.filter((row) => {
@@ -473,19 +564,19 @@ export function useAppShellModel(options: {
     options.providerSessionActionError ||
     Boolean(options.bulkActionError && !options.showRuntimeBackendDegraded);
   const parserScoreText = overviewBooting
-    ? "syncing"
+    ? options.messages.overview.statusSyncing
     : overviewCountsLoading
-      ? "syncing"
+      ? options.messages.overview.statusSyncing
       : visibleParserSummary.parse_score != null
         ? `${visibleParserSummary.parse_score}%`
-        : "n/a";
+        : options.messages.overview.statusUnavailable;
   const runtimeLatencyText = overviewBooting
-    ? "sync"
+    ? options.messages.overview.runtimeStatusSync
     : overviewCountsLoading
-      ? "sync"
+      ? options.messages.overview.runtimeStatusSync
       : options.runtimeBackendReachable
         ? `${options.runtimeBackendLatencyMs ?? "-"} ms`
-        : "down";
+        : options.messages.overview.runtimeStatusDown;
 
   return {
     visibleProviderTabs,
@@ -518,8 +609,8 @@ export function useAppShellModel(options: {
     focusReviewMeta,
     secondaryFlaggedPreview,
     recentThreadGroups,
-    recentThreadTitle: buildRecentThreadTitle,
-    recentThreadSummary: buildRecentThreadSummary,
+    recentThreadTitle: (row: ThreadRow) => buildRecentThreadTitle(row, options.messages.overview),
+    recentThreadSummary: (row: ThreadRow) => buildRecentThreadSummary(row, options.messages.overview),
     activeProviderSummaryLine,
     visibleDataSourceRows,
     visibleAllProviderRowsSelected,
