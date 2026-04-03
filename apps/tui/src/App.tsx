@@ -5,6 +5,11 @@ import { Box, Text, useApp, useInput, useStdout } from "ink";
 import { fetchUpdateCheck, getApiBaseUrl } from "./api.js";
 import { AppBootstrapProps, type ProviderScope, VIEWS } from "./config.js";
 import { resolveHeaderLayout } from "./lib/headerLayout.js";
+import {
+  persistDismissedUpdateVersion,
+  readDismissedUpdateVersion,
+  shouldDisplayUpdateNotice,
+} from "./lib/updateDismissState.js";
 import { buildUpdateNoticeLine, buildUpdateNoticeSummary } from "./lib/updateNotice.js";
 import { SearchView } from "./views/SearchView.js";
 import { SessionsView } from "./views/SessionsView.js";
@@ -102,21 +107,32 @@ export function App(props: AppBootstrapProps) {
   const [cleanupInitialThreadId, setCleanupInitialThreadId] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [updateCheck, setUpdateCheck] = useState<UpdateCheckStatus | null>(null);
+  const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState(() =>
+    readDismissedUpdateVersion(),
+  );
 
   const activeView = VIEWS[viewIndex]!.id;
+  const visibleUpdateCheck = useMemo(
+    () => (
+      shouldDisplayUpdateNotice(updateCheck, dismissedUpdateVersion)
+        ? updateCheck
+        : null
+    ),
+    [dismissedUpdateVersion, updateCheck],
+  );
 
   const footerShortcuts = useMemo(() => {
     const shortcuts = [...(VIEW_SHORTCUTS[activeView] ?? [])];
-    if (updateCheck?.has_update) shortcuts.push("u  release");
+    if (visibleUpdateCheck?.has_update) shortcuts.push("u  release", "U  dismiss");
     return shortcuts.join("  ·  ");
-  }, [activeView, updateCheck?.has_update]);
+  }, [activeView, visibleUpdateCheck?.has_update]);
   const updateNotice = useMemo(
-    () => buildUpdateNoticeLine(updateCheck),
-    [updateCheck],
+    () => buildUpdateNoticeLine(visibleUpdateCheck),
+    [visibleUpdateCheck],
   );
   const updateSummary = useMemo(
-    () => buildUpdateNoticeSummary(updateCheck),
-    [updateCheck],
+    () => buildUpdateNoticeSummary(visibleUpdateCheck),
+    [visibleUpdateCheck],
   );
   const headerLayout = useMemo(() => {
     return resolveHeaderLayout({
@@ -168,8 +184,13 @@ export function App(props: AppBootstrapProps) {
       setShowHelp((prev) => !prev);
       return;
     }
-    if (input === "u" && updateCheck?.has_update) {
+    if (input === "u" && visibleUpdateCheck?.has_update) {
       openReleaseUrl();
+      return;
+    }
+    if (input === "U" && visibleUpdateCheck?.latest_version) {
+      persistDismissedUpdateVersion(visibleUpdateCheck.latest_version);
+      setDismissedUpdateVersion(visibleUpdateCheck.latest_version);
       return;
     }
     if (input === "1") {
