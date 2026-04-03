@@ -137,12 +137,12 @@ describe("SessionDetail", () => {
           {
             title: "Next session",
             path: "/tmp/next-session.jsonl",
-            description: "claude · 273MB · Mar 26, 2026, 12:15 AM · largest session in scope",
+            description: `claude · 273MB · Mar 26, 2026, 12:15 AM · ${messages.sessionDetail.emptyNextLargestInScope}`,
           },
           {
             title: "Second session",
             path: "/tmp/second-session.jsonl",
-            description: "codex · 99MB · Mar 25, 2026, 12:15 AM · largest session in scope",
+            description: `codex · 99MB · Mar 25, 2026, 12:15 AM · ${messages.sessionDetail.emptyNextLargestInScope}`,
           },
         ]}
         onOpenSessionPath={vi.fn()}
@@ -163,5 +163,119 @@ describe("SessionDetail", () => {
     expect(html).toContain("Next session");
     expect(html).toContain("Second session");
     expect(html).toContain("Opens here");
+  });
+
+  it("renders localized empty-state copy for session detail", () => {
+    const esMessages = getMessages("es");
+    const html = renderToStaticMarkup(
+      <SessionDetail
+        messages={esMessages}
+        selectedSession={null}
+        selectedCount={0}
+        emptyScopeLabel="Codex"
+        emptyNextSessions={[
+          {
+            title: "Siguiente sesión",
+            path: "/tmp/next-session.jsonl",
+            description: "",
+          },
+        ]}
+        onOpenSessionPath={vi.fn()}
+        sessionTranscriptData={null}
+        sessionTranscriptLoading={false}
+        sessionTranscriptLimit={120}
+        setSessionTranscriptLimit={vi.fn()}
+        busy={false}
+        canRunSessionAction={false}
+        providerDeleteBackupEnabled={true}
+        setProviderDeleteBackupEnabled={vi.fn()}
+        runSingleProviderAction={vi.fn()}
+        runSingleProviderHardDelete={vi.fn(() => Promise.resolve(null))}
+      />,
+    );
+
+    expect(html).toContain(esMessages.sessionDetail.emptyStateBody);
+    expect(html).toContain("Siguiente sesión");
+    expect(html).toContain(esMessages.sessionDetail.emptyOpensHereLabel);
+  });
+
+  it("renders localized session-detail labels", () => {
+    const esMessages = getMessages("es");
+    const html = renderToStaticMarkup(
+      <SessionDetail
+        messages={esMessages}
+        selectedSession={selectedSession}
+        selectedCount={1}
+        sessionActionResult={null}
+        emptyScopeLabel="Codex"
+        emptyNextSessions={[]}
+        sessionTranscriptData={null}
+        sessionTranscriptLoading={false}
+        sessionTranscriptLimit={120}
+        setSessionTranscriptLimit={vi.fn()}
+        busy={false}
+        canRunSessionAction={true}
+        providerDeleteBackupEnabled={true}
+        setProviderDeleteBackupEnabled={vi.fn()}
+        runSingleProviderAction={vi.fn()}
+        runSingleProviderHardDelete={vi.fn(() => Promise.resolve(null))}
+      />,
+    );
+
+    expect(html).toContain(esMessages.sessionDetail.title);
+    expect(html).toContain(esMessages.sessionDetail.selectedRow.replace("{count}", "1"));
+    expect(html).toContain(esMessages.sessionDetail.sectionOverview);
+    expect(html).toContain(esMessages.sessionDetail.sectionActions);
+    expect(html).toContain(esMessages.sessionDetail.fieldTitleSource);
+    expect(html).toContain(esMessages.sessionDetail.fieldSessionId);
+    expect(html).toContain(esMessages.sessionDetail.fieldSource);
+    expect(html).toContain(esMessages.sessionDetail.fieldPath);
+    expect(html).toContain(esMessages.sessionDetail.fieldModified);
+    expect(html).toContain(esMessages.sessionDetail.sectionTranscript);
+    expect(html).toContain(esMessages.sessionDetail.copyTitle);
+    expect(html).toContain(esMessages.sessionDetail.copyId);
+    expect(html).toContain(esMessages.sessionDetail.copyPath);
+    expect(html).toContain(esMessages.providers.deleteWithBackup);
+    expect(html).toContain(esMessages.sessionDetail.archiveDryRun);
+    expect(html).toContain(esMessages.sessionDetail.deleteDryRun);
+    expect(html).toContain(esMessages.sessionDetail.openFolder);
+  });
+
+  it("renders Korean transcript empty-state guidance for session-specific formats", () => {
+    const koMessages = getMessages("ko");
+    const chatGptSession = {
+      ...selectedSession,
+      provider: "chatgpt" as const,
+    };
+    const html = renderToStaticMarkup(
+      <SessionDetail
+        messages={koMessages}
+        selectedSession={chatGptSession}
+        selectedCount={1}
+        sessionActionResult={null}
+        emptyScopeLabel="ChatGPT"
+        emptyNextSessions={[]}
+        sessionTranscriptData={{
+          provider: "chatgpt",
+          thread_id: null,
+          file_path: chatGptSession.file_path,
+          scanned_lines: 0,
+          messages: [],
+          message_count: 0,
+          truncated: false,
+        }}
+        sessionTranscriptLoading={false}
+        sessionTranscriptLimit={120}
+        setSessionTranscriptLimit={vi.fn()}
+        busy={false}
+        canRunSessionAction={true}
+        providerDeleteBackupEnabled={true}
+        setProviderDeleteBackupEnabled={vi.fn()}
+        runSingleProviderAction={vi.fn()}
+        runSingleProviderHardDelete={vi.fn(() => Promise.resolve(null))}
+      />,
+    );
+
+    expect(html).toContain("ChatGPT 데스크톱 캐시는 트랜스크립트를 직접 열 수 없습니다.");
   });
 });

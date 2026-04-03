@@ -146,7 +146,7 @@ export function getProviderWorkflowStage(
 export function buildProviderPanelPresentationModel(options: {
   messages: Messages;
   providerView: ProviderView;
-  selectedProviderLabel: string;
+  selectedProviderLabel: string | null;
   providerActionData: ProviderSessionActionResult | null;
   recoveryBackupExportData: RecoveryBackupExportResponse | null;
   selectedProviderFilePathsCount: number;
@@ -156,8 +156,15 @@ export function buildProviderPanelPresentationModel(options: {
   slowOnly: boolean;
   canApplySlowOnly: boolean;
 }) {
+  const formatProviderMessage = (template: string, replacements: Record<string, string | number>) =>
+    Object.entries(replacements).reduce(
+      (result, [key, value]) => result.replaceAll(`{${key}}`, String(value)),
+      template,
+    );
   const providerLabel =
-    options.providerView === "all" ? options.messages.common.allAi : options.selectedProviderLabel;
+    options.providerView === "all"
+      ? options.messages.common.allAi
+      : options.selectedProviderLabel ?? options.providerView;
   const backupActionResult =
     options.providerActionData?.action === "backup_local" ? options.providerActionData : null;
   const sessionFileActionResult =
@@ -167,13 +174,17 @@ export function buildProviderPanelPresentationModel(options: {
   const latestBackupCount =
     backupActionResult?.backed_up_count ?? (backupActionResult?.backup_to ? 1 : 0);
   const latestBackupPath =
-    backupActionResult?.backup_to ?? "No selected backup created in this session yet.";
+    backupActionResult?.backup_to ?? options.messages.providers.backupNoneYet;
   const latestExportCount = options.recoveryBackupExportData?.exported_count ?? 0;
   const backupFlowHint =
     options.selectedProviderFilePathsCount > 0
-      ? `Back up ${options.selectedProviderFilePathsCount} selected sessions first, then run archive or delete dry-runs below.`
-      : "Pick sessions first, then start with backup.";
-  const deleteBackupModeLabel = options.providerDeleteBackupEnabled ? "On" : "Off";
+      ? formatProviderMessage(options.messages.providers.backupFlowHintSelected, {
+          count: options.selectedProviderFilePathsCount,
+        })
+      : options.messages.providers.backupFlowHintEmpty;
+  const deleteBackupModeLabel = options.providerDeleteBackupEnabled
+    ? options.messages.providers.deleteBackupModeOn
+    : options.messages.providers.deleteBackupModeOff;
   const canRunProviderBackup =
     Boolean(options.providerActionProvider) && options.selectedProviderFilePathsCount > 0;
   const canReturnHotspotScope = Boolean(

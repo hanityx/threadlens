@@ -49,7 +49,7 @@ export function SessionDetail(props: SessionDetailProps) {
     selectedSession,
     selectedCount = 0,
     sessionActionResult = null,
-    emptyScopeLabel = "All ai",
+    emptyScopeLabel,
     emptyNextSessions = [],
     onOpenSessionPath,
     sessionTranscriptData,
@@ -78,6 +78,16 @@ export function SessionDetail(props: SessionDetailProps) {
   const desktopBridge =
     typeof window !== "undefined" ? window.threadLensDesktop : undefined;
   const isElectronRuntime = desktopBridge?.runtime === "electron";
+  const resolvedEmptyScopeLabel = emptyScopeLabel || messages.common.allAi;
+
+  const formatSessionDetailMessage = (
+    template: string,
+    values: Record<string, string | number>,
+  ) =>
+    Object.entries(values).reduce(
+      (message, [key, value]) => message.replaceAll(`{${key}}`, String(value)),
+      template,
+    );
 
   useEffect(() => {
     if (!copyNotice) return;
@@ -201,20 +211,20 @@ export function SessionDetail(props: SessionDetailProps) {
   const emptyTranscriptLabel = (() => {
     if (!selectedSession) return messages.sessionDetail.emptyTranscript;
     if ((sessionTranscriptData?.message_count ?? 0) === 0 && selectedSession.provider === "chatgpt") {
-      return "ChatGPT desktop cache does not open transcript directly.";
+      return messages.sessionDetail.emptyTranscriptChatGptDesktopCache;
     }
     if (
       (sessionTranscriptData?.message_count ?? 0) === 0 &&
       selectedSession.provider === "copilot" &&
       selectedSession.probe.format === "json"
     ) {
-      return "This Copilot JSON is empty. Open another workspace chat row.";
+      return messages.sessionDetail.emptyTranscriptCopilotJson;
     }
     if (selectedSession.probe.format === "unknown") {
-      return "This format does not open transcript directly yet.";
+      return messages.sessionDetail.emptyTranscriptUnsupportedFormat;
     }
     if (selectedSession.file_path.endsWith(".metadata.json")) {
-      return "This is metadata. Pick the real chatSessions JSON row.";
+      return messages.sessionDetail.emptyTranscriptMetadataJson;
     }
     return messages.sessionDetail.emptyTranscript;
   })();
@@ -278,7 +288,12 @@ export function SessionDetail(props: SessionDetailProps) {
   ].join(" ");
   const headerSelectionCount = selectedCount > 0 ? selectedCount : selectedSession ? 1 : 0;
   const headerSubtitle = headerSelectionCount
-    ? `${headerSelectionCount} ${headerSelectionCount === 1 ? "Row" : "Rows"} Selected`
+    ? formatSessionDetailMessage(
+        headerSelectionCount === 1
+          ? messages.sessionDetail.selectedRow
+          : messages.sessionDetail.selectedRows,
+        { count: headerSelectionCount },
+      )
     : messages.sessionDetail.emptyStateBody;
 
   const openHardDeleteConfirm = () => {
@@ -321,12 +336,12 @@ export function SessionDetail(props: SessionDetailProps) {
                       onClick={() => onOpenSessionPath(item.path!)}
                     >
                       <strong>{item.title}</strong>
-                      <p>{item.description || `${emptyScopeLabel} ${messages.sessionDetail.emptyNextBody}`}</p>
+                      <p>{item.description || `${resolvedEmptyScopeLabel} ${messages.sessionDetail.emptyNextBody}`}</p>
                     </button>
                   ) : (
                     <div key={`${item.title}-${index}`} className="session-detail-empty-next">
                       <strong>{item.title}</strong>
-                      <p>{item.description || `${emptyScopeLabel} ${messages.sessionDetail.emptyNextBody}`}</p>
+                      <p>{item.description || `${resolvedEmptyScopeLabel} ${messages.sessionDetail.emptyNextBody}`}</p>
                     </div>
                   ),
                 )}

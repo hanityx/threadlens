@@ -1,6 +1,8 @@
+import type { Messages } from "../../i18n";
 import type { Ref } from "react";
 
 export interface ProviderSideStackProps {
+  messages: Messages;
   advancedOpen: boolean;
   sessionDetailSlot?: React.ReactNode;
   backupHubSlot?: React.ReactNode;
@@ -9,6 +11,7 @@ export interface ProviderSideStackProps {
 }
 
 export function ProviderSideStack({
+  messages,
   advancedOpen,
   sessionDetailSlot,
   backupHubSlot,
@@ -21,7 +24,7 @@ export function ProviderSideStack({
       {backupHubSlot ? (
         <details className="detail-section">
           <summary>
-            <strong>Backup &amp; export</strong>
+            <strong>{messages.providers.backupHubTitle}</strong>
           </summary>
           <div className="detail-section-body">
             {backupHubSlot}

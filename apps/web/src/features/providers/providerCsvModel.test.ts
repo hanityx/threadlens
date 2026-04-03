@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Messages } from "../../i18n";
+import { getMessages, type Messages } from "../../i18n";
 import type { ProviderSessionRow } from "../../types";
 import type { CsvColumnKey } from "./helpers";
 import {
@@ -8,20 +8,7 @@ import {
   getProviderCsvColumnLabel,
 } from "./providerCsvModel";
 
-const messages = {
-  providers: {
-    csvColumnProvider: "Provider",
-    csvColumnSessionId: "Session ID",
-    csvColumnTitle: "Title",
-    csvColumnTitleSource: "Title source",
-    csvColumnSource: "Source",
-    csvColumnFormat: "Format",
-    csvColumnProbe: "Probe",
-    csvColumnSize: "Size",
-    csvColumnModified: "Modified",
-    csvColumnPath: "Path",
-  },
-} as unknown as Messages;
+const messages = getMessages("en");
 
 const rows: ProviderSessionRow[] = [
   {
