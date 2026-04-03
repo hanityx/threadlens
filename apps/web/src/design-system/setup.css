@@ -363,3 +363,26 @@
   cursor: pointer;
   text-decoration: underline;
 }
+
+:root[data-theme="light"] .update-banner {
+  border-color: var(--state-warn-border-soft);
+  background: color-mix(in srgb, var(--surface-card-bg-strong) 90%, var(--warn-dim));
+  box-shadow: var(--surface-card-shadow);
+}
+
+:root[data-theme="light"] .update-banner strong {
+  color: var(--busy-text);
+}
+
+:root[data-theme="light"] .update-banner p {
+  color: var(--text-secondary);
+}
+
+:root[data-theme="light"] .update-banner span {
+  color: var(--muted);
+}
+
+:root[data-theme="light"] .update-banner-actions a,
+:root[data-theme="light"] .update-banner-actions button {
+  color: var(--busy-text);
+}

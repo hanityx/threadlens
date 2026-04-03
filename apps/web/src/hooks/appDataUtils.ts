@@ -26,6 +26,8 @@ export const PROVIDER_DEPTH_STORAGE_KEY = "po-provider-depth";
 export const LEGACY_PROVIDER_DEPTH_STORAGE_KEY = "cmc-provider-depth";
 export const SEARCH_DRAFT_STORAGE_KEY = "po-search-draft";
 export const SEARCH_PROVIDER_STORAGE_KEY = "po-search-provider";
+export const UPDATE_BANNER_DISMISS_STORAGE_KEY = "po-update-banner-dismissed-version";
+export const LEGACY_UPDATE_BANNER_DISMISS_STORAGE_KEY = "cmc-update-banner-dismissed-version";
 export const FORENSICS_RETRY_DELAY_MS = 450;
 export const RUNTIME_BACKEND_DOWN_CACHED = "runtime-backend-down-cached";
 export const THREAD_CLEANUP_DEFAULT_OPTIONS = {
@@ -125,6 +127,20 @@ export function readStorageValue(keys: readonly string[]): string | null {
 export function writeStorageValue(key: string, value: string): void {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(key, value);
+}
+
+export function readDismissedUpdateVersion(): string {
+  return (
+    readStorageValue([
+      UPDATE_BANNER_DISMISS_STORAGE_KEY,
+      LEGACY_UPDATE_BANNER_DISMISS_STORAGE_KEY,
+    ]) ?? ""
+  );
+}
+
+export function persistDismissedUpdateVersion(version: string): void {
+  if (!version) return;
+  writeStorageValue(UPDATE_BANNER_DISMISS_STORAGE_KEY, version);
 }
 
 export function isTransientBackendError(raw: string): boolean {

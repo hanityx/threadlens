@@ -1,0 +1,52 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import type { UpdateCheckStatus } from "@threadlens/shared-contracts";
+
+type UpdateDismissState = {
+  dismissed_version?: string;
+};
+
+export function resolveUpdateDismissStatePath() {
+  const stateRoot = process.env.THREADLENS_TUI_STATE_DIR?.trim()
+    || path.join(os.homedir(), ".threadlens", "tui");
+  return path.join(stateRoot, "update-notice.json");
+}
+
+export function readDismissedUpdateVersion(statePath?: string) {
+  try {
+    const resolvedStatePath = statePath ?? resolveUpdateDismissStatePath();
+    if (!existsSync(resolvedStatePath)) return "";
+    const raw = readFileSync(resolvedStatePath, "utf8");
+    const parsed = JSON.parse(raw) as UpdateDismissState;
+    return typeof parsed.dismissed_version === "string" ? parsed.dismissed_version : "";
+  } catch {
+    return "";
+  }
+}
+
+export function persistDismissedUpdateVersion(
+  version: string,
+  statePath?: string,
+) {
+  if (!version) return;
+  try {
+    const resolvedStatePath = statePath ?? resolveUpdateDismissStatePath();
+    mkdirSync(path.dirname(resolvedStatePath), { recursive: true });
+    writeFileSync(
+      resolvedStatePath,
+      JSON.stringify({ dismissed_version: version }, null, 2),
+      "utf8",
+    );
+  } catch {
+    // Keep dismiss failures non-fatal in restricted environments.
+  }
+}
+
+export function shouldDisplayUpdateNotice(
+  updateCheck: Pick<UpdateCheckStatus, "has_update" | "latest_version"> | null,
+  dismissedVersion: string,
+) {
+  if (!updateCheck?.has_update || !updateCheck.latest_version) return false;
+  return updateCheck.latest_version !== dismissedVersion;
+}
