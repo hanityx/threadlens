@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   buildThreadCleanupSelectionKey,
   persistDismissedUpdateVersion,
@@ -84,11 +84,24 @@ describe("pruneProviderSelectionForView", () => {
 });
 
 describe("dismissed update version persistence", () => {
+  const originalWindow = globalThis.window;
+
   beforeEach(() => {
     const localStorage = createLocalStorageMock();
     Object.defineProperty(globalThis, "window", {
       configurable: true,
       value: { localStorage },
+    });
+  });
+
+  afterEach(() => {
+    if (originalWindow === undefined) {
+      Reflect.deleteProperty(globalThis, "window");
+      return;
+    }
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: originalWindow,
     });
   });
 
