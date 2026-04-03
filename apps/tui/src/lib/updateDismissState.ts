@@ -13,10 +13,11 @@ export function resolveUpdateDismissStatePath() {
   return path.join(stateRoot, "update-notice.json");
 }
 
-export function readDismissedUpdateVersion(statePath = resolveUpdateDismissStatePath()) {
+export function readDismissedUpdateVersion(statePath?: string) {
   try {
-    if (!existsSync(statePath)) return "";
-    const raw = readFileSync(statePath, "utf8");
+    const resolvedStatePath = statePath ?? resolveUpdateDismissStatePath();
+    if (!existsSync(resolvedStatePath)) return "";
+    const raw = readFileSync(resolvedStatePath, "utf8");
     const parsed = JSON.parse(raw) as UpdateDismissState;
     return typeof parsed.dismissed_version === "string" ? parsed.dismissed_version : "";
   } catch {
@@ -26,13 +27,14 @@ export function readDismissedUpdateVersion(statePath = resolveUpdateDismissState
 
 export function persistDismissedUpdateVersion(
   version: string,
-  statePath = resolveUpdateDismissStatePath(),
+  statePath?: string,
 ) {
   if (!version) return;
   try {
-    mkdirSync(path.dirname(statePath), { recursive: true });
+    const resolvedStatePath = statePath ?? resolveUpdateDismissStatePath();
+    mkdirSync(path.dirname(resolvedStatePath), { recursive: true });
     writeFileSync(
-      statePath,
+      resolvedStatePath,
       JSON.stringify({ dismissed_version: version }, null, 2),
       "utf8",
     );
