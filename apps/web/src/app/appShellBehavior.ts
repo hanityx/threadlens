@@ -348,6 +348,7 @@ export function useAppShellBehavior(options: {
   setSelectedThreadId: Dispatch<SetStateAction<string>>;
   setAcknowledgedForensicsErrorKeys: Dispatch<SetStateAction<AcknowledgedForensicsErrorKeys>>;
   setSearchThreadContext: Dispatch<SetStateAction<ConversationSearchHit | null>>;
+  setHeaderSearchDraft: Dispatch<SetStateAction<string>>;
   setHeaderSearchSeed: Dispatch<SetStateAction<string>>;
   prefetchProvidersData: () => void;
   prefetchRoutingData: () => void;
@@ -668,6 +669,7 @@ export function useAppShellBehavior(options: {
   const handleHeaderSearchSubmit = () => {
     const nextQuery = options.headerSearchDraft.trim();
     if (!nextQuery) return;
+    options.setHeaderSearchDraft("");
     const jumpTarget = resolveHeaderSearchTarget({
       query: nextQuery,
       visibleProviderIdSet: options.visibleProviderIdSet,

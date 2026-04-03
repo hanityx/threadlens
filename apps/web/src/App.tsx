@@ -16,7 +16,9 @@ import {
 } from "./app/appShellBehavior";
 import { useAppShellModel } from "./app/appShellModel";
 import {
+  persistDismissedUpdateVersion,
   PROVIDER_VIEW_STORAGE_KEY,
+  readDismissedUpdateVersion,
   readStorageValue,
   SEARCH_DRAFT_STORAGE_KEY,
   SETUP_PREFERRED_PROVIDER_STORAGE_KEY,
@@ -47,7 +49,9 @@ export function App() {
   const [providerProbeFilterIntent, setProviderProbeFilterIntent] = useState<ProviderProbeFilter | null>(null);
   const [providersDiagnosticsOpen, setProvidersDiagnosticsOpen] = useState(false);
   const [setupGuideOpen, setSetupGuideOpen] = useState(false);
-  const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState("");
+  const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState(() =>
+    readDismissedUpdateVersion(),
+  );
   const [headerSearchDraft, setHeaderSearchDraft] = useState("");
   const [headerSearchSeed, setHeaderSearchSeed] = useState(() => {
     return readStorageValue([SEARCH_DRAFT_STORAGE_KEY]) ?? "";
@@ -124,6 +128,14 @@ export function App() {
   useEffect(() => {
     writeStorageValue(SEARCH_DRAFT_STORAGE_KEY, headerSearchSeed);
   }, [headerSearchSeed]);
+
+  useEffect(() => {
+    setHeaderSearchDraft("");
+  }, [layoutView]);
+
+  useEffect(() => {
+    persistDismissedUpdateVersion(dismissedUpdateVersion);
+  }, [dismissedUpdateVersion]);
 
   const changeProviderView = (nextView: ProviderView) => {
     startTransition(() => {
@@ -296,6 +308,7 @@ export function App() {
     setSelectedThreadId,
     setAcknowledgedForensicsErrorKeys,
     setSearchThreadContext,
+    setHeaderSearchDraft,
     setHeaderSearchSeed,
     prefetchProvidersData,
     prefetchRoutingData,

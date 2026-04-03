@@ -1,9 +1,30 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   buildThreadCleanupSelectionKey,
+  persistDismissedUpdateVersion,
   pruneProviderSelectionForView,
+  readDismissedUpdateVersion,
   THREAD_CLEANUP_DEFAULT_OPTIONS,
+  UPDATE_BANNER_DISMISS_STORAGE_KEY,
 } from "./appDataUtils";
+
+function createLocalStorageMock() {
+  const store = new Map<string, string>();
+  return {
+    getItem(key: string) {
+      return store.has(key) ? store.get(key)! : null;
+    },
+    setItem(key: string, value: string) {
+      store.set(key, String(value));
+    },
+    removeItem(key: string) {
+      store.delete(key);
+    },
+    clear() {
+      store.clear();
+    },
+  };
+}
 
 describe("buildThreadCleanupSelectionKey", () => {
   it("normalizes ids and keeps cleanup options in the key", () => {
@@ -59,5 +80,27 @@ describe("pruneProviderSelectionForView", () => {
     ).toEqual({
       "/tmp/codex-session.jsonl": true,
     });
+  });
+});
+
+describe("dismissed update version persistence", () => {
+  beforeEach(() => {
+    const localStorage = createLocalStorageMock();
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: { localStorage },
+    });
+  });
+
+  it("reads the dismissed update version from localStorage", () => {
+    window.localStorage.setItem(UPDATE_BANNER_DISMISS_STORAGE_KEY, "0.1.1");
+
+    expect(readDismissedUpdateVersion()).toBe("0.1.1");
+  });
+
+  it("persists the dismissed update version to localStorage", () => {
+    persistDismissedUpdateVersion("0.1.2");
+
+    expect(window.localStorage.getItem(UPDATE_BANNER_DISMISS_STORAGE_KEY)).toBe("0.1.2");
   });
 });
