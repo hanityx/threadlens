@@ -51,6 +51,7 @@ export const hi = {
     runtimeBackendDownHint: "बैकएंड यूआरएल जांचें:",
     updateAvailableTitle: "अद्यतन करने योग्य",
     updateAvailableBody: "एक नई ThreadLens रिलीज़ है।",
+    updateAvailableCurrentLabel: "वर्तमान",
     updateAvailableOpen: "खुली रिलीज़",
     updateAvailableDismiss: "बंद करना",
     runtimeIssuesTitle: "runtime समस्या",
