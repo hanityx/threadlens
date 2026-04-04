@@ -13,6 +13,8 @@ pnpm --filter @threadlens/web test
 pnpm --filter @threadlens/web build
 pnpm --filter @threadlens/tui test
 pnpm --filter @threadlens/tui build
+pnpm --filter @threadlens/desktop-electron test
+pnpm --filter @threadlens/desktop-electron lint
 ```
 
 If one of these fails, include the failing command output in your issue.
@@ -64,5 +66,7 @@ pnpm --filter @threadlens/web test
 pnpm --filter @threadlens/web build
 pnpm --filter @threadlens/tui test
 pnpm --filter @threadlens/tui build
+pnpm --filter @threadlens/desktop-electron test
+pnpm --filter @threadlens/desktop-electron lint
 pnpm package:desktop:dir
 ```
