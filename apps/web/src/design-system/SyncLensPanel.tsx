@@ -55,45 +55,47 @@ type CopyText = {
   actionDisabled: string;
 };
 
-const COPY: Record<Locale, CopyText> = {
-  en: {
-    title: "Mac Sync Lens",
-    subtitle: "MacBook vs Mac mini thread/state drift map",
-    readOnly: "Read-only mode: no machine writes. Preview only.",
-    statusAligned: "Aligned",
-    statusDrifted: "Drifted",
-    statusPartial: "Partial",
-    score: "Score",
-    generatedAt: "Checked",
-    refreshing: "Refreshing...",
-    refreshNow: "Refresh",
-    hostPrimary: "Primary (current)",
-    hostSecondary: "Secondary (remote)",
-    hostReachable: "reachable",
-    hostUnreachable: "unreachable",
-    sessions: "Session files",
-    threadOrder: "Thread order",
-    dbThreads: "DB threads",
-    dbArchived: "DB archived",
-    latestRollout: "Latest rollout",
-    activeRoots: "Active roots",
-    diffTitle: "Drift Visualization",
-    diffThreadOrder: "Thread order delta",
-    diffRollouts: "Rollout file delta",
-    diffDbThreads: "DB thread delta",
-    diffArchived: "Archived delta",
-    hashConfig: "Config hash",
-    hashState: "Global state hash",
-    equal: "Equal",
-    different: "Different",
-    issuesTitle: "Detected Issues",
-    noIssues: "No drift issue detected in current snapshot.",
-    actionsTitle: "One-click Sync (Preview)",
-    actionDirection: "Direction",
-    actionRisk: "Risk",
-    actionCommand: "Command preview",
-    actionDisabled: "Execution disabled",
-  },
+const EN_COPY: CopyText = {
+  title: "Mac Sync Lens",
+  subtitle: "MacBook vs Mac mini thread/state drift map",
+  readOnly: "Read-only mode: no machine writes. Preview only.",
+  statusAligned: "Aligned",
+  statusDrifted: "Drifted",
+  statusPartial: "Partial",
+  score: "Score",
+  generatedAt: "Checked",
+  refreshing: "Refreshing...",
+  refreshNow: "Refresh",
+  hostPrimary: "Primary (current)",
+  hostSecondary: "Secondary (remote)",
+  hostReachable: "reachable",
+  hostUnreachable: "unreachable",
+  sessions: "Session files",
+  threadOrder: "Thread order",
+  dbThreads: "DB threads",
+  dbArchived: "DB archived",
+  latestRollout: "Latest rollout",
+  activeRoots: "Active roots",
+  diffTitle: "Drift Visualization",
+  diffThreadOrder: "Thread order delta",
+  diffRollouts: "Rollout file delta",
+  diffDbThreads: "DB thread delta",
+  diffArchived: "Archived delta",
+  hashConfig: "Config hash",
+  hashState: "Global state hash",
+  equal: "Equal",
+  different: "Different",
+  issuesTitle: "Detected Issues",
+  noIssues: "No drift issue detected in current snapshot.",
+  actionsTitle: "One-click Sync (Preview)",
+  actionDirection: "Direction",
+  actionRisk: "Risk",
+  actionCommand: "Command preview",
+  actionDisabled: "Execution disabled",
+};
+
+const COPY: Partial<Record<Locale, CopyText>> = {
+  en: EN_COPY,
 };
 
 function statusLabel(status: string, copy: CopyText): string {
@@ -205,7 +207,7 @@ function DriftBar({
 }
 
 export function SyncLensPanel({ locale }: Props) {
-  const copy = COPY[locale];
+  const copy = COPY[locale] ?? EN_COPY;
   const query = useQuery({
     queryKey: ["sync-lens"],
     queryFn: ({ signal }) => apiGet<SyncLensEnvelope>("/api/sync-lens", { signal }),
