@@ -6,6 +6,11 @@ import { fetchUpdateCheck, getApiBaseUrl } from "./api.js";
 import { AppBootstrapProps, type ProviderScope, VIEWS } from "./config.js";
 import { getMessages } from "./i18n/index.js";
 import { resolveHeaderLayout } from "./lib/headerLayout.js";
+import {
+  persistDismissedUpdateVersion,
+  readDismissedUpdateVersion,
+  shouldDisplayUpdateNotice,
+} from "./lib/updateDismissState.js";
 import { buildUpdateNoticeLine, buildUpdateNoticeSummary } from "./lib/updateNotice.js";
 import { SearchView } from "./views/SearchView.js";
 import { SessionsView } from "./views/SessionsView.js";
@@ -77,21 +82,32 @@ export function App(props: AppBootstrapProps) {
   const [cleanupInitialThreadId, setCleanupInitialThreadId] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [updateCheck, setUpdateCheck] = useState<UpdateCheckStatus | null>(null);
+  const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState(() =>
+    readDismissedUpdateVersion(),
+  );
 
   const activeView = VIEWS[viewIndex]!.id;
+  const visibleUpdateCheck = useMemo(
+    () => (
+      shouldDisplayUpdateNotice(updateCheck, dismissedUpdateVersion)
+        ? updateCheck
+        : null
+    ),
+    [dismissedUpdateVersion, updateCheck],
+  );
 
   const footerShortcuts = useMemo(() => {
     const shortcuts = [...(messages.app.footerShortcuts[activeView] ?? [])];
-    if (updateCheck?.has_update) shortcuts.push("u  release");
+    if (visibleUpdateCheck?.has_update) shortcuts.push("u  release", "U  dismiss");
     return shortcuts.join("  ·  ");
-  }, [activeView, messages.app.footerShortcuts, updateCheck?.has_update]);
+  }, [activeView, visibleUpdateCheck?.has_update]);
   const updateNotice = useMemo(
-    () => buildUpdateNoticeLine(updateCheck, messages),
-    [messages, updateCheck],
+    () => buildUpdateNoticeLine(visibleUpdateCheck, messages),
+    [messages, visibleUpdateCheck],
   );
   const updateSummary = useMemo(
-    () => buildUpdateNoticeSummary(updateCheck, messages, locale),
-    [locale, messages, updateCheck],
+    () => buildUpdateNoticeSummary(visibleUpdateCheck, messages, locale),
+    [locale, messages, visibleUpdateCheck],
   );
   const headerLayout = useMemo(() => {
     return resolveHeaderLayout({
@@ -143,8 +159,13 @@ export function App(props: AppBootstrapProps) {
       setShowHelp((prev) => !prev);
       return;
     }
-    if (input === "u" && updateCheck?.has_update) {
+    if (input === "u" && visibleUpdateCheck?.has_update) {
       openReleaseUrl();
+      return;
+    }
+    if (input === "U" && visibleUpdateCheck?.latest_version) {
+      persistDismissedUpdateVersion(visibleUpdateCheck.latest_version);
+      setDismissedUpdateVersion(visibleUpdateCheck.latest_version);
       return;
     }
     if (input === "1") {
