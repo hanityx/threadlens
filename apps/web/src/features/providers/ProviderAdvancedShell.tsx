@@ -67,15 +67,17 @@ export function ProviderAdvancedShell({
           <span className="provider-advanced-summary-kicker">
             {messages.providers.advancedTitle}
           </span>
-          <strong>Refresh / scan</strong>
+          <strong>{messages.providers.advancedSummaryTitle}</strong>
           <span className="provider-advanced-summary-body">
             {providersLastRefreshAt
               ? `${messages.providers.lastRefresh} ${formatDateTime(providersLastRefreshAt)}`
-              : "Open scan settings, latency checks, and forced refresh."}
+              : messages.providers.advancedSummaryBodyClosed}
           </span>
         </span>
         <span className="provider-advanced-summary-pill">
-          {advancedOpen ? "Hide" : "Open"}
+          {advancedOpen
+            ? messages.providers.advancedSummaryPillHide
+            : messages.providers.advancedSummaryPillOpen}
         </span>
       </summary>
       <div className="panel-disclosure-body provider-advanced-stack">
@@ -94,10 +96,10 @@ export function ProviderAdvancedShell({
               <span className="sub-hint">
                 {providersLastRefreshAt
                   ? `${messages.providers.lastRefresh} ${formatDateTime(providersLastRefreshAt)}`
-                  : "No refresh yet."}
+                  : messages.providers.advancedNoRefreshYet}
               </span>
               <details className="inline-tools-disclosure">
-                <summary>Scan settings / slow checks</summary>
+                <summary>{messages.providers.advancedSettingsSummary}</summary>
                 <div className="sub-toolbar inline-tools-disclosure-body">
                   <label className="provider-quick-switch">
                     <span>{messages.providers.depthLabel}</span>
@@ -160,8 +162,8 @@ export function ProviderAdvancedShell({
           </>
         ) : (
           <div className="info-box compact">
-            <strong>Open only when needed.</strong>
-            <p>parser / slow scan / paths</p>
+            <strong>{messages.providers.advancedClosedTitle}</strong>
+            <p>{messages.providers.advancedClosedBody}</p>
           </div>
         )}
       </div>

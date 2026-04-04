@@ -1,24 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import type { Messages } from "../../i18n";
+import { getMessages, type Messages } from "../../i18n";
 import type { ProviderSessionActionResult, ProviderSessionRow } from "../../types";
 import { BackupHub } from "./BackupHub";
 
-const messages = {
-  providers: {
-    backupHubTitle: "Backup hub",
-    backupHubSelected: "Selected",
-    backupHubLatest: "Latest",
-    backupHubExported: "Exported",
-    deleteWithBackup: "Delete with backup",
-    backupSelected: "Backup selected",
-    exportAllBackups: "Export all backups",
-    deleteWithBackupHint: "Back up before delete.",
-    valid: "Valid",
-    applied: "Applied",
-    backedUp: "Backed up",
-  },
-} as unknown as Messages;
+const messages = getMessages("en");
 
 const selectedSessionPreview: ProviderSessionRow = {
   provider: "codex",
@@ -78,9 +64,9 @@ describe("BackupHub", () => {
       />,
     );
 
-    expect(html).toContain("Backup hub");
-    expect(html).toContain("Selected 2");
-    expect(html).toContain("Exported");
+    expect(html).toContain("Backup vault");
+    expect(html).toContain("Selected sessions 2");
+    expect(html).toContain("Full backup export");
     expect(html).toContain("Open Codex Cleanup");
     expect(html).toContain("sess-12345678 · codex · jsonl");
     expect(html).toContain("Latest backup run");
@@ -111,7 +97,37 @@ describe("BackupHub", () => {
       />,
     );
 
-    expect(html).toContain("Delete with backup");
+    expect(html).toContain("Back up before delete");
     expect(html).toContain("Pick sessions first.");
+  });
+
+  it("renders localized backup copy", () => {
+    const ptMessages = getMessages("pt-BR");
+    const html = renderToStaticMarkup(
+      <BackupHub
+        messages={ptMessages}
+        selectedProviderFilePathsCount={2}
+        latestBackupCount={2}
+        latestExportCount={5}
+        providerDeleteBackupEnabled
+        onProviderDeleteBackupEnabledChange={() => undefined}
+        canRunProviderBackup
+        busy={false}
+        onRunBackupSelected={() => undefined}
+        onRunRecoveryBackupExport={() => undefined}
+        latestBackupPath="/tmp/backups/latest"
+        backupFlowHint="Faça backup primeiro das 2 sessões selecionadas."
+        deleteBackupModeLabel="Ligado"
+        selectedSessionPreview={selectedSessionPreview}
+        backupActionResult={backupActionResult}
+      />,
+    );
+
+    expect(html).toContain(ptMessages.providers.backupHubTitle);
+    expect(html).toContain(`${ptMessages.providers.backupHubSelected} 2 · ${ptMessages.providers.backupHubHeaderLatest} 2`);
+    expect(html).toContain(ptMessages.providers.backupHubExported);
+    expect(html).toContain(ptMessages.providers.latestBackupRunTitle);
+    expect(html).toContain(`${ptMessages.providers.valid} 2 · ${ptMessages.providers.applied} 2 · ${ptMessages.providers.backedUp} 2`);
+    expect(html).toContain(`${ptMessages.providers.deleteWithBackup} Ligado`);
   });
 });

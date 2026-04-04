@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Messages } from "../../i18n";
+import { getMessages, type Messages } from "../../i18n";
 import type { ProviderSessionActionResult } from "../../types";
 import {
   buildProviderSessionActionSummary,
@@ -11,36 +11,7 @@ import {
   getProviderStatusLabel,
 } from "./providerPanelPresentationModel";
 
-const messages = {
-  common: {
-    allAi: "All AI",
-  },
-  providers: {
-    statusActive: "Active",
-    statusDetected: "Detected",
-    statusMissing: "Missing",
-    actionBackupLocal: "Backup local",
-    actionArchiveLocal: "Archive local",
-    actionDeleteLocal: "Delete local",
-    resultPreviewReady: "Preview ready",
-    resultApplied: "Applied",
-    resultPreviewOnlyHint: "Dry-run only. Nothing changed yet.",
-    resultExecuteFromCardHint: "Preview ready. Execute from this card when it looks right.",
-    resultSelectionChangedHint: "Selection changed. Run the preview again before execute.",
-    resultArchiveAppliedHint: "Archive copied the source files into the local archive path.",
-    resultDeleteBackedUpHint: "Delete created a backup copy before removing the source files.",
-    resultDeleteDirectHint: "Delete ran directly on the source files without a backup copy.",
-    resultBackupAppliedHint: "Backup copy is ready for restore.",
-    executeActionPrefix: "Execute",
-    flowStatusDone: "Done",
-    flowStatusBlocked: "Blocked",
-    flowStatusPending: "Pending",
-  },
-  forensics: {
-    stageReady: "Ready",
-    stagePending: "Pending",
-  },
-} as unknown as Messages;
+const messages = getMessages("en");
 
 const backupActionResult: ProviderSessionActionResult = {
   ok: true,
@@ -86,7 +57,7 @@ const previewArchiveResult: ProviderSessionActionResult = {
 describe("providerPanelPresentationModel", () => {
   it("maps status, action, flow, and capability labels", () => {
     expect(getProviderStatusLabel(messages, "active")).toBe("Active");
-    expect(getProviderActionLabel(messages, "archive_local")).toBe("Archive local");
+    expect(getProviderActionLabel(messages, "archive_local")).toBe("Archive locally");
     expect(getProviderFlowStateLabel(messages, "blocked")).toBe("Blocked");
     expect(getCapabilityLevelLabel("read-only")).toBe("Read only");
   });
@@ -98,7 +69,7 @@ describe("providerPanelPresentationModel", () => {
     if (!summary) {
       throw new Error("expected preview summary");
     }
-    expect(summary.headline).toBe("Delete local · Preview ready");
+    expect(summary.headline).toBe("Delete locally · Preview ready");
     expect(summary.detail).toBe("Preview ready. Execute from this card when it looks right.");
     expect(summary.token).toBe("tok-1");
     expect(summary.previewReady).toBe(true);
@@ -187,7 +158,7 @@ describe("providerPanelPresentationModel", () => {
       canApplySlowOnly: true,
     });
 
-    expect(model.providerLabel).toBe("All AI");
+    expect(model.providerLabel).toBe("All Providers");
     expect(model.latestBackupCount).toBe(0);
     expect(model.latestBackupPath).toBe("No selected backup created in this session yet.");
     expect(model.latestExportCount).toBe(0);
@@ -203,7 +174,7 @@ describe("providerPanelPresentationModel", () => {
     const model = buildProviderPanelPresentationModel({
       messages,
       providerView: "all",
-      selectedProviderLabel: "All AI",
+      selectedProviderLabel: "All Providers",
       providerActionData: null,
       recoveryBackupExportData: null,
       selectedProviderFilePathsCount: 1,
@@ -215,6 +186,30 @@ describe("providerPanelPresentationModel", () => {
     });
 
     expect(model.canRunProviderBackup).toBe(true);
-    expect(model.providerLabel).toBe("All AI");
+    expect(model.providerLabel).toBe("All Providers");
+  });
+
+  it("localizes backup hints and toggle labels for Korean all-provider view", () => {
+    const koMessages = getMessages("ko");
+    const model = buildProviderPanelPresentationModel({
+      messages: koMessages,
+      providerView: "all",
+      selectedProviderLabel: "Codex",
+      providerActionData: null,
+      recoveryBackupExportData: null,
+      selectedProviderFilePathsCount: 2,
+      providerActionProvider: "codex",
+      providerDeleteBackupEnabled: true,
+      hotspotScopeOrigin: null,
+      slowOnly: false,
+      canApplySlowOnly: true,
+    });
+
+    expect(model.providerLabel).toBe("All Providers");
+    expect(model.latestBackupPath).toBe("이 세션에서 선택한 백업이 아직 없습니다.");
+    expect(model.backupFlowHint).toBe(
+      "선택한 세션 2개를 먼저 백업한 뒤, 아래에서 아카이브나 삭제 미리 실행을 진행합니다.",
+    );
+    expect(model.deleteBackupModeLabel).toBe("켜짐");
   });
 });

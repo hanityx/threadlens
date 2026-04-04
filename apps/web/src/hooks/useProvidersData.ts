@@ -36,6 +36,14 @@ export function shouldResetProviderView(options: {
   return !options.providerTabs.some((tab) => tab.id === options.providerView);
 }
 
+export function resolveSelectedProviderLabel(options: {
+  providerView: ProviderView;
+  providerById: Map<string, { name?: string | null }>;
+}): string | null {
+  if (options.providerView === "all") return null;
+  return options.providerById.get(options.providerView)?.name ?? options.providerView;
+}
+
 export function useProvidersData(options: {
   layoutView: LayoutView;
   providerView: ProviderView;
@@ -432,10 +440,10 @@ export function useProvidersData(options: {
     });
   }, [availableProviderFilePaths]);
 
-  const selectedProviderLabel =
-    providerView === "all"
-      ? "All local AI"
-      : providerById.get(providerView)?.name ?? providerView;
+  const selectedProviderLabel = resolveSelectedProviderLabel({
+    providerView,
+    providerById,
+  });
   const selectedProviderFilePaths = useMemo(
     () => providerSessionRows.filter((row) => Boolean(selectedProviderFiles[row.file_path])).map((row) => row.file_path),
     [providerSessionRows, selectedProviderFiles],

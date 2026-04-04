@@ -1,120 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import type { Messages } from "../../i18n";
+import { getMessages, type Messages } from "../../i18n";
 import type { ProviderSessionActionResult, ProviderSessionRow } from "../../types";
 import { SessionTable } from "./SessionTable";
 
-const messages = {
-  common: {
-    ok: "OK",
-    fail: "FAIL",
-    allAi: "All AI",
-    unknown: "Unknown",
-  },
-  providers: {
-    sessionsTitle: "Sessions",
-    rows: "Rows",
-    parseOk: "Parse ok",
-    queryLimit: "Limit",
-    sampledHint: "Sampled",
-    sessionsEmptyDetectedNoLogs: "Detected but no logs",
-    sessionsEmptyNoSources: "No sources",
-    sessionsEmptyActionHint: "Refresh with deep scan",
-    depthDeep: "Deep",
-    refreshNow: "Refresh",
-    sessionSearchPlaceholder: "Search sessions",
-    probeFilterLabel: "Probe filter",
-    probeAll: "All",
-    probeOk: "OK",
-    probeFail: "Fail",
-    selectAllInTab: "Select all",
-    workflowSelectedTitle: "Current selection",
-    workflowArchiveTitle: "Archive dry-run",
-    workflowDeleteTitle: "Delete dry-run",
-    archiveDryRun: "Archive dry-run",
-    archive: "Archive",
-    deleteDryRun: "Delete dry-run",
-    delete: "Hard delete",
-    hardDeleteConfirmTitle: "Delete selected session files now?",
-    hardDeleteConfirmBody: "This removes the selected session files immediately without creating a backup copy.",
-    hardDeleteConfirmSkipFuture: "Do not ask again for hard delete.",
-    hardDeleteConfirmCancel: "Cancel",
-    hardDeleteConfirmExecute: "Hard delete now",
-    parserLinkedBadge: "Parser",
-    parserLinkedFails: "Fails",
-    parserLinkedOpen: "Open",
-    sourceFilterLabel: "Source filter",
-    sourceAll: "All sources",
-    filters: "Filter",
-    sortLabel: "Sort",
-    sortNewest: "Newest",
-    sortOldest: "Oldest",
-    sortSizeDesc: "Largest",
-    sortSizeAsc: "Smallest",
-    sortTitleAsc: "Title asc",
-    sortTitleDesc: "Title desc",
-    slowOnlyFilter: "Slow only",
-    slowOnlyActive: "Slow only active",
-    slowOnlyDormant: "Slow dormant",
-    selectStaleOnly: "Stale only",
-    exportCsv: "CSV",
-    csvPresetAll: "All columns",
-    csvPresetCompact: "Compact columns",
-    csvPresetForensics: "Forensics columns",
-    csvSelectedColumns: "Columns",
-    readOnlyHint: "Read only",
-    actionBackupLocal: "Back up locally",
-    actionArchiveLocal: "Archive locally",
-    actionDeleteLocal: "Delete locally",
-    colProvider: "Provider",
-    colSession: "Session",
-    colFormat: "Format",
-    colProbe: "Probe",
-    colSize: "Size",
-    sessionsLoading: "Loading provider sessions...",
-    sessionsEmpty: "No provider sessions found.",
-    sessionsEmptyFiltered: "No session rows match the current filters.",
-    loadMoreRows: "Load more",
-    actionResultTitle: "Action result",
-    resultPreview: "Preview",
-    resultPreviewReady: "Preview ready",
-    resultApplied: "Applied",
-    resultPreviewOnlyHint: "Dry-run only. Nothing changed yet.",
-    resultExecuteFromCardHint: "Preview ready. Execute from this card when it looks right.",
-    resultSelectionChangedHint: "Selection changed. Run the preview again before execute.",
-    resultArchiveAppliedHint: "Archive copied the source files into the local archive path.",
-    resultDeleteBackedUpHint: "Delete created a backup copy before removing the source files.",
-    resultDeleteDirectHint: "Delete ran directly on the source files without a backup copy.",
-    resultBackupAppliedHint: "Backup copy is ready for restore.",
-    executeActionPrefix: "Execute",
-    valid: "Valid",
-    applied: "Applied",
-    backedUp: "Backed up",
-    backupLocation: "Backup location",
-    backupManifest: "Manifest",
-    backupReadyHint: "Backup ready",
-    archiveLocation: "Archive location",
-    archiveReadyHint: "Archive ready",
-    csvExported: "CSV exported",
-  },
-  threadDetail: {
-    fieldSource: "Source",
-  },
-  threadsTable: {
-    filtered: "Filtered",
-    total: "Total",
-  },
-  forensics: {
-    stageReady: "Ready",
-    stagePending: "Pending",
-  },
-  sessionDetail: {
-    fieldModified: "Modified",
-  },
-  setup: {
-    advancedTitle: "Tools",
-  },
-} as unknown as Messages;
+const messages = getMessages("en");
 
 const rows: ProviderSessionRow[] = [
   {
@@ -236,13 +126,13 @@ describe("SessionTable", () => {
     expect(html).toContain("Open Codex Cleanup");
     expect(html).toContain("session-…7890");
     expect(html).toContain("table-select-target is-checked");
-    expect(html).toContain("aria-label=\"Select all\"");
+    expect(html).toContain("aria-label=\"Select all in tab\"");
     expect(html).toContain("aria-label=\"Select session Open Codex Cleanup\"");
     expect(html).toContain("Delete locally · Preview ready");
     expect(html).toContain("Preview ready. Execute from this card when it looks right.");
     expect(html).toContain("tok-1");
     expect(html).toContain("Execute delete_local");
-    expect(html).toContain("CSV exported 1");
+    expect(html).toContain("Rows exported to CSV: 1");
     expect(html).toContain("Filter");
     expect(html).toContain("Stale only");
     expect(html).toContain("Hard delete");
@@ -255,6 +145,10 @@ describe("SessionTable", () => {
     expect(html).toContain("Current selection 1");
     expect(html).toContain("Archive dry-run Pending");
     expect(html).toContain("Delete dry-run Ready");
+    expect(html).toContain("Provider");
+    expect(html).toContain("Source");
+    expect(html).toContain("Format");
+    expect(html).toContain("Modified");
     expect(onRunArchiveDryRun).not.toHaveBeenCalled();
     expect(onRequestHardDeleteConfirm).not.toHaveBeenCalled();
   });
@@ -324,7 +218,7 @@ describe("SessionTable", () => {
       />,
     );
 
-    expect(html).toContain("No sources");
+    expect(html).toContain("No local data sources were detected for this provider.");
     expect(html).toContain("skeleton-line");
   });
 
@@ -394,6 +288,6 @@ describe("SessionTable", () => {
     );
 
     expect(html).toContain("No session rows match the current filters.");
-    expect(html).not.toContain("Loading provider sessions...");
+    expect(html).not.toContain("Loading sessions...");
   });
 });

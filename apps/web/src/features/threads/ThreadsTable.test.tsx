@@ -117,4 +117,157 @@ describe("ThreadsTable", () => {
       "thread-archived-1234": false,
     });
   });
+
+  it("renders localized thread-table labels for visible controls", () => {
+    const deMessages = getMessages("de");
+    const html = renderToStaticMarkup(
+      <ThreadsTable
+        messages={deMessages}
+        visibleRows={rows}
+        filteredRows={rows}
+        totalCount={2}
+        threadsLoading={false}
+        threadsError={false}
+        selected={{}}
+        setSelected={vi.fn()}
+        selectedThreadId=""
+        setSelectedThreadId={vi.fn()}
+        allFilteredSelected={false}
+        toggleSelectAllFiltered={vi.fn()}
+        selectedIds={[]}
+        selectedImpactCount={0}
+        dryRunReady={false}
+        dryRunReadyIds={[]}
+        busy={false}
+        threadActionsDisabled={false}
+        bulkArchive={vi.fn()}
+        analyzeDelete={vi.fn()}
+        cleanupDryRun={vi.fn()}
+        cleanupExecute={vi.fn()}
+        onRequestHardDeleteConfirm={vi.fn()}
+        hardDeleteConfirmOpen={false}
+        hardDeleteSkipConfirmChecked={false}
+        onToggleHardDeleteSkipConfirmChecked={() => undefined}
+        onConfirmHardDelete={() => undefined}
+        onCancelHardDeleteConfirm={() => undefined}
+      />,
+    );
+
+    expect(html).toContain(`${deMessages.threadsTable.workflowSelectedTitle} 0`);
+    expect(html).toContain(`${deMessages.threadsTable.workflowImpactTitle} ${deMessages.forensics.stagePending}`);
+    expect(html).toContain(`${deMessages.threadsTable.workflowDryRunTitle} ${deMessages.forensics.stagePending}`);
+    expect(html).toContain(deMessages.threadsTable.bulkArchive);
+    expect(html).toContain(deMessages.threadsTable.bulkImpact);
+    expect(html).toContain(deMessages.threadsTable.bulkCleanupDryRun);
+    expect(html).toContain(`aria-label="${deMessages.threadsTable.selectThreadAria.replace("{title}", "Review this cleanup candidate")}"`);
+    expect(html).toContain(`aria-label="${deMessages.threadsTable.selectAllFiltered}"`);
+    expect(html).toContain(`>${deMessages.threadsTable.colRisk}<`);
+    expect(html).toContain(`>${deMessages.threadsTable.colPinned}<`);
+  });
+
+  it("renders localized thread row badge, fallback title, and source labels", () => {
+    const deMessages = getMessages("de");
+    const html = renderToStaticMarkup(
+      <ThreadsTable
+        messages={deMessages}
+        visibleRows={[
+          {
+            thread_id: "thread-1234567890",
+            title: "",
+            risk_score: 82,
+            risk_level: "high",
+            risk_tags: ["orphan-candidate", "ctx-high"],
+            is_pinned: false,
+            source: "sessions",
+            timestamp: "2026-03-27T00:00:00.000Z",
+            activity_status: "stale",
+          },
+        ]}
+        filteredRows={[
+          {
+            thread_id: "thread-1234567890",
+            title: "",
+            risk_score: 82,
+            risk_level: "high",
+            risk_tags: ["orphan-candidate", "ctx-high"],
+            is_pinned: false,
+            source: "sessions",
+            timestamp: "2026-03-27T00:00:00.000Z",
+            activity_status: "stale",
+          },
+        ]}
+        totalCount={1}
+        threadsLoading={false}
+        threadsError={false}
+        selected={{}}
+        setSelected={vi.fn()}
+        selectedThreadId="thread-1234567890"
+        setSelectedThreadId={vi.fn()}
+        allFilteredSelected={false}
+        toggleSelectAllFiltered={vi.fn()}
+        selectedIds={[]}
+        selectedImpactCount={0}
+        dryRunReady={false}
+        dryRunReadyIds={[]}
+        busy={false}
+        threadActionsDisabled={false}
+        bulkArchive={vi.fn()}
+        analyzeDelete={vi.fn()}
+        cleanupDryRun={vi.fn()}
+        cleanupExecute={vi.fn()}
+        onRequestHardDeleteConfirm={vi.fn()}
+        hardDeleteConfirmOpen={false}
+        hardDeleteSkipConfirmChecked={false}
+        onToggleHardDeleteSkipConfirmChecked={() => undefined}
+        onConfirmHardDelete={() => undefined}
+        onCancelHardDeleteConfirm={() => undefined}
+      />,
+    );
+
+    expect(html).toContain(`${deMessages.threadsTable.fallbackTitlePrefix} thread-1`);
+    expect(html).toContain(deMessages.threadsTable.currentSelection);
+    expect(html).toContain(`>${deMessages.threadsTable.sourceSessions}<`);
+  });
+
+  it("keeps workflow strip glossary in English for Simplified Chinese", () => {
+    const zhMessages = getMessages("zh-CN");
+    const html = renderToStaticMarkup(
+      <ThreadsTable
+        messages={zhMessages}
+        visibleRows={rows}
+        filteredRows={rows}
+        totalCount={2}
+        threadsLoading={false}
+        threadsError={false}
+        selected={{}}
+        setSelected={vi.fn()}
+        selectedThreadId=""
+        setSelectedThreadId={vi.fn()}
+        allFilteredSelected={false}
+        toggleSelectAllFiltered={vi.fn()}
+        selectedIds={[]}
+        selectedImpactCount={0}
+        dryRunReady={false}
+        dryRunReadyIds={[]}
+        busy={false}
+        threadActionsDisabled={false}
+        bulkArchive={vi.fn()}
+        analyzeDelete={vi.fn()}
+        cleanupDryRun={vi.fn()}
+        cleanupExecute={vi.fn()}
+        onRequestHardDeleteConfirm={vi.fn()}
+        hardDeleteConfirmOpen={false}
+        hardDeleteSkipConfirmChecked={false}
+        onToggleHardDeleteSkipConfirmChecked={() => undefined}
+        onConfirmHardDelete={() => undefined}
+        onCancelHardDeleteConfirm={() => undefined}
+      />,
+    );
+
+    expect(html).toContain("Current selection 0");
+    expect(html).toContain("Impact analysis Pending");
+    expect(html).toContain("Cleanup dry-run Pending");
+    expect(html).not.toContain("清理dry-runun");
+    expect(html).not.toContain("气氛");
+  });
 });

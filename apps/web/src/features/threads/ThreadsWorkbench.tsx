@@ -11,6 +11,33 @@ import { ThreadsForensicsSlot } from "./ThreadsForensicsSlot";
 const THREAD_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY = "po-thread-hard-delete-skip-confirm";
 const LEGACY_THREAD_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY = "cmc-thread-hard-delete-skip-confirm";
 
+function formatThreadSourceLabel(messages: ReturnType<typeof useAppContext>["messages"], source?: string | null) {
+  if (source === "sessions") return messages.threadDetail.sourceSessions;
+  if (source === "archive") return messages.threadDetail.sourceArchive;
+  if (source === "history") return messages.threadDetail.sourceHistory;
+  if (source === "tmp") return messages.threadDetail.sourceTemporary;
+  return messages.threadDetail.fallbackTitlePrefix;
+}
+
+function formatThreadRiskLabel(messages: ReturnType<typeof useAppContext>["messages"], risk?: string | null) {
+  if (risk === "high") return messages.overview.reviewRiskHigh;
+  if (risk === "medium") return messages.overview.reviewRiskMedium;
+  if (risk === "low") return messages.overview.reviewRiskLow;
+  return messages.overview.reviewMetaFallbackRisk;
+}
+
+function formatThreadSourceSummary(
+  messages: ReturnType<typeof useAppContext>["messages"],
+  source?: string | null,
+  score?: number | null,
+  risk?: string | null,
+) {
+  return messages.threadDetail.nextThreadSourceTemplate
+    .replace("{source}", formatThreadSourceLabel(messages, source))
+    .replace("{score}", String(score ?? 0))
+    .replace("{risk}", formatThreadRiskLabel(messages, risk));
+}
+
 export function ThreadsWorkbench() {
   const {
     messages,
@@ -178,36 +205,36 @@ export function ThreadsWorkbench() {
         <div className="cleanup-command-body">
           <div className="thread-workflow-copy">
             <div className="thread-workflow-copy-eyebrow">
-              <span className="overview-note-label">thread</span>
+              <span className="overview-note-label">{messages.threadsTable.heroEyebrow}</span>
             </div>
-            <strong>Review &amp; Archive</strong>
-            <p>Select, analyze, clean up in Codex.</p>
+            <strong>{messages.threadsTable.heroTitle}</strong>
+            <p>{messages.threadsTable.heroBody}</p>
           </div>
           <div className="thread-status-grid">
             <article className="thread-status-card">
-              <span>threads</span>
+              <span>{messages.threadsTable.heroStatThreads}</span>
               <strong>{filteredCount}</strong>
             </article>
             {highRiskVisibleCount > 0 ? (
               <article className="thread-status-card is-warn">
-                <span>high signal</span>
+                <span>{messages.threadsTable.heroStatHighSignal}</span>
                 <strong>{highRiskVisibleCount}</strong>
               </article>
             ) : null}
             {pinnedCount > 0 ? (
               <article className="thread-status-card">
-                <span>pinned</span>
+                <span>{messages.threadsTable.heroStatPinned}</span>
                 <strong>{pinnedCount}</strong>
               </article>
             ) : null}
             {selectedCount > 0 ? (
               <article className="thread-status-card is-accent">
-                <span>selected</span>
+                <span>{messages.threadsTable.heroStatSelected}</span>
                 <strong>{selectedCount}</strong>
               </article>
             ) : null}
             <article className={`thread-status-card ${dryRunReady ? "is-ready" : ""}`.trim()}>
-              <span>dry-run</span>
+              <span>{messages.threadsTable.heroStatDryRun}</span>
               <strong>{dryRunReady ? "ready" : "—"}</strong>
             </article>
           </div>
@@ -284,8 +311,13 @@ export function ThreadsWorkbench() {
               nextThreadTitle={nextCleanupCandidate ? recentThreadTitle(nextCleanupCandidate) : ""}
               nextThreadSource={
                 nextCleanupCandidate
-                  ? `${nextCleanupCandidate.source || "thread"} · risk ${nextCleanupCandidate.risk_score ?? 0} · ${nextCleanupCandidate.risk_level || "review"}`
-                  : "open from threads or recent review rows"
+                  ? formatThreadSourceSummary(
+                      messages,
+                      nextCleanupCandidate.source,
+                      nextCleanupCandidate.risk_score,
+                      nextCleanupCandidate.risk_level,
+                    )
+                  : messages.threadDetail.emptyNextDefaultBody
               }
               searchContext={searchThreadContext}
               threadDetailLoading={threadDetailLoading}

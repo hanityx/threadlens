@@ -71,6 +71,20 @@ describe("workbench helpers", () => {
     expect(formatWorkbenchRailDay("2026-03-24T09:30:00+09:00")).toBe("Today");
     expect(formatWorkbenchRailDay("2026-03-23T23:30:00+09:00")).toBe("Yesterday");
     expect(formatWorkbenchRailDay("2026-03-20T09:30:00+09:00")).toBe("Mar 20");
+    expect(
+      formatWorkbenchRailDay("2026-03-24T09:30:00+09:00", {
+        recent: "최근",
+        today: "오늘",
+        yesterday: "어제",
+      }),
+    ).toBe("오늘");
+    expect(
+      formatWorkbenchRailDay("2026-03-23T23:30:00+09:00", {
+        recent: "최근",
+        today: "오늘",
+        yesterday: "어제",
+      }),
+    ).toBe("어제");
 
     expect(formatWorkbenchRailTime("2026-03-24T09:30:00+09:00")).toBe(
       new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(
@@ -84,6 +98,20 @@ describe("workbench helpers", () => {
     expect(formatWorkbenchGroupLabel("2026-03-24T09:30:00+09:00")).toBe("Today");
     expect(formatWorkbenchGroupLabel("2026-03-23T09:30:00+09:00")).toBe("Yesterday");
     expect(formatWorkbenchGroupLabel("2026-03-20T09:30:00+09:00")).toBe("MAR 20");
+    expect(
+      formatWorkbenchGroupLabel("2026-03-24T09:30:00+09:00", {
+        recent: "最近",
+        today: "今天",
+        yesterday: "昨天",
+      }),
+    ).toBe("今天");
+    expect(
+      formatWorkbenchGroupLabel("2026-03-23T09:30:00+09:00", {
+        recent: "最近",
+        today: "今天",
+        yesterday: "昨天",
+      }),
+    ).toBe("昨天");
   });
 
   it("normalizes desktop route file paths for codex-cli mirror roots", () => {

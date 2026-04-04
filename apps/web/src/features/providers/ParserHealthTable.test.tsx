@@ -1,45 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import type { Messages } from "../../i18n";
+import { getMessages, type Messages } from "../../i18n";
 import type { ProviderParserHealthReport } from "../../types";
 import { ParserHealthTable } from "./ParserHealthTable";
 
-const messages = {
-  providers: {
-    parserTitle: "Parser health",
-    score: "Score",
-    parserJumpHint: "Jump into provider sessions.",
-    parserLinkedProvider: "Linked provider",
-    parserLinkedHidden: "Hidden",
-    parserFailOnly: "Fail only",
-    filteredRows: "Filtered",
-    parserSortLabel: "Sort",
-    parserSortFailDesc: "Fail desc",
-    parserSortFailAsc: "Fail asc",
-    parserSortScoreDesc: "Score desc",
-    parserSortScoreAsc: "Score asc",
-    parserSortScanDesc: "Scan desc",
-    parserSortScanAsc: "Scan asc",
-    parserSortNameAsc: "Name asc",
-    parserSortNameDesc: "Name desc",
-    colProvider: "Provider",
-    colStatus: "Status",
-    colScanned: "Scanned",
-    colScanMs: "Scan ms",
-    colParseOk: "Parse ok",
-    colParseFail: "Parse fail",
-    colScore: "Score",
-    parserLoading: "Loading parser health",
-    parserDetailLabel: "Error details",
-    parserNoSampleErrors: "No sample errors",
-    parserSelectedErrors: "Selected errors",
-    parserFieldSessionId: "Session id",
-    parserFieldFormat: "Format",
-    parserFieldError: "Error",
-    parserJumpFound: "Session found",
-    parserJumpNotFound: "Session not found",
-  },
-} as unknown as Messages;
+const messages = getMessages("en");
 
 const reports: ProviderParserHealthReport[] = [
   {
@@ -90,9 +55,9 @@ describe("ParserHealthTable", () => {
     expect(html).toContain("Score 91");
     expect(html).toContain("Codex");
     expect(html).toContain("125ms");
-    expect(html).toContain("Selected errors Codex");
+    expect(html).toContain("Show parser errors for: Codex");
     expect(html).toContain("sess-1");
-    expect(html).toContain("Session found");
+    expect(html).toContain("A matching session was selected in the provider table.");
     expect(onJumpToProviderSessions).not.toHaveBeenCalled();
     expect(onJumpToSessionFromParserError).not.toHaveBeenCalled();
   });

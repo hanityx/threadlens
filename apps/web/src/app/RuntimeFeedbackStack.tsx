@@ -27,8 +27,8 @@ export function RuntimeFeedbackStack() {
       {hasGlobalErrorStack ? (
         <section className="error-stack" aria-live="polite">
           <div className="error-stack-head">
-            <span className="overview-note-label">runtime issues</span>
-            <strong>Some runtime actions are blocked.</strong>
+            <span className="overview-note-label">{messages.alerts.runtimeIssuesTitle}</span>
+            <strong>{messages.alerts.runtimeIssuesBody}</strong>
           </div>
           <div className="error-stack-list">
             {runtime.isError ? <div className="error-box">{messages.errors.runtime}</div> : null}

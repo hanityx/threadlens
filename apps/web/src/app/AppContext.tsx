@@ -1,8 +1,8 @@
 import { createContext, useContext, type MutableRefObject } from "react";
+import type { Locale, Messages } from "../i18n";
 import type { useAppData } from "../hooks/useAppData";
 import type { useAppShellModel } from "./appShellModel";
 import type { useAppShellBehavior } from "./appShellBehavior";
-import type { Messages } from "../i18n";
 import type { ConversationSearchHit, LayoutView, ProviderView } from "../types";
 import type { ProviderProbeFilter } from "../features/providers/sessionTableModel";
 
@@ -10,6 +10,8 @@ type RuntimeBackend = { reachable?: boolean; latency_ms?: number | null; url?: s
 
 type AppLocalState = {
   messages: Messages;
+  locale: Locale;
+  setLocale: (locale: Locale) => void;
   providersDiagnosticsOpen: boolean;
   setProvidersDiagnosticsOpen: (open: boolean) => void;
   setupGuideOpen: boolean;

@@ -40,10 +40,10 @@ export interface ThreadsTableProps {
   panelStyle?: CSSProperties;
 }
 
-function compactThreadTitle(row: ThreadRow): string {
+function compactThreadTitle(messages: Messages, row: ThreadRow): string {
   const normalized = normalizeDisplayValue(row.title);
   if (!normalized || normalized === row.thread_id) {
-    return `thread ${row.thread_id.slice(0, 8)}`;
+    return `${messages.threadsTable.fallbackTitlePrefix} ${row.thread_id.slice(0, 8)}`;
   }
   return normalized;
 }
@@ -53,11 +53,21 @@ function compactThreadId(threadId: string): string {
   return `${threadId.slice(0, 8)}…${threadId.slice(-4)}`;
 }
 
-function compactThreadSource(row: ThreadRow): string {
+function compactThreadSource(messages: Messages, row: ThreadRow): string {
   const source = normalizeDisplayValue(row.source || row.project_bucket || "-");
   if (!source) return "-";
-  if (/^archived[_-]/i.test(source) || /archived/i.test(source)) {
-    return "archive";
+  const lowered = source.toLowerCase();
+  if (lowered === "sessions" || lowered === "session") {
+    return messages.threadsTable.sourceSessions;
+  }
+  if (/^archived[_-]/i.test(lowered) || /archived/i.test(lowered) || lowered === "archive") {
+    return messages.threadsTable.sourceArchive;
+  }
+  if (lowered === "history") {
+    return messages.threadsTable.sourceHistory;
+  }
+  if (["tmp", "temp", "temporary", "workspace_tmp", "workspace-temp"].includes(lowered)) {
+    return messages.threadsTable.sourceTemporary;
   }
   return source;
 }
@@ -260,7 +270,10 @@ export function ThreadsTable(props: ThreadsTableProps) {
                         className="table-select-checkbox"
                         type="checkbox"
                         checked={checked}
-                        aria-label={`Select thread ${normalizeDisplayValue(row.title) || row.thread_id}`}
+                        aria-label={messages.threadsTable.selectThreadAria.replace(
+                          "{title}",
+                          normalizeDisplayValue(row.title) || row.thread_id,
+                        )}
                         onClick={(event) => event.stopPropagation()}
                         onChange={(e) => setSelected((prev) => ({ ...prev, [row.thread_id]: e.target.checked }))}
                       />
@@ -271,7 +284,7 @@ export function ThreadsTable(props: ThreadsTableProps) {
                       className="title-main thread-table-title"
                       title={normalizeDisplayValue(row.title) || row.thread_id}
                     >
-                      {compactThreadTitle(row)}
+                      {compactThreadTitle(messages, row)}
                       {selectedThreadId === row.thread_id ? (
                         <span className="status-pill status-active" style={{ marginLeft: 8 }}>
                           {messages.threadsTable.currentSelection}
@@ -285,7 +298,7 @@ export function ThreadsTable(props: ThreadsTableProps) {
                   <td className="col-risk">{row.risk_score ?? 0}</td>
                   <td className="col-pinned">{row.is_pinned ? messages.common.yes : messages.common.no}</td>
                   <td className="col-source" title={row.source || row.project_bucket || "-"}>
-                    {compactThreadSource(row)}
+                    {compactThreadSource(messages, row)}
                   </td>
                 </tr>
               );

@@ -1,51 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import type { Messages } from "../../i18n";
+import { getMessages, type Messages } from "../../i18n";
 import type { ProviderMatrixProvider } from "../../types";
 import { AiManagementMatrix } from "./AiManagementMatrix";
 
-const messages = {
-  common: {
-    yes: "Yes",
-  },
-  providers: {
-    matrixDisclosure: "Matrix",
-    active: "Active",
-    colProvider: "Provider",
-    colStatus: "Status",
-    colCapability: "Capability",
-    colRead: "Read",
-    colAnalyze: "Analyze",
-    colSafeCleanup: "Safe cleanup",
-    colHardDelete: "Hard delete",
-    colLogs: "Logs",
-    colNotes: "Notes",
-    openSessions: "Open sessions",
-    installDetected: "Detected only",
-    rootsLabel: "Roots",
-    rootsNone: "No roots",
-    matrixLoading: "Loading matrix",
-    hotspotDisclosure: "Hotspots",
-    hotspotFocusSlow: "Focus slow",
-    hotspotClearFocus: "Clear slow",
-    slowProviderBadge: "Slow",
-    hotspotScan: "Scan",
-    hotspotRows: "Rows",
-    hotspotParseFail: "Parse fail",
-    score: "Score",
-    hotspotOpenParser: "Open parser",
-    flowBoardTitle: "Flow board",
-    flowBoardSubtitle: "Visible",
-    configMapRoots: "Roots",
-    configMapNoRoots: "No roots",
-    configMapSources: "Sources",
-    configMapNoSources: "No sources",
-    flowNextLabel: "Next",
-    dataSourcesDetected: "Detected",
-    rows: "Rows",
-    colParseFail: "Parse fail",
-  },
-} as unknown as Messages;
+const messages = getMessages("en");
 
 const providers: ProviderMatrixProvider[] = [
   {
@@ -119,12 +78,12 @@ describe("AiManagementMatrix", () => {
       />,
     );
 
-    expect(html).toContain("Matrix");
+    expect(html).toContain("AI matrix");
     expect(html).toContain("Codex");
     expect(html).toContain("Open sessions");
-    expect(html).toContain("Hotspots");
+    expect(html).toContain("Slow AI hotspots");
     expect(html).toContain("Slow 125ms");
-    expect(html).toContain("Flow board");
+    expect(html).toContain("AI flow board");
     expect(html).toContain("Investigate parser failures.");
     expect(html).toContain("Codex root");
     expect(onJumpToProviderSessions).not.toHaveBeenCalled();

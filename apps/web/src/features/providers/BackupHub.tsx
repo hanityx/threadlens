@@ -45,7 +45,7 @@ export function BackupHub(props: BackupHubProps) {
       <div className="provider-workspace-actions-head">
         <strong>{messages.providers.backupHubTitle}</strong>
         <span className="sub-hint">
-          {messages.providers.backupHubSelected} {selectedProviderFilePathsCount} · latest {latestBackupCount}
+          {messages.providers.backupHubSelected} {selectedProviderFilePathsCount} · {messages.providers.backupHubHeaderLatest} {latestBackupCount}
         </span>
       </div>
       <div className="provider-workspace-backup-overview" aria-label="backup overview">
@@ -113,7 +113,7 @@ export function BackupHub(props: BackupHubProps) {
       ) : null}
       {backupActionResult ? (
         <div className="provider-inline-result">
-          <strong>Latest backup run</strong>
+          <strong>{messages.providers.latestBackupRunTitle}</strong>
           <span>
             {messages.providers.valid} {backupActionResult.valid_count} · {messages.providers.applied} {backupActionResult.applied_count}
             {typeof backupActionResult.backed_up_count === "number"

@@ -1,5 +1,6 @@
 import { useAppContext } from "./AppContext";
 import { Button } from "../design-system/Button";
+import { LocalePicker } from "./LocalePicker";
 
 export function TopShell() {
   const {
@@ -17,13 +18,15 @@ export function TopShell() {
     refreshAllData,
     busy,
     refreshingAllData,
+    locale,
+    setLocale,
     messages,
   } = useAppContext();
 
   return (
     <section className="top-actions">
       <div className="top-actions-main">
-        <nav className="top-surface-nav" aria-label="surface tabs">
+        <nav className="top-surface-nav" aria-label={messages.nav.surfaceTabs}>
           <button
             type="button"
             className={`top-surface-btn ${layoutView === "overview" ? "is-active" : ""}`}
@@ -76,7 +79,7 @@ export function TopShell() {
           <input
             type="search"
             className="top-search-input"
-            placeholder="Jump to thread, session, keyword..."
+            placeholder={messages.nav.jumpPlaceholder}
             value={headerSearchDraft}
             onChange={(event) => setHeaderSearchDraft(event.target.value)}
           />
@@ -100,8 +103,15 @@ export function TopShell() {
             disabled={busy || refreshingAllData}
             title={messages.nav.syncHint}
           >
-            {refreshingAllData ? "Syncing" : "Sync"}
+            {refreshingAllData ? messages.nav.syncing : messages.nav.syncNow}
           </Button>
+          <LocalePicker
+            id="top-shell-locale"
+            locale={locale}
+            setLocale={setLocale}
+            label={messages.nav.locale}
+            compact
+          />
         </div>
       </div>
     </section>

@@ -1,28 +1,36 @@
 import React from "react";
+import { pathToFileURL } from "node:url";
 import { render } from "ink";
-import { App } from "./App.js";
 import type { AppBootstrapProps, ProviderScope, ViewKey } from "./config.js";
+import { getMessages, resolveLocale } from "./i18n/index.js";
+import { SUPPORTED_LOCALES, type Locale } from "./i18n/types.js";
+function buildHelpText(locale: AppBootstrapProps["locale"]) {
+  const messages = getMessages(locale ?? "en");
+  return `${messages.cli.helpTitle}
 
-const HELP_TEXT = `ThreadLens TUI
+${messages.cli.usageLabel}
+  threadlens-tui [--view search|sessions|cleanup] [--query <text>] [--provider all|codex|claude|gemini|copilot] [--filter <text>] [--results] [--locale ${SUPPORTED_LOCALES.join("|")}]
 
-Usage:
-  threadlens-tui [--view search|sessions|cleanup] [--query <text>] [--provider all|codex|claude|gemini|copilot] [--filter <text>] [--results]
-
-Examples:
+${messages.cli.examplesLabel}
   threadlens-tui
   threadlens-tui --query obsidian
   threadlens-tui --query obsidian --results
   threadlens-tui --view sessions --provider codex
   threadlens-tui --view cleanup --filter risk
+  threadlens-tui --locale ko
 `;
+}
 
-function parseArgs(argv: string[]): AppBootstrapProps | null {
-  const next: AppBootstrapProps = {};
+export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env): AppBootstrapProps | null {
+  const next: AppBootstrapProps = {
+    locale: resolveLocale(argv, env),
+  };
+  const invalidViewMessage = getMessages(next.locale ?? "en").cli.invalidView;
 
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
     if (token === "--help" || token === "-h") {
-      console.log(HELP_TEXT);
+      console.log(buildHelpText(next.locale));
       return null;
     }
     if (token === "--view") {
@@ -30,6 +38,8 @@ function parseArgs(argv: string[]): AppBootstrapProps | null {
       if (value && ["search", "sessions", "cleanup"].includes(value)) {
         next.initialView = value;
         index += 1;
+      } else {
+        throw new Error(invalidViewMessage);
       }
       continue;
     }
@@ -57,6 +67,10 @@ function parseArgs(argv: string[]): AppBootstrapProps | null {
       }
       continue;
     }
+    if (token === "--locale") {
+      index += 1;
+      continue;
+    }
     if (token === "--results") {
       next.initialSearchFocus = "results";
     }
@@ -65,15 +79,32 @@ function parseArgs(argv: string[]): AppBootstrapProps | null {
   return next;
 }
 
-const bootstrap = parseArgs(process.argv.slice(2));
+export async function main(argv = process.argv.slice(2), env: NodeJS.ProcessEnv = process.env) {
+  let bootstrap: AppBootstrapProps | null;
+  try {
+    bootstrap = parseArgs(argv, env);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
 
-if (!bootstrap) {
-  process.exit(0);
+  if (!bootstrap) {
+    process.exit(0);
+  }
+
+  if (!process.stdin.isTTY) {
+    console.error(getMessages(bootstrap.locale ?? "en").cli.ttyRequired);
+    process.exit(1);
+  }
+
+  const { App } = await import("./App.js");
+  render(<App {...bootstrap} />);
 }
 
-if (!process.stdin.isTTY) {
-  console.error("ThreadLens TUI must run in a TTY terminal. Re-run it in Terminal, iTerm, or tmux.");
-  process.exit(1);
-}
+const isMainModule =
+  process.argv[1] != null &&
+  import.meta.url === pathToFileURL(process.argv[1]).href;
 
-render(<App {...bootstrap} />);
+if (isMainModule) {
+  void main();
+}

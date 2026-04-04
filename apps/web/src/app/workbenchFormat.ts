@@ -13,6 +13,20 @@ const railTimeFormatter = new Intl.DateTimeFormat("en-US", {
   minute: "2-digit",
 });
 
+type WorkbenchDayLabels = {
+  recent?: string;
+  today?: string;
+  yesterday?: string;
+};
+
+function getWorkbenchDayLabels(labels?: WorkbenchDayLabels) {
+  return {
+    recent: labels?.recent ?? "Recent",
+    today: labels?.today ?? "Today",
+    yesterday: labels?.yesterday ?? "Yesterday",
+  };
+}
+
 export const providerFromSourceKey = (sourceKey: string): string | null => {
   const key = sourceKey.toLowerCase();
   if (key.startsWith("claude")) return "claude";
@@ -87,16 +101,17 @@ export const normalizeWorkbenchSessionTitle = (
   return looksGenerated && fallbackText ? fallbackText : normalized;
 };
 
-export const formatWorkbenchRailDay = (value?: string | null): string => {
-  if (!value) return "Recent";
+export const formatWorkbenchRailDay = (value?: string | null, labels?: WorkbenchDayLabels): string => {
+  const dayLabels = getWorkbenchDayLabels(labels);
+  if (!value) return dayLabels.recent;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Recent";
+  if (Number.isNaN(date.getTime())) return dayLabels.recent;
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfTarget = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const diffDays = Math.round((startOfToday.getTime() - startOfTarget.getTime()) / 86_400_000);
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
+  if (diffDays === 0) return dayLabels.today;
+  if (diffDays === 1) return dayLabels.yesterday;
   return railDayFormatter.format(date);
 };
 
@@ -107,15 +122,16 @@ export const formatWorkbenchRailTime = (value?: string | null): string => {
   return railTimeFormatter.format(date);
 };
 
-export const formatWorkbenchGroupLabel = (value?: string | null): string => {
-  if (!value) return "Recent";
+export const formatWorkbenchGroupLabel = (value?: string | null, labels?: WorkbenchDayLabels): string => {
+  const dayLabels = getWorkbenchDayLabels(labels);
+  if (!value) return dayLabels.recent;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Recent";
+  if (Number.isNaN(date.getTime())) return dayLabels.recent;
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfTarget = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const diffDays = Math.round((startOfToday.getTime() - startOfTarget.getTime()) / 86_400_000);
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
+  if (diffDays === 0) return dayLabels.today;
+  if (diffDays === 1) return dayLabels.yesterday;
   return railDayFormatter.format(date).toUpperCase();
 };

@@ -19,6 +19,16 @@ type Props = {
   visibleProviderIds?: string[];
 };
 
+function formatRoutingMessage(
+  template: string,
+  replacements: Record<string, string | number>,
+): string {
+  return Object.entries(replacements).reduce(
+    (result, [key, value]) => result.replaceAll(`{${key}}`, String(value)),
+    template,
+  );
+}
+
 function providerFromSourceKey(sourceKey: string): string | null {
   if (
     sourceKey === "codex_root" ||
@@ -36,27 +46,27 @@ function providerFromSourceKey(sourceKey: string): string | null {
   return null;
 }
 
-function sessionSourceLabel(source: string): string {
-  if (source === "sessions") return "Codex session logs";
-  if (source === "projects") return "Claude project logs";
-  if (source === "transcripts") return "Claude transcript store";
-  if (source === "tmp") return "Gemini temp sessions";
-  if (source === "antigravity_conversations") return "Gemini conversation store";
-  if (source === "conversations") return "ChatGPT conversation cache";
-  if (source === "project-conversations") return "ChatGPT project conversations";
-  if (source === "vscode_global") return "VS Code global traces";
-  if (source === "cursor_workspace_chats") return "Cursor workspace chats";
-  if (source === "vscode_workspace_chats") return "VS Code workspace chats";
+function sessionSourceLabel(messages: Messages, source: string): string {
+  if (source === "sessions") return messages.routing.sourceCodexSessionLogs;
+  if (source === "projects") return messages.routing.sourceClaudeProjectLogs;
+  if (source === "transcripts") return messages.routing.sourceClaudeTranscriptStore;
+  if (source === "tmp") return messages.routing.sourceGeminiTempSessions;
+  if (source === "antigravity_conversations") return messages.routing.sourceGeminiConversationStore;
+  if (source === "conversations") return messages.routing.sourceChatgptConversationCache;
+  if (source === "project-conversations") return messages.routing.sourceChatgptProjectConversations;
+  if (source === "vscode_global") return messages.routing.sourceVsCodeGlobalTraces;
+  if (source === "cursor_workspace_chats") return messages.routing.sourceCursorWorkspaceChats;
+  if (source === "vscode_workspace_chats") return messages.routing.sourceVsCodeWorkspaceChats;
   return source;
 }
 
-function formatLabel(format: "jsonl" | "json" | "unknown"): string {
+function formatLabel(messages: Messages, format: "jsonl" | "json" | "unknown"): string {
   if (format === "jsonl") return "JSONL";
   if (format === "json") return "JSON";
-  return "Unknown";
+  return messages.common.unknown;
 }
 
-function providerManagementProfile(provider: string): Array<{
+function providerManagementProfile(provider: string, messages: Messages): Array<{
   label: string;
   value: string;
   hint: string;
@@ -64,183 +74,183 @@ function providerManagementProfile(provider: string): Array<{
   if (provider === "codex") {
     return [
       {
-        label: "Session model",
-        value: "thread_id + session logs + global state",
-        hint: "Thread-first model.",
+        label: messages.routing.profileSessionModel,
+        value: messages.routing.profileCodexSessionValue,
+        hint: messages.routing.profileCodexSessionHint,
       },
       {
-        label: "Resume / identify",
-        value: "thread_id · pinned · global state",
-        hint: "Includes pinned and state.",
+        label: messages.routing.profileResumeModel,
+        value: messages.routing.profileCodexResumeValue,
+        hint: messages.routing.profileCodexResumeHint,
       },
       {
-        label: "Cleanup scope",
-        value: "impact + dry-run + state references",
-        hint: "Impact comes first.",
+        label: messages.routing.profileCleanupModel,
+        value: messages.routing.profileCodexCleanupValue,
+        hint: messages.routing.profileCodexCleanupHint,
       },
       {
-        label: "Primary surface",
-        value: "review + transcript",
-        hint: "Review rail first.",
+        label: messages.routing.profilePrimarySurface,
+        value: messages.routing.profileCodexSurfaceValue,
+        hint: messages.routing.profileCodexSurfaceHint,
       },
     ];
   }
   if (provider === "claude") {
     return [
       {
-        label: "Session model",
-        value: "session_id + raw project/transcript sessions",
-        hint: "Session-first model.",
+        label: messages.routing.profileSessionModel,
+        value: messages.routing.profileClaudeSessionValue,
+        hint: messages.routing.profileClaudeSessionHint,
       },
       {
-        label: "Resume / identify",
-        value: "session id / transcript file",
-        hint: "Session id and transcript first.",
+        label: messages.routing.profileResumeModel,
+        value: messages.routing.profileClaudeResumeValue,
+        hint: messages.routing.profileClaudeResumeHint,
       },
       {
-        label: "Cleanup scope",
-        value: "raw session file dry-run / archive / delete",
-        hint: "Raw-file cleanup first.",
+        label: messages.routing.profileCleanupModel,
+        value: messages.routing.profileClaudeCleanupValue,
+        hint: messages.routing.profileClaudeCleanupHint,
       },
       {
-        label: "Primary surface",
-        value: "session archive",
-        hint: "Transcript first.",
+        label: messages.routing.profilePrimarySurface,
+        value: messages.routing.profileClaudeSurfaceValue,
+        hint: messages.routing.profileClaudeSurfaceHint,
       },
     ];
   }
   if (provider === "gemini") {
     return [
       {
-        label: "Session model",
-        value: "history / temp / checkpoint stores",
-        hint: "Store bundle first.",
+        label: messages.routing.profileSessionModel,
+        value: messages.routing.profileGeminiSessionValue,
+        hint: messages.routing.profileGeminiSessionHint,
       },
       {
-        label: "Resume / identify",
-        value: "history / temp / conversation stores",
-        hint: "Distribution and format first.",
+        label: messages.routing.profileResumeModel,
+        value: messages.routing.profileGeminiResumeValue,
+        hint: messages.routing.profileGeminiResumeHint,
       },
       {
-        label: "Cleanup scope",
-        value: "raw session file dry-run / archive / delete",
-        hint: "Dry-run before cleanup.",
+        label: messages.routing.profileCleanupModel,
+        value: messages.routing.profileGeminiCleanupValue,
+        hint: messages.routing.profileGeminiCleanupHint,
       },
       {
-        label: "Primary surface",
-        value: "session archive",
-        hint: "Inventory first.",
+        label: messages.routing.profilePrimarySurface,
+        value: messages.routing.profileGeminiSurfaceValue,
+        hint: messages.routing.profileGeminiSurfaceHint,
       },
     ];
   }
   if (provider === "copilot") {
     return [
       {
-        label: "Session model",
-        value: "workspace/global chat artifacts",
-        hint: "Diagnostics only.",
+        label: messages.routing.profileSessionModel,
+        value: messages.routing.profileCopilotSessionValue,
+        hint: messages.routing.profileCopilotSessionHint,
       },
       {
-        label: "Resume / identify",
-        value: "workspace chat JSON",
-        hint: "Workspace files first.",
+        label: messages.routing.profileResumeModel,
+        value: messages.routing.profileCopilotResumeValue,
+        hint: messages.routing.profileCopilotResumeHint,
       },
       {
-        label: "Cleanup scope",
-        value: "raw file dry-run",
-        hint: "Dry-run only.",
+        label: messages.routing.profileCleanupModel,
+        value: messages.routing.profileCopilotCleanupValue,
+        hint: messages.routing.profileCopilotCleanupHint,
       },
       {
-        label: "Primary surface",
-        value: "session archive > optional ai",
-        hint: "Open only when needed.",
+        label: messages.routing.profilePrimarySurface,
+        value: messages.routing.profileCopilotSurfaceValue,
+        hint: messages.routing.profileCopilotSurfaceHint,
       },
     ];
   }
   return [
     {
-      label: "Session model",
-      value: "mixed cache / raw session stores",
-      hint: "Read first.",
+      label: messages.routing.profileSessionModel,
+      value: messages.routing.profileDefaultSessionValue,
+      hint: messages.routing.profileDefaultSessionHint,
     },
     {
-      label: "Resume / identify",
-      value: "session files / cache paths",
-      hint: "Cache and files first.",
+      label: messages.routing.profileResumeModel,
+      value: messages.routing.profileDefaultResumeValue,
+      hint: messages.routing.profileDefaultResumeHint,
     },
     {
-      label: "Cleanup scope",
-      value: "read first",
-      hint: "Destructive actions limited.",
+      label: messages.routing.profileCleanupModel,
+      value: messages.routing.profileDefaultCleanupValue,
+      hint: messages.routing.profileDefaultCleanupHint,
     },
     {
-      label: "Primary surface",
-      value: "session archive",
-      hint: "Raw verification only.",
+      label: messages.routing.profilePrimarySurface,
+      value: messages.routing.profileDefaultSurfaceValue,
+      hint: messages.routing.profileDefaultSurfaceHint,
     },
   ];
 }
 
-function providerWorkbenchNote(provider: string): string {
+function providerWorkbenchNote(messages: Messages, provider: string): string {
   if (provider === "codex") {
-    return "thread / state";
+    return messages.routing.workbenchNoteCodex;
   }
   if (provider === "claude") {
-    return "session / transcript";
+    return messages.routing.workbenchNoteClaude;
   }
   if (provider === "gemini") {
-    return "history / tmp";
+    return messages.routing.workbenchNoteGemini;
   }
   if (provider === "copilot") {
-    return "support only";
+    return messages.routing.workbenchNoteCopilot;
   }
   if (provider === "chatgpt") {
-    return "cache first";
+    return messages.routing.workbenchNoteChatgpt;
   }
-  return "read first";
+  return messages.routing.workbenchNoteDefault;
 }
 
-function flowReasonLabel(reason: string): string {
+function flowReasonLabel(messages: Messages, reason: string): string {
   const lower = reason.toLowerCase();
-  if (reason === "GUI or CLI user input") return "entry";
-  if (reason === "Receive prompt") return "prompt";
-  if (reason === "workspace/root plus nested overrides") return "agents scope";
-  if (lower.includes("scope") && (lower.includes("agent") || lower.includes("override"))) return "agents scope";
-  if (lower.includes("system > developer > user") || lower.includes("priority chain")) return "priority";
-  if (reason === "Priority chain applied.") return "priority";
-  if (reason === "Tool calls plus local file reads and writes") return "tool io";
-  if (reason === "developer_instructions / features / hooks") return "config";
-  if (reason === "Read and write thread/session metadata") return "thread meta";
-  if (reason === "Thread and session metadata.") return "thread meta";
-  if (reason === "Scan local sessions and logs") return "session scan";
-  if (reason === "Local session scan.") return "session scan";
-  if (reason === "Trusted project entry") return "trusted root";
-  if (reason === "Trusted project.") return "trusted root";
-  if (reason === "active-workspace-roots") return "active roots";
-  if (reason === "Active workspace roots.") return "active roots";
-  if (reason === "Apply execution constraints") return "runtime";
-  if (reason.includes("Read-first cache model")) return providerWorkbenchNote("chatgpt");
-  if (reason.includes("Managed around session_id")) return providerWorkbenchNote("claude");
-  if (reason.includes("operations-grade model built around thread_id")) return providerWorkbenchNote("codex");
-  if (reason.includes("Auxiliary diagnostics only")) return providerWorkbenchNote("copilot");
-  if (reason.includes("Managed across history, tmp")) return providerWorkbenchNote("gemini");
-  if (reason.includes("Collect candidate session files")) return "candidate scan";
-  if (reason.includes("User focused the view")) return "scope focus";
-  if (reason.includes("Start scanning from this provider")) return "provider scan";
-  if (reason.includes("Classify file formats")) return "formats";
-  if (reason.includes("Summarize capability coverage")) return "coverage";
-  if (reason.includes("Determine what can open transcripts")) return "transcript";
-  if (reason.includes("Pass transcript, search, and summary")) return "parser handoff";
-  if (reason.includes("Flow into session detail")) return "detail rail";
-  if (reason.includes("Read Codex-specific global state")) return "global state";
-  if (reason.includes("Recent workspace and global state")) return "workspace state";
-  if (reason.includes("Decide whether dry-run")) return "dry-run";
-  if (reason.includes("limited to reading and analysis")) return "read only";
+  if (reason === "GUI or CLI user input") return messages.routing.reasonEntry;
+  if (reason === "Receive prompt") return messages.routing.reasonPrompt;
+  if (reason === "workspace/root plus nested overrides") return messages.routing.reasonAgentsScope;
+  if (lower.includes("scope") && (lower.includes("agent") || lower.includes("override"))) return messages.routing.reasonAgentsScope;
+  if (lower.includes("system > developer > user") || lower.includes("priority chain")) return messages.routing.reasonPriority;
+  if (reason === "Priority chain applied.") return messages.routing.reasonPriority;
+  if (reason === "Tool calls plus local file reads and writes") return messages.routing.reasonToolIo;
+  if (reason === "developer_instructions / features / hooks") return messages.routing.reasonConfig;
+  if (reason === "Read and write thread/session metadata") return messages.routing.reasonThreadMeta;
+  if (reason === "Thread and session metadata.") return messages.routing.reasonThreadMeta;
+  if (reason === "Scan local sessions and logs") return messages.routing.reasonSessionScan;
+  if (reason === "Local session scan.") return messages.routing.reasonSessionScan;
+  if (reason === "Trusted project entry") return messages.routing.reasonTrustedRoot;
+  if (reason === "Trusted project.") return messages.routing.reasonTrustedRoot;
+  if (reason === "active-workspace-roots") return messages.routing.reasonActiveRoots;
+  if (reason === "Active workspace roots.") return messages.routing.reasonActiveRoots;
+  if (reason === "Apply execution constraints") return messages.routing.reasonRuntime;
+  if (reason.includes("Read-first cache model")) return providerWorkbenchNote(messages, "chatgpt");
+  if (reason.includes("Managed around session_id")) return providerWorkbenchNote(messages, "claude");
+  if (reason.includes("operations-grade model built around thread_id")) return providerWorkbenchNote(messages, "codex");
+  if (reason.includes("Auxiliary diagnostics only")) return providerWorkbenchNote(messages, "copilot");
+  if (reason.includes("Managed across history, tmp")) return providerWorkbenchNote(messages, "gemini");
+  if (reason.includes("Collect candidate session files")) return messages.routing.reasonCandidateScan;
+  if (reason.includes("User focused the view")) return messages.routing.reasonScopeFocus;
+  if (reason.includes("Start scanning from this provider")) return messages.routing.reasonProviderScan;
+  if (reason.includes("Classify file formats")) return messages.routing.reasonFormats;
+  if (reason.includes("Summarize capability coverage")) return messages.routing.reasonCoverage;
+  if (reason.includes("Determine what can open transcripts")) return messages.routing.reasonTranscript;
+  if (reason.includes("Pass transcript, search, and summary")) return messages.routing.reasonParserHandoff;
+  if (reason.includes("Flow into session detail")) return messages.routing.reasonDetailRail;
+  if (reason.includes("Read Codex-specific global state")) return messages.routing.reasonGlobalState;
+  if (reason.includes("Recent workspace and global state")) return messages.routing.reasonWorkspaceState;
+  if (reason.includes("Decide whether dry-run")) return messages.routing.reasonDryRun;
+  if (reason.includes("limited to reading and analysis")) return messages.routing.reasonReadOnly;
   return reason;
 }
 
-function summarizeRoots(roots: string[]): string {
-  if (roots.length === 0) return "No paths";
+function summarizeRoots(messages: Messages, roots: string[]): string {
+  if (roots.length === 0) return messages.providers.rootsNone;
   const preview = roots.slice(0, 2).map((root) => compactPath(root, 24)).join(" · ");
   if (roots.length <= 2) return preview;
   return `${preview} · +${roots.length - 2}`;
@@ -341,7 +351,7 @@ export function RoutingPanel({
       .map(([source, count]) => ({
         source,
         count,
-        label: sessionSourceLabel(source),
+        label: sessionSourceLabel(messages, source),
       }))
       .sort((a, b) => b.count - a.count);
   }, [focusedProvider, focusedSessionRows]);
@@ -355,7 +365,7 @@ export function RoutingPanel({
       .map(([format, count]) => ({
         format,
         count,
-        label: formatLabel(format),
+        label: formatLabel(messages, format),
       }))
       .sort((a, b) => b.count - a.count);
   }, [focusedProvider, focusedSessionRows]);
@@ -382,7 +392,10 @@ export function RoutingPanel({
         id: `source-${focusedProvider.provider}-${item.source}`,
         label: item.label,
         kind: "workspace" as const,
-        detail: `${item.count} sessions · ${item.source}`,
+        detail: formatRoutingMessage(messages.routing.nodeSourceDetail, {
+          count: item.count,
+          source: item.source,
+        }),
       }));
     }
     return focusedProvider.roots.map((root, index) => ({
@@ -404,12 +417,12 @@ export function RoutingPanel({
     const providerNodeId = `provider-${focusedProvider.provider}`;
     const contextNode = {
       id: `context-${focusedProvider.provider}`,
-      label: `${focusedProvider.name} context`,
+      label: `${focusedProvider.name} ${messages.routing.nodeContextSuffix}`,
       kind: "config" as const,
       detail:
         focusedProvider.provider === "codex"
           ? data?.evidence?.codex_config_path ?? focusedProvider.notes ?? "-"
-          : providerWorkbenchNote(focusedProvider.provider),
+          : providerWorkbenchNote(messages, focusedProvider.provider),
     };
     const providerNode = {
       id: providerNodeId,
@@ -421,57 +434,68 @@ export function RoutingPanel({
     };
     const inventoryNode = {
       id: `inventory-${focusedProvider.provider}`,
-      label: `${focusedProvider.name} session inventory`,
+      label: `${focusedProvider.name} ${messages.routing.nodeSessionInventorySuffix}`,
       kind: "workspace" as const,
       detail:
         focusedSessionRows.length > 0
-          ? `${focusedSessionRows.length} logs · ${sourceSummary || "storage map"}`
-          : "No session logs yet",
+          ? `${formatRoutingMessage(messages.routing.flowDetailLogsReady, {
+              count: focusedSessionRows.length,
+            })} · ${sourceSummary || messages.routing.storageMapEyebrow}`
+          : messages.routing.nodeNoSessionLogsYet,
     };
     const formatNode = {
       id: `format-${focusedProvider.provider}`,
-      label: `${focusedProvider.name} storage formats`,
+      label: `${focusedProvider.name} ${messages.routing.nodeStorageFormatsSuffix}`,
       kind: "config" as const,
-      detail: formatSummary || "No format summary yet",
+      detail: formatSummary || messages.routing.nodeFormatSummaryEmpty,
     };
     const transcriptNode = {
       id: `transcript-${focusedProvider.provider}`,
-      label: `${focusedProvider.name} transcript access`,
+      label: `${focusedProvider.name} ${messages.routing.nodeTranscriptAccessSuffix}`,
       kind: "instruction" as const,
       detail:
         transcriptCapableCount > 0
-          ? `${transcriptCapableCount} transcript-ready${
-              transcriptBlockedCount > 0 ? ` · ${transcriptBlockedCount} blocked` : ""
-            }`
-          : "No transcript-ready format yet",
+          ? transcriptBlockedCount > 0
+            ? formatRoutingMessage(messages.routing.nodeTranscriptReadyBlocked, {
+                ready: transcriptCapableCount,
+                blocked: transcriptBlockedCount,
+              })
+            : formatRoutingMessage(messages.routing.nodeTranscriptReady, {
+                count: transcriptCapableCount,
+              })
+          : messages.routing.nodeNoTranscriptReady,
     };
     const parserNode = {
       id: `parser-${focusedProvider.provider}`,
-      label: `${focusedProvider.name} parsing`,
+      label: `${focusedProvider.name} ${messages.routing.nodeParsingSuffix}`,
       kind: "instruction" as const,
       detail: focusedParserReport
-        ? `OK ${focusedParserReport.parse_ok}/${focusedParserReport.scanned} · score ${focusedParserReport.parse_score ?? "-"}`
+        ? formatRoutingMessage(messages.routing.nodeParserScore, {
+            ok: focusedParserReport.parse_ok,
+            scanned: focusedParserReport.scanned,
+            score: focusedParserReport.parse_score ?? "-",
+          })
         : focusedProvider.capabilities.read_sessions && focusedProvider.capabilities.analyze_context
-          ? "Transcript, search, and risk are ready"
-          : "More readable data required",
+          ? messages.routing.nodeParserReady
+          : messages.routing.nodeMoreReadableDataRequired,
     };
     const reviewNode = {
       id: `review-${focusedProvider.provider}`,
-      label: `${focusedProvider.name} review path`,
+      label: `${focusedProvider.name} ${messages.routing.nodeReviewPathSuffix}`,
       kind: "runtime" as const,
       detail: focusedProvider.capabilities.analyze_context
-        ? "Session rail, transcript, and review rail"
-        : "Detect and session list only",
+        ? messages.routing.nodeReviewReady
+        : messages.routing.nodeReviewDetectOnly,
     };
     const cleanupNode = {
       id: `cleanup-${focusedProvider.provider}`,
-      label: `${focusedProvider.name} cleanup stage`,
+      label: `${focusedProvider.name} ${messages.routing.nodeCleanupStageSuffix}`,
       kind: "runtime" as const,
       detail: focusedProvider.capabilities.safe_cleanup
-        ? "Dry-run and apply ready"
+        ? messages.routing.nodeCleanupReady
         : focusedProvider.capability_level === "read-only"
-          ? "Read-only, cleanup locked"
-          : "Safe cleanup not ready",
+          ? messages.routing.nodeCleanupLocked
+          : messages.routing.nodeCleanupUnavailable,
     };
 
     const nodes = [
@@ -489,7 +513,7 @@ export function RoutingPanel({
     if (focusedProvider.provider === "codex" && data?.evidence?.global_state_path) {
       nodes.push({
         id: "global",
-        label: "Codex global state",
+        label: `Codex ${messages.routing.globalState}`,
         kind: "runtime" as const,
         detail: data.evidence.global_state_path,
       });
@@ -610,11 +634,17 @@ export function RoutingPanel({
         )}`,
       );
       findings.push(
-        `session logs ${focusedSessionRows.length || focusedProvider.session_log_count}`,
+        formatRoutingMessage(messages.routing.findingSessionLogs, {
+          count: focusedSessionRows.length || focusedProvider.session_log_count,
+        }),
       );
     }
     if (scopedDataSources.length > 0) {
-      findings.push(`paths ${scopedDataSources.length}`);
+      findings.push(
+        formatRoutingMessage(messages.routing.findingPaths, {
+          count: scopedDataSources.length,
+        }),
+      );
     }
     if (sourceBreakdown.length > 0) {
       findings.push(sourceBreakdown
@@ -628,17 +658,27 @@ export function RoutingPanel({
         .join(" · "));
     }
     if (transcriptBlockedCount > 0) {
-      findings.push(`transcript blocked ${transcriptBlockedCount}`);
+      findings.push(
+        formatRoutingMessage(messages.routing.findingTranscriptBlocked, {
+          count: transcriptBlockedCount,
+        }),
+      );
     }
     if (focusedParserReport) {
-      findings.push(`parser ${focusedParserReport.parse_ok}/${focusedParserReport.scanned} · fail ${focusedParserReport.parse_fail}`);
+      findings.push(
+        formatRoutingMessage(messages.routing.findingParserSummary, {
+          ok: focusedParserReport.parse_ok,
+          scanned: focusedParserReport.scanned,
+          fail: focusedParserReport.parse_fail,
+        }),
+      );
     }
     if (focusedProvider.capabilities.safe_cleanup) {
-      findings.push("dry-run + apply ready");
+      findings.push(messages.routing.findingCleanupReady);
     } else if (focusedProvider.capabilities.read_sessions) {
-      findings.push("read/analyze only");
+      findings.push(messages.routing.findingReadAnalyzeOnly);
     } else {
-      findings.push("readable data still thin");
+      findings.push(messages.routing.findingReadableDataThin);
     }
     return findings;
   }, [
@@ -660,42 +700,47 @@ export function RoutingPanel({
     const cards = [
       {
         label: messages.routing.contextSources,
-        value: sourceSummary || "No storage summary",
+        value: sourceSummary || messages.routing.contextNoStorageSummary,
         hint:
           sourceSummary.length > 0
-            ? "Current storage scope."
-            : "Storage summary is still thin.",
+            ? messages.routing.contextStorageScopeCurrent
+            : messages.routing.contextStorageSummaryThin,
       },
       {
         label: messages.routing.contextFormats,
-        value: formatSummary || "No format summary",
+        value: formatSummary || messages.routing.contextNoFormatSummary,
         hint:
           transcriptBlockedCount > 0
-            ? `Transcript ${transcriptCapableCount} · blocked ${transcriptBlockedCount}`
+            ? formatRoutingMessage(messages.routing.contextTranscriptBlockedSummary, {
+                ready: transcriptCapableCount,
+                blocked: transcriptBlockedCount,
+              })
             : transcriptCapableCount > 0
-              ? "Transcript-first format."
-              : "No direct transcript yet.",
+              ? messages.routing.contextTranscriptFirstFormat
+              : messages.routing.contextNoDirectTranscript,
       },
       {
         label: messages.routing.contextParser,
         value: focusedParserReport
           ? `${focusedParserReport.parse_ok}/${focusedParserReport.scanned} (score ${focusedParserReport.parse_score ?? "-"})`
-          : "No parser report",
+          : messages.routing.contextNoParserReport,
         hint: focusedParserReport
           ? focusedParserReport.parse_fail > 0
-            ? `${focusedParserReport.parse_fail} fails remain`
-            : "Current range is stable."
-          : "Parser report pending.",
+            ? formatRoutingMessage(messages.routing.contextParserFailsRemain, {
+                count: focusedParserReport.parse_fail,
+              })
+            : messages.routing.contextParserStable
+          : messages.routing.contextParserPending,
       },
       {
         label: messages.routing.contextLimits,
         value: focusedProvider.capabilities.safe_cleanup
-          ? "Dry-run + apply"
+          ? messages.routing.contextLimitsDryRunApply
           : focusedProvider.capabilities.read_sessions
-            ? "Read + analyze first"
-            : "Detect first",
+            ? messages.routing.contextLimitsReadAnalyze
+            : messages.routing.contextLimitsDetectFirst,
         hint:
-          providerWorkbenchNote(focusedProvider.provider),
+          providerWorkbenchNote(messages, focusedProvider.provider),
       },
     ];
     if (focusedProvider.provider === "codex") {
@@ -703,8 +748,10 @@ export function RoutingPanel({
         label: messages.routing.contextConfig,
         value: data?.evidence?.codex_config_path ?? "-",
         hint: data?.evidence?.global_state_path
-          ? `Global state: ${data.evidence.global_state_path}`
-          : "No global-state file has been detected yet.",
+          ? formatRoutingMessage(messages.routing.contextGlobalStateHint, {
+              path: data.evidence.global_state_path,
+            })
+          : messages.routing.contextNoGlobalStateYet,
       });
     }
     return cards;
@@ -718,8 +765,23 @@ export function RoutingPanel({
     messages.routing.contextConfig,
     messages.routing.contextFormats,
     messages.routing.contextLimits,
+    messages.routing.contextLimitsDetectFirst,
+    messages.routing.contextLimitsDryRunApply,
+    messages.routing.contextLimitsReadAnalyze,
+    messages.routing.contextNoDirectTranscript,
+    messages.routing.contextNoFormatSummary,
+    messages.routing.contextNoGlobalStateYet,
+    messages.routing.contextNoParserReport,
+    messages.routing.contextNoStorageSummary,
+    messages.routing.contextParserFailsRemain,
+    messages.routing.contextParserPending,
+    messages.routing.contextParserStable,
     messages.routing.contextParser,
     messages.routing.contextSources,
+    messages.routing.contextStorageScopeCurrent,
+    messages.routing.contextStorageSummaryThin,
+    messages.routing.contextTranscriptBlockedSummary,
+    messages.routing.contextTranscriptFirstFormat,
     data?.evidence?.codex_config_path,
     data?.evidence?.global_state_path,
   ]);
@@ -727,46 +789,54 @@ export function RoutingPanel({
   const providerDetailRows = useMemo(() => {
     if (!focusedProvider) return [];
     const nextStep = focusedProvider.capabilities.safe_cleanup
-      ? "Run dry-run from the session rail."
+      ? messages.routing.detailNextRunDryRun
       : focusedProvider.capabilities.read_sessions
-        ? "Read transcript first. Cleanup stays locked."
-        : "Collect more traces or session logs.";
+        ? messages.routing.detailNextReadTranscript
+        : messages.routing.detailNextCollectTraces;
     return [
       {
-        label: "Session logs",
+        label: messages.routing.detailSessionLogsLabel,
         value:
           focusedSessionRows.length > 0
             ? `${focusedSessionRows.length}`
             : focusedProvider.session_log_count > 0
               ? `${focusedProvider.session_log_count}`
-              : "None",
+              : messages.routing.detailNone,
         hint:
           focusedSessionRows.length > 0
-            ? "Open in the rail."
-            : "The rail may stay empty.",
+            ? messages.routing.detailOpenInRail
+            : messages.routing.detailRailMayStayEmpty,
       },
       {
-        label: "Local evidence",
-        value: scopedDataSources.length > 0 ? `${scopedDataSources.length} detected` : "Not enough source paths",
+        label: messages.routing.detailLocalEvidenceLabel,
+        value: scopedDataSources.length > 0
+          ? formatRoutingMessage(messages.routing.detailDetectedCount, {
+              count: scopedDataSources.length,
+            })
+          : messages.routing.detailNotEnoughSourcePaths,
         hint:
           scopedDataSources.length > 0
-            ? "Current flow and scan evidence."
-            : "More evidence paths required.",
+            ? messages.routing.detailCurrentFlowEvidence
+            : messages.routing.detailMoreEvidencePaths,
       },
       {
-        label: "Read / analyze",
-        value: focusedProvider.capabilities.analyze_context ? "Ready" : "Limited",
+        label: messages.routing.detailReadAnalyzeLabel,
+        value: focusedProvider.capabilities.analyze_context
+          ? messages.routing.detailReady
+          : messages.routing.detailLimited,
         hint: focusedProvider.capabilities.analyze_context
-          ? "Search and analysis ready."
-          : "Read or analysis scope is limited.",
+          ? messages.routing.detailSearchAnalysisReady
+          : messages.routing.detailReadAnalyzeLimited,
       },
       {
-        label: "Recommended next step",
-        value: focusedProvider.capabilities.safe_cleanup ? "Dry-run available" : "Read-first path",
+        label: messages.routing.detailRecommendedNextLabel,
+        value: focusedProvider.capabilities.safe_cleanup
+          ? messages.routing.detailDryRunAvailable
+          : messages.routing.detailReadFirstPath,
         hint: nextStep,
       },
     ];
-  }, [focusedProvider, focusedSessionRows.length, scopedDataSources.length]);
+  }, [focusedProvider, focusedSessionRows.length, scopedDataSources.length, messages.routing]);
 
   const scopedNodeLabel = useMemo(() => {
     const label = new Map<string, string>();
@@ -792,16 +862,20 @@ export function RoutingPanel({
         label: messages.providers.flowStageDetect,
         status: stageStatus(detectReady),
         detail: detectReady
-          ? `${scopedDataSources.length || focusedProvider.roots.length} paths ready`
-          : "Traces still thin",
+          ? formatRoutingMessage(messages.routing.flowDetailPathsReady, {
+              count: scopedDataSources.length || focusedProvider.roots.length,
+            })
+          : messages.routing.flowDetailTracesThin,
       },
       {
         key: "sessions",
         label: messages.providers.flowStageSessions,
         status: stageStatus(sessionsReady, !detectReady),
         detail: sessionsReady
-          ? `${focusedSessionRows.length || focusedProvider.session_log_count} logs ready`
-          : "No session logs",
+          ? formatRoutingMessage(messages.routing.flowDetailLogsReady, {
+              count: focusedSessionRows.length || focusedProvider.session_log_count,
+            })
+          : messages.routing.flowDetailNoSessionLogs,
       },
       {
         key: "parser",
@@ -809,9 +883,12 @@ export function RoutingPanel({
         status: stageStatus(parserReady, !sessionsReady),
         detail: parserReady
           ? focusedParserReport
-            ? `OK ${focusedParserReport.parse_ok}/${focusedParserReport.scanned}`
-            : "Transcript and analysis ready"
-          : "More readable data needed",
+            ? formatRoutingMessage(messages.routing.flowDetailParserOk, {
+                ok: focusedParserReport.parse_ok,
+                scanned: focusedParserReport.scanned,
+              })
+            : messages.routing.flowDetailTranscriptReady
+          : messages.routing.flowDetailReadableDataNeeded,
       },
       {
         key: "cleanup",
@@ -822,10 +899,10 @@ export function RoutingPanel({
             focusedProvider.status === "missing",
         ),
         detail: cleanupReady
-          ? "dry-run + apply ready"
+          ? messages.routing.flowDetailCleanupReady
           : focusedProvider.capability_level === "read-only"
-            ? "Read-only, locked"
-            : "Cleanup not ready",
+            ? messages.routing.flowDetailCleanupLocked
+            : messages.routing.flowDetailCleanupNotReady,
       },
     ];
   }, [
@@ -836,45 +913,55 @@ export function RoutingPanel({
     messages.providers.flowStageParser,
     messages.providers.flowStageSafeCleanup,
     messages.providers.flowStageSessions,
+    messages.routing.flowDetailCleanupLocked,
+    messages.routing.flowDetailCleanupNotReady,
+    messages.routing.flowDetailCleanupReady,
+    messages.routing.flowDetailLogsReady,
+    messages.routing.flowDetailNoSessionLogs,
+    messages.routing.flowDetailParserOk,
+    messages.routing.flowDetailPathsReady,
+    messages.routing.flowDetailReadableDataNeeded,
+    messages.routing.flowDetailTranscriptReady,
+    messages.routing.flowDetailTracesThin,
     scopedDataSources.length,
   ]);
 
   const showCodexContext = !focusedProvider || focusedProvider.provider === "codex";
   const managementProfileRows = useMemo(
-    () => (focusedProvider ? providerManagementProfile(focusedProvider.provider) : []),
-    [focusedProvider],
+    () => (focusedProvider ? providerManagementProfile(focusedProvider.provider, messages) : []),
+    [focusedProvider, messages],
   );
 
   return (
     <section className="panel routing-workbench-panel">
-      <PanelHeader title="Diagnostics map" subtitle={formatDateTime(data?.generated_at)} />
+      <PanelHeader title={messages.routing.mapTitle} subtitle={formatDateTime(data?.generated_at)} />
       <div className="impact-body">
         <section className="routing-stage-shell">
           <div className="routing-stage-copy">
-            <span className="overview-note-label">Routing stage</span>
-            <strong>Current map</strong>
-            <p>Paths, readiness, and findings at a glance.</p>
+            <span className="overview-note-label">{messages.routing.stageEyebrow}</span>
+            <strong>{messages.routing.stageTitle}</strong>
+            <p>{messages.routing.stageBody}</p>
           </div>
           <div className="routing-stage-summary">
             <article className="routing-stage-summary-card">
-              <span>Providers</span>
+              <span>{messages.routing.stageSummaryProvidersLabel}</span>
               <strong>{visibleProviders.length}</strong>
-              <p>in scope</p>
+              <p>{messages.routing.stageSummaryProvidersHint}</p>
             </article>
             <article className="routing-stage-summary-card">
-              <span>Paths</span>
+              <span>{messages.routing.stageSummaryPathsLabel}</span>
               <strong>{scopedDataSources.length}</strong>
-              <p>detected</p>
+              <p>{messages.routing.stageSummaryPathsHint}</p>
             </article>
             <article className="routing-stage-summary-card">
-              <span>Flow</span>
+              <span>{messages.routing.stageSummaryFlowLabel}</span>
               <strong>{(scopedNodes ?? []).length}</strong>
-              <p>nodes</p>
+              <p>{messages.routing.stageSummaryFlowHint}</p>
             </article>
             <article className="routing-stage-summary-card">
-              <span>Findings</span>
+              <span>{messages.routing.stageSummaryFindingsLabel}</span>
               <strong>{(scopedFindings ?? []).length}</strong>
-              <p>open</p>
+              <p>{messages.routing.stageSummaryFindingsHint}</p>
             </article>
           </div>
         </section>
@@ -886,13 +973,13 @@ export function RoutingPanel({
             <p>
               {visibleProviders.length > 0
                 ? visibleProviders.map((provider) => provider.name).join(" · ")
-                : "pick one"}
+                : messages.routing.pickProviderFallback}
             </p>
           </div>
         ) : null}
 
         <div className="impact-list">
-          <h3>Providers</h3>
+          <h3>{messages.routing.providersTitle}</h3>
           {visibleProviders.length === 0 ? (
             <p className="sub-hint">{messages.routing.noProviders}</p>
           ) : (
@@ -932,11 +1019,11 @@ export function RoutingPanel({
                       <strong>{provider.roots.length || 0}</strong>
                     </div>
                   </div>
-                  <p className="sub-hint">{providerWorkbenchNote(provider.provider)}</p>
+                  <p className="sub-hint">{providerWorkbenchNote(messages, provider.provider)}</p>
                   <div className="routing-source-summary mono-sub">
                     {provider.roots.length === 0
                       ? messages.providers.rootsNone
-                      : summarizeRoots(provider.roots)}
+                      : summarizeRoots(messages, provider.roots)}
                   </div>
                 </article>
               ))}
@@ -1078,11 +1165,11 @@ export function RoutingPanel({
         <div className="routing-signal-grid">
           <section className="routing-list-card is-primary">
             <div className="routing-list-card-head">
-              <span>Storage map</span>
-              <strong>Paths / storage</strong>
+              <span>{messages.routing.storageMapEyebrow}</span>
+              <strong>{messages.routing.storageMapTitle}</strong>
             </div>
             <div className="impact-list impact-list-grid compact-list">
-              <h3>Paths</h3>
+              <h3>{messages.routing.pathsTitle}</h3>
               {scopedDataSources.length === 0 ? (
                 <p className="sub-hint">{messages.routing.noSources}</p>
               ) : (
@@ -1109,11 +1196,11 @@ export function RoutingPanel({
 
           <section className="routing-list-card is-primary">
             <div className="routing-list-card-head">
-              <span>What stands out</span>
-              <strong>Findings / state</strong>
+              <span>{messages.routing.findingsEyebrow}</span>
+              <strong>{messages.routing.findingsTitle}</strong>
             </div>
             <div className="impact-list impact-list-grid compact-list plain-note-list">
-              <h3>Findings</h3>
+              <h3>{messages.routing.findingsListTitle}</h3>
               {(scopedFindings ?? []).length === 0 ? (
                 <p className="sub-hint">{messages.routing.noFindings}</p>
               ) : (
@@ -1160,11 +1247,11 @@ export function RoutingPanel({
         <div className="routing-signal-grid">
           <section className="routing-list-card">
             <div className="routing-list-card-head">
-              <span>Execution path</span>
-              <strong>Flow / nodes</strong>
+              <span>{messages.routing.executionPathEyebrow}</span>
+              <strong>{messages.routing.executionPathTitle}</strong>
             </div>
             <div className="impact-list compact-list">
-              <h3>Flow</h3>
+              <h3>{messages.routing.flowTitle}</h3>
               {(scopedNodes ?? []).length === 0 ? (
                 <p className="sub-hint">{messages.routing.noNodes}</p>
               ) : (
@@ -1176,7 +1263,7 @@ export function RoutingPanel({
                         <span className="routing-kind-chip">{kindLabel(node.kind)}</span>
                       </div>
                       {node.detail ? (
-                        <p className="sub-hint">{flowReasonLabel(node.detail)}</p>
+                        <p className="sub-hint">{flowReasonLabel(messages, node.detail)}</p>
                       ) : null}
                     </article>
                   ))}
@@ -1187,11 +1274,11 @@ export function RoutingPanel({
 
           <section className="routing-list-card">
             <div className="routing-list-card-head">
-              <span>Transitions</span>
-              <strong>Edges / handoff</strong>
+              <span>{messages.routing.transitionsEyebrow}</span>
+              <strong>{messages.routing.transitionsTitle}</strong>
             </div>
             <div className="impact-list impact-list-grid compact-list plain-note-list">
-              <h3>Edges</h3>
+              <h3>{messages.routing.flowEdges}</h3>
               {(scopedEdges ?? []).length === 0 ? (
                 <p className="sub-hint">{messages.routing.noEdges}</p>
               ) : (
@@ -1203,7 +1290,7 @@ export function RoutingPanel({
                         <span className="routing-arrow">→</span>
                         <strong>{scopedNodeLabel.get(edge.to) ?? edge.to}</strong>
                       </div>
-                      <span>{flowReasonLabel(edge.reason)}</span>
+                      <span>{flowReasonLabel(messages, edge.reason)}</span>
                     </li>
                   ))}
                 </ul>

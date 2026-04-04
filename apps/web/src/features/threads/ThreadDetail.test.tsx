@@ -226,4 +226,86 @@ describe("ThreadDetail", () => {
     expect(html).toContain("Open selected row");
     expect(html).not.toContain("No thread selected.");
   });
+
+  it("renders Korean thread-detail copy with localized helper labels", () => {
+    const koMessages = getMessages("ko");
+    const html = renderToStaticMarkup(
+      <ThreadDetail
+        messages={koMessages}
+        selectedThread={null}
+        selectedThreadId=""
+        openThreadById={vi.fn()}
+        visibleThreadCount={8}
+        filteredThreadCount={8}
+        nextThreadId="thread-1"
+        nextThreadTitle="다음 정리 후보"
+        nextThreadSource="sessions"
+        searchContext={null}
+        threadDetailLoading={false}
+        selectedThreadDetail={null}
+        threadTranscriptData={null}
+        threadTranscriptLoading={false}
+        threadTranscriptLimit={250}
+        setThreadTranscriptLimit={vi.fn()}
+        busy={false}
+        threadActionsDisabled={false}
+        selectedIds={[]}
+        bulkPin={vi.fn()}
+        bulkUnpin={vi.fn()}
+        bulkArchive={vi.fn()}
+        analyzeDelete={vi.fn()}
+        cleanupDryRun={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("선택한 스레드가 없습니다.");
+    expect(html).toContain("다음 후보");
+    expect(html).toContain("다음 정리 후보");
+    expect(html).toContain("여기서 열림");
+    expect(html).toContain("트랜스크립트, 로컬 파일, cleanup 미리보기를 여기서 확인합니다.");
+  });
+
+  it("renders Korean fallback thread title and source label in detail view", () => {
+    const koMessages = getMessages("ko");
+    const html = renderToStaticMarkup(
+      <ThreadDetail
+        messages={koMessages}
+        selectedThread={{
+          thread_id: "019d2f65-1111-2222-3333-4444444d4d85",
+          title: "",
+          risk_score: 82,
+          risk_level: "high",
+          is_pinned: false,
+          source: "sessions",
+          cwd: "/workspace/threadlens",
+          timestamp: "2026-03-28T12:30:00.000Z",
+        }}
+        selectedThreadId="019d2f65-1111-2222-3333-4444444d4d85"
+        openThreadById={vi.fn()}
+        visibleThreadCount={3}
+        filteredThreadCount={8}
+        nextThreadId="thread-2"
+        nextThreadTitle="next"
+        nextThreadSource="sessions"
+        searchContext={null}
+        threadDetailLoading={false}
+        selectedThreadDetail={null}
+        threadTranscriptData={null}
+        threadTranscriptLoading={false}
+        threadTranscriptLimit={250}
+        setThreadTranscriptLimit={vi.fn()}
+        busy={false}
+        threadActionsDisabled={false}
+        selectedIds={[]}
+        bulkPin={vi.fn()}
+        bulkUnpin={vi.fn()}
+        bulkArchive={vi.fn()}
+        analyzeDelete={vi.fn()}
+        cleanupDryRun={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("스레드 019d2f65");
+    expect(html).toContain(">세션</span>");
+  });
 });

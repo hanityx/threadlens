@@ -11,6 +11,13 @@ import {
   type ProviderWorkflowStage,
 } from "./providerPanelPresentationModel";
 
+function formatProviderMessage(template: string, values: Record<string, string | number>) {
+  return Object.entries(values).reduce(
+    (message, [key, value]) => message.replaceAll(`{${key}}`, String(value)),
+    template,
+  );
+}
+
 export interface SessionTableProps {
   messages: Messages;
   providerSessionSummary: { rows: number; parse_ok: number };
@@ -394,7 +401,9 @@ export function SessionTable(props: SessionTableProps) {
                       className="table-select-checkbox"
                       type="checkbox"
                       checked={isChecked}
-                      aria-label={`Select session ${selectionLabel}`}
+                      aria-label={formatProviderMessage(messages.providers.selectSessionAria, {
+                        title: selectionLabel,
+                      })}
                       onClick={(e) => e.stopPropagation()}
                       onChange={(e) => onSelectedProviderFileChange(row.file_path, e.target.checked)}
                     />

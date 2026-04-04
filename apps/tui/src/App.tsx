@@ -4,6 +4,7 @@ import type { UpdateCheckStatus } from "@threadlens/shared-contracts";
 import { Box, Text, useApp, useInput, useStdout } from "ink";
 import { fetchUpdateCheck, getApiBaseUrl } from "./api.js";
 import { AppBootstrapProps, type ProviderScope, VIEWS } from "./config.js";
+import { getMessages } from "./i18n/index.js";
 import { resolveHeaderLayout } from "./lib/headerLayout.js";
 import {
   persistDismissedUpdateVersion,
@@ -15,34 +16,7 @@ import { SearchView } from "./views/SearchView.js";
 import { SessionsView } from "./views/SessionsView.js";
 import { CleanupView } from "./views/CleanupView.js";
 
-const VIEW_SHORTCUTS: Record<string, string[]> = {
-  search: [
-    "type  search query",
-    "Esc/Enter/Tab  results",
-    "j/k  navigate",
-    "n/p  snippet",
-    "Ctrl+O  cleanup",
-    "r  refresh",
-  ],
-  sessions: [
-    "/·i  filter",
-    "j/k  navigate",
-    "b  backup",
-    "a/A  archive",
-    "d/D  delete",
-    "r  refresh",
-  ],
-  cleanup: [
-    "/·i  filter",
-    "Space  select",
-    "a  analysis",
-    "d  dry-run",
-    "D  execute",
-    "x  clear sel",
-  ],
-};
-
-function HelpOverlay() {
+function HelpOverlay({ messages }: { messages: ReturnType<typeof getMessages> }) {
   return (
     <Box
       borderStyle="round"
@@ -52,36 +26,37 @@ function HelpOverlay() {
       flexDirection="column"
       gap={1}
     >
-      <Text color="yellow" bold>ThreadLens TUI — Keyboard Reference</Text>
+      <Text color="yellow" bold>{messages.app.helpTitle}</Text>
       <Box flexDirection="column" gap={0}>
-        <Text color="cyan">Global:  </Text>
-        <Text color="gray">  <Text color="white">1</Text> Search  <Text color="white">2</Text> Sessions  <Text color="white">3</Text> Cleanup  <Text color="white">?</Text> Help  <Text color="white">q</Text> Quit  <Text color="white">Ctrl+C</Text> Force exit</Text>
+        <Text color="cyan">{messages.app.helpGlobalLabel}</Text>
+        <Text color="gray">{messages.app.helpGlobalBody}</Text>
       </Box>
       <Box flexDirection="column" gap={0}>
-        <Text color="cyan">Search:</Text>
-        <Text color="gray">  type to search (min 2 chars)  ·  Esc/Enter/Ctrl+N/Tab → results  ·  /·Esc·i → edit query</Text>
-        <Text color="gray">  j/k ↑↓ navigate  ·  J/K page  ·  g/G top/bottom  ·  n/p next/prev snippet</Text>
-        <Text color="gray">  Enter open in Sessions  ·  Ctrl+O open in Cleanup  ·  [ ] switch provider</Text>
+        <Text color="cyan">{messages.app.helpSearchLabel}</Text>
+        <Text color="gray">{messages.app.helpSearchBodyLine1}</Text>
+        <Text color="gray">{messages.app.helpSearchBodyLine2}</Text>
+        <Text color="gray">{messages.app.helpSearchBodyLine3}</Text>
       </Box>
       <Box flexDirection="column" gap={0}>
-        <Text color="cyan">Sessions:</Text>
-        <Text color="gray">  /·i filter  ·  Esc·Enter back to list  ·  j/k ↑↓  ·  J/K page  ·  g/G ends</Text>
-        <Text color="gray">  b backup  ·  a archive dry-run  ·  A archive execute  ·  d delete dry-run  ·  D delete execute</Text>
-        <Text color="gray">  c clear token  ·  r refresh  ·  [ ] switch provider</Text>
+        <Text color="cyan">{messages.app.helpSessionsLabel}</Text>
+        <Text color="gray">{messages.app.helpSessionsBodyLine1}</Text>
+        <Text color="gray">{messages.app.helpSessionsBodyLine2}</Text>
+        <Text color="gray">{messages.app.helpSessionsBodyLine3}</Text>
       </Box>
       <Box flexDirection="column" gap={0}>
-        <Text color="cyan">Cleanup:</Text>
-        <Text color="gray">  /·i filter  ·  Esc·Enter back  ·  j/k ↑↓  ·  J/K page  ·  g/G ends</Text>
-        <Text color="gray">  Space select  ·  a impact analysis  ·  d dry-run  ·  D execute  ·  x clear selection  ·  c clear token</Text>
+        <Text color="cyan">{messages.app.helpCleanupLabel}</Text>
+        <Text color="gray">{messages.app.helpCleanupBodyLine1}</Text>
+        <Text color="gray">{messages.app.helpCleanupBodyLine2}</Text>
       </Box>
     </Box>
   );
 }
 
 export function App(props: AppBootstrapProps) {
-  const { initialProvider, initialQuery, initialView, initialFilter, initialSearchFocus } = props;
+  const { initialProvider, initialQuery, initialView, initialFilter, initialSearchFocus, locale = "en" } = props;
   const { exit } = useApp();
   const { stdout } = useStdout();
+  const messages = getMessages(locale);
   const [viewIndex, setViewIndex] = useState(
     Math.max(
       0,
@@ -122,17 +97,19 @@ export function App(props: AppBootstrapProps) {
   );
 
   const footerShortcuts = useMemo(() => {
-    const shortcuts = [...(VIEW_SHORTCUTS[activeView] ?? [])];
-    if (visibleUpdateCheck?.has_update) shortcuts.push("u  release", "U  dismiss");
+    const shortcuts = [...(messages.app.footerShortcuts[activeView] ?? [])];
+    if (visibleUpdateCheck?.has_update) {
+      shortcuts.push(messages.app.updateReleaseShortcut, messages.app.updateDismissShortcut);
+    }
     return shortcuts.join("  ·  ");
-  }, [activeView, visibleUpdateCheck?.has_update]);
+  }, [activeView, messages.app.footerShortcuts, messages.app.updateDismissShortcut, messages.app.updateReleaseShortcut, visibleUpdateCheck?.has_update]);
   const updateNotice = useMemo(
-    () => buildUpdateNoticeLine(visibleUpdateCheck),
-    [visibleUpdateCheck],
+    () => buildUpdateNoticeLine(visibleUpdateCheck, messages),
+    [messages, visibleUpdateCheck],
   );
   const updateSummary = useMemo(
-    () => buildUpdateNoticeSummary(visibleUpdateCheck),
-    [visibleUpdateCheck],
+    () => buildUpdateNoticeSummary(visibleUpdateCheck, messages, locale),
+    [locale, messages, visibleUpdateCheck],
   );
   const headerLayout = useMemo(() => {
     return resolveHeaderLayout({
@@ -235,7 +212,7 @@ export function App(props: AppBootstrapProps) {
         ) : null}
       </Box>
 
-      {showHelp ? <HelpOverlay /> : null}
+      {showHelp ? <HelpOverlay messages={messages} /> : null}
       {updateNotice ? (
         <Box borderStyle="round" borderColor="yellow" paddingX={2} flexDirection="column">
           <Text color="yellow">{updateNotice}</Text>
@@ -246,6 +223,8 @@ export function App(props: AppBootstrapProps) {
       {activeView === "search" ? (
         <SearchView
           active
+          locale={locale}
+          messages={messages}
           initialQuery={searchQuery}
           initialProvider={searchProvider}
           initialFocusMode={searchFocusMode}
@@ -268,6 +247,8 @@ export function App(props: AppBootstrapProps) {
       {activeView === "sessions" ? (
         <SessionsView
           active
+          locale={locale}
+          messages={messages}
           provider={sessionsProvider}
           setProvider={setSessionsProvider}
           initialFilePath={sessionsFilePath}
@@ -280,6 +261,8 @@ export function App(props: AppBootstrapProps) {
       {activeView === "cleanup" ? (
         <CleanupView
           active
+          locale={locale}
+          messages={messages}
           initialThreadId={cleanupInitialThreadId}
           initialFilter={cleanupFilter}
           onTextEntryChange={setTextEntryLocked}

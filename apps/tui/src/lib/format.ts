@@ -3,11 +3,35 @@ export function truncate(value: string, max = 72): string {
   return `${value.slice(0, max - 1)}…`;
 }
 
-export function formatDateLabel(value?: string | null): string {
+export function formatDateLabel(value?: string | null, locale = "en"): string {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("ko-KR", {
+  const intlLocale = (() => {
+    switch (locale) {
+      case "ko":
+        return "ko-KR";
+      case "ja":
+        return "ja-JP";
+      case "zh-CN":
+        return "zh-CN";
+      case "pt-BR":
+        return "pt-BR";
+      case "es":
+        return "es-ES";
+      case "hi":
+        return "hi-IN";
+      case "de":
+        return "de-DE";
+      case "id":
+        return "id-ID";
+      case "ru":
+        return "ru-RU";
+      default:
+        return "en-US";
+    }
+  })();
+  return new Intl.DateTimeFormat(intlLocale, {
     month: "numeric",
     day: "numeric",
     hour: "numeric",

@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  DEFAULT_CSV_COLUMNS,
+  clearSlowOnlyPref,
   compactSessionFileName,
   compactSessionId,
   compactSessionTitle,
@@ -8,7 +10,9 @@ import {
   formatBytes,
   formatFetchMs,
   providerFromDataSource,
+  readCsvColumnPrefs,
   suppressMouseFocus,
+  writeCsvColumnPrefs,
 } from "./helpers";
 
 describe("provider helpers", () => {
@@ -59,5 +63,44 @@ describe("provider helpers", () => {
     const keyboardPreventDefault = vi.fn();
     suppressMouseFocus({ detail: 0, preventDefault: keyboardPreventDefault });
     expect(keyboardPreventDefault).not.toHaveBeenCalled();
+  });
+
+  it("returns default csv prefs when localStorage reads throw", () => {
+    const getItem = vi.fn(() => {
+      throw new Error("blocked");
+    });
+    vi.stubGlobal("window", {
+      localStorage: { getItem },
+    });
+
+    expect(readCsvColumnPrefs()).toEqual(DEFAULT_CSV_COLUMNS);
+  });
+
+  it("swallows provider storage write and remove failures", () => {
+    const setItem = vi.fn(() => {
+      throw new Error("blocked");
+    });
+    const removeItem = vi.fn(() => {
+      throw new Error("blocked");
+    });
+    vi.stubGlobal("window", {
+      localStorage: { setItem, removeItem },
+    });
+
+    expect(() =>
+      writeCsvColumnPrefs({
+        provider: true,
+        session_id: true,
+        title: true,
+        title_source: true,
+        source: true,
+        format: true,
+        probe_ok: true,
+        size_bytes: true,
+        modified: true,
+        file_path: true,
+      }),
+    ).not.toThrow();
+    expect(() => clearSlowOnlyPref()).not.toThrow();
   });
 });

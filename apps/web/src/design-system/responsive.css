@@ -104,6 +104,12 @@
     justify-content: space-between;
   }
 
+  .locale-picker-menu {
+    right: auto;
+    left: 0;
+    min-width: min(260px, calc(100vw - 48px));
+  }
+
   .top-search-shell {
     flex: 1 1 280px;
   }
