@@ -1,32 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import type { Messages } from "../../i18n";
+import { getMessages, type Messages } from "../../i18n";
 import { ProviderAdvancedShell } from "./ProviderAdvancedShell";
 
-const messages = {
-  providers: {
-    advancedTitle: "Advanced",
-    advancedSubtitle: "Parser and scan controls",
-    refreshing: "Refreshing",
-    refreshNow: "Refresh now",
-    lastRefresh: "Last refresh",
-    depthLabel: "Depth",
-    depthFast: "Fast",
-    depthBalanced: "Balanced",
-    depthDeep: "Deep",
-    slowThresholdLabel: "Slow threshold",
-    scopeReturn: "Return",
-    parserHint: "Parser hint",
-    fetchMsLabel: "Fetch",
-    fetchMsDataSources: "Sources",
-    fetchMsMatrix: "Matrix",
-    fetchMsSessions: "Sessions",
-    fetchMsParser: "Parser",
-    slowProvidersLabel: "Slow providers",
-    slowProvidersNone: "No slow providers",
-    fetchMsSlow: "Slow fetch",
-  },
-} as unknown as Messages;
+const messages = getMessages("en");
 
 describe("ProviderAdvancedShell", () => {
   it("renders open disclosure with controls, metrics, and matrix slot", () => {
@@ -66,12 +43,13 @@ describe("ProviderAdvancedShell", () => {
       />,
     );
 
-    expect(html).toContain("Advanced");
-    expect(html).toContain("Refresh now");
+    expect(html).toContain("Tools");
+    expect(html).toContain("Refresh scan now");
     expect(html).toContain("Last refresh");
+    expect(html).toContain("Refresh / scan");
     expect(html).toContain("Scan settings / slow checks");
-    expect(html).toContain("Return Codex");
-    expect(html).toContain("Sources 120ms");
+    expect(html).toContain("Back Codex");
+    expect(html).toContain("Last fetch DS 120ms");
     expect(html).toContain("Slow providers 1/4");
     expect(html).toContain("Matrix slot");
     expect(onAdvancedOpenChange).not.toHaveBeenCalled();

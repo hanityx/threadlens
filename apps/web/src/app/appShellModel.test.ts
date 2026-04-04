@@ -1,3 +1,5 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type {
   ProviderMatrixProvider,
@@ -5,8 +7,12 @@ import type {
   ProviderSessionRow,
   ProviderView,
 } from "../types";
+import { getMessages } from "../i18n";
 import {
   buildSearchProviderOptions,
+  buildRecentThreadSummary,
+  buildRecentThreadTitle,
+  useAppShellModel,
   buildVisibleProviderSessionSummary,
   buildVisibleParserSummary,
   buildVisibleProviderIds,
@@ -112,6 +118,74 @@ const providerSessionRows: ProviderSessionRow[] = [
   },
 ];
 
+function renderModelProbe(locale: "en" | "es" | "id" | "ru" = "en") {
+  const messages = getMessages(locale);
+
+  function Probe() {
+    const model = useAppShellModel({
+      layoutView: "overview",
+      providerView: "all",
+      providersDiagnosticsOpen: false,
+      providerTabs: buildVisibleProviderTabs(providerTabs).map((tab) => ({
+        ...tab,
+        scanned: 0,
+        scan_ms: null,
+        is_slow: false,
+      })),
+      providers: [],
+      slowProviderIds: [],
+      providerSessionRows: [],
+      allProviderSessionRows: [],
+      parserReports: [],
+      allParserReports: [],
+      dataSourceRows: [],
+      selectedProviderFiles: {},
+      runtimeLoading: false,
+      recoveryLoading: false,
+      threadsLoading: false,
+      dataSourcesLoading: false,
+      providerMatrixLoading: false,
+      providerSessionsLoading: false,
+      parserLoading: false,
+      threadsFastBooting: false,
+      providersRefreshing: false,
+      refreshingAllData: false,
+      providersLastRefreshAt: "",
+      highRiskCount: 0,
+      visibleRows: [],
+      selectedProviderLabel: null,
+      runtimeBackendReachable: false,
+      runtimeBackendLatencyMs: null,
+      analyzeErrorKey: "",
+      cleanupErrorKey: "",
+      acknowledgedForensicsErrorKeys: { analyze: "", cleanup: "" },
+      runtimeError: false,
+      smokeStatusError: false,
+      recoveryError: false,
+      providerMatrixError: false,
+      providerSessionsError: false,
+      providerParserHealthError: false,
+      providerSessionActionError: false,
+      bulkActionError: false,
+      showRuntimeBackendDegraded: false,
+      recoveryBackupSets: 0,
+      messages,
+    });
+
+    return createElement(
+      "div",
+      null,
+      createElement("span", { "data-active": model.activeSummaryText }),
+      createElement("span", { "data-sync": model.syncStatusText }),
+      createElement("span", { "data-line": model.activeProviderSummaryLine }),
+      createElement("span", { "data-parser": model.parserScoreText }),
+      createElement("span", { "data-runtime": model.runtimeLatencyText }),
+    );
+  }
+
+  return renderToStaticMarkup(createElement(Probe));
+}
+
 describe("appShellModel", () => {
   it("filters hidden tabs and keeps provider display order stable", () => {
     const visibleTabs = buildVisibleProviderTabs(providerTabs);
@@ -194,5 +268,51 @@ describe("appShellModel", () => {
       { id: "gemini", name: "Gemini" },
       { id: "copilot", name: "Copilot" },
     ]);
+  });
+
+  it("localizes overview status summaries for Indonesian", () => {
+    const messages = getMessages("id").overview;
+    const html = renderModelProbe("id");
+
+    expect(html).toContain(
+      `data-active="${messages.activeSummary.replace("{active}", "1").replace("{total}", "4")}"`,
+    );
+    expect(html).toContain(`data-sync="${messages.syncStatusIdle}"`);
+    expect(html).toContain(
+      `data-line="${messages.activeProvidersCountLine.replace("{count}", "1")}"`,
+    );
+    expect(html).toContain(`data-parser="${messages.statusUnavailable}"`);
+    expect(html).toContain(`data-runtime="${messages.runtimeStatusDown}"`);
+  });
+
+  it("localizes recent thread fallback copy for Spanish", () => {
+    const messages = getMessages("es").overview;
+    const runningRow = {
+      thread_id: "thread-1",
+      title: "",
+      risk_level: "high",
+      risk_score: 90,
+      risk_tags: ["ctx-high"],
+      activity_status: "running",
+      timestamp: "2026-03-24T00:00:00.000Z",
+      is_pinned: false,
+      source: "sessions",
+    } as never;
+    const noWorkspaceRow = {
+      thread_id: "thread-2",
+      title: "",
+      risk_level: "high",
+      risk_score: 70,
+      risk_tags: ["no-cwd"],
+      activity_status: "recent",
+      timestamp: "2026-03-24T00:00:00.000Z",
+      is_pinned: false,
+      source: "sessions",
+    } as never;
+
+    expect(buildRecentThreadTitle(runningRow, messages)).toBe(messages.recentThreadTitleRunning);
+    expect(buildRecentThreadSummary(noWorkspaceRow, messages)).toBe(
+      messages.recentThreadSummaryNoWorkspace,
+    );
   });
 });

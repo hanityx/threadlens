@@ -16,6 +16,7 @@ vi.mock("../../api", () => ({
 }));
 
 const messages = getMessages("en");
+const jaMessages = getMessages("ja");
 
 const providerOptions = [
   { id: "codex", name: "Codex" },
@@ -50,6 +51,29 @@ describe("SearchPanel", () => {
     expect(html).toContain(messages.search.allProviders);
     expect(html).not.toContain("parser health");
     expect(html).not.toContain("gemini session");
+  });
+
+  it("renders localized search guidance without leaking hardcoded English tips", () => {
+    const html = renderToStaticMarkup(
+      <SearchPanel
+        messages={jaMessages}
+        providerOptions={providerOptions}
+        onOpenSession={() => undefined}
+        onOpenThread={() => undefined}
+      />,
+    );
+
+    expect(html).toContain("Search");
+    expect(html).toContain(jaMessages.search.stageBody);
+    expect(html).toContain(jaMessages.search.providerFilter);
+    expect(html).toContain(jaMessages.search.allProviders);
+    expect(html).toContain(jaMessages.search.tipsLabel);
+    expect(html).toContain(jaMessages.search.shortcutsLabel);
+    expect(html).toContain(jaMessages.search.recentSearches);
+    expect(html).toContain(jaMessages.search.recentEmpty);
+    expect(html).not.toContain(">tips<");
+    expect(html).not.toContain(">shortcuts<");
+    expect(html).not.toContain(">idle<");
   });
 
   it("accepts both lowercase and uppercase K for the focus shortcut", () => {
@@ -108,6 +132,56 @@ describe("SearchPanel", () => {
     expect(html).toContain(messages.search.openThread);
     expect(html).toContain("019d2f65");
     expect(html).toContain("matches");
+  });
+
+  it("renders localized result summaries and actions for active search", () => {
+    const envelope = {
+      ok: true,
+      schema_version: "2026-02-27",
+      error: null,
+      data: {
+        results: [
+          {
+            provider: "codex",
+            session_id: "019d2f65-1234-5678-90ab-123456784d85",
+            thread_id: "thread-1",
+            title: "Cleanup flow validation session with a longer title",
+            file_path: "/tmp/session.jsonl",
+            mtime: "2026-03-28T00:00:00.000Z",
+            match_kind: "message",
+            snippet: "cleanup preview token execute archive",
+            role: "user",
+            source: "session.jsonl",
+          },
+        ],
+        searched_sessions: 12,
+        available_sessions: 24,
+      },
+    } as ConversationSearchEnvelope;
+
+    mockUseQuery.mockReturnValue({
+      data: envelope,
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+    });
+
+    const html = renderToStaticMarkup(
+      <SearchPanel
+        messages={jaMessages}
+        providerOptions={providerOptions}
+        onOpenSession={() => undefined}
+        onOpenThread={() => undefined}
+        initialQuery="cleanup"
+      />,
+    );
+
+    expect(html).toContain(jaMessages.search.summaryMatchesLabel);
+    expect(html).toContain(jaMessages.search.summaryScannedLabel);
+    expect(html).toContain(jaMessages.search.providerHits);
+    expect(html).toContain(jaMessages.search.summaryMessagesLabel);
+    expect(html).toContain(jaMessages.search.openThread);
+    expect(html).toContain(jaMessages.transcript.roleUser);
   });
 
   it("hides the loading status pill when results are already visible during a refetch", () => {

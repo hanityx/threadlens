@@ -51,9 +51,7 @@ async function openPrimaryView(page: Page, label: "Threads" | "Providers") {
     workspaceBar.locator(".provider-workspace-copy strong").first(),
   ).toContainText(/All providers|Codex CLI|Claude|Gemini/i);
   await expect(page.locator(".provider-session-stage").first()).toBeVisible();
-  await expect(
-    page.locator(".provider-side-stack details").filter({ hasText: /Backup & export/i }).first(),
-  ).toBeVisible();
+  await expect(page.getByTestId("provider-backup-hub-section").first()).toBeVisible();
 }
 
 async function selectProviderChip(page: Page, label: RegExp) {
@@ -442,11 +440,7 @@ test("providers workspace surfaces backup-first controls", async ({ page }, test
   await openPrimaryView(page, "Providers");
   const sessionsPanel = page.locator(".provider-session-stage").first();
   await expect(sessionsPanel).toBeVisible();
-  await page
-    .locator(".provider-side-stack details")
-    .filter({ hasText: /Backup & export/i })
-    .locator("summary")
-    .click();
+  await page.getByTestId("provider-backup-hub-section").first().locator("summary").click();
   await expect(page.getByRole("button", { name: backupSelectedLabel }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: bundleAllBackupsLabel })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("providers-flow-en.png"), fullPage: true });
@@ -460,11 +454,7 @@ test("backup action executes in one click for selected provider sessions", async
   await openPrimaryView(page, "Providers");
   await selectProviderChip(page, /^Codex/i);
   await page.locator("tbody input[type='checkbox']").first().check();
-  await page
-    .locator(".provider-side-stack details")
-    .filter({ hasText: /Backup & export/i })
-    .locator("summary")
-    .click();
+  await page.getByTestId("provider-backup-hub-section").first().locator("summary").click();
 
   await page.getByRole("button", { name: backupSelectedLabel }).first().click();
   await expect.poll(() => providerActionCalls.length).toBe(1);

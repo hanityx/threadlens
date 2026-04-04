@@ -14,6 +14,8 @@ export const SLOW_PROVIDER_SCAN_MS_STORAGE_KEY = "po-slow-provider-threshold-ms"
 export const LEGACY_SLOW_PROVIDER_SCAN_MS_STORAGE_KEY = "cmc-slow-provider-threshold-ms";
 export const THEME_STORAGE_KEY = "po-theme";
 export const LEGACY_THEME_STORAGE_KEY = "cmc-theme";
+export const LOCALE_STORAGE_KEY = "po-locale";
+export const LEGACY_LOCALE_STORAGE_KEY = "cmc-locale";
 export const DENSITY_STORAGE_KEY = "po-density";
 export const LEGACY_DENSITY_STORAGE_KEY = "cmc-density";
 export const LAYOUT_VIEW_STORAGE_KEY = "po-layout-view";
@@ -117,16 +119,24 @@ export function nowMs(): number {
 
 export function readStorageValue(keys: readonly string[]): string | null {
   if (typeof window === "undefined") return null;
-  for (const key of keys) {
-    const value = window.localStorage.getItem(key);
-    if (value !== null) return value;
+  try {
+    for (const key of keys) {
+      const value = window.localStorage.getItem(key);
+      if (value !== null) return value;
+    }
+  } catch {
+    return null;
   }
   return null;
 }
 
 export function writeStorageValue(key: string, value: string): void {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(key, value);
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // ignore storage persistence failures
+  }
 }
 
 export function readDismissedUpdateVersion(): string {

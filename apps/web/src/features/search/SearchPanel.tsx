@@ -15,6 +15,16 @@ type RecentSearch = { q: string; ts: number };
 const RECENT_KEY = "tl:search:recent";
 const MAX_RECENT = 8;
 
+function formatSearchMessage(
+  template: string,
+  replacements: Record<string, string | number>,
+): string {
+  return Object.entries(replacements).reduce(
+    (result, [key, value]) => result.replaceAll(`{${key}}`, String(value)),
+    template,
+  );
+}
+
 function loadRecentSearches(): RecentSearch[] {
   try {
     const raw = localStorage.getItem(RECENT_KEY);
@@ -55,16 +65,26 @@ function removeRecentSearch(query: string): RecentSearch[] {
   return updated;
 }
 
-function formatRecentTime(ts: number): string {
+function formatRecentTime(ts: number, searchMessages: Messages["search"]): string {
   const diff = Date.now() - ts;
   const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return searchMessages.timeJustNow;
+  if (mins < 60) return formatSearchMessage(searchMessages.timeMinutesAgo, { count: mins });
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return formatSearchMessage(searchMessages.timeHoursAgo, { count: hours });
   const days = Math.floor(hours / 24);
-  if (days === 1) return "yesterday";
-  return `${days}d ago`;
+  if (days === 1) return searchMessages.timeYesterday;
+  return formatSearchMessage(searchMessages.timeDaysAgo, { count: days });
+}
+
+function getSearchRoleLabel(role: string | null | undefined, messages: Messages): string {
+  if (role === "user") return messages.transcript.roleUser;
+  if (role === "assistant") return messages.transcript.roleAssistant;
+  if (role === "developer") return messages.transcript.roleDeveloper;
+  if (role === "system") return messages.transcript.roleSystem;
+  if (role === "tool") return messages.transcript.roleTool;
+  if (role) return role;
+  return messages.search.matchMessage;
 }
 
 export type SearchPanelProps = {
@@ -408,9 +428,9 @@ export function SearchPanel({
     <section className="panel search-panel search-stage">
       <header className="search-stage-head">
         <div className="search-stage-title">
-          <span className="overview-note-label">search</span>
+          <span className="overview-note-label">{messages.search.commandPathLabel}</span>
           <h2>{messages.search.title}</h2>
-          <p>Threads, sessions, keywords.</p>
+          <p>{messages.search.stageBody}</p>
         </div>
       </header>
 
@@ -418,12 +438,12 @@ export function SearchPanel({
         <div className="search-command-breadcrumb">
           <span className="search-command-path is-brand">threadlens</span>
           <span className="search-command-slash">/</span>
-          <span className="search-command-path">search</span>
+          <span className="search-command-path">{messages.search.commandPathLabel}</span>
           <span className="search-command-slash">/</span>
           <span className="search-command-path is-active">
             {provider === "all" ? messages.search.allProviders : providerLabelById.get(provider) ?? provider}
           </span>
-          {!searchEnabled ? <span className="search-command-runtime">idle</span> : null}
+          {!searchEnabled ? <span className="search-command-runtime">{messages.search.idle}</span> : null}
         </div>
         <div className="search-command-body">
           <div className="search-command-left">
@@ -433,7 +453,7 @@ export function SearchPanel({
                 ref={inputRef}
                 type="search"
                 className="search-input search-input-stage"
-                aria-label="Search conversations"
+                aria-label={messages.search.inputAriaLabel}
                 placeholder={messages.search.inputPlaceholder}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
@@ -466,32 +486,32 @@ export function SearchPanel({
           </div>
           <div className="search-command-tips">
             <div className="search-tips-col">
-              <div className="search-scope-label">tips</div>
+              <div className="search-scope-label">{messages.search.tipsLabel}</div>
               <div className="search-tips-list">
                 <div className="search-tip-row">
-                  <span className="search-tip-key">keywords</span>
-                  <span className="search-tip-desc">free text, any order</span>
+                  <span className="search-tip-key">{messages.search.tipKeywordsLabel}</span>
+                  <span className="search-tip-desc">{messages.search.tipKeywordsBody}</span>
                 </div>
                 <div className="search-tip-row">
-                  <span className="search-tip-key">filename</span>
-                  <span className="search-tip-desc">markdown, .jsonl</span>
+                  <span className="search-tip-key">{messages.search.tipFilenameLabel}</span>
+                  <span className="search-tip-desc">{messages.search.tipFilenameBody}</span>
                 </div>
                 <div className="search-tip-row">
-                  <span className="search-tip-key">scope</span>
-                  <span className="search-tip-desc">filter by provider</span>
+                  <span className="search-tip-key">{messages.search.tipScopeLabel}</span>
+                  <span className="search-tip-desc">{messages.search.tipScopeBody}</span>
                 </div>
               </div>
             </div>
             <div className="search-tips-col">
-              <div className="search-scope-label">shortcuts</div>
+              <div className="search-scope-label">{messages.search.shortcutsLabel}</div>
               <div className="search-tips-shortcuts">
                 <div className="search-tip-row">
                   <kbd className="search-tip-kbd">⌘K</kbd>
-                  <span className="search-tip-desc">focus search</span>
+                  <span className="search-tip-desc">{messages.search.shortcutFocus}</span>
                 </div>
                 <div className="search-tip-row">
                   <kbd className="search-tip-kbd">Esc</kbd>
-                  <span className="search-tip-desc">clear query</span>
+                  <span className="search-tip-desc">{messages.search.shortcutClear}</span>
                 </div>
               </div>
             </div>
@@ -524,11 +544,13 @@ export function SearchPanel({
                       >
                         <span className="search-recent-icon" aria-hidden="true">↺</span>
                         <span className="search-recent-query">{item.q}</span>
-                        <span className="search-recent-time">{formatRecentTime(item.ts)}</span>
+                        <span className="search-recent-time">{formatRecentTime(item.ts, messages.search)}</span>
                         <button
                           type="button"
                           className="search-recent-remove"
-                          aria-label={`Remove "${item.q}" from recent searches`}
+                          aria-label={formatSearchMessage(messages.search.removeRecentAria, {
+                            query: item.q,
+                          })}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleRemoveRecent(item.q);
@@ -565,11 +587,13 @@ export function SearchPanel({
                 >
                   <span className="search-recent-icon" aria-hidden="true">↺</span>
                   <span className="search-recent-query">{item.q}</span>
-                  <span className="search-recent-time">{formatRecentTime(item.ts)}</span>
+                  <span className="search-recent-time">{formatRecentTime(item.ts, messages.search)}</span>
                   <button
                     type="button"
                     className="search-recent-remove"
-                    aria-label={`Remove "${item.q}" from recent searches`}
+                    aria-label={formatSearchMessage(messages.search.removeRecentAria, {
+                      query: item.q,
+                    })}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleRemoveRecent(item.q);
@@ -591,25 +615,25 @@ export function SearchPanel({
             <div className="search-summary-strip" role="status" aria-live="polite">
               <span className="search-summary-item">
                 <strong className="search-summary-value">{resultCount}</strong>
-                <span className="search-summary-label">matches</span>
+                <span className="search-summary-label">{messages.search.summaryMatchesLabel}</span>
               </span>
               <span className="search-summary-item">
                 <strong className="search-summary-value">
                   {searchedSessions}/{availableSessions}
                 </strong>
-                <span className="search-summary-label">scanned</span>
+                <span className="search-summary-label">{messages.search.summaryScannedLabel}</span>
               </span>
               <span className="search-summary-item">
                 <strong className="search-summary-value">{providerHitCount}</strong>
-                <span className="search-summary-label">AI</span>
+                <span className="search-summary-label">{messages.search.providerHits}</span>
                 <span className="search-summary-divider" aria-hidden="true">·</span>
                 <strong className="search-summary-value">{messageMatches}</strong>
-                <span className="search-summary-label">messages</span>
+                <span className="search-summary-label">{messages.search.summaryMessagesLabel}</span>
               </span>
               {collapsedDuplicateCount > 0 ? (
                 <span className="search-summary-item">
                   <strong className="search-summary-value">{collapsedDuplicateCount}</strong>
-                  <span className="search-summary-label">deduped</span>
+                  <span className="search-summary-label">{messages.search.summaryDedupedLabel}</span>
                 </span>
               ) : null}
               {statusText ? (
@@ -647,8 +671,12 @@ export function SearchPanel({
                   <div className="search-group-header">
                     <strong>{group.name}</strong>
                     <div className="search-group-header-meta">
-                      <span className="mono-sub">{group.sessions.length} rows</span>
-                      <span className="status-pill status-active">{group.matchCount} hits</span>
+                      <span className="mono-sub">
+                        {formatSearchMessage(messages.search.groupRows, { count: group.sessions.length })}
+                      </span>
+                      <span className="status-pill status-active">
+                        {formatSearchMessage(messages.search.groupHits, { count: group.matchCount })}
+                      </span>
                     </div>
                   </div>
                   <div className="search-group-list">
@@ -690,7 +718,7 @@ export function SearchPanel({
                                 }
                               }
                             : undefined}
-                          title={canOpenSession ? undefined : "This result cannot open in Sessions."}
+                          title={canOpenSession ? undefined : messages.search.disabledSessionTitle}
                         >
                           <div className="search-result-main">
                             <div className="search-result-title-stack">
@@ -706,7 +734,9 @@ export function SearchPanel({
                               ) : (
                                 <span className="search-result-kind">{compactProviderName(cardProviderName)}</span>
                               )}
-                              <span className="search-result-kind">{session.matches.length} hits</span>
+                              <span className="search-result-kind">
+                                {formatSearchMessage(messages.search.groupHits, { count: session.matches.length })}
+                              </span>
                             </div>
                           </div>
                           <div className="search-result-meta">
@@ -741,7 +771,7 @@ export function SearchPanel({
                                 <span className="search-match-role">
                                   {match.match_kind === "title"
                                     ? messages.search.matchTitle
-                                    : match.role || messages.search.matchMessage}
+                                    : getSearchRoleLabel(match.role, messages)}
                                 </span>
                                 <p className="search-result-snippet search-result-snippet-compact">
                                   {compactSearchSnippet(match)}
@@ -765,7 +795,11 @@ export function SearchPanel({
                                   });
                                 }}
                               >
-                                {isExpanded ? "▲ collapse" : `+${remainingMatches} more`}
+                                {isExpanded
+                                  ? messages.search.collapseMatches
+                                  : formatSearchMessage(messages.search.moreMatches, {
+                                      count: remainingMatches,
+                                    })}
                               </button>
                             ) : null}
                           </div>

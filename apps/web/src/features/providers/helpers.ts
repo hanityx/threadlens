@@ -75,16 +75,24 @@ const MARKDOWN_FILE_NAME_PATTERN = /\b[\w.-]+\.md\b/i;
 
 function readStorageValue(keys: readonly string[]): string | null {
   if (typeof window === "undefined") return null;
-  for (const key of keys) {
-    const value = window.localStorage.getItem(key);
-    if (value !== null) return value;
+  try {
+    for (const key of keys) {
+      const value = window.localStorage.getItem(key);
+      if (value !== null) return value;
+    }
+  } catch {
+    return null;
   }
   return null;
 }
 
 function writeStorageValue(key: string, value: string): void {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(key, value);
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // ignore storage persistence failures
+  }
 }
 
 export function writeCsvColumnPrefs(columns: Record<CsvColumnKey, boolean>): void {
@@ -93,8 +101,12 @@ export function writeCsvColumnPrefs(columns: Record<CsvColumnKey, boolean>): voi
 
 export function clearSlowOnlyPref(): void {
   if (typeof window === "undefined") return;
-  window.localStorage.removeItem("po-provider-slow-only");
-  window.localStorage.removeItem("cmc-provider-slow-only");
+  try {
+    window.localStorage.removeItem("po-provider-slow-only");
+    window.localStorage.removeItem("cmc-provider-slow-only");
+  } catch {
+    // ignore storage persistence failures
+  }
 }
 
 export function csvCell(value: unknown): string {

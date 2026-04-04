@@ -216,4 +216,59 @@ describe("ThreadsWorkbench", () => {
     expect(props.nextThreadTitle).toBe("High risk");
     expect(props.nextThreadSource).toBe("history · risk 91 · high");
   });
+
+  it("renders localized thread workbench header copy in Indonesian", () => {
+    const messages = getMessages("id");
+    mockUseAppContext.mockReturnValue(
+      buildContext({
+        messages,
+      }),
+    );
+
+    const html = renderToStaticMarkup(<ThreadsWorkbench />);
+
+    expect(html).toContain(messages.threadsTable.heroEyebrow);
+    expect(html).toContain("Review &amp; Archive");
+    expect(html).toContain(messages.threadsTable.heroBody);
+    expect(html).toContain("dry-run");
+    expect(html).toContain(messages.toolbar.searchThreads);
+    expect(html).toContain(`>${messages.toolbar.all}<`);
+    expect(html).toContain(`>${messages.toolbar.highRisk}<`);
+    expect(html).toContain(`>${messages.toolbar.pinned}<`);
+  });
+
+  it("localizes the next thread source summary for Indonesian", () => {
+    const messages = getMessages("id");
+    mockUseAppContext.mockReturnValue(
+      buildContext({
+        messages,
+        selectedThreadId: "",
+        selectedIds: [],
+        visibleRows: [
+          {
+            thread_id: "thread-high",
+            title: "High risk",
+            risk_score: 91,
+            risk_level: "high",
+            is_pinned: false,
+            source: "history",
+            timestamp: "2026-03-26T00:00:00.000Z",
+          },
+        ],
+        recentThreadTitle: vi.fn((row) => String((row as { title?: string }).title ?? "")),
+      }),
+    );
+
+    renderToStaticMarkup(<ThreadsWorkbench />);
+
+    const props = mockThreadDetailSlot.mock.calls[0]?.[0] as {
+      nextThreadSource?: string;
+    };
+    expect(props.nextThreadSource).toBe(
+      messages.threadDetail.nextThreadSourceTemplate
+        .replace("{source}", messages.threadsTable.sourceHistory)
+        .replace("{score}", "91")
+        .replace("{risk}", messages.overview.reviewRiskHigh),
+    );
+  });
 });

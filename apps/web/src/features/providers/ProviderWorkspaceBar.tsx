@@ -24,14 +24,30 @@ export interface ProviderWorkspaceBarProps {
   searchSlot?: React.ReactNode;
 }
 
-function formatRefreshAge(iso: string): string {
+function formatProviderMessage(
+  template: string,
+  replacements: Record<string, string | number>,
+): string {
+  return Object.entries(replacements).reduce(
+    (result, [key, value]) => result.replaceAll(`{${key}}`, String(value)),
+    template,
+  );
+}
+
+function formatRefreshAge(messages: Messages, iso: string): string {
   if (!iso) return "-";
   const diff = Date.now() - new Date(iso).getTime();
   const s = Math.floor(diff / 1000);
-  if (s < 60) return `${s}s ago`;
+  if (s < 60) {
+    return formatProviderMessage(messages.providers.refreshAgeSeconds, { count: s });
+  }
   const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  return `${Math.floor(m / 60)}h ago`;
+  if (m < 60) {
+    return formatProviderMessage(messages.providers.refreshAgeMinutes, { count: m });
+  }
+  return formatProviderMessage(messages.providers.refreshAgeHours, {
+    count: Math.floor(m / 60),
+  });
 }
 
 export function ProviderWorkspaceBar({
@@ -50,12 +66,12 @@ export function ProviderWorkspaceBar({
     <section className="page-section-header provider-workspace-bar">
       <div className="provider-workspace-copy">
         <div className="thread-workflow-copy-eyebrow">
-          <span className="overview-note-label">sessions</span>
+          <span className="overview-note-label">{messages.providers.hubTitle}</span>
         </div>
         <strong className="provider-workspace-title">
           {providerLabel}
         </strong>
-        <p>Review, back up, export, and delete session files.</p>
+        <p>{messages.providers.hubBody}</p>
       </div>
 
       <div className="ai-management-focusbar">
@@ -85,7 +101,7 @@ export function ProviderWorkspaceBar({
         </article>
         {summary.archived > 0 ? (
           <article className="provider-summary-cell is-muted">
-            <span>archived</span>
+            <span>{messages.providers.hubMetricArchived}</span>
             <strong>{summary.archived}</strong>
           </article>
         ) : null}
@@ -100,13 +116,13 @@ export function ProviderWorkspaceBar({
           </article>
         ) : (
           <article className="provider-summary-cell is-ok">
-            <span>parse</span>
-            <strong>OK</strong>
+            <span>{messages.providers.hubMetricParse}</span>
+            <strong>{messages.common.ok}</strong>
           </article>
         )}
         <article className="provider-summary-cell is-muted">
-          <span>synced</span>
-          <strong>{formatRefreshAge(summary.lastRefreshAt)}</strong>
+          <span>{messages.providers.hubMetricSynced}</span>
+          <strong>{formatRefreshAge(messages, summary.lastRefreshAt)}</strong>
         </article>
       </div>
       {searchSlot}

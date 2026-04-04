@@ -32,6 +32,11 @@ import type { ConversationSearchHit, LayoutView, ProviderView } from "./types";
 import type { ProviderProbeFilter } from "./features/providers/sessionTableModel";
 import { UpdateBanner } from "./app/UpdateBanner";
 
+const preloadProvidersHomePanels = () => {
+  void import("./features/providers/ProvidersPanel");
+  void import("./features/providers/SessionDetail");
+};
+
 export function App() {
   const panelChunkWarmupStartedRef = useRef(false);
   const desktopRouteAppliedRef = useRef(false);
@@ -144,6 +149,8 @@ export function App() {
   };
 
   const openProvidersHome = () => {
+    prefetchProvidersData();
+    preloadProvidersHomePanels();
     const preferredProvider = resolvePreferredProvidersEntry({
       preferredProviderId: readStorageValue([SETUP_PREFERRED_PROVIDER_STORAGE_KEY]),
       storedProviderView: readStorageValue([PROVIDER_VIEW_STORAGE_KEY]),
@@ -155,7 +162,7 @@ export function App() {
     changeLayoutView("providers");
   };
 
-  const { messages } = useLocale();
+  const { locale, setLocale, messages } = useLocale();
   const updateCheckData = extractEnvelopeData<UpdateCheckStatus>(updateCheck.data);
   const showUpdateBanner = Boolean(
     updateCheckData?.has_update &&
@@ -272,6 +279,7 @@ export function App() {
     bulkActionError: Boolean(bulkActionError),
     showRuntimeBackendDegraded,
     recoveryBackupSets: recovery.data?.summary?.backup_sets ?? 0,
+    messages,
   });
 
   const {
@@ -314,7 +322,10 @@ export function App() {
     prefetchRoutingData,
   });
 
-  const emptySessionScopeLabel = selectedProviderLabel;
+  const emptySessionScopeLabel =
+    providerView === "all"
+      ? messages.common.allAi
+      : selectedProviderLabel ?? providerView;
 
   const ctx: AppContextValue = {
     ...appData,
@@ -335,6 +346,8 @@ export function App() {
     },
     ...{ handleProvidersIntent, handleSearchIntent, handleDiagnosticsIntent, handleHeaderSearchSubmit },
     messages,
+    locale,
+    setLocale,
     providersDiagnosticsOpen, setProvidersDiagnosticsOpen,
     setupGuideOpen, setSetupGuideOpen,
     headerSearchDraft, setHeaderSearchDraft,

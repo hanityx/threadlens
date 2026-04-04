@@ -93,7 +93,7 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
         ? messages.forensics.cleanupSelectionChanged
         : messages.forensics.cleanupTokenHint;
   const cleanupCardDetail = cleanupApplied
-    ? `${stateRemovedCount} state refs updated`
+    ? messages.forensics.stateRefsUpdated.replace("{count}", String(stateRemovedCount))
     : cleanupReady
       ? messages.forensics.cleanupExecuteReadyBody
       : messages.forensics.stageDryRunBody;
@@ -165,7 +165,7 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
                 <article className="provider-result-card">
                   <span className="overview-note-label">{messages.forensics.executionFailures}</span>
                   <strong>{cleanupFailedCount}</strong>
-                  <p>{stateRemovedCount} state refs updated</p>
+                  <p>{messages.forensics.stateRefsUpdated.replace("{count}", String(stateRemovedCount))}</p>
                 </article>
               </section>
             </div>
@@ -175,23 +175,23 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
         {threadActionsDisabled ? <p className="sub-hint">{messages.forensics.backendDownHint}</p> : null}
 
         <div className="impact-list">
-          <h3>{impactReady ? "Top rows" : messages.forensics.selectedImpactSummary}</h3>
+          <h3>{impactReady ? messages.forensics.impactTopRows : messages.forensics.selectedImpactSummary}</h3>
           {!impactReady ? (
             <div className="thread-review-empty-guide">
               <article>
-                <span>pick</span>
-                <strong>select rows</strong>
-                <p>use visible rows or the header toggle.</p>
+                <span>{messages.forensics.emptyGuidePickLabel}</span>
+                <strong>{messages.forensics.emptyGuidePickTitle}</strong>
+                <p>{messages.forensics.emptyGuidePickBody}</p>
               </article>
               <article>
-                <span>inspect</span>
-                <strong>run impact</strong>
-                <p>inspect impact and cleanup signal first.</p>
+                <span>{messages.forensics.emptyGuideInspectLabel}</span>
+                <strong>{messages.forensics.emptyGuideInspectTitle}</strong>
+                <p>{messages.forensics.emptyGuideInspectBody}</p>
               </article>
               <article>
-                <span>preview</span>
-                <strong>run dry-run</strong>
-                <p>copy the token only after review.</p>
+                <span>{messages.forensics.emptyGuidePreviewLabel}</span>
+                <strong>{messages.forensics.emptyGuidePreviewTitle}</strong>
+                <p>{messages.forensics.emptyGuidePreviewBody}</p>
               </article>
             </div>
           ) : (
@@ -254,7 +254,7 @@ export function ForensicsPanel(props: ForensicsPanelProps) {
 
         {analysisRaw || cleanupRaw ? (
           <details className="detail-section">
-            <summary>payload</summary>
+            <summary>{messages.forensics.payload}</summary>
             <div className="detail-section-body">
               {analysisRaw ? (
                 <details open>

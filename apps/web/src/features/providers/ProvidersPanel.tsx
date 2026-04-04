@@ -132,7 +132,7 @@ export interface ProvidersPanelProps {
   setSelectedProviderFiles: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   allProviderRowsSelected: boolean;
   toggleSelectAllProviderRows: (checked: boolean, scopeFilePaths?: string[]) => void;
-  selectedProviderLabel: string;
+  selectedProviderLabel: string | null;
   selectedProviderFilePaths: string[];
   providerActionProvider: string;
   canRunProviderAction: boolean;
@@ -968,6 +968,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
         />
 
         <ProviderSideStack
+          messages={messages}
           advancedOpen={advancedOpen}
           sectionRef={providerSideStackRef}
           sessionDetailSlot={sessionDetailSlot}

@@ -9,10 +9,6 @@ const preloadProvidersPanel = () => {
   void import("../features/providers/ProvidersPanel");
 };
 
-const preloadSearchPanel = () => {
-  void import("../features/search/SearchPanel");
-};
-
 const preloadThreadDetail = () => {
   void import("../features/threads/ThreadDetail");
 };
@@ -658,7 +654,7 @@ export function useAppShellBehavior(options: {
   };
 
   const handleSearchIntent = () => {
-    preloadSearchPanel();
+    // SearchPanel is statically imported to avoid dev-only lazy import stalls.
   };
 
   const handleDiagnosticsIntent = () => {

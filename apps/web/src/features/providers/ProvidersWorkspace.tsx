@@ -117,7 +117,7 @@ export function ProvidersWorkspace() {
           candidate.session_id,
         ),
         path: candidate.file_path,
-        description: `${formatProviderDisplayName(candidate.provider)} · ${formatBytesCompact(candidate.size_bytes)} · ${formatDateTime(candidate.mtime)} · largest session in scope`,
+        description: `${formatProviderDisplayName(candidate.provider)} · ${formatBytesCompact(candidate.size_bytes)} · ${formatDateTime(candidate.mtime)} · ${messages.sessionDetail.emptyNextLargestInScope}`,
       }))
     : emptySessionNextTitle
       ? [{ title: emptySessionNextTitle, path: emptySessionNextPath, description: "" }]
@@ -258,18 +258,20 @@ export function ProvidersWorkspace() {
             >
               <summary>
                 <span className="session-routing-disclosure-copy">
-                  <span className="session-routing-disclosure-kicker">Session surface</span>
+                  <span className="session-routing-disclosure-kicker">{messages.routing.sessionSurfaceKicker}</span>
                   <span className="session-routing-disclosure-summary">
                     <strong>{messages.nav.routing}</strong>
                     <span className="session-routing-disclosure-bodycopy">
                       {providersDiagnosticsOpen
-                        ? "Paths, findings, and execution flow for the current AI."
-                        : "Open paths, findings, and execution flow without leaving Sessions."}
+                        ? messages.routing.sessionSurfaceBodyOpen
+                        : messages.routing.sessionSurfaceBodyClosed}
                     </span>
                   </span>
                 </span>
                 <span className="session-routing-disclosure-pill">
-                  {providersDiagnosticsOpen ? "Hide" : "Open"}
+                  {providersDiagnosticsOpen
+                    ? messages.routing.sessionSurfacePillHide
+                    : messages.routing.sessionSurfacePillOpen}
                 </span>
               </summary>
               <div className="panel-disclosure-body">

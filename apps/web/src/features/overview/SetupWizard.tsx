@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "../../design-system/Button";
 import { PanelHeader } from "../../design-system/PanelHeader";
+import { LocalePicker } from "../../app/LocalePicker";
+import { useLocale } from "../../i18n";
+import { LOCALE_LABELS } from "../../i18n/locales";
 import {
   PROVIDER_VIEW_STORAGE_KEY,
   SETUP_PREFERRED_PROVIDER_STORAGE_KEY,
@@ -89,11 +92,11 @@ function readStoredCompletedAt(): string {
   return window.localStorage.getItem(WIZARD_COMPLETED_AT_STORAGE_KEY) ?? "";
 }
 
-function formatTimestamp(raw: string): string {
-  if (!raw) return "Not completed yet";
+function formatTimestamp(raw: string, locale: string): string {
+  if (!raw) return "";
   const time = new Date(raw);
   if (Number.isNaN(time.getTime())) return raw;
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(time);
@@ -146,6 +149,7 @@ export function SetupWizard({
   onClose,
   onApplyPreferredSelection,
 }: SetupWizardProps) {
+  const { locale, setLocale, messages } = useLocale();
   const [selectedProviderIds, setSelectedProviderIds] = useState<string[]>(readStoredSelection);
   const [completedAt, setCompletedAt] = useState<string>(readStoredCompletedAt);
   const [expandedAfterComplete] = useState(false);
@@ -244,16 +248,16 @@ export function SetupWizard({
   const savedFocusLabel =
     selectedCards[0]?.name ||
     providerCards.find((card) => card.providerId === savedSelection?.preferredProviderId)?.name ||
-    "No default selected";
+    messages.setup.noDefaultSelected;
   const savedWatchingLabel = watchingCards.map((card) => card.name).join(", ");
   const savedProviderViewLabel = savedSelection
     ? savedSelection.providerView === "all"
-      ? "All local AI"
+      ? messages.search.allProviders
       : formatProviderDisplayName(savedSelection.providerView)
     : "all";
   const savedSearchLabel = savedSelection
     ? savedSelection.searchProvider === "all"
-      ? "All local AI"
+      ? messages.search.allProviders
       : formatProviderDisplayName(savedSelection.searchProvider)
     : "all";
   const primaryProviderBytes =
@@ -284,15 +288,21 @@ export function SetupWizard({
   return (
     <section className="panel setup-wizard-panel">
       <PanelHeader
-        title="Setup"
-        subtitle="ready state / default ai"
+        title={messages.setup.title}
+        subtitle={messages.setup.subtitle}
         actions={
           <>
+            <LocalePicker
+              id="setup-locale"
+              locale={locale}
+              setLocale={setLocale}
+              label={messages.nav.locale}
+            />
             <Button variant="accent" onClick={markComplete} disabled={selectedProviderIds.length === 0}>
-              Save as default
+              {messages.setup.saveAsDefault}
             </Button>
             <button type="button" className="setup-wizard-close" onClick={onClose}>
-              Close setup
+              {messages.setup.close}
             </button>
           </>
         }
@@ -301,38 +311,39 @@ export function SetupWizard({
       <div className="setup-wizard-shell">
         <section className="setup-wizard-stage">
           <div className="setup-wizard-stage-copy">
-            <span className="overview-note-label">ready state</span>
-            <strong>Choose one default AI</strong>
-            <p>Choose one default first. Keep extras as watched providers for overview lists.</p>
+            <span className="overview-note-label">{messages.setup.readyStateLabel}</span>
+            <strong>{messages.setup.chooseDefaultTitle}</strong>
+            <p>{messages.setup.chooseDefaultBody}</p>
           </div>
-          <div className="setup-wizard-stage-pills" aria-label="setup wizard summary">
-            <span className="setup-wizard-stage-pill">active · {activeProviderCount}</span>
-            <span className="setup-wizard-stage-pill">sources · {detectedSourceCount}</span>
+          <div className="setup-wizard-stage-pills" aria-label={messages.setup.summaryLabel}>
+            <span className="setup-wizard-stage-pill">{messages.setup.summaryActive} · {activeProviderCount}</span>
+            <span className="setup-wizard-stage-pill">{messages.setup.summarySources} · {detectedSourceCount}</span>
             <span className="setup-wizard-stage-pill">
-              default · {savedSelection?.searchProvider === "all" ? "not saved" : savedSearchLabel || "not saved"}
+              {messages.setup.summaryDefault} · {savedSelection?.searchProvider === "all" ? messages.setup.notSaved : savedSearchLabel || messages.setup.notSaved}
             </span>
-            <span className="setup-wizard-stage-pill">watching · {watchingCards.length}</span>
-            <span className="setup-wizard-stage-pill">size · {formatBytes(primaryProviderBytes)}</span>
+            <span className="setup-wizard-stage-pill">{messages.setup.summaryWatching} · {watchingCards.length}</span>
+            <span className="setup-wizard-stage-pill">{messages.setup.summarySize} · {formatBytes(primaryProviderBytes)}</span>
           </div>
         </section>
         <div className="setup-wizard-body">
           <div className="setup-wizard-copy">
-            <strong>Preferred AI</strong>
-            <p>The first selected provider becomes the default. Any others stay in watch mode for overview.</p>
+            <strong>{messages.setup.preferredAiTitle}</strong>
+            <p>{messages.setup.preferredAiBody}</p>
+            <p>{messages.nav.locale}: {LOCALE_LABELS[locale]}</p>
           </div>
           <div className="setup-wizard-choice-grid">
             {providerCards.map((card) => {
               const selected = selectedProviderIds.includes(card.providerId);
               const roleLabel =
                 selected && primaryProviderId === card.providerId
-                  ? "Default"
+                  ? messages.setup.roleDefault
                   : selected
-                    ? "Watching"
+                    ? messages.setup.roleWatching
                     : card.status === "active"
-                      ? "Active"
+                      ? messages.setup.roleActive
                       : card.status === "detected"
-                        ? "Detected"
-                        : "Missing";
+                        ? messages.setup.roleDetected
+                        : messages.setup.roleMissing;
               return (
                 <button
                   key={card.providerId}
@@ -356,9 +367,9 @@ export function SetupWizard({
                     </span>
                   </div>
                   <div className="setup-wizard-choice-meta">
-                    <span>{card.sessionCount} sessions</span>
+                    <span>{card.sessionCount} {messages.setup.sessionsUnit}</span>
                     <span>{formatBytes(card.totalBytes)}</span>
-                    <span>{card.rootCount} roots</span>
+                    <span>{card.rootCount} {messages.setup.rootsUnit}</span>
                   </div>
                 </button>
               );
@@ -368,15 +379,15 @@ export function SetupWizard({
           {completedAt || expandedAfterComplete ? (
             <div className="setup-wizard-complete setup-wizard-complete-compact">
               <div className="setup-wizard-complete-copy">
-                <strong>Saved default</strong>
+                <strong>{messages.setup.savedDefaultTitle}</strong>
                 <p>
-                  {savedFocusLabel} · {formatBytes(primaryProviderBytes)} · {completedAt ? formatTimestamp(completedAt) : "pending"}
+                  {savedFocusLabel} · {formatBytes(primaryProviderBytes)} · {completedAt ? formatTimestamp(completedAt, locale) : messages.setup.pending}
                 </p>
                 <span className="setup-wizard-complete-note">
-                  Sessions → {savedProviderViewLabel} · Search → {savedSearchLabel}
+                  {messages.setup.sessionsLineLabel} → {savedProviderViewLabel} · {messages.setup.searchLineLabel} → {savedSearchLabel}
                 </span>
                 {savedWatchingLabel ? (
-                  <span className="setup-wizard-complete-note">Watching → {savedWatchingLabel}</span>
+                  <span className="setup-wizard-complete-note">{messages.setup.watchingLineLabel} → {savedWatchingLabel}</span>
                 ) : null}
               </div>
             </div>

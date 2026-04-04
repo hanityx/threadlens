@@ -1,3 +1,5 @@
+import type { Locale } from "./i18n/types.js";
+
 export type ViewKey = "search" | "sessions" | "cleanup";
 export type ProviderScope = "all" | "codex" | "claude" | "gemini" | "copilot";
 
@@ -7,6 +9,7 @@ export type AppBootstrapProps = {
   initialProvider?: ProviderScope;
   initialFilter?: string;
   initialSearchFocus?: "query" | "results";
+  locale?: Locale;
 };
 
 export const VIEWS: Array<{ id: ViewKey; label: string }> = [
