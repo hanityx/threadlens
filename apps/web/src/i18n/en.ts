@@ -74,6 +74,7 @@ export const en = {
     runtimeBackendDownHint: "Check backend URL:",
     updateAvailableTitle: "Update available",
     updateAvailableBody: "A newer ThreadLens release is available.",
+    updateAvailableCurrentLabel: "current",
     updateAvailableOpen: "Open release",
     updateAvailableDismiss: "Dismiss",
     runtimeIssuesTitle: "runtime issues",

@@ -51,6 +51,7 @@ export const ptBR = {
     runtimeBackendDownHint: "Verifique o URL de back-end::",
     updateAvailableTitle: "Atualizável",
     updateAvailableBody: "Há uma nova versão ThreadLens..",
+    updateAvailableCurrentLabel: "atual",
     updateAvailableOpen: "Lançamento aberto",
     updateAvailableDismiss: "fechar",
     runtimeIssuesTitle: "Problemas de runtime",
