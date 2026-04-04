@@ -383,7 +383,6 @@ export function App() {
               messages={messages.alerts}
               currentVersion={updateCheckData.current_version}
               latestVersion={updateCheckData.latest_version}
-              releaseSummary={updateCheckData.release_summary}
               releaseUrl={updateCheckData.release_url}
               onDismiss={() => setDismissedUpdateVersion(updateCheckData.latest_version ?? "")}
             />
