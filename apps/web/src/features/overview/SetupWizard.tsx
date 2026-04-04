@@ -92,11 +92,11 @@ function readStoredCompletedAt(): string {
   return window.localStorage.getItem(WIZARD_COMPLETED_AT_STORAGE_KEY) ?? "";
 }
 
-function formatTimestamp(raw: string): string {
+function formatTimestamp(raw: string, locale: string): string {
   if (!raw) return "";
   const time = new Date(raw);
   if (Number.isNaN(time.getTime())) return raw;
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(time);
@@ -381,7 +381,7 @@ export function SetupWizard({
               <div className="setup-wizard-complete-copy">
                 <strong>{messages.setup.savedDefaultTitle}</strong>
                 <p>
-                  {savedFocusLabel} · {formatBytes(primaryProviderBytes)} · {completedAt ? formatTimestamp(completedAt) : messages.setup.pending}
+                  {savedFocusLabel} · {formatBytes(primaryProviderBytes)} · {completedAt ? formatTimestamp(completedAt, locale) : messages.setup.pending}
                 </p>
                 <span className="setup-wizard-complete-note">
                   {messages.setup.sessionsLineLabel} → {savedProviderViewLabel} · {messages.setup.searchLineLabel} → {savedSearchLabel}
