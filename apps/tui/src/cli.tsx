@@ -25,6 +25,7 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
   const next: AppBootstrapProps = {
     locale: resolveLocale(argv, env),
   };
+  const invalidViewMessage = getMessages(next.locale ?? "en").cli.invalidView;
 
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
@@ -37,6 +38,8 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
       if (value && ["search", "sessions", "cleanup"].includes(value)) {
         next.initialView = value;
         index += 1;
+      } else {
+        throw new Error(invalidViewMessage);
       }
       continue;
     }
@@ -77,7 +80,13 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
 }
 
 export async function main(argv = process.argv.slice(2), env: NodeJS.ProcessEnv = process.env) {
-  const bootstrap = parseArgs(argv, env);
+  let bootstrap: AppBootstrapProps | null;
+  try {
+    bootstrap = parseArgs(argv, env);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
 
   if (!bootstrap) {
     process.exit(0);

@@ -22,6 +22,14 @@ test("resolveLocale falls back to env and defaults to en", () => {
   assert.equal(resolveLocale(["--locale", "fr"], {}), "en");
 });
 
+test("resolveLocale falls back to standard locale env vars", () => {
+  assert.equal(resolveLocale([], { LC_ALL: "de_DE.UTF-8" }), "de");
+  assert.equal(resolveLocale([], { LANGUAGE: "ja_JP.UTF-8:en_US.UTF-8" }), "ja");
+  assert.equal(resolveLocale([], { LANG: "ko_KR.UTF-8" }), "ko");
+  assert.equal(resolveLocale([], { LANG: "pt_BR.UTF-8" }), "pt-BR");
+  assert.equal(resolveLocale([], { LC_ALL: "C.UTF-8", LANG: "ko_KR.UTF-8" }), "ko");
+});
+
 test("getMessages returns localized copy for representative non-English locales", () => {
   assert.equal(getMessages("ja").common.detail, "詳細");
   assert.equal(getMessages("es").common.detail, "Detalle");

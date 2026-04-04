@@ -23,15 +23,25 @@ const LOCALE_MAP: Record<Locale, TuiMessages> = {
   ko,
 };
 
+function isGenericLocale(input?: string | null): boolean {
+  if (!input) return true;
+  const normalized = input.toLowerCase().trim();
+  return normalized === "c" || normalized === "c.utf-8" || normalized === "posix";
+}
+
 export function normalizeLocale(input?: string | null): Locale {
   if (!input) return "en";
-  const normalized = input.toLowerCase();
+  const normalized = input
+    .toLowerCase()
+    .trim()
+    .split(":")[0]!
+    .split(".")[0]!;
   if (normalized.startsWith("ko")) return "ko";
   if (normalized.startsWith("ja")) return "ja";
   if (normalized === "zh-cn" || normalized === "zh_cn" || normalized === "zh-hans" || normalized.startsWith("zh")) {
     return "zh-CN";
   }
-  if (normalized === "pt-br" || normalized === "pt_br") return "pt-BR";
+  if (normalized === "pt-br" || normalized === "pt_br" || normalized.startsWith("pt")) return "pt-BR";
   if (normalized.startsWith("es")) return "es";
   if (normalized.startsWith("hi")) return "hi";
   if (normalized.startsWith("de")) return "de";
@@ -45,7 +55,17 @@ export function resolveLocale(argv: string[], env: NodeJS.ProcessEnv = process.e
   if (localeIndex >= 0) {
     return normalizeLocale(argv[localeIndex + 1] ?? null);
   }
-  return normalizeLocale(env.THREADLENS_LOCALE ?? null);
+  const envCandidates = [
+    env.THREADLENS_LOCALE,
+    env.LC_ALL,
+    env.LC_MESSAGES,
+    env.LANGUAGE,
+    env.LANG,
+  ];
+  const resolvedEnvLocale = envCandidates.find((value) => !isGenericLocale(value));
+  return normalizeLocale(
+    resolvedEnvLocale ?? null,
+  );
 }
 
 export function getMessages(locale: Locale): TuiMessages {

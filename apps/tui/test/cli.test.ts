@@ -14,6 +14,13 @@ test("parseArgs falls back to locale env", () => {
   assert.equal(parsed?.initialQuery, "rename");
 });
 
+test("parseArgs rejects invalid --view values with a localized message", () => {
+  assert.throws(
+    () => parseArgs(["--view", "invalid"], { THREADLENS_LOCALE: "ko" }),
+    /잘못된 --view 값입니다/,
+  );
+});
+
 test("parseArgs prints localized help text", () => {
   const logs: string[] = [];
   const originalLog = console.log;

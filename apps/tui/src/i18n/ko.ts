@@ -56,6 +56,7 @@ export const ko: TuiMessages = {
     usageLabel: "사용법:",
     examplesLabel: "예시:",
     ttyRequired: "ThreadLens TUI는 TTY 터미널에서 실행해야 합니다. Terminal, iTerm, tmux에서 다시 실행해.",
+    invalidView: "잘못된 --view 값입니다. 가능한 값: search, sessions, cleanup.",
   },
   common: {
     ...en.common,
