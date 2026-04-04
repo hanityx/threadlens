@@ -35,7 +35,6 @@ import {
   appendRoadmapCheckinTs,
   getRoadmapStatusTs,
 } from "../../domains/recovery/roadmap.js";
-import { getSyncLensStatusTs } from "../../lib/sync-lens.js";
 import { getOverviewTs } from "../../domains/threads/overview.js";
 import { getCodexObservatoryTs } from "../../domains/ops/observatory.js";
 import {
@@ -238,14 +237,6 @@ export async function registerPlatformRoutes(
       return reply.code(200).send(withSchemaVersion(await getRuntimeHealthTs()));
     } catch (error) {
       return reply.code(500).send(envelope(null, `runtime-health-error: ${String(error)}`));
-    }
-  });
-
-  app.get("/api/sync-lens", async (_req, reply) => {
-    try {
-      return reply.code(200).send(withSchemaVersion(await getSyncLensStatusTs()));
-    } catch (error) {
-      return reply.code(500).send(envelope(null, `sync-lens-error: ${String(error)}`));
     }
   });
 

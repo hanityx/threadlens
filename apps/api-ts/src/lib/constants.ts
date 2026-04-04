@@ -159,7 +159,6 @@ export const directApiPaths = new Set([
   "/api/related-tools",
   "/api/compare-apps",
   "/api/runtime-health",
-  "/api/sync-lens",
   "/api/smoke-status",
   "/api/data-sources",
   "/api/provider-matrix",
