@@ -65,7 +65,6 @@ lib/
   constants.ts
   providers.ts
   recovery.ts
-  sync-lens.ts
   utils.ts
 ```
 
@@ -82,4 +81,3 @@ lib/
 - Session reads and writes validate provider roots first
 - Backup information stays close to destructive actions
 - The API is for local single-user use and should not be exposed to untrusted networks
-- `sync-lens` is optional and read-only; it requires `SYNC_LENS_REMOTE_ALIAS`, `ssh`, and `python3`

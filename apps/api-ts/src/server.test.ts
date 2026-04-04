@@ -276,19 +276,6 @@ describe("api-ts direct endpoints", () => {
     expect(root.quick_counts).toBeTruthy();
   });
 
-  it("GET /api/sync-lens returns read-only sync comparison payload", async () => {
-    const res = await app.inject({ method: "GET", url: "/api/sync-lens" });
-    expect(res.statusCode).toBe(200);
-    const payload = res.json();
-    const root = payload.data ?? payload;
-    expect(root.mode).toBe("read-only-preview");
-    expect(typeof root.score).toBe("number");
-    expect(root.primary).toBeTruthy();
-    expect(root.secondary).toBeTruthy();
-    expect(Array.isArray(root.issues)).toBe(true);
-    expect(Array.isArray(root.actions)).toBe(true);
-  });
-
   it("GET /api/smoke-status returns latest smoke status keys", async () => {
     const res = await app.inject({ method: "GET", url: "/api/smoke-status?limit=4" });
     expect(res.statusCode).toBe(200);

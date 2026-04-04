@@ -43,63 +43,6 @@ export type SmokeStatusEnvelope = ApiEnvelope<{
   }>;
 }>;
 
-/* ── Sync Lens ────────────────────────────────────────── */
-export type SyncLensIssue = {
-  id: string;
-  severity: "high" | "medium" | "low";
-  title: string;
-  detail: string;
-  hint: string;
-};
-
-export type SyncLensActionPreview = {
-  id: string;
-  title: string;
-  direction: string;
-  risk: "low" | "medium" | "high";
-  command_preview: string;
-  disabled_reason: string;
-};
-
-export type SyncLensHostSnapshot = {
-  alias: string;
-  hostname: string;
-  reachable: boolean;
-  captured_at: string;
-  errors: string[];
-  sessions_file_count: number;
-  rollout_file_count: number;
-  latest_rollout_id: string;
-  latest_rollout_mtime: string;
-  thread_order_count: number;
-  thread_titles_count: number;
-  thread_hints_count: number;
-  db_thread_count: number | null;
-  db_archived_count: number | null;
-  active_roots: string[];
-  config_sha256: string;
-  global_state_sha256: string;
-};
-
-export type SyncLensEnvelope = ApiEnvelope<{
-  generated_at: string;
-  mode: string;
-  status: "aligned" | "drifted" | "partial";
-  score: number;
-  primary: SyncLensHostSnapshot;
-  secondary: SyncLensHostSnapshot;
-  diff: {
-    rollout_file_delta: number;
-    thread_order_delta: number;
-    db_thread_delta: number | null;
-    archived_delta: number | null;
-    config_hash_equal: boolean;
-    global_state_hash_equal: boolean;
-  };
-  issues: SyncLensIssue[];
-  actions: SyncLensActionPreview[];
-}>;
-
 /* ── Threads ──────────────────────────────────────────── */
 export type ThreadRow = {
   id?: string;
