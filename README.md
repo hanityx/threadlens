@@ -60,9 +60,11 @@ Optional surfaces:
 
 ## Desktop Build Note
 
-- Electron packaging is wired for unsigned local macOS builds.
-- First launch can trigger Gatekeeper. Use `Open` from the context menu once, or allow the app in `System Settings > Privacy & Security`.
-- Packaged outputs land in `apps/desktop-electron/dist/mac-arm64/ThreadLens.app` and `apps/desktop-electron/dist/*.zip`.
+- Desktop packaging is available for macOS, Windows, and Linux.
+- macOS builds are unsigned local app bundles. First launch can trigger Gatekeeper. Use `Open` from the context menu once, or allow the app in `System Settings > Privacy & Security`.
+- Windows portable builds can show SmartScreen. Use `More info` -> `Run anyway` on the first launch.
+- Linux AppImage builds need `chmod +x ThreadLens-*.AppImage` before launch.
+- Packaged outputs land in `apps/desktop-electron/dist/`.
 - Desktop-specific build details live in `apps/desktop-electron/README.md`.
 
 ## Documentation

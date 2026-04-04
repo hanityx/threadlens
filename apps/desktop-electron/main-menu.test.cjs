@@ -1,7 +1,11 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { buildMenuTemplate, resolveAppIconPath } = require("./main-menu.cjs");
+const {
+  buildMenuTemplate,
+  getDefaultIconCandidates,
+  resolveAppIconPath,
+} = require("./main-menu.cjs");
 
 test("buildMenuTemplate exposes native app menus for ThreadLens", () => {
   const template = buildMenuTemplate({
@@ -44,4 +48,16 @@ test("resolveAppIconPath prefers generated icons and falls back to staged assets
     existsSync: (candidate) => candidate === "/tmp/fallback.svg",
   });
   assert.equal(fallback, "/tmp/fallback.svg");
+});
+
+test("getDefaultIconCandidates includes platform-specific packaged icons", () => {
+  assert.deepEqual(
+    getDefaultIconCandidates("/tmp/desktop", true, "/tmp/resources", "win32"),
+    ["/tmp/resources/icon.ico", "/tmp/resources/icon.png"],
+  );
+
+  assert.deepEqual(
+    getDefaultIconCandidates("/tmp/desktop", true, "/tmp/resources", "linux"),
+    ["/tmp/resources/icon.png", "/tmp/resources/icon.ico"],
+  );
 });
