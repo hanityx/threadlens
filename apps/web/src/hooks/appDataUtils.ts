@@ -14,6 +14,8 @@ export const SLOW_PROVIDER_SCAN_MS_STORAGE_KEY = "po-slow-provider-threshold-ms"
 export const LEGACY_SLOW_PROVIDER_SCAN_MS_STORAGE_KEY = "cmc-slow-provider-threshold-ms";
 export const THEME_STORAGE_KEY = "po-theme";
 export const LEGACY_THEME_STORAGE_KEY = "cmc-theme";
+export const LOCALE_STORAGE_KEY = "po-locale";
+export const LEGACY_LOCALE_STORAGE_KEY = "cmc-locale";
 export const DENSITY_STORAGE_KEY = "po-density";
 export const LEGACY_DENSITY_STORAGE_KEY = "cmc-density";
 export const LAYOUT_VIEW_STORAGE_KEY = "po-layout-view";
@@ -26,6 +28,8 @@ export const PROVIDER_DEPTH_STORAGE_KEY = "po-provider-depth";
 export const LEGACY_PROVIDER_DEPTH_STORAGE_KEY = "cmc-provider-depth";
 export const SEARCH_DRAFT_STORAGE_KEY = "po-search-draft";
 export const SEARCH_PROVIDER_STORAGE_KEY = "po-search-provider";
+export const UPDATE_BANNER_DISMISS_STORAGE_KEY = "po-update-banner-dismissed-version";
+export const LEGACY_UPDATE_BANNER_DISMISS_STORAGE_KEY = "cmc-update-banner-dismissed-version";
 export const FORENSICS_RETRY_DELAY_MS = 450;
 export const RUNTIME_BACKEND_DOWN_CACHED = "runtime-backend-down-cached";
 export const THREAD_CLEANUP_DEFAULT_OPTIONS = {
@@ -115,16 +119,38 @@ export function nowMs(): number {
 
 export function readStorageValue(keys: readonly string[]): string | null {
   if (typeof window === "undefined") return null;
-  for (const key of keys) {
-    const value = window.localStorage.getItem(key);
-    if (value !== null) return value;
+  try {
+    for (const key of keys) {
+      const value = window.localStorage.getItem(key);
+      if (value !== null) return value;
+    }
+  } catch {
+    return null;
   }
   return null;
 }
 
 export function writeStorageValue(key: string, value: string): void {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(key, value);
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // ignore storage persistence failures
+  }
+}
+
+export function readDismissedUpdateVersion(): string {
+  return (
+    readStorageValue([
+      UPDATE_BANNER_DISMISS_STORAGE_KEY,
+      LEGACY_UPDATE_BANNER_DISMISS_STORAGE_KEY,
+    ]) ?? ""
+  );
+}
+
+export function persistDismissedUpdateVersion(version: string): void {
+  if (!version) return;
+  writeStorageValue(UPDATE_BANNER_DISMISS_STORAGE_KEY, version);
 }
 
 export function isTransientBackendError(raw: string): boolean {

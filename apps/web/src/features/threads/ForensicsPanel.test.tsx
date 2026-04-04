@@ -102,4 +102,37 @@ describe("ForensicsPanel", () => {
     expect(html).not.toContain("detail-hero-forensics");
     expect(html).not.toContain("run impact next");
   });
+
+  it("renders Korean forensics helper copy", () => {
+    const koMessages = getMessages("ko");
+    const html = renderToStaticMarkup(
+      <ForensicsPanel
+        messages={koMessages}
+        threadActionsDisabled={false}
+        selectedIds={[]}
+        rows={rows}
+        busy={false}
+        analyzeDelete={vi.fn()}
+        cleanupDryRun={vi.fn()}
+        cleanupExecute={vi.fn()}
+        cleanupData={null}
+        pendingCleanup={null}
+        selectedImpactRows={[]}
+        analysisRaw={null}
+        cleanupRaw={null}
+        analyzeDeleteError={false}
+        cleanupDryRunError={false}
+        cleanupExecuteError={false}
+        analyzeDeleteErrorMessage=""
+        cleanupDryRunErrorMessage=""
+        cleanupExecuteErrorMessage=""
+      />,
+    );
+
+    expect(html).toContain("Cleanup Check / Next Steps");
+    expect(html).toContain("선택");
+    expect(html).toContain("행 선택");
+    expect(html).toContain("영향도 분석 실행");
+    expect(html).toContain("cleanup dry-run 실행");
+  });
 });

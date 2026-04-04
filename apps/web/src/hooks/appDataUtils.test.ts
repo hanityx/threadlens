@@ -1,8 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildThreadCleanupSelectionKey,
+  persistDismissedUpdateVersion,
   pruneProviderSelectionForView,
+  readDismissedUpdateVersion,
+  readStorageValue,
   THREAD_CLEANUP_DEFAULT_OPTIONS,
+  UPDATE_BANNER_DISMISS_STORAGE_KEY,
+  writeStorageValue,
 } from "./appDataUtils";
 
 describe("buildThreadCleanupSelectionKey", () => {
@@ -59,5 +64,57 @@ describe("pruneProviderSelectionForView", () => {
     ).toEqual({
       "/tmp/codex-session.jsonl": true,
     });
+  });
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+describe("storage helpers", () => {
+  it("returns null when localStorage reads throw", () => {
+    const getItem = vi.fn(() => {
+      throw new Error("blocked");
+    });
+    vi.stubGlobal("window", {
+      localStorage: { getItem },
+    });
+
+    expect(readStorageValue(["alpha", "beta"])).toBeNull();
+    expect(getItem).toHaveBeenCalledTimes(1);
+  });
+
+  it("swallows localStorage write failures", () => {
+    const setItem = vi.fn(() => {
+      throw new Error("blocked");
+    });
+    vi.stubGlobal("window", {
+      localStorage: { setItem },
+    });
+
+    expect(() => writeStorageValue("alpha", "beta")).not.toThrow();
+    expect(setItem).toHaveBeenCalledWith("alpha", "beta");
+  });
+
+  it("reads the dismissed update version from localStorage", () => {
+    const getItem = vi.fn((key: string) =>
+      key === UPDATE_BANNER_DISMISS_STORAGE_KEY ? "0.1.1" : null,
+    );
+    vi.stubGlobal("window", {
+      localStorage: { getItem },
+    });
+
+    expect(readDismissedUpdateVersion()).toBe("0.1.1");
+  });
+
+  it("persists the dismissed update version to localStorage", () => {
+    const setItem = vi.fn();
+    vi.stubGlobal("window", {
+      localStorage: { setItem },
+    });
+
+    persistDismissedUpdateVersion("0.1.2");
+
+    expect(setItem).toHaveBeenCalledWith(UPDATE_BANNER_DISMISS_STORAGE_KEY, "0.1.2");
   });
 });

@@ -20,6 +20,25 @@ function compactArtifactPath(path: string) {
   return parts.at(-1) ?? normalized;
 }
 
+function localizeThreadSource(messages: Messages, value?: string | null) {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) return "";
+  const lowered = normalized.toLowerCase();
+  if (lowered === "sessions" || lowered === "session") {
+    return messages.threadDetail.sourceSessions;
+  }
+  if (/^archived[_-]/i.test(lowered) || /archived/i.test(lowered) || lowered === "archive") {
+    return messages.threadDetail.sourceArchive;
+  }
+  if (lowered === "history") {
+    return messages.threadDetail.sourceHistory;
+  }
+  if (["tmp", "temp", "temporary", "workspace_tmp", "workspace-temp"].includes(lowered)) {
+    return messages.threadDetail.sourceTemporary;
+  }
+  return normalized;
+}
+
 export interface ThreadDetailProps {
   messages: Messages;
   selectedIds: string[];
@@ -90,11 +109,14 @@ export function ThreadDetail(props: ThreadDetailProps) {
   const hasFocusedThread = Boolean(selectedThreadId);
   const hasExplicitSelection = selectedIds.length > 0;
   const firstSelectedThreadId = selectedIds[0] ?? "";
-  const selectedRowsLabel = selectedIds.length === 1 ? "Row" : "Rows";
   const headerSubtitle =
-    selectedIds.length > 0 ? `${selectedIds.length} ${selectedRowsLabel} Selected` : undefined;
+    selectedIds.length > 0
+      ? (selectedIds.length === 1
+          ? messages.threadDetail.selectedRow
+          : messages.threadDetail.selectedRows).replace("{count}", String(selectedIds.length))
+      : undefined;
   const fallbackThreadTitle = selectedThreadId
-    ? `thread ${selectedThreadId.slice(0, 8)}`
+    ? `${messages.threadDetail.fallbackTitlePrefix} ${selectedThreadId.slice(0, 8)}`
     : messages.threadDetail.unknownTitle;
   const resolvedTitle =
     normalizeDisplayValue(selectedThread?.title) ||
@@ -104,11 +126,11 @@ export function ThreadDetail(props: ThreadDetailProps) {
     normalizeDisplayValue(fallbackContext?.session_id) ||
     fallbackThreadTitle;
   const resolvedSource =
-    normalizeDisplayValue(selectedThread?.source) ||
-    normalizeDisplayValue(selectedThread?.project_bucket) ||
-    normalizeDisplayValue(fallbackContext?.source) ||
-    normalizeDisplayValue(fallbackContext?.provider) ||
-    normalizeDisplayValue(threadTranscriptData?.provider) ||
+    localizeThreadSource(messages, selectedThread?.source) ||
+    localizeThreadSource(messages, selectedThread?.project_bucket) ||
+    localizeThreadSource(messages, fallbackContext?.source) ||
+    localizeThreadSource(messages, fallbackContext?.provider) ||
+    localizeThreadSource(messages, threadTranscriptData?.provider) ||
     messages.threadDetail.unknownSource;
   const resolvedRiskScore =
     selectedThread?.risk_score ??
@@ -168,8 +190,8 @@ export function ThreadDetail(props: ThreadDetailProps) {
         {!hasFocusedThread && !hasExplicitSelection ? (
           <div className="thread-detail-empty-state">
             <div className="thread-detail-empty-copy">
-              <strong>No thread selected.</strong>
-              <p>Pick one row to open the full review surface.</p>
+              <strong>{messages.threadDetail.emptyStateTitle}</strong>
+              <p>{messages.threadDetail.emptyStateBody}</p>
             </div>
             {nextThreadId ? (
               <button
@@ -177,20 +199,20 @@ export function ThreadDetail(props: ThreadDetailProps) {
                 className="thread-detail-empty-next thread-detail-empty-next-button"
                 onClick={() => openThreadById(nextThreadId)}
               >
-                <span className="overview-note-label">next pick</span>
-                <strong>{nextThreadTitle || "thread queue"}</strong>
-                <p>{nextThreadSource || "open from threads or recent review rows"}</p>
+                <span className="overview-note-label">{messages.threadDetail.emptyNextLabel}</span>
+                <strong>{nextThreadTitle || messages.threadDetail.emptyNextDefaultTitle}</strong>
+                <p>{nextThreadSource || messages.threadDetail.emptyNextDefaultBody}</p>
               </button>
             ) : (
               <div className="thread-detail-empty-next">
-                <span className="overview-note-label">next pick</span>
-                <strong>{nextThreadTitle || "thread queue"}</strong>
-                <p>{nextThreadSource || "open from threads or recent review rows"}</p>
+                <span className="overview-note-label">{messages.threadDetail.emptyNextLabel}</span>
+                <strong>{nextThreadTitle || messages.threadDetail.emptyNextDefaultTitle}</strong>
+                <p>{nextThreadSource || messages.threadDetail.emptyNextDefaultBody}</p>
               </div>
             )}
             <p className="thread-detail-empty-opens">
-              <span className="overview-note-label">opens here</span>
-              Transcript, local files, and cleanup preview.
+              <span className="overview-note-label">{messages.threadDetail.emptyOpensHereLabel}</span>
+              {messages.threadDetail.emptyOpensHereBody}
             </p>
           </div>
         ) : !hasFocusedThread ? (
@@ -205,14 +227,14 @@ export function ThreadDetail(props: ThreadDetailProps) {
                 className="thread-detail-empty-next thread-detail-empty-next-button"
                 onClick={() => openThreadById(firstSelectedThreadId)}
               >
-                <span className="overview-note-label">focus detail</span>
+                <span className="overview-note-label">{messages.threadDetail.selectionFocusLabel}</span>
                 <strong>{messages.threadDetail.openSelected}</strong>
                 <p>{firstSelectedThreadId}</p>
               </button>
             ) : null}
             <p className="thread-detail-empty-opens">
-              <span className="overview-note-label">bulk actions</span>
-              Selection and impact totals already reflect the checked rows.
+              <span className="overview-note-label">{messages.threadDetail.selectionBulkActionsLabel}</span>
+              {messages.threadDetail.selectionBulkActionsBody}
             </p>
           </div>
         ) : (
@@ -329,7 +351,7 @@ export function ThreadDetail(props: ThreadDetailProps) {
                 {artifactCount > 0 ? (
                   <div className="impact-kv">
                     <span>{messages.threadDetail.localFilesFound}</span>
-                    <strong>{artifactCount} files</strong>
+                    <strong>{messages.threadDetail.localFilesCount.replace("{count}", String(artifactCount))}</strong>
                   </div>
                 ) : null}
                 {artifactKindSummary.length ? (
