@@ -1,7 +1,7 @@
 {
   "name": "threadlens-monorepo",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Local-first observability dashboard for AI threads and sessions",
   "license": "MIT",
   "homepage": "https://github.com/hanityx/threadlens",
