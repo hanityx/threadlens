@@ -51,6 +51,7 @@ export const ja = {
     runtimeBackendDownHint: "バックエンドURLの確認：",
     updateAvailableTitle: "更新可能",
     updateAvailableBody: "新しい ThreadLens リリースがあります。",
+    updateAvailableCurrentLabel: "現在",
     updateAvailableOpen: "リリースを開く",
     updateAvailableDismiss: "閉じる",
     runtimeIssuesTitle: "runtime問題",

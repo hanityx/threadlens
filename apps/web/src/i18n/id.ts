@@ -38,6 +38,7 @@ export const id = {
     runtimeBackendDownHint: "Periksa URL ujung belakang:",
     updateAvailableTitle: "Pembaruan tersedia",
     updateAvailableBody: "Rilis ThreadLens yang lebih baru telah tersedia.",
+    updateAvailableCurrentLabel: "saat ini",
     updateAvailableOpen: "Buka rilis",
     updateAvailableDismiss: "Singkirkan",
     runtimeIssuesTitle: "masalah waktu proses",

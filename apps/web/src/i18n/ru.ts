@@ -38,6 +38,7 @@ export const ru = {
     runtimeBackendDownHint: "Проверьте URL-адрес серверной части:",
     updateAvailableTitle: "Доступно обновление",
     updateAvailableBody: "Доступна новая версия ThreadLens.",
+    updateAvailableCurrentLabel: "текущая",
     updateAvailableOpen: "Открыть релиз",
     updateAvailableDismiss: "Уволить",
     runtimeIssuesTitle: "проблемы во время выполнения",

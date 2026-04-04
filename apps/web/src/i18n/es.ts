@@ -51,6 +51,7 @@ export const es = {
     runtimeBackendDownHint: "Verifique la URL del servidor:",
     updateAvailableTitle: "Actualizable",
     updateAvailableBody: "Hay una nueva versión ThreadLens.",
+    updateAvailableCurrentLabel: "actual",
     updateAvailableOpen: "Lanzamiento abierto",
     updateAvailableDismiss: "cerca",
     runtimeIssuesTitle: "Problemas de runtime",

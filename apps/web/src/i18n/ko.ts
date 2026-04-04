@@ -51,6 +51,7 @@ export const ko = {
     runtimeBackendDownHint: "백엔드 URL 확인:",
     updateAvailableTitle: "업데이트 가능",
     updateAvailableBody: "새로운 ThreadLens 릴리스가 있습니다.",
+    updateAvailableCurrentLabel: "현재",
     updateAvailableOpen: "릴리스 열기",
     updateAvailableDismiss: "닫기",
     runtimeIssuesTitle: "runtime 문제",
