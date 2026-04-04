@@ -98,9 +98,11 @@ export function App(props: AppBootstrapProps) {
 
   const footerShortcuts = useMemo(() => {
     const shortcuts = [...(messages.app.footerShortcuts[activeView] ?? [])];
-    if (visibleUpdateCheck?.has_update) shortcuts.push("u  release", "U  dismiss");
+    if (visibleUpdateCheck?.has_update) {
+      shortcuts.push(messages.app.updateReleaseShortcut, messages.app.updateDismissShortcut);
+    }
     return shortcuts.join("  ·  ");
-  }, [activeView, visibleUpdateCheck?.has_update]);
+  }, [activeView, messages.app.footerShortcuts, messages.app.updateDismissShortcut, messages.app.updateReleaseShortcut, visibleUpdateCheck?.has_update]);
   const updateNotice = useMemo(
     () => buildUpdateNoticeLine(visibleUpdateCheck, messages),
     [messages, visibleUpdateCheck],

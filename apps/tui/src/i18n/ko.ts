@@ -47,6 +47,8 @@ export const ko: TuiMessages = {
         "x 선택 해제",
       ],
     },
+    updateReleaseShortcut: "u  릴리스",
+    updateDismissShortcut: "U  닫기",
   },
   cli: {
     ...en.cli,

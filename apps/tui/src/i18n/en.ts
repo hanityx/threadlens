@@ -44,6 +44,8 @@ export const en: TuiMessages = {
         "x clear sel",
       ],
     },
+    updateReleaseShortcut: "u  release",
+    updateDismissShortcut: "U  dismiss",
   },
   cli: {
     helpTitle: "ThreadLens TUI",

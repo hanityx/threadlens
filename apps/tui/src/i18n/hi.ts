@@ -26,6 +26,8 @@ export const hi: TuiMessages = {
       sessions: ["/·i फ़िल्टर", "j/k चलें", "b backup", "a/A archive", "d/D delete", "r रीफ़्रेश"],
       cleanup: ["/·i फ़िल्टर", "Space चुनें", "a विश्लेषण", "d dry-run", "D चलाएँ", "x चयन साफ़ करें"],
     },
+    updateReleaseShortcut: "u  रिलीज़",
+    updateDismissShortcut: "U  बंद",
   },
   cli: {
     ...en.cli,
