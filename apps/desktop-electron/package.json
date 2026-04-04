@@ -7,16 +7,20 @@
   "main": "main.cjs",
   "scripts": {
     "dev": "node scripts/prepare-dev.cjs && electron .",
-    "icon:build": "./scripts/build-app-icon.sh",
+    "icon:build": "node scripts/build-app-icon.cjs",
     "stage": "node scripts/stage-desktop-assets.cjs",
     "build": "pnpm run icon:build && pnpm run stage && node --check main.cjs && node --check main-menu.cjs && node --check preload.cjs",
     "dist:dir": "pnpm run build && electron-builder --dir",
     "dist:mac": "pnpm run build && electron-builder --mac dir zip",
+    "dist:win": "pnpm run build && electron-builder --win portable",
+    "dist:linux": "pnpm run build && electron-builder --linux AppImage",
+    "test": "node --test main-menu.test.cjs package-config.test.cjs",
     "lint": "node --check main.cjs && node --check main-menu.cjs && node --check preload.cjs"
   },
   "devDependencies": {
     "electron": "^41.0.2",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "png-to-ico": "^2.1.8"
   },
   "build": {
     "appId": "com.threadlens.desktop",
@@ -40,6 +44,19 @@
       "target": [
         "dir",
         "zip"
+      ]
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "portable"
+      ]
+    },
+    "linux": {
+      "category": "Utility",
+      "icon": "build/icon.png",
+      "target": [
+        "AppImage"
       ]
     }
   }

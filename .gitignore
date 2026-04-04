@@ -7,6 +7,9 @@ coverage/
 apps/**/dist/
 apps/**/dist-electron/
 apps/desktop-electron/build/
+!apps/desktop-electron/build/
+apps/desktop-electron/build/*
+!apps/desktop-electron/build/icon.png
 apps/desktop-electron/app/
 apps/**/.vite/
 apps/**/test-results/

@@ -4,13 +4,13 @@
   "version": "0.1.1",
   "description": "Local-first observability dashboard for AI threads and sessions",
   "license": "MIT",
-  "homepage": "https://github.com/threadlens/threadlens",
+  "homepage": "https://github.com/hanityx/threadlens",
   "bugs": {
-    "url": "https://github.com/threadlens/threadlens/issues"
+    "url": "https://github.com/hanityx/threadlens/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/threadlens/threadlens.git"
+    "url": "https://github.com/hanityx/threadlens.git"
   },
   "keywords": [
     "electron",
@@ -49,6 +49,8 @@
     "build:desktop": "pnpm --filter @threadlens/shared-contracts build && pnpm --filter @threadlens/web build && pnpm --filter @threadlens/api bundle:desktop && pnpm --filter @threadlens/desktop-electron build",
     "package:desktop": "pnpm build:desktop && pnpm --filter @threadlens/desktop-electron dist:mac",
     "package:desktop:dir": "pnpm build:desktop && pnpm --filter @threadlens/desktop-electron dist:dir",
+    "package:desktop:win": "pnpm build:desktop && pnpm --filter @threadlens/desktop-electron dist:win",
+    "package:desktop:linux": "pnpm build:desktop && pnpm --filter @threadlens/desktop-electron dist:linux",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint"
   },

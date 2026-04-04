@@ -25,6 +25,7 @@ ELECTRON_RENDERER_URL=http://127.0.0.1:5181 pnpm --filter @threadlens/desktop-el
 
 ```bash
 pnpm --filter @threadlens/desktop-electron lint
+pnpm --filter @threadlens/desktop-electron test
 pnpm build:desktop
 pnpm package:desktop:dir
 pnpm --filter @threadlens/desktop-electron exec electron --version
@@ -36,13 +37,20 @@ pnpm --filter @threadlens/desktop-electron exec electron --version
 pnpm build:desktop
 pnpm package:desktop:dir
 pnpm package:desktop
+pnpm package:desktop:win
+pnpm package:desktop:linux
 ```
 
 - Directory build output: `apps/desktop-electron/dist/mac-arm64/ThreadLens.app`
-- Zip output: `apps/desktop-electron/dist/*.zip`
+- macOS zip output: `apps/desktop-electron/dist/*.zip`
+- Windows portable output: `apps/desktop-electron/dist/*.exe`
+- Linux AppImage output: `apps/desktop-electron/dist/*.AppImage`
 - The packaged app bundles the built web UI and the embedded TS API runner.
 - The packaged app runs against the embedded TS API only.
 
 ## Notes
 
-- Electron packaging is wired for unsigned local macOS builds.
+- Electron packaging is unsigned on macOS and Windows by default.
+- macOS can require `Open` from the context menu once, or approval in `System Settings > Privacy & Security`.
+- Windows can require `More info` -> `Run anyway` on the first launch.
+- Linux AppImage launches can require `chmod +x`.
