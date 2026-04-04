@@ -119,13 +119,26 @@ function resolveAppIconPath(options) {
   return candidates.find((candidate) => Boolean(candidate) && existsSync(candidate)) || null;
 }
 
-function getDefaultIconCandidates(baseDir, isPackaged, resourcesPath) {
+function getDefaultIconCandidates(
+  baseDir,
+  isPackaged,
+  resourcesPath,
+  platform = process.platform,
+) {
   if (isPackaged) {
-    return [path.join(resourcesPath, "icon.icns")];
+    if (platform === "darwin") {
+      return [path.join(resourcesPath, "icon.icns"), path.join(resourcesPath, "icon.png")];
+    }
+    if (platform === "win32") {
+      return [path.join(resourcesPath, "icon.ico"), path.join(resourcesPath, "icon.png")];
+    }
+    return [path.join(resourcesPath, "icon.png"), path.join(resourcesPath, "icon.ico")];
   }
 
   return [
     path.join(baseDir, "build", "icon.icns"),
+    path.join(baseDir, "build", "icon.ico"),
+    path.join(baseDir, "build", "icon.png"),
     path.join(baseDir, "app", "web", "favicon.svg"),
     path.join(baseDir, "..", "web", "public", "favicon.svg"),
   ];

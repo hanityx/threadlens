@@ -289,7 +289,7 @@ function createMenu() {
         app.showAboutPanel();
       },
       onOpenHomepage: () => {
-        void shell.openExternal("https://github.com/threadlens/threadlens");
+        void shell.openExternal("https://github.com/hanityx/threadlens");
       },
     }),
   );
