@@ -2,9 +2,12 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Text, useInput } from "ink";
 import { backupSession, listProviderSessions, loadSessionTranscript, runProviderAction } from "../api.js";
 import { PROVIDERS, type ProviderScope } from "../config.js";
+import { getMessages } from "../i18n/index.js";
+import type { Locale, TuiMessages } from "../i18n/types.js";
 import type { ProviderScanEntry, ProviderSessionRow, TranscriptMessage } from "../types.js";
 import { formatBytes, formatDateLabel, getWindowedItems, truncate } from "../lib/format.js";
 import { getSessionsFetchLimit, shouldRefetchSessions } from "../lib/sessionFetchWindow.js";
+import { statusToneColor, type StatusTone } from "../lib/statusTone.js";
 
 const PROVIDER_COLOR: Record<string, string> = {
   codex: "yellow",
@@ -35,17 +38,52 @@ function ActionBadge({ kind, mode }: { kind: string; mode: string }) {
   );
 }
 
+export function shouldRenderSessionActionStatus(
+  actionStatus: { tone: StatusTone; text: string } | null,
+  pendingActionText: string | null,
+): boolean {
+  if (!actionStatus) return false;
+  if (!pendingActionText) return true;
+  return actionStatus.text !== pendingActionText;
+}
+
+export function buildSessionActionHints(messages: TuiMessages): string[] {
+  return [
+    messages.sessions.actionBackup,
+    messages.sessions.actionArchiveDryRun,
+    messages.sessions.actionArchiveExecute,
+    messages.sessions.actionDeleteDryRun,
+    messages.sessions.actionDeleteExecute,
+  ];
+}
+
 export function SessionsView(props: {
   active: boolean;
   provider: ProviderScope;
   setProvider: (provider: ProviderScope) => void;
+  locale?: Locale;
+  messages?: TuiMessages;
+  inputEnabled?: boolean;
   initialFilePath: string | null;
   initialFilter?: string;
   onInitialFilePathHandled: () => void;
   onTextEntryChange?: (locked: boolean) => void;
   onFilterChange?: (filter: string) => void;
 }) {
-  const { active, provider, setProvider, initialFilePath, initialFilter, onInitialFilePathHandled, onTextEntryChange, onFilterChange } = props;
+  const {
+    active,
+    provider,
+    setProvider,
+    locale = "en",
+    messages: providedMessages,
+    inputEnabled = true,
+    initialFilePath,
+    initialFilter,
+    onInitialFilePathHandled,
+    onTextEntryChange,
+    onFilterChange,
+  } = props;
+  const messages = providedMessages ?? getMessages(locale);
   const [rows, setRows] = useState<ProviderSessionRow[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -58,7 +96,7 @@ export function SessionsView(props: {
   const [focusMode, setFocusMode] = useState<"list" | "filter">("list");
   const [fetchedLimit, setFetchedLimit] = useState(0);
   const previousProviderRef = useRef<ProviderScope>(provider);
-  const [actionStatus, setActionStatus] = useState<string | null>(null);
+  const [actionStatus, setActionStatus] = useState<{ tone: StatusTone; text: string } | null>(null);
   const [pendingInitialPath, setPendingInitialPath] = useState<string | null>(initialFilePath);
   const [pendingAction, setPendingAction] = useState<{
     kind: "archive_local" | "delete_local";
@@ -160,6 +198,21 @@ export function SessionsView(props: {
   }, [filteredRows.length]);
 
   const selected = filteredRows[selectedIndex] ?? null;
+  const pendingActionText = pendingAction
+    ? pendingAction.kind === "archive_local"
+      ? messages.sessions.archiveExecutePrompt(pendingAction.token)
+      : messages.sessions.deleteExecutePrompt(pendingAction.token)
+    : null;
+  const renderSimpleEmptyState =
+    !loading &&
+    !error &&
+    rows.length === 0 &&
+    filteredRows.length === 0 &&
+    !summary &&
+    !providerScan &&
+    !pendingAction &&
+    !actionStatus &&
+    !selected;
   const visibleRows = useMemo(
     () => getWindowedItems(filteredRows, selectedIndex, 12),
     [filteredRows, selectedIndex],
@@ -186,7 +239,7 @@ export function SessionsView(props: {
       });
   }, [selected?.file_path, selected?.provider]);
 
-  useInput((input, key) => {
+  const handleInput: Parameters<typeof useInput>[0] = (input, key) => {
     if (!active) return;
     if (focusMode === "filter") {
       if (key.escape || key.return || key.tab || (key.ctrl && input.toLowerCase() === "p")) {
@@ -233,7 +286,7 @@ export function SessionsView(props: {
       return;
     }
     if (input.toLowerCase() === "b" && selected && selected.provider !== "all") {
-      setActionStatus("Running backup…");
+      setActionStatus({ tone: "running", text: messages.sessions.backupRunning });
       void backupSession(selected.provider, [selected.file_path])
         .then((data) => {
           setLastAction({
@@ -246,15 +299,15 @@ export function SessionsView(props: {
             path: String(data.backup_to ?? data.backup_manifest_path ?? ""),
             backupCount: data.backed_up_count ?? 0,
           });
-          setActionStatus(`Backup done · ${data.applied_count}/${data.valid_count} applied`);
+          setActionStatus({ tone: "success", text: messages.sessions.backupDone(data.applied_count, data.valid_count) });
         })
         .catch((actionError) => {
-          setActionStatus(actionError instanceof Error ? actionError.message : String(actionError));
+          setActionStatus({ tone: "error", text: actionError instanceof Error ? actionError.message : String(actionError) });
         });
       return;
     }
     if (input === "a" && selected && selected.provider !== "all") {
-      setActionStatus("Archive dry-run…");
+      setActionStatus({ tone: "running", text: messages.sessions.archiveDryRun });
       void runProviderAction(selected.provider, "archive_local", [selected.file_path], { dryRun: true })
         .then((data) => {
           const token = String(data.confirm_token_expected || "").trim();
@@ -269,15 +322,18 @@ export function SessionsView(props: {
             path: String(data.archived_to ?? ""),
             backupCount: data.backed_up_count ?? 0,
           });
-          setActionStatus(token ? `Token: ${token}  ·  Press A to execute` : `Archive dry-run done · target ${data.target_count}`);
+          setActionStatus({
+            tone: token ? "pending" : "success",
+            text: token ? messages.sessions.archiveExecutePrompt(token) : messages.sessions.archiveDryRunDone(data.target_count),
+          });
         })
         .catch((actionError) => {
-          setActionStatus(actionError instanceof Error ? actionError.message : String(actionError));
+          setActionStatus({ tone: "error", text: actionError instanceof Error ? actionError.message : String(actionError) });
         });
       return;
     }
     if (input === "d" && selected && selected.provider !== "all") {
-      setActionStatus("Delete dry-run…");
+      setActionStatus({ tone: "running", text: messages.sessions.deleteDryRun });
       void runProviderAction(selected.provider, "delete_local", [selected.file_path], { dryRun: true, backupBeforeDelete: true })
         .then((data) => {
           const token = String(data.confirm_token_expected || "").trim();
@@ -292,24 +348,27 @@ export function SessionsView(props: {
             path: String(data.backup_to ?? data.backup_manifest_path ?? ""),
             backupCount: data.backed_up_count ?? 0,
           });
-          setActionStatus(token ? `Token: ${token}  ·  Press D to execute` : `Delete dry-run done · target ${data.target_count}`);
+          setActionStatus({
+            tone: token ? "pending" : "success",
+            text: token ? messages.sessions.deleteExecutePrompt(token) : messages.sessions.deleteDryRunDone(data.target_count),
+          });
         })
         .catch((actionError) => {
-          setActionStatus(actionError instanceof Error ? actionError.message : String(actionError));
+          setActionStatus({ tone: "error", text: actionError instanceof Error ? actionError.message : String(actionError) });
         });
       return;
     }
     if (input === "c") {
       setPendingAction(null);
-      setActionStatus("Pending token cleared");
+      setActionStatus({ tone: "success", text: messages.sessions.pendingTokenCleared });
       return;
     }
     if (input === "A" && selected && selected.provider !== "all") {
       if (!pendingAction || pendingAction.kind !== "archive_local" || pendingAction.filePath !== selected.file_path) {
-        setActionStatus("Run a dry-run first (press a) to get a token.");
+        setActionStatus({ tone: "pending", text: messages.sessions.archiveRunDryRunFirst });
         return;
       }
-      setActionStatus("Archiving…");
+      setActionStatus({ tone: "running", text: messages.sessions.archiving });
       void runProviderAction(selected.provider, "archive_local", [selected.file_path], { dryRun: false, confirmToken: pendingAction.token })
         .then((data) => {
           setPendingAction(null);
@@ -323,20 +382,20 @@ export function SessionsView(props: {
             path: String(data.archived_to ?? ""),
             backupCount: data.backed_up_count ?? 0,
           });
-          setActionStatus(`Archive done · ${data.applied_count}/${data.valid_count} applied`);
+          setActionStatus({ tone: "success", text: messages.sessions.archiveDone(data.applied_count, data.valid_count) });
           fetchRows(true);
         })
         .catch((actionError) => {
-          setActionStatus(actionError instanceof Error ? actionError.message : String(actionError));
+          setActionStatus({ tone: "error", text: actionError instanceof Error ? actionError.message : String(actionError) });
         });
       return;
     }
     if (input === "D" && selected && selected.provider !== "all") {
       if (!pendingAction || pendingAction.kind !== "delete_local" || pendingAction.filePath !== selected.file_path) {
-        setActionStatus("Run a dry-run first (press d) to get a token.");
+        setActionStatus({ tone: "pending", text: messages.sessions.deleteRunDryRunFirst });
         return;
       }
-      setActionStatus("Deleting…");
+      setActionStatus({ tone: "running", text: messages.sessions.deleting });
       void runProviderAction(selected.provider, "delete_local", [selected.file_path], { dryRun: false, confirmToken: pendingAction.token, backupBeforeDelete: true })
         .then((data) => {
           setPendingAction(null);
@@ -350,92 +409,119 @@ export function SessionsView(props: {
             path: String(data.backup_to ?? data.backup_manifest_path ?? ""),
             backupCount: data.backed_up_count ?? 0,
           });
-          setActionStatus(`Delete done · ${data.applied_count}/${data.valid_count} applied${data.backed_up_count ? ` · backup ${data.backed_up_count}` : ""}`);
+          setActionStatus({
+            tone: "success",
+            text: messages.sessions.deleteDone(data.applied_count, data.valid_count, data.backed_up_count ?? 0),
+          });
           fetchRows(true);
         })
         .catch((actionError) => {
-          setActionStatus(actionError instanceof Error ? actionError.message : String(actionError));
+          setActionStatus({ tone: "error", text: actionError instanceof Error ? actionError.message : String(actionError) });
         });
     }
-  });
+  };
+
+  if (renderSimpleEmptyState) {
+    return (
+      <Box flexDirection="column" gap={1}>
+        <Box borderStyle="round" borderColor="cyan" paddingX={2} flexDirection="column" gap={0}>
+          <Box justifyContent="space-between" alignItems="center">
+            <Text color="cyan" bold>Sessions</Text>
+            <Text color="gray" dimColor>{messages.sessions.summary(0)}</Text>
+          </Box>
+          <Box borderStyle="single" borderColor={focusMode === "filter" ? "green" : "gray"} paddingX={1}>
+            <Text color="gray" dimColor>{messages.common.filterLabel}  </Text>
+            <Text color="gray" dimColor>
+              {focusMode === "filter" ? messages.common.filterEditingPlaceholder : messages.common.filterIdlePlaceholder}
+            </Text>
+          </Box>
+        </Box>
+        <Box gap={1}>
+          <Box width="55%" borderStyle="round" borderColor={focusMode === "list" ? "cyan" : "gray"} paddingX={1} flexDirection="column">
+            <Text color="cyan">Sessions</Text>
+            <Text color="gray" dimColor>{messages.sessions.noSessionsFound}</Text>
+          </Box>
+          <Box width="45%" borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
+            <Text color="cyan">{messages.common.detail}</Text>
+            <Text color="gray" dimColor>{messages.sessions.selectSession}</Text>
+          </Box>
+        </Box>
+      </Box>
+    );
+  }
 
   return (
     <Box flexDirection="column" gap={1}>
-      {/* Header bar */}
+      {inputEnabled ? <SessionsInputHandler onInput={handleInput} /> : null}
       <Box borderStyle="round" borderColor="cyan" paddingX={2} flexDirection="column" gap={0}>
         <Box justifyContent="space-between" alignItems="center">
           <Text color="cyan" bold>Sessions</Text>
           <Box gap={2}>
-            {loading ? <Text color="yellow">loading…</Text> : null}
+            {loading ? <Text key="sessions-loading" color="yellow">{messages.sessions.loading}</Text> : null}
             {summary ? (
-              <Text color="gray" dimColor>
-                {summary.rows} sessions{summary.parse_fail > 0 ? <Text color="red">  {summary.parse_fail} fail</Text> : null}
+              <Text key="sessions-summary" color="gray" dimColor>
+                {summary.parse_fail > 0
+                  ? messages.sessions.summaryWithFailures(summary.rows, summary.parse_fail)
+                  : messages.sessions.summary(summary.rows)}
               </Text>
             ) : null}
           </Box>
         </Box>
 
-        {/* Filter bar */}
         <Box borderStyle="single" borderColor={focusMode === "filter" ? "green" : "gray"} paddingX={1}>
-          <Text color="gray" dimColor>filter  </Text>
+          <Text key="sessions-filter-label" color="gray" dimColor>{messages.common.filterLabel}  </Text>
           {filterQuery.length > 0 ? (
-            <Text color={focusMode === "filter" ? "white" : "gray"}>
+            <Text key="sessions-filter-value" color={focusMode === "filter" ? "white" : "gray"}>
               {filterQuery}{focusMode === "filter" ? "▌" : ""}
             </Text>
           ) : (
-            <Text color="gray" dimColor>
-              {focusMode === "filter" ? "type to filter▌" : "/·i to filter"}
+            <Text key="sessions-filter-placeholder" color="gray" dimColor>
+              {focusMode === "filter" ? messages.common.filterEditingPlaceholder : messages.common.filterIdlePlaceholder}
             </Text>
           )}
           {filterQuery && focusMode !== "filter" ? (
-            <Text color="gray" dimColor>  ({filteredRows.length}/{rows.length})</Text>
+            <Text key="sessions-filter-count" color="gray" dimColor>  ({filteredRows.length}/{rows.length})</Text>
           ) : null}
         </Box>
 
-        {/* Provider scope */}
         <Box gap={1} alignItems="center">
-          <Text color="gray" dimColor>scope:</Text>
+          <Text key="sessions-scope-label" color="gray" dimColor>{messages.sessions.scopeLabel}</Text>
           {PROVIDERS.filter((p) => p !== "all").map((p) => (
             <Text key={p} color={p === provider ? (PROVIDER_COLOR[p] ?? "white") : "gray"} bold={p === provider}>
               {p === provider ? `[${p}]` : p}
             </Text>
           ))}
-          <Text color="gray" dimColor>  [ ] switch</Text>
-          {providerScan ? <Text color="gray" dimColor>  {providerScan}</Text> : null}
+          <Text key="sessions-switch-hint" color="gray" dimColor>  {messages.common.switchHint}</Text>
+          {providerScan ? <Text key="sessions-provider-scan" color="gray" dimColor>  {providerScan}</Text> : null}
         </Box>
 
-        {/* Pending action indicator */}
         {pendingAction ? (
           <Box gap={2} alignItems="center">
-            <Text color="yellow" bold>⚠ Pending:</Text>
-            <Text color="yellow">{pendingAction.kind === "archive_local" ? "archive" : "delete"}</Text>
-            <Text color="gray" dimColor>token {pendingAction.token}</Text>
-            <Text color="white">{pendingAction.kind === "archive_local" ? "→ A execute" : "→ D execute"}</Text>
-            <Text color="gray" dimColor>c clear</Text>
+            <Text key="sessions-pending-label" color="yellow" bold>{messages.sessions.pendingLabel}</Text>
+            <Text key="sessions-pending-text" color="yellow">{pendingActionText}</Text>
+            <Text key="sessions-pending-clear" color="gray" dimColor>{messages.sessions.clearHint}</Text>
           </Box>
         ) : null}
 
-        {/* Action status */}
-        {actionStatus ? (
-          <Text color={actionStatus.includes("done") || actionStatus.includes("complete") ? "green" : actionStatus.includes("…") ? "yellow" : actionStatus.includes("fail") || actionStatus.includes("error") ? "red" : "gray"}>
-            {actionStatus}
+        {actionStatus && shouldRenderSessionActionStatus(actionStatus, pendingActionText) ? (
+          <Text color={statusToneColor(actionStatus.tone)}>
+            {actionStatus.text}
           </Text>
         ) : null}
 
         {error ? <Text color="red">{error}</Text> : null}
       </Box>
 
-      {/* List + Detail */}
       <Box gap={1}>
         <Box width="55%" borderStyle="round" borderColor={focusMode === "list" ? "cyan" : "gray"} paddingX={1} flexDirection="column">
           <Box justifyContent="space-between">
-            <Text color="cyan">Sessions</Text>
+            <Text key="sessions-list-title" color="cyan">Sessions</Text>
             {filteredRows.length > 0 ? (
-              <Text color="gray" dimColor>{visibleRows.start + 1}–{visibleRows.end}/{filteredRows.length}</Text>
+              <Text key="sessions-list-range" color="gray" dimColor>{visibleRows.start + 1}–{visibleRows.end}/{filteredRows.length}</Text>
             ) : null}
           </Box>
           {filteredRows.length === 0 ? (
-            <Text color="gray" dimColor>{rows.length === 0 ? "No sessions found." : "No results for filter."}</Text>
+            <Text color="gray" dimColor>{rows.length === 0 ? messages.sessions.noSessionsFound : messages.sessions.noResultsForFilter}</Text>
           ) : null}
           {visibleRows.items.map((row, offset) => {
             const idx = visibleRows.start + offset;
@@ -453,8 +539,8 @@ export function SessionsView(props: {
                 <Box gap={2} paddingLeft={2}>
                   <Text color="gray" dimColor>{row.source}</Text>
                   <Text color="gray" dimColor>{formatBytes(row.size_bytes)}</Text>
-                  <Text color="gray" dimColor>{formatDateLabel(row.mtime)}</Text>
-                  {!row.probe.ok ? <Text color="red" dimColor>parse fail</Text> : null}
+                  <Text color="gray" dimColor>{formatDateLabel(row.mtime, locale)}</Text>
+                  {!row.probe.ok ? <Text color="red" dimColor>{messages.sessions.parseFailLabel}</Text> : null}
                 </Box>
               </Box>
             );
@@ -462,10 +548,9 @@ export function SessionsView(props: {
         </Box>
 
         <Box width="45%" borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
-          <Text color="cyan">Detail</Text>
+          <Text color="cyan">{messages.common.detail}</Text>
           {selected ? (
             <>
-              {/* Session metadata */}
               <Box gap={1} alignItems="flex-start" marginTop={1}>
                 <Text color={PROVIDER_COLOR[selected.provider] ?? "white"} bold>{providerBadge(selected.provider)}</Text>
                 <Text color="white">{truncate(selected.display_title || selected.session_id, 44)}</Text>
@@ -474,13 +559,12 @@ export function SessionsView(props: {
               <Box gap={3}>
                 <Text color="gray" dimColor>{selected.source}</Text>
                 <Text color="gray" dimColor>{selected.probe.format}</Text>
-                <Text color="gray" dimColor>{formatDateLabel(selected.mtime)}</Text>
+                <Text color="gray" dimColor>{formatDateLabel(selected.mtime, locale)}</Text>
                 <Text color={selected.probe.ok ? "green" : "red"} dimColor>
                   {selected.probe.ok ? "ok" : "fail"}
                 </Text>
               </Box>
 
-              {/* Last action result */}
               {lastAction ? (
                 <Box flexDirection="column" borderStyle="single" borderColor="gray" paddingX={1} marginTop={1}>
                   <Box justifyContent="space-between">
@@ -493,16 +577,15 @@ export function SessionsView(props: {
                 </Box>
               ) : null}
 
-              {/* Transcript preview */}
               <Box flexDirection="column" marginTop={1} borderStyle="single" borderColor="gray" paddingX={1}>
                 <Box justifyContent="space-between">
-                  <Text color="cyan" dimColor>transcript</Text>
-                  {transcriptLoading ? <Text color="yellow" dimColor>loading…</Text> : (
-                    <Text color="gray" dimColor>{transcript.length} msg</Text>
+                  <Text color="cyan" dimColor>{messages.sessions.transcript}</Text>
+                  {transcriptLoading ? <Text color="yellow" dimColor>{messages.common.loading}</Text> : (
+                    <Text color="gray" dimColor>{messages.sessions.messagesCount(transcript.length)}</Text>
                   )}
                 </Box>
                 {!transcriptLoading && transcript.length === 0 ? (
-                  <Text color="gray" dimColor>No messages.</Text>
+                  <Text color="gray" dimColor>{messages.sessions.noMessages}</Text>
                 ) : null}
                 {transcript.map((msg) => (
                   <Box key={`${msg.idx}-${msg.ts ?? "na"}`} flexDirection="column" marginTop={1}>
@@ -510,7 +593,7 @@ export function SessionsView(props: {
                       <Text color={msg.role === "assistant" ? "magenta" : "cyan"} bold>
                         {msg.role === "assistant" ? "A" : "U"}
                       </Text>
-                      <Text color="gray" dimColor>{formatDateLabel(msg.ts)}</Text>
+                      <Text color="gray" dimColor>{formatDateLabel(msg.ts, locale)}</Text>
                     </Box>
                     <Text color={msg.role === "assistant" ? "white" : "gray"}>
                       {truncate((msg.text || "-").replace(/\s+/g, " ").trim(), 88)}
@@ -519,20 +602,33 @@ export function SessionsView(props: {
                 ))}
               </Box>
 
-              {/* Action hints */}
-              <Box gap={2} marginTop={1}>
-                <Text color="green" dimColor>b backup</Text>
-                <Text color="yellow" dimColor>a arc-dry</Text>
-                <Text color="yellow" dimColor>A arc-exec</Text>
-                <Text color="red" dimColor>d del-dry</Text>
-                <Text color="red" dimColor>D del-exec</Text>
+              <Box flexDirection="column" marginTop={1}>
+                {buildSessionActionHints(messages).map((hint) => {
+                  const color = hint.startsWith("b ")
+                    ? "green"
+                    : hint.startsWith("d ") || hint.startsWith("D ")
+                      ? "red"
+                      : "yellow";
+                  return (
+                    <Text key={hint} color={color} dimColor>
+                      {hint}
+                    </Text>
+                  );
+                })}
               </Box>
             </>
           ) : (
-            <Text color="gray" dimColor>Select a session.</Text>
+            <Text color="gray" dimColor>{messages.sessions.selectSession}</Text>
           )}
         </Box>
       </Box>
     </Box>
   );
+}
+
+function SessionsInputHandler(props: {
+  onInput: Parameters<typeof useInput>[0];
+}) {
+  useInput(props.onInput);
+  return null;
 }

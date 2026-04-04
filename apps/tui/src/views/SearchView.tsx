@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Box, Text, useInput } from "ink";
 import { searchConversations } from "../api.js";
 import { PROVIDERS, type ProviderScope } from "../config.js";
+import type { Locale, TuiMessages } from "../i18n/types.js";
 import type { SearchHit } from "../types.js";
 import { formatDateLabel, getWindowedItems, truncate } from "../lib/format.js";
 import { shouldLeaveSearchQueryMode } from "../lib/searchFocus.js";
@@ -24,6 +25,24 @@ type SearchMeta = {
   truncated: boolean;
 };
 
+export function formatSearchMeta(messages: TuiMessages, meta: SearchMeta): string {
+  return messages.search.sessionsSummary(meta.searched, meta.available, meta.truncated);
+}
+
+export function formatSearchResultSummary(messages: TuiMessages, groupedCount: number, hitCount: number): string {
+  return messages.search.groupedSummary(groupedCount, hitCount);
+}
+
+export function formatSearchEmptyState(messages: TuiMessages, query: string): string {
+  return query.trim().length < 2
+    ? messages.search.enterAtLeastTwoCharacters
+    : messages.search.noResultsFound;
+}
+
+export function formatSearchSnippetPager(messages: TuiMessages, current: number, total: number): string {
+  return messages.search.snippetPager(current, total);
+}
+
 const PROVIDER_COLOR: Record<string, string> = {
   codex: "yellow",
   claude: "magenta",
@@ -44,6 +63,8 @@ function providerBadge(provider: string): string {
 
 export function SearchView(props: {
   active: boolean;
+  locale: Locale;
+  messages: TuiMessages;
   onOpenSession: (provider: ProviderScope, filePath: string) => void;
   onOpenCleanup: (threadId: string) => void;
   initialQuery?: string;
@@ -56,6 +77,8 @@ export function SearchView(props: {
 }) {
   const {
     active,
+    locale,
+    messages,
     onOpenSession,
     onOpenCleanup,
     initialQuery,
@@ -205,9 +228,9 @@ export function SearchView(props: {
         <Box justifyContent="space-between" alignItems="center">
           <Text color="cyan" bold>Search</Text>
           <Box gap={2}>
-            {loading ? <Text color="yellow">searching…</Text> : null}
+            {loading ? <Text color="yellow">{messages.search.searching}</Text> : null}
             {meta.searched > 0 ? (
-              <Text color="gray" dimColor>{meta.searched}/{meta.available} sessions{meta.truncated ? " (partial)" : ""}</Text>
+              <Text color="gray" dimColor>{formatSearchMeta(messages, meta)}</Text>
             ) : null}
           </Box>
         </Box>
@@ -216,23 +239,22 @@ export function SearchView(props: {
           {query.length > 0 ? (
             <Text color={focusMode === "query" ? "white" : "gray"}>{query}{focusMode === "query" ? "▌" : ""}</Text>
           ) : (
-            <Text color="gray" dimColor>{focusMode === "query" ? "type query (min 2 chars)▌" : "enter query…"}</Text>
+            <Text color="gray" dimColor>{focusMode === "query" ? messages.search.queryEditingPlaceholder : messages.search.queryIdlePlaceholder}</Text>
           )}
         </Box>
         <Box gap={1} alignItems="center">
-          <Text color="gray" dimColor>scope:</Text>
+          <Text color="gray" dimColor>{messages.search.scopeLabel}</Text>
           {PROVIDERS.map((p, i) => (
             <Text key={p} color={i === providerIndex ? (PROVIDER_COLOR[p] ?? "white") : "gray"} bold={i === providerIndex}>
               {i === providerIndex ? `[${p}]` : p}
             </Text>
           ))}
-          <Text color="gray" dimColor>  [ ] switch</Text>
+          <Text color="gray" dimColor>{messages.common.switchHint}</Text>
           {error ? <Text color="red">  {error}</Text> : null}
         </Box>
         {groupedResults.length > 0 ? (
           <Box gap={3}>
-            <Text color="white">{groupedResults.length} sessions</Text>
-            <Text color="gray" dimColor>{results.length} hits</Text>
+            <Text color="white">{formatSearchResultSummary(messages, groupedResults.length, results.length)}</Text>
             {providerSummary ? <Text color="gray" dimColor>{providerSummary}</Text> : null}
           </Box>
         ) : null}
@@ -242,13 +264,13 @@ export function SearchView(props: {
       <Box gap={1}>
         <Box width="55%" borderStyle="round" borderColor={focusMode === "results" ? "cyan" : "gray"} paddingX={1} flexDirection="column">
           <Box justifyContent="space-between">
-            <Text color="cyan">Results</Text>
+            <Text color="cyan">{messages.common.results}</Text>
             {groupedResults.length > 0 ? (
               <Text color="gray" dimColor>{visibleGroups.start + 1}–{visibleGroups.end}/{groupedResults.length}</Text>
             ) : null}
           </Box>
           {groupedResults.length === 0 && !loading ? (
-            <Text color="gray" dimColor>{query.trim().length < 2 ? "Enter at least 2 characters." : "No results found."}</Text>
+            <Text color="gray" dimColor>{formatSearchEmptyState(messages, query)}</Text>
           ) : null}
           {visibleGroups.items.map((group, offset) => {
             const idx = visibleGroups.start + offset;
@@ -263,9 +285,9 @@ export function SearchView(props: {
                   <Text color={focused ? "white" : "gray"} bold={focused}>{truncate(group.title, 54)}</Text>
                 </Box>
                 <Box gap={3} paddingLeft={2}>
-                  <Text color="gray" dimColor>{group.matchCount} hit{group.matchCount !== 1 ? "s" : ""}</Text>
-                  <Text color="gray" dimColor>{formatDateLabel(group.mtime)}</Text>
-                  {group.threadId ? <Text color="green" dimColor>cleanup</Text> : null}
+                  <Text color="gray" dimColor>{messages.search.hitCount(group.matchCount)}</Text>
+                  <Text color="gray" dimColor>{formatDateLabel(group.mtime, locale)}</Text>
+                  {group.threadId ? <Text color="green" dimColor>{messages.search.cleanupAction}</Text> : null}
                 </Box>
                 {focused && snippet ? (
                   <Box paddingLeft={2}>
@@ -274,7 +296,7 @@ export function SearchView(props: {
                 ) : null}
                 {focused && group.snippets.length > 1 ? (
                   <Box paddingLeft={2}>
-                    <Text color="gray" dimColor>snippet {snippetIndex + 1}/{group.snippets.length}  n/p ←/→</Text>
+                    <Text color="gray" dimColor>{formatSearchSnippetPager(messages, snippetIndex + 1, group.snippets.length)}</Text>
                   </Box>
                 ) : null}
               </Box>
@@ -283,7 +305,7 @@ export function SearchView(props: {
         </Box>
 
         <Box width="45%" borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
-          <Text color="cyan">Detail</Text>
+          <Text color="cyan">{messages.common.detail}</Text>
           {selected ? (
             <>
               <Box gap={1} alignItems="flex-start" marginTop={1}>
@@ -293,12 +315,12 @@ export function SearchView(props: {
               <Text color="gray" dimColor>{truncate(selected.filePath, 58)}</Text>
               <Box gap={3}>
                 <Text color="gray" dimColor>{selected.source}</Text>
-                <Text color="gray" dimColor>{formatDateLabel(selected.mtime)}</Text>
+                <Text color="gray" dimColor>{formatDateLabel(selected.mtime, locale)}</Text>
               </Box>
               {selected.snippets.length > 0 ? (
                 <Box flexDirection="column" marginTop={1} borderStyle="single" borderColor="gray" paddingX={1}>
                   <Box justifyContent="space-between">
-                    <Text color="gray" dimColor>snippet</Text>
+                    <Text color="gray" dimColor>{messages.search.snippetLabel}</Text>
                     {selected.snippets.length > 1 ? (
                       <Text color="gray" dimColor>{snippetIndex + 1}/{selected.snippets.length}</Text>
                     ) : null}
@@ -308,15 +330,15 @@ export function SearchView(props: {
                   </Text>
                 </Box>
               ) : (
-                <Text color="gray" dimColor>No snippet.</Text>
+                <Text color="gray" dimColor>{messages.search.noSnippet}</Text>
               )}
               <Box gap={3} marginTop={1}>
-                <Text color="green" dimColor>Enter open</Text>
-                {selected.threadId ? <Text color="yellow" dimColor>Ctrl+O cleanup</Text> : null}
+                <Text color="green" dimColor>{messages.search.enterOpen}</Text>
+                {selected.threadId ? <Text color="yellow" dimColor>{messages.search.ctrlOpenCleanup}</Text> : null}
               </Box>
             </>
           ) : (
-            <Text color="gray" dimColor>Select a result.</Text>
+            <Text color="gray" dimColor>{messages.search.selectResult}</Text>
           )}
         </Box>
       </Box>
