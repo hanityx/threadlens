@@ -38,6 +38,7 @@ export type TuiMessages = {
     usageLabel: string;
     examplesLabel: string;
     ttyRequired: string;
+    invalidView: string;
   };
   common: {
     loading: string;

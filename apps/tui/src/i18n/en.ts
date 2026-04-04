@@ -52,6 +52,7 @@ export const en: TuiMessages = {
     usageLabel: "Usage:",
     examplesLabel: "Examples:",
     ttyRequired: "ThreadLens TUI must run in a TTY terminal. Re-run it in Terminal, iTerm, or tmux.",
+    invalidView: "Invalid --view value. Expected one of: search, sessions, cleanup.",
   },
   common: {
     loading: "loading…",
