@@ -140,16 +140,6 @@
     position: static;
   }
 
-  .sync-lens-summary {
-    grid-template-columns: 1fr;
-  }
-
-  .sync-lens-host-grid-wrap,
-  .sync-lens-drift-grid,
-  .sync-lens-issues-grid,
-  .sync-lens-actions-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* Large phone */
@@ -304,9 +294,6 @@
     min-width: 130px;
   }
 
-  .sync-lens-hash-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* Small phone */

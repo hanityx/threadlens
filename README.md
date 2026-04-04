@@ -57,7 +57,6 @@ Optional surfaces:
 
 - `pnpm dev:tui` starts the terminal workbench
 - `pnpm dev:desktop` starts the Electron shell in development mode
-- `sync-lens` is available as an optional read-only comparison surface for Codex state across machines
 
 ## Desktop Build Note
 

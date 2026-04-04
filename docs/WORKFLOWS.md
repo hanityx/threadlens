@@ -46,7 +46,6 @@ Use `Overview` and diagnostics panels when you need runtime and storage evidence
 - Recovery center and backup status
 - Provider data-source inventory
 - Parser health and execution graph
-- Optional read-only `sync-lens` host comparison
 
 ## Safe Sequence
 
