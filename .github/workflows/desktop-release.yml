@@ -1,0 +1,51 @@
+name: Desktop Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            artifact_name: threadlens-desktop-macos
+            command: pnpm package:desktop
+          - os: windows-latest
+            artifact_name: threadlens-desktop-windows
+            command: pnpm package:desktop:win
+          - os: ubuntu-latest
+            artifact_name: threadlens-desktop-linux
+            command: pnpm package:desktop:linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v5
+        with:
+          version: 10.4.1
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Build desktop release artifacts
+        run: ${{ matrix.command }}
+
+      - name: Upload desktop release artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            apps/desktop-electron/dist/**/*.zip
+            apps/desktop-electron/dist/**/*.exe
+            apps/desktop-electron/dist/**/*.AppImage
+            apps/desktop-electron/dist/**/*.app
+          if-no-files-found: ignore

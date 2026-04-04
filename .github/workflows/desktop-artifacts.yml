@@ -1,7 +1,6 @@
 name: Desktop Artifacts
 
 on:
-  workflow_dispatch:
   pull_request:
     paths:
       - "apps/desktop-electron/**"
@@ -11,6 +10,7 @@ on:
       - "package.json"
       - "pnpm-lock.yaml"
       - ".github/workflows/desktop-artifacts.yml"
+      - ".github/workflows/desktop-release.yml"
 
 jobs:
   desktop-build:
