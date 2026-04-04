@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildThreadCleanupSelectionKey,
   persistDismissedUpdateVersion,
@@ -9,6 +9,24 @@ import {
   UPDATE_BANNER_DISMISS_STORAGE_KEY,
   writeStorageValue,
 } from "./appDataUtils";
+
+function createLocalStorageMock() {
+  const store = new Map<string, string>();
+  return {
+    getItem(key: string) {
+      return store.has(key) ? store.get(key)! : null;
+    },
+    setItem(key: string, value: string) {
+      store.set(key, String(value));
+    },
+    removeItem(key: string) {
+      store.delete(key);
+    },
+    clear() {
+      store.clear();
+    },
+  };
+}
 
 describe("buildThreadCleanupSelectionKey", () => {
   it("normalizes ids and keeps cleanup options in the key", () => {
@@ -67,11 +85,12 @@ describe("pruneProviderSelectionForView", () => {
   });
 });
 
-afterEach(() => {
-  vi.restoreAllMocks();
-});
-
 describe("storage helpers", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
   it("returns null when localStorage reads throw", () => {
     const getItem = vi.fn(() => {
       throw new Error("blocked");
@@ -95,26 +114,39 @@ describe("storage helpers", () => {
     expect(() => writeStorageValue("alpha", "beta")).not.toThrow();
     expect(setItem).toHaveBeenCalledWith("alpha", "beta");
   });
+});
+
+describe("dismissed update version persistence", () => {
+  const originalWindow = globalThis.window;
+
+  beforeEach(() => {
+    const localStorage = createLocalStorageMock();
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: { localStorage },
+    });
+  });
+
+  afterEach(() => {
+    if (originalWindow === undefined) {
+      Reflect.deleteProperty(globalThis, "window");
+      return;
+    }
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: originalWindow,
+    });
+  });
 
   it("reads the dismissed update version from localStorage", () => {
-    const getItem = vi.fn((key: string) =>
-      key === UPDATE_BANNER_DISMISS_STORAGE_KEY ? "0.1.1" : null,
-    );
-    vi.stubGlobal("window", {
-      localStorage: { getItem },
-    });
+    window.localStorage.setItem(UPDATE_BANNER_DISMISS_STORAGE_KEY, "0.1.1");
 
     expect(readDismissedUpdateVersion()).toBe("0.1.1");
   });
 
   it("persists the dismissed update version to localStorage", () => {
-    const setItem = vi.fn();
-    vi.stubGlobal("window", {
-      localStorage: { setItem },
-    });
-
     persistDismissedUpdateVersion("0.1.2");
 
-    expect(setItem).toHaveBeenCalledWith(UPDATE_BANNER_DISMISS_STORAGE_KEY, "0.1.2");
+    expect(window.localStorage.getItem(UPDATE_BANNER_DISMISS_STORAGE_KEY)).toBe("0.1.2");
   });
 });
