@@ -38,4 +38,9 @@ describe("setup token migration", () => {
     expect(setupStyles).toMatch(/\.overview-history-item\s*{[^}]*background:\s*var\(--surface-panel-subtle\);/s);
     expect(setupStyles).toMatch(/\.degraded-banner\s*{[^}]*backdrop-filter:\s*blur\(var\(--blur-md\)\) saturate\(140%\);/s);
   });
+
+  it("adds a light-theme override for update banners", () => {
+    expect(setupStyles).toMatch(/:root\[data-theme="light"\]\s+\.update-banner\s*{[^}]*border-color:\s*var\(--state-warn-border-soft\);[^}]*background:\s*color-mix\(in srgb,\s*var\(--surface-card-bg-strong\)\s*90%,\s*var\(--warn-dim\)\);/s);
+    expect(setupStyles).toMatch(/:root\[data-theme="light"\]\s+\.update-banner-actions a,\s*:root\[data-theme="light"\]\s+\.update-banner-actions button\s*{[^}]*color:\s*var\(--busy-text\);/s);
+  });
 });
