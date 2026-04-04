@@ -26,6 +26,8 @@ export const ptBR: TuiMessages = {
       sessions: ["/·i filtro", "j/k mover", "b backup", "a/A archive", "d/D delete", "r atualizar"],
       cleanup: ["/·i filtro", "Space selecionar", "a análise", "d dry-run", "D executar", "x limpar seleção"],
     },
+    updateReleaseShortcut: "u  notas",
+    updateDismissShortcut: "U  fechar",
   },
   cli: {
     ...en.cli,

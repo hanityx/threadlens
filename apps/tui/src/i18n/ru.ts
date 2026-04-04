@@ -26,6 +26,8 @@ export const ru: TuiMessages = {
       sessions: ["/·i фильтр", "j/k навигация", "b backup", "a/A archive", "d/D delete", "r обновить"],
       cleanup: ["/·i фильтр", "Space выбрать", "a анализ", "d dry-run", "D выполнить", "x снять выбор"],
     },
+    updateReleaseShortcut: "u  релиз",
+    updateDismissShortcut: "U  скрыть",
   },
   cli: {
     ...en.cli,

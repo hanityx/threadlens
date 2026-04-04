@@ -26,6 +26,8 @@ export const zhCN: TuiMessages = {
       sessions: ["/·i 过滤", "j/k 移动", "b backup", "a/A archive", "d/D delete", "r 刷新"],
       cleanup: ["/·i 过滤", "Space 选择", "a 分析", "d dry-run", "D 执行", "x 清除选择"],
     },
+    updateReleaseShortcut: "u  发布说明",
+    updateDismissShortcut: "U  关闭",
   },
   cli: {
     ...en.cli,

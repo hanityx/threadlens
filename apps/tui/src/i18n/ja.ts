@@ -26,6 +26,8 @@ export const ja: TuiMessages = {
       sessions: ["/·i フィルタ", "j/k 移動", "b backup", "a/A archive", "d/D delete", "r 更新"],
       cleanup: ["/·i フィルタ", "Space 選択", "a 分析", "d dry-run", "D 実行", "x 選択解除"],
     },
+    updateReleaseShortcut: "u  リリース",
+    updateDismissShortcut: "U  閉じる",
   },
   cli: {
     ...en.cli,

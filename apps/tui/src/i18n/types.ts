@@ -30,6 +30,8 @@ export type TuiMessages = {
     helpCleanupBodyLine1: string;
     helpCleanupBodyLine2: string;
     footerShortcuts: Record<"search" | "sessions" | "cleanup", string[]>;
+    updateReleaseShortcut: string;
+    updateDismissShortcut: string;
   };
   cli: {
     helpTitle: string;
