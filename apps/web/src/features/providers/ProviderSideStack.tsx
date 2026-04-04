@@ -22,7 +22,7 @@ export function ProviderSideStack({
     <section className="provider-side-stack" ref={sectionRef}>
       {sessionDetailSlot}
       {backupHubSlot ? (
-        <details className="detail-section">
+        <details className="detail-section" data-testid="provider-backup-hub-section">
           <summary>
             <strong>{messages.providers.backupHubTitle}</strong>
           </summary>
