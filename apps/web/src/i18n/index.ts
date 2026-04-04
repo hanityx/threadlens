@@ -63,19 +63,6 @@ export const CANONICAL_ENGLISH_PATHS = [
   "sessionDetail.title",
 ] as const;
 
-const RAW_MESSAGES_BY_LOCALE: Record<Locale, Messages> = {
-  en,
-  ko,
-  ja,
-  "zh-CN": zhCN,
-  "pt-BR": ptBR,
-  es,
-  hi,
-  de,
-  id,
-  ru,
-};
-
 function getByPath(value: Record<string, unknown>, path: string): string {
   return path.split(".").reduce<unknown>((acc, segment) => {
     if (!acc || typeof acc !== "object") return undefined;
