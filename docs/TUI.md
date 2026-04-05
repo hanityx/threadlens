@@ -11,6 +11,8 @@ pnpm dev:tui
 pnpm start:tui
 ```
 
+`pnpm start:tui` runs the source entrypoint directly, so it works from a fresh clone after `pnpm install`.
+
 The TUI expects the local API at `http://127.0.0.1:8788` by default.
 
 ## CLI Examples
