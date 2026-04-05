@@ -82,7 +82,16 @@ jobs:
           VERSION="${TAG#v}"
 
           mkdir -p release-assets
-          find release-artifacts -type f \( -name '*.zip' -o -name '*.exe' -o -name '*.AppImage' \) -exec cp {} release-assets/ \;
+          find release-artifacts -type f -name '*.zip' -exec cp {} release-assets/ \;
+          find release-artifacts -type f -name '*.AppImage' -exec cp {} release-assets/ \;
+
+          WINDOWS_PORTABLE="$(find release-artifacts -type f -name '*.exe' \
+            ! -name 'ThreadLens.exe' \
+            ! -name 'elevate.exe' \
+            | head -n 1)"
+          if [ -n "${WINDOWS_PORTABLE}" ]; then
+            cp "${WINDOWS_PORTABLE}" "release-assets/ThreadLens.${VERSION}.exe"
+          fi
 
           if ! find release-assets -maxdepth 1 -type f | grep -q .; then
             echo "No release assets were collected."
