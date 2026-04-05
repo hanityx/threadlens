@@ -2,6 +2,7 @@ import { mkdtemp, mkdir, realpath, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { APP_DATA_DIR, CHAT_DIR } from "./constants.js";
 import {
   buildProviderActionToken,
   codexTranscriptSearchRoots,
@@ -99,11 +100,11 @@ describe("provider registry", () => {
     const chatGptRoots = providerRootSpecs("chatgpt");
     const copilotRoots = providerRootSpecs("copilot");
 
-    expect(codexRoots.every((spec) => !spec.root.includes("Library/Application Support"))).toBe(true);
+    expect(codexRoots.every((spec) => !spec.root.includes(APP_DATA_DIR))).toBe(true);
     expect(codexTranscriptSearchRoots().some((spec) => spec.root.includes(".codex"))).toBe(true);
     expect(claudeRoots.every((spec) => spec.root.includes(".claude"))).toBe(true);
     expect(geminiRoots.every((spec) => spec.root.includes(".gemini"))).toBe(true);
-    expect(chatGptRoots.some((spec) => spec.root.includes("Library/Application Support/com.openai.chat"))).toBe(true);
+    expect(chatGptRoots.some((spec) => spec.root === CHAT_DIR)).toBe(true);
     expect(copilotRoots.some((spec) => spec.root.endsWith(path.join("Code", "User", "globalStorage", "github.copilot-chat")))).toBe(true);
     expect(copilotRoots.some((spec) => spec.root.endsWith(path.join("Cursor", "User", "globalStorage", "github.copilot-chat")))).toBe(true);
     expect(copilotRoots.some((spec) => spec.root.endsWith(path.join("Code", "User", "workspaceStorage")))).toBe(true);

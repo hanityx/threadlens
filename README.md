@@ -32,6 +32,15 @@ Search local conversations across Codex, Claude, Gemini, and Copilot, inspect tr
   <sub>Start in Search when you know the phrase, then switch to Sessions for raw provider files and transcript detail.</sub>
 </p>
 
+<p align="center">
+  <img src="docs/assets/readme-tui-search.png" alt="ThreadLens TUI search view" width="49.5%" />
+  <img src="docs/assets/readme-tui-sessions.png" alt="ThreadLens TUI sessions view" width="49.5%" />
+</p>
+
+<p align="center">
+  <sub>The TUI keeps Search and Sessions keyboard-first in the terminal, with transcript preview and backup-first actions in the same flow.</sub>
+</p>
+
 ## Highlights
 
 - `Conversation Search` finds the right session or thread before you pick a workflow.
