@@ -1,6 +1,6 @@
 {
   "name": "@threadlens/desktop-electron",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Electron shell for ThreadLens",
   "author": "ThreadLens Contributors",
@@ -11,7 +11,7 @@
     "stage": "node scripts/stage-desktop-assets.cjs",
     "build": "pnpm run icon:build && pnpm run stage && node --check main.cjs && node --check main-menu.cjs && node --check preload.cjs",
     "dist:dir": "pnpm run build && electron-builder --dir",
-    "dist:mac": "pnpm run build && electron-builder --mac dir zip",
+    "dist:mac": "pnpm run build && electron-builder --mac zip",
     "dist:win": "pnpm run build && electron-builder --win portable",
     "dist:linux": "pnpm run build && electron-builder --linux AppImage",
     "test": "node --test main-menu.test.cjs package-config.test.cjs",
@@ -42,7 +42,6 @@
       "category": "public.app-category.developer-tools",
       "icon": "build/icon.icns",
       "target": [
-        "dir",
         "zip"
       ]
     },

@@ -2,7 +2,8 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { FastifyInstance } from "fastify";
-import { PROJECT_ROOT } from "./lib/constants";
+import { PROJECT_ROOT, UPDATE_CHECK_CACHE_FILE } from "./lib/constants";
+import { resetUpdateCheckCacheForTests } from "./lib/update-check";
 import { createServer } from "./server";
 
 vi.mock("./domains/threads/state.js", async (importOriginal) => {
@@ -43,13 +44,14 @@ describe("api-ts direct endpoints", () => {
   });
 
   it("GET /api/update-check returns release metadata", async () => {
+    const mockedTag = "v9.9.9";
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
-          tag_name: "v0.1.1",
-          name: "ThreadLens v0.1.1",
+          tag_name: mockedTag,
+          name: "ThreadLens v9.9.9",
           body: "Codex rename sync now reflects immediately.",
-          html_url: "https://github.com/hanityx/threadlens/releases/tag/v0.1.1",
+          html_url: "https://github.com/hanityx/threadlens/releases/tag/v9.9.9",
         }),
         {
           status: 200,
@@ -59,15 +61,18 @@ describe("api-ts direct endpoints", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     try {
+      resetUpdateCheckCacheForTests();
+      await rm(UPDATE_CHECK_CACHE_FILE, { force: true });
       const res = await app.inject({ method: "GET", url: "/api/update-check" });
       expect(res.statusCode).toBe(200);
       const payload = res.json();
       expect(payload.ok).toBe(true);
       expect(payload.data.status).toBe("available");
-      expect(payload.data.latest_version).toBe("0.1.1");
+      expect(payload.data.latest_version).toBe(mockedTag.slice(1));
       expect(payload.data.release_summary).toBe("Codex rename sync now reflects immediately.");
       expect(payload.data.has_update).toBe(true);
     } finally {
+      await rm(UPDATE_CHECK_CACHE_FILE, { force: true });
       vi.unstubAllGlobals();
     }
   });

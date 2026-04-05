@@ -1,11 +1,14 @@
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
 import type { UpdateCheckStatus } from "@threadlens/shared-contracts";
 import {
   APP_VERSION,
   THREADLENS_GITHUB_RELEASE_API_URL,
   THREADLENS_LATEST_RELEASE_URL,
+  UPDATE_CHECK_CACHE_FILE,
 } from "./constants.js";
 
-const UPDATE_CHECK_TTL_MS = 5 * 60 * 1000;
+const UPDATE_CHECK_TTL_MS = 24 * 60 * 60 * 1000;
 
 let cachedResult: UpdateCheckStatus | null = null;
 let cachedUntil = 0;
@@ -56,19 +59,86 @@ export function resetUpdateCheckCacheForTests() {
   cachedUntil = 0;
 }
 
+function normalizeCachedUpdateResult(
+  cached: UpdateCheckStatus,
+  currentVersion: string,
+): UpdateCheckStatus {
+  const latestVersion = cached.latest_version ? normalizeVersion(cached.latest_version) : null;
+  const hasUpdate = latestVersion
+    ? compareReleaseVersions(latestVersion, currentVersion) > 0
+    : false;
+  return {
+    ...cached,
+    current_version: currentVersion,
+    latest_version: latestVersion,
+    has_update: hasUpdate,
+    status: cached.error
+      ? "unavailable"
+      : hasUpdate
+        ? "available"
+        : "up-to-date",
+  };
+}
+
+function resolveCachedUntil(result: UpdateCheckStatus, ttlMs: number): number {
+  const checkedAtMs = Date.parse(result.checked_at);
+  if (!Number.isFinite(checkedAtMs)) return 0;
+  return checkedAtMs + ttlMs;
+}
+
+async function readPersistedUpdateCheck(
+  cacheFilePath: string,
+): Promise<UpdateCheckStatus | null> {
+  try {
+    const raw = await readFile(cacheFilePath, "utf-8");
+    const parsed = JSON.parse(raw) as UpdateCheckStatus;
+    if (!parsed || typeof parsed !== "object") return null;
+    if (typeof parsed.checked_at !== "string") return null;
+    if (typeof parsed.current_version !== "string") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+async function writePersistedUpdateCheck(
+  cacheFilePath: string,
+  result: UpdateCheckStatus,
+): Promise<void> {
+  try {
+    await mkdir(path.dirname(cacheFilePath), { recursive: true });
+    await writeFile(cacheFilePath, JSON.stringify(result, null, 2), "utf-8");
+  } catch {
+    // Update checks should never fail just because the cache file cannot be written.
+  }
+}
+
 export async function checkForUpdates(options?: {
   currentVersion?: string;
   fetchImpl?: typeof fetch;
   now?: () => number;
+  cacheFilePath?: string;
+  ttlMs?: number;
 }): Promise<UpdateCheckStatus> {
   const now = options?.now ?? Date.now;
-  if (cachedResult && now() < cachedUntil) {
-    return cachedResult;
-  }
-
+  const nowMs = now();
   const fetchImpl = options?.fetchImpl ?? fetch;
   const currentVersion = normalizeVersion(options?.currentVersion ?? APP_VERSION) || APP_VERSION;
-  const checkedAt = new Date(now()).toISOString();
+  const checkedAt = new Date(nowMs).toISOString();
+  const cacheFilePath = options?.cacheFilePath ?? UPDATE_CHECK_CACHE_FILE;
+  const ttlMs = options?.ttlMs ?? UPDATE_CHECK_TTL_MS;
+
+  if (cachedResult && nowMs < cachedUntil) {
+    return normalizeCachedUpdateResult(cachedResult, currentVersion);
+  }
+
+  const persisted = await readPersistedUpdateCheck(cacheFilePath);
+  const persistedUntil = persisted ? resolveCachedUntil(persisted, ttlMs) : 0;
+  if (persisted && nowMs < persistedUntil) {
+    cachedResult = persisted;
+    cachedUntil = persistedUntil;
+    return normalizeCachedUpdateResult(persisted, currentVersion);
+  }
 
   try {
     const response = await fetchImpl(THREADLENS_GITHUB_RELEASE_API_URL, {
@@ -109,7 +179,8 @@ export async function checkForUpdates(options?: {
       error: null,
     };
     cachedResult = result;
-    cachedUntil = now() + UPDATE_CHECK_TTL_MS;
+    cachedUntil = nowMs + ttlMs;
+    await writePersistedUpdateCheck(cacheFilePath, result);
     return result;
   } catch (error) {
     const result: UpdateCheckStatus = {
@@ -125,7 +196,8 @@ export async function checkForUpdates(options?: {
       error: error instanceof Error ? error.message : String(error),
     };
     cachedResult = result;
-    cachedUntil = now() + UPDATE_CHECK_TTL_MS;
+    cachedUntil = nowMs + ttlMs;
+    await writePersistedUpdateCheck(cacheFilePath, result);
     return result;
   }
 }
