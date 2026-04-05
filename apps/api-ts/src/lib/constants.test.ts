@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -5,6 +6,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const TEST_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_PROJECT_ROOT = path.resolve(TEST_DIR, "../../../..");
+const ROOT_PACKAGE_VERSION = (
+  JSON.parse(fs.readFileSync(path.join(DEFAULT_PROJECT_ROOT, "package.json"), "utf8")) as {
+    version: string;
+  }
+).version;
 
 type EnvValue = string | undefined;
 
@@ -37,6 +43,15 @@ afterEach(() => {
 });
 
 describe("runtime state paths", () => {
+  it("defaults APP_VERSION to the repository package version when env is unset", async () => {
+    const mod = await loadConstants({
+      APP_VERSION: undefined,
+      THREADLENS_PROJECT_ROOT: undefined,
+    });
+
+    expect(mod.APP_VERSION).toBe(ROOT_PACKAGE_VERSION);
+  });
+
   it("defaults runtime state under .run/state at the project root", async () => {
     const mod = await loadConstants({
       THREADLENS_PROJECT_ROOT: undefined,
@@ -80,14 +95,29 @@ describe("runtime state paths", () => {
     const mod = await loadConstants({});
 
     expect(
+      mod.resolvePlatformHomeDir("darwin", {
+        HOME: "/mock_dir",
+      }),
+    ).toBe("/mock_dir");
+    expect(
+      mod.resolvePlatformHomeDir("win32", {
+        USERPROFILE: "C:/mock_dir",
+      }),
+    ).toBe("C:/mock_dir");
+    expect(
       mod.resolvePlatformAppDataDir("darwin", {
         HOME: "/mock_dir",
       }),
     ).toBe("/mock_dir/Library/Application Support");
     expect(
       mod.resolvePlatformAppDataDir("win32", {
-        HOME: "C:/mock_dir",
+        USERPROFILE: "C:/mock_dir",
         APPDATA: "C:/mock_dir/AppData/Roaming",
+      }),
+    ).toBe("C:/mock_dir/AppData/Roaming");
+    expect(
+      mod.resolvePlatformAppDataDir("win32", {
+        USERPROFILE: "C:/mock_dir",
       }),
     ).toBe("C:/mock_dir/AppData/Roaming");
     expect(
@@ -96,6 +126,17 @@ describe("runtime state paths", () => {
         XDG_CONFIG_HOME: "/mock_linux/.config",
       }),
     ).toBe("/mock_linux/.config");
+    expect(
+      mod.resolvePlatformChatDir("darwin", {
+        HOME: "/mock_dir",
+      }),
+    ).toBe("/mock_dir/Library/Application Support/com.openai.chat");
+    expect(
+      mod.resolvePlatformChatDir("win32", {
+        USERPROFILE: "C:/mock_dir",
+        APPDATA: "C:/mock_dir/AppData/Roaming",
+      }),
+    ).toBe("C:/mock_dir/AppData/Roaming/com.openai.chat");
   });
 
   it("defaults project discovery to an empty optional directory", async () => {

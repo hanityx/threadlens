@@ -66,7 +66,9 @@ export function App() {
     queryKey: ["update-check"],
     queryFn: ({ signal }) =>
       apiGet<ApiEnvelope<UpdateCheckStatus>>("/api/update-check", { signal }),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 24 * 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     retry: false,
   });
   // Destructure only what's needed for hook calls and derived values below.

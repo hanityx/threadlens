@@ -2,6 +2,19 @@ name: Desktop Release
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish, for example v0.2.0
+        required: true
+        type: string
+      make_latest:
+        description: Mark this release as the latest release
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
 
 jobs:
   build-desktop:
@@ -40,7 +53,7 @@ jobs:
         run: ${{ matrix.command }}
 
       - name: Upload desktop release artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v8
         with:
           name: ${{ matrix.artifact_name }}
           path: |
@@ -49,3 +62,65 @@ jobs:
             apps/desktop-electron/dist/**/*.AppImage
             apps/desktop-electron/dist/**/*.app
           if-no-files-found: ignore
+
+  publish-release:
+    name: Publish GitHub release
+    needs: build-desktop
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download desktop artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: release-artifacts
+
+      - name: Collect release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG="${{ github.event.inputs.tag }}"
+          VERSION="${TAG#v}"
+
+          mkdir -p release-assets
+          find release-artifacts -type f \( -name '*.zip' -o -name '*.exe' -o -name '*.AppImage' \) -exec cp {} release-assets/ \;
+
+          if ! find release-assets -maxdepth 1 -type f | grep -q .; then
+            echo "No release assets were collected."
+            exit 1
+          fi
+
+          (
+            cd release-assets
+            shasum -a 256 * > "ThreadLens-${VERSION}-SHA256SUMS.txt"
+          )
+
+          cat > "release-assets/ThreadLens-${VERSION}-unsigned-install-notes.md" <<EOF
+          # Unsigned desktop build notes
+
+          These builds are unsigned.
+
+          - macOS: open the app from Finder with Control-click -> Open on the first launch.
+          - Windows: use More info -> Run anyway if SmartScreen appears.
+          - Linux: run \`chmod +x ThreadLens-*.AppImage\` before launching the AppImage.
+          EOF
+
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG="${{ github.event.inputs.tag }}"
+          TITLE="ThreadLens ${TAG}"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" release-assets/* --clobber
+            exit 0
+          fi
+
+          if [ "${{ github.event.inputs.make_latest }}" = "true" ]; then
+            gh release create "$TAG" release-assets/* --title "$TITLE" --generate-notes --latest
+          else
+            gh release create "$TAG" release-assets/* --title "$TITLE" --generate-notes --latest=false
+          fi

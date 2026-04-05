@@ -6,6 +6,7 @@
  * dependency graph acyclic.
  */
 
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -19,10 +20,30 @@ export const PROJECT_ROOT =
   process.env.THREADLENS_PROJECT_ROOT ??
   path.resolve(THIS_DIR, "../../../..");
 
+function resolveAppVersion(projectRoot = PROJECT_ROOT) {
+  const envVersion = process.env.APP_VERSION?.trim();
+  if (envVersion) return envVersion;
+
+  try {
+    const packageJsonPath = path.join(projectRoot, "package.json");
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8")) as {
+      version?: unknown;
+    };
+    const packageVersion = typeof packageJson.version === "string"
+      ? packageJson.version.trim()
+      : "";
+    if (packageVersion) return packageVersion;
+  } catch {
+    // Fall back to a stable placeholder when package metadata is unavailable.
+  }
+
+  return "0.1.0";
+}
+
 /* ── Server config ────────────────────────────────────────────────── */
 
 export const DEFAULT_PORT = Number(process.env.API_TS_PORT ?? 8788);
-export const APP_VERSION = process.env.APP_VERSION ?? "0.1.0";
+export const APP_VERSION = resolveAppVersion();
 export const START_TS = Date.now();
 export const THREADLENS_RELEASE_REPO = String(
   process.env.THREADLENS_RELEASE_REPO ?? "hanityx/threadlens",
@@ -55,11 +76,62 @@ export const RECOVERY_PLAN_DIR = path.join(STATE_DIR, "recovery_plans");
 export const ALERT_RULES_FILE = path.join(STATE_DIR, "alert_rules.json");
 export const ALERT_STATE_FILE = path.join(STATE_DIR, "alert_state.json");
 export const ALERT_EVENTS_FILE = path.join(STATE_DIR, "alert_events.jsonl");
+export const UPDATE_CHECK_CACHE_FILE = path.join(STATE_DIR, "update_check.json");
+
+/* ── Provider storage roots ───────────────────────────────────────── */
+
+export function resolvePlatformHomeDir(
+  platform = process.platform,
+  env: Record<string, string | undefined> = process.env,
+) {
+  if (platform === "win32") {
+    const userProfile = env.USERPROFILE?.trim();
+    if (userProfile) return userProfile;
+    const homeDrive = env.HOMEDRIVE?.trim() ?? "";
+    const homePath = env.HOMEPATH?.trim() ?? "";
+    if (homeDrive && homePath) return `${homeDrive}${homePath}`;
+  }
+  return env.HOME ?? "";
+}
+
+export const HOME_DIR = resolvePlatformHomeDir();
+export const PROJECTS_DIR = String(
+  process.env.THREADLENS_PROJECTS_DIR ?? process.env.PROJECTS_DIR ?? "",
+).trim();
+
+export function resolvePlatformAppDataDir(
+  platform = process.platform,
+  env: Record<string, string | undefined> = process.env,
+) {
+  const homeDir = resolvePlatformHomeDir(platform, env);
+  if (platform === "darwin") {
+    return path.join(homeDir, "Library", "Application Support");
+  }
+  if (platform === "win32") {
+    return env.APPDATA ?? path.join(homeDir, "AppData", "Roaming");
+  }
+  return env.XDG_CONFIG_HOME ?? path.join(homeDir, ".config");
+}
+
+export function resolvePlatformChatDir(
+  platform = process.platform,
+  env: Record<string, string | undefined> = process.env,
+) {
+  if (platform === "darwin") {
+    return path.join(
+      resolvePlatformHomeDir(platform, env),
+      "Library",
+      "Application Support",
+      "com.openai.chat",
+    );
+  }
+  return path.join(resolvePlatformAppDataDir(platform, env), "com.openai.chat");
+}
 
 /* ── Codex paths ──────────────────────────────────────────────────── */
 
 export const CODEX_HOME =
-  process.env.CODEX_HOME ?? path.join(process.env.HOME ?? "", ".codex");
+  process.env.CODEX_HOME ?? path.join(HOME_DIR, ".codex");
 export const CODEX_GLOBAL_STATE_FILE = path.join(
   CODEX_HOME,
   ".codex-global-state.json",
@@ -71,34 +143,8 @@ export const THREADS_BOOT_CACHE_FILE = path.join(
   "threads_boot_cache.json",
 );
 
-/* ── Provider storage roots ───────────────────────────────────────── */
-
-export const HOME_DIR = process.env.HOME ?? "";
-export const PROJECTS_DIR = String(
-  process.env.THREADLENS_PROJECTS_DIR ?? process.env.PROJECTS_DIR ?? "",
-).trim();
-
-export function resolvePlatformAppDataDir(
-  platform = process.platform,
-  env: Record<string, string | undefined> = process.env,
-) {
-  const homeDir = env.HOME ?? "";
-  if (platform === "darwin") {
-    return path.join(homeDir, "Library", "Application Support");
-  }
-  if (platform === "win32") {
-    return env.APPDATA ?? path.join(homeDir, "AppData", "Roaming");
-  }
-  return env.XDG_CONFIG_HOME ?? path.join(homeDir, ".config");
-}
-
 export const APP_DATA_DIR = resolvePlatformAppDataDir();
-export const CHAT_DIR = path.join(
-  HOME_DIR,
-  "Library",
-  "Application Support",
-  "com.openai.chat",
-);
+export const CHAT_DIR = resolvePlatformChatDir();
 export const CLAUDE_HOME = path.join(HOME_DIR, ".claude");
 export const CLAUDE_PROJECTS_DIR = path.join(CLAUDE_HOME, "projects");
 export const CLAUDE_TRANSCRIPTS_DIR = path.join(CLAUDE_HOME, "transcripts");
