@@ -8,11 +8,13 @@ import { formatDateTime, normalizeDisplayValue } from "../../lib/helpers";
 import { TranscriptLog } from "../../design-system/TranscriptLog";
 import { buildProviderSessionActionSummary } from "./providerPanelPresentationModel";
 import { compactSessionFileName, compactSessionTitle, formatBytes } from "./helpers";
-import { readStorageValue, writeStorageValue } from "../../hooks/appDataUtils";
 import { apiPost } from "../../api";
-
-const PROVIDER_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY = "po-provider-hard-delete-skip-confirm";
-const LEGACY_PROVIDER_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY = "cmc-provider-hard-delete-skip-confirm";
+import {
+  buildHardDeleteConfirmRequestState,
+  buildHardDeleteConfirmResolvedState,
+  readProviderHardDeleteSkipConfirmPref,
+  writeProviderHardDeleteSkipConfirmPref,
+} from "./hardDeleteConfirmModel";
 
 export interface SessionDetailProps {
   messages: Messages;
@@ -68,13 +70,9 @@ export function SessionDetail(props: SessionDetailProps) {
   const [hardDeleteConfirmOpen, setHardDeleteConfirmOpen] = useState(false);
   const [showFullSessionFileName, setShowFullSessionFileName] = useState(false);
   const [hardDeleteSkipConfirmChecked, setHardDeleteSkipConfirmChecked] = useState(false);
-  const [hardDeleteSkipConfirmPref, setHardDeleteSkipConfirmPref] = useState(() => {
-    const raw = readStorageValue([
-      PROVIDER_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY,
-      LEGACY_PROVIDER_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY,
-    ]);
-    return raw === "true";
-  });
+  const [hardDeleteSkipConfirmPref, setHardDeleteSkipConfirmPref] = useState(
+    readProviderHardDeleteSkipConfirmPref,
+  );
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const desktopBridge =
     typeof window !== "undefined" ? window.threadLensDesktop : undefined;
@@ -299,25 +297,27 @@ export function SessionDetail(props: SessionDetailProps) {
     : messages.sessionDetail.emptyStateBody;
 
   const openHardDeleteConfirm = () => {
-    if (!selectedSession || busy || !canRunSessionAction) return;
-    if (hardDeleteSkipConfirmPref) {
+    const next = buildHardDeleteConfirmRequestState({
+      enabled: Boolean(selectedSession && !busy && canRunSessionAction),
+      skipConfirmPref: hardDeleteSkipConfirmPref,
+    });
+    if (!selectedSession) return;
+    if (next.shouldRunImmediately) {
       void runSingleProviderHardDelete(selectedSession.provider, selectedSession.file_path);
       return;
     }
-    setHardDeleteSkipConfirmChecked(false);
-    setHardDeleteConfirmOpen(true);
+    setHardDeleteSkipConfirmChecked(next.skipConfirmChecked);
+    setHardDeleteConfirmOpen(next.confirmOpen);
   };
 
   const confirmHardDelete = () => {
     if (!selectedSession || busy || !canRunSessionAction) return;
-    writeStorageValue(
-      PROVIDER_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY,
-      hardDeleteSkipConfirmChecked ? "true" : "false",
-    );
-    setHardDeleteSkipConfirmPref(hardDeleteSkipConfirmChecked);
-    setHardDeleteConfirmOpen(false);
+    writeProviderHardDeleteSkipConfirmPref(hardDeleteSkipConfirmChecked);
+    const next = buildHardDeleteConfirmResolvedState(hardDeleteSkipConfirmChecked);
+    setHardDeleteSkipConfirmPref(next.skipConfirmPref);
+    setHardDeleteConfirmOpen(next.confirmOpen);
     void runSingleProviderHardDelete(selectedSession.provider, selectedSession.file_path).finally(() => {
-      setHardDeleteSkipConfirmChecked(false);
+      setHardDeleteSkipConfirmChecked(next.skipConfirmChecked);
     });
   };
 
@@ -536,7 +536,14 @@ export function SessionDetail(props: SessionDetailProps) {
                         {messages.providers.hardDeleteConfirmSkipFuture}
                       </label>
                       <div className="chat-toolbar detail-action-bar detail-action-bar-danger provider-hard-delete-confirm-actions">
-                        <Button variant="outline" onClick={() => setHardDeleteConfirmOpen(false)}>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            const next = buildHardDeleteConfirmResolvedState(hardDeleteSkipConfirmPref);
+                            setHardDeleteConfirmOpen(next.confirmOpen);
+                            setHardDeleteSkipConfirmChecked(next.skipConfirmChecked);
+                          }}
+                        >
                           {messages.providers.hardDeleteConfirmCancel}
                         </Button>
                         <Button variant="danger" disabled={busy} onClick={confirmHardDelete}>
