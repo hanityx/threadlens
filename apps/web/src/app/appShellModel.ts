@@ -1,5 +1,10 @@
 import { useMemo } from "react";
-import { SEARCHABLE_PROVIDER_IDS, SEARCHABLE_PROVIDER_LABELS } from "@threadlens/shared-contracts";
+import {
+  INTERNAL_PROVIDER_IDS,
+  OPTIONAL_PROVIDER_IDS,
+  SEARCHABLE_PROVIDER_IDS,
+  SEARCHABLE_PROVIDER_LABELS,
+} from "@threadlens/shared-contracts";
 import { formatDateTime, formatProviderDisplayName } from "../lib/helpers";
 import type { Messages } from "../i18n";
 import type {
@@ -20,8 +25,8 @@ import {
   providerFromSourceKey,
 } from "./workbenchFormat";
 
-const HIDDEN_PROVIDER_IDS = new Set(["chatgpt"]);
-const OPTIONAL_PROVIDER_IDS = new Set(["copilot"]);
+const HIDDEN_PROVIDER_IDS = new Set<string>(INTERNAL_PROVIDER_IDS);
+const OPTIONAL_PROVIDER_ID_SET = new Set<string>(OPTIONAL_PROVIDER_IDS);
 const PROVIDER_DISPLAY_ORDER = ["all", "codex", "claude", "gemini", "copilot"];
 
 type ProviderTabLike = {
@@ -114,7 +119,7 @@ export function buildVisibleProviderIds<T extends { id: ProviderView }>(
 ): Array<Exclude<ProviderView, "all">> {
   return visibleProviderTabs
     .filter(
-      (tab) => tab.id !== "all" && (providerView !== "all" || !OPTIONAL_PROVIDER_IDS.has(tab.id)),
+      (tab) => tab.id !== "all" && (providerView !== "all" || !OPTIONAL_PROVIDER_ID_SET.has(tab.id)),
     )
     .map((tab) => tab.id as Exclude<ProviderView, "all">);
 }
