@@ -431,6 +431,11 @@
   box-shadow: var(--btn-outline-shadow);
 }
 
+.top-controls .btn-outline:hover {
+  background: var(--surface-pill-ghost);
+  color: var(--text);
+}
+
 .provider-quick-switch {
   display: inline-flex;
   align-items: center;

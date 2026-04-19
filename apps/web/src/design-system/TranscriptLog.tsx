@@ -160,27 +160,37 @@ export function TranscriptLog({
   const renderTranscriptControls = (focusMode: boolean) => (
     <>
       <div className="chat-toolbar transcript-controls">
-        <input
-          type="search"
-          className="search-input transcript-search"
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          placeholder={messages.transcript.searchPlaceholder}
-        />
-        <select
-          className="filter-select transcript-role-filter"
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
-        >
-          <option value="dialog">{messages.transcript.roleDialog}</option>
-          <option value="all">{messages.transcript.roleAll}</option>
-          <option value="user">{messages.transcript.roleUser}</option>
-          <option value="assistant">{messages.transcript.roleAssistant}</option>
-          <option value="developer">{messages.transcript.roleDeveloper}</option>
-          <option value="system">{messages.transcript.roleSystem}</option>
-          <option value="tool">{messages.transcript.roleTool}</option>
-          <option value="unknown">{messages.transcript.roleUnknown}</option>
-        </select>
+        <div className="toolbar-search-shell is-input">
+          <span className="toolbar-search-prompt" aria-hidden="true">
+            &gt;
+          </span>
+          <input
+            type="search"
+            className="search-input transcript-search toolbar-search-input"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder={messages.transcript.searchPlaceholder}
+          />
+        </div>
+        <div className="toolbar-search-shell is-select">
+          <select
+            className="filter-select transcript-role-filter toolbar-search-select"
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
+          >
+            <option value="dialog">{messages.transcript.roleDialog}</option>
+            <option value="all">{messages.transcript.roleAll}</option>
+            <option value="user">{messages.transcript.roleUser}</option>
+            <option value="assistant">{messages.transcript.roleAssistant}</option>
+            <option value="developer">{messages.transcript.roleDeveloper}</option>
+            <option value="system">{messages.transcript.roleSystem}</option>
+            <option value="tool">{messages.transcript.roleTool}</option>
+            <option value="unknown">{messages.transcript.roleUnknown}</option>
+          </select>
+          <span className="toolbar-search-chevron" aria-hidden="true">
+            ▾
+          </span>
+        </div>
       </div>
       <div className="chat-toolbar transcript-actions-row">
         <button

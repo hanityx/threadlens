@@ -35,6 +35,7 @@ describe("threads token migration", () => {
     expect(threadStyles).toMatch(/\.thread-status-card\.is-ready\s*{[^}]*border-color:\s*var\(--surface-thread-status-ready-border\);[^}]*background:\s*var\(--surface-thread-status-ready-bg\);/s);
     expect(threadStyles).toMatch(/\.thread-status-card\.is-accent\s*{[^}]*border-color:\s*var\(--surface-thread-status-accent-border\);[^}]*box-shadow:\s*var\(--shadow-thread-status-accent\),\s*var\(--surface-card-shadow\);/s);
     expect(threadStyles).toMatch(/\.sticky-action-bar\s*{[^}]*background:\s*var\(--surface-card-bg-subtle\);/s);
+    expect(threadStyles).toMatch(/\.cleanup-toolbar \.search-input,\s*\.cleanup-toolbar \.filter-select\s*{[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;/s);
     expect(threadStyles).toMatch(/\.provider-result-card\s*{[^}]*background:\s*var\(--surface-panel-subtle\);/s);
     expect(threadStyles).toMatch(/\.provider-result-card-export\s*{[^}]*border-color:\s*var\(--surface-workspace-active-border\);[^}]*background:\s*var\(--surface-provider-result-export\);/s);
     expect(threadStyles).toMatch(/\.provider-result-card code\s*{[^}]*background:\s*var\(--surface-provider-result-code\);/s);

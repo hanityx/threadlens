@@ -109,13 +109,13 @@ describe("providers token migration", () => {
     expect(providerStyles).toMatch(/\.ai-hub-card\.is-optional\s*{[^}]*background:\s*var\(--surface-panel-subtle-balanced\);/s);
     expect(providerStyles).toMatch(/\.ai-focus-metric\s*{[^}]*background:\s*var\(--surface-panel-subtle-soft\);/s);
     expect(providerStyles).toMatch(/\.ai-pillar\s*{[^}]*background:\s*var\(--surface-panel-subtle-mid\);/s);
-    expect(providerStyles).toMatch(/\.provider-session-stage\s*{[^}]*background:\s*var\(--surface-stage-subtle\);/s);
+    expect(providerStyles).toMatch(/\.provider-session-stage\s*{[^}]*background:\s*var\(--surface-card-bg-subtle\);/s);
     expect(providerStyles).toMatch(/\.provider-table-wrap\s*{[^}]*border-top:\s*1px solid var\(--surface-divider-subtle\);/s);
     expect(providerStyles).toMatch(/\.provider-session-table thead th\s*{[^}]*background:\s*var\(--surface-session-table-head\);[^}]*border-bottom:\s*1px solid var\(--surface-border-subtle\);/s);
     expect(providerStyles).toMatch(/\.provider-session-table tbody tr:nth-child\(even\) td\s*{[^}]*background:\s*var\(--surface-session-row-alt\);/s);
     expect(providerStyles).toMatch(/\.provider-session-table tbody tr:hover td\s*{[^}]*background:\s*var\(--surface-session-row-hover\);/s);
     expect(providerStyles).toMatch(/\.sessions-control-strip\s*{[^}]*border-top:\s*1px solid var\(--surface-divider-strong\);/s);
-    expect(providerStyles).toMatch(/\.session-detail-empty-state\s*{[^}]*background:\s*var\(--surface-stage-subtle\);/s);
+    expect(providerStyles).toMatch(/\.session-detail-empty-state\s*{[^}]*background:\s*var\(--surface-card-bg-subtle\);/s);
     expect(providerStyles).toMatch(/\.danger-zone\s*{[^}]*border:\s*1px solid var\(--surface-danger-panel-border\);[^}]*background:\s*var\(--surface-danger-panel-bg\);/s);
     expect(providerStyles).toMatch(/\.hotspot-card\s*{[^}]*background:\s*var\(--surface-elevated-subtle-max\);/s);
     expect(providerStyles).toMatch(/\.provider-flow-card\s*{[^}]*background:\s*var\(--surface-elevated-subtle-alt\);/s);
@@ -139,8 +139,8 @@ describe("providers token migration", () => {
     expect(providerStyles).toMatch(/\.data-source-card\.is-missing\s*{[^}]*border-color:\s*var\(--state-muted-border-soft\);/s);
     expect(providerStyles).toMatch(/\.provider-tab\.is-slow\s*{[^}]*background:\s*var\(--surface-tab-warn\);/s);
     expect(providerStyles).toMatch(/\.table-wrap\s*{[^}]*background:\s*var\(--surface-table-wrap\);/s);
-    expect(providerStyles).toMatch(/\.threads-table-panel\s*{[^}]*background:\s*var\(--surface-stage-soft\);/s);
-    expect(providerStyles).toMatch(/\.threads-table-panel > \.panel-header\s*{[^}]*border-bottom:\s*1px solid var\(--surface-divider-faint\);[^}]*background:\s*var\(--surface-review-panel-header\);/s);
+    expect(providerStyles).toMatch(/\.threads-table-panel\s*{[^}]*background:\s*var\(--surface-card-bg-subtle\);/s);
+    expect(providerStyles).toMatch(/\.threads-table-panel > \.panel-header\s*{[^}]*border-bottom:\s*1px solid var\(--surface-divider-faint\);[^}]*background:\s*var\(--surface-card-bg-strong\);/s);
     expect(providerStyles).toMatch(/\.threads-table-panel \.sub-toolbar\s*{[^}]*background:\s*var\(--surface-table-toolbar\);[^}]*border-bottom:\s*1px solid var\(--surface-divider-faint\);/s);
     expect(providerStyles).toMatch(/th,\s*td\s*{[^}]*border-bottom:\s*1px solid var\(--surface-divider-faint\);/s);
     expect(providerStyles).toMatch(/th\s*{[^}]*background:\s*var\(--surface-table-head\);/s);

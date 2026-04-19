@@ -859,7 +859,7 @@
   overflow: hidden;
   border: 1px solid var(--surface-stage-border);
   border-radius: var(--radius-modal);
-  background: var(--surface-stage-subtle);
+  background: var(--surface-card-bg-subtle);
   box-shadow: var(--surface-stage-shadow);
   backdrop-filter: blur(var(--blur-lg));
 }
@@ -867,7 +867,7 @@
 .provider-session-stage > .panel-header {
   padding: 15px 18px 13px;
   border-bottom: 1px solid var(--surface-divider-faint);
-  background: var(--surface-review-panel-header);
+  background: var(--surface-card-bg-strong);
 }
 
 .provider-session-stage .sub-toolbar {
@@ -1367,7 +1367,7 @@
   padding: 16px;
   border: 1px solid var(--surface-stage-border);
   border-radius: var(--radius-shell-lg);
-  background: var(--surface-stage-subtle);
+  background: var(--surface-card-bg-subtle);
   box-shadow: var(--surface-stage-shadow);
 }
 
@@ -1762,7 +1762,7 @@
   min-height: 100%;
   border: 1px solid var(--surface-stage-border);
   border-radius: var(--radius-shell-lg);
-  background: var(--surface-stage-soft);
+  background: var(--surface-card-bg-subtle);
   box-shadow: var(--surface-stage-shadow);
   overflow: hidden;
 }
@@ -1782,13 +1782,13 @@
 .threads-table-panel > .panel-header {
   padding: 15px 18px 13px;
   border-bottom: 1px solid var(--surface-divider-faint);
-  background: var(--surface-review-panel-header);
+  background: var(--surface-card-bg-strong);
 }
 
 .provider-session-stage.threads-table-panel > .panel-header {
   padding: 15px 18px 13px;
   border-bottom: 1px solid var(--surface-divider-faint);
-  background: var(--surface-review-panel-header);
+  background: var(--surface-card-bg-strong);
 }
 
 .threads-table-panel .sub-toolbar {
