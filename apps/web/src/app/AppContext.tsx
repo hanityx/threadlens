@@ -1,10 +1,10 @@
 import { createContext, useContext, type MutableRefObject } from "react";
-import type { Locale, Messages } from "../i18n";
-import type { useAppData } from "../hooks/useAppData";
-import type { useAppShellModel } from "./appShellModel";
-import type { useAppShellBehavior } from "./appShellBehavior";
-import type { ConversationSearchHit, LayoutView, ProviderView } from "../types";
-import type { ProviderProbeFilter } from "../features/providers/sessionTableModel";
+import type { Locale, Messages } from "@/i18n";
+import type { useAppData } from "@/app/hooks/useAppData";
+import type { useAppShellModel } from "@/app/model/appShellModel";
+import type { useAppShellBehavior } from "@/app/model/appShellBehavior";
+import type { ConversationSearchHit, LayoutView, ProviderView } from "@/shared/types";
+import type { ProviderProbeFilter } from "@/features/providers/model/sessionTableModel";
 
 type RuntimeBackend = { reachable?: boolean; latency_ms?: number | null; url?: string };
 

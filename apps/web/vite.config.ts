@@ -5,6 +5,7 @@ export default defineConfig(({ command }) => ({
   base: command === "build" ? "./" : "/",
   resolve: {
     alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
       "@threadlens/shared-contracts": fileURLToPath(
         new URL("../../packages/shared-contracts/src/index.ts", import.meta.url),
       ),

@@ -1,4 +1,4 @@
-import type { DeepStringMap } from "./types";
+import type { DeepStringMap } from "@/i18n/types";
 
 // Keep product names and core workflow terms in English.
 // Use neutral UI tone in every locale. Avoid casual or conversational speech.

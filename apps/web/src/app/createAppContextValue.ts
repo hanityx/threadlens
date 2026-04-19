@@ -1,7 +1,7 @@
-import type { AppContextValue, AppLocalState } from "./AppContext";
-import type { useAppData } from "../hooks/useAppData";
-import type { useAppShellModel } from "./appShellModel";
-import type { useAppShellBehavior } from "./appShellBehavior";
+import type { AppContextValue, AppLocalState } from "@/app/AppContext";
+import type { useAppData } from "@/app/hooks/useAppData";
+import type { useAppShellModel } from "@/app/model/appShellModel";
+import type { useAppShellBehavior } from "@/app/model/appShellBehavior";
 
 type AppShellDerivedState = Pick<
   ReturnType<typeof useAppShellModel>,

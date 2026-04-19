@@ -1,6 +1,6 @@
-import { SUPPORTED_LOCALES, type Locale } from "./types";
+import { SUPPORTED_LOCALES, type Locale } from "@/i18n/types";
 
-export { SUPPORTED_LOCALES } from "./types";
+export { SUPPORTED_LOCALES } from "@/i18n/types";
 
 export const LOCALE_LABELS: Record<Locale, string> = {
   en: "English",
