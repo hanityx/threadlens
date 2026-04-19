@@ -76,11 +76,6 @@ export function SessionDetail(props: SessionDetailProps) {
               provider={activeSession.provider}
               sourceLabel={model.sourceLabel}
               sessionFileName={model.sessionFileName}
-              sessionDisplayFileName={model.sessionDisplayFileName}
-              showFullSessionFileName={model.showFullSessionFileName}
-              onToggleFullSessionFileName={() =>
-                model.setShowFullSessionFileName((value) => !value)
-              }
             />
             <SessionActionSection
               messages={messages}

@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import type { Messages } from "@/i18n";
 import { Button } from "@/shared/ui/components/Button";
 import { PanelHeader } from "@/shared/ui/components/PanelHeader";
@@ -6,19 +5,6 @@ import type { ConversationSearchHit, ThreadRow, ThreadForensicsEnvelope } from "
 import { TranscriptLog } from "@/shared/ui/components/TranscriptLog";
 import type { TranscriptPayload } from "@/shared/types";
 import { formatDateTime, formatWorkspaceLabel } from "@/shared/lib/format";
-
-function formatArtifactKindLabel(kind: string) {
-  if (kind === "session-log") return "session log";
-  if (kind === "archived-session-log") return "archived log";
-  return kind.replace(/-/g, " ");
-}
-
-function compactArtifactPath(path: string) {
-  const normalized = String(path || "").trim();
-  if (!normalized) return "";
-  const parts = normalized.split("/").filter(Boolean);
-  return parts.at(-1) ?? normalized;
-}
 
 function localizeThreadSource(messages: Messages, value?: string | null) {
   const normalized = String(value ?? "").trim();
@@ -96,7 +82,6 @@ export function ThreadDetail(props: ThreadDetailProps) {
   const disabledReason = threadActionsDisabled
     ? messages.threadDetail.backendDownHint
     : undefined;
-  const [showFullId, setShowFullId] = useState(false);
   const normalizeDisplayValue = (value?: string | null) => {
     const trimmed = String(value ?? "").trim();
     if (!trimmed) return "";
@@ -151,19 +136,6 @@ export function ThreadDetail(props: ThreadDetailProps) {
     hasFocusedThread && !selectedThread
       ? messages.threadDetail.fallbackHint
       : "";
-  const artifactCount = Number(selectedThreadDetail?.artifact_count ?? 0);
-  const artifactKindSummary = Object.entries(selectedThreadDetail?.artifact_count_by_kind ?? {})
-    .map(([kind, count]) => `${formatArtifactKindLabel(kind)} ${count}`)
-    .slice(0, 3);
-  const artifactPathPreview = (selectedThreadDetail?.artifact_paths_preview ?? [])
-    .map(compactArtifactPath)
-    .filter(Boolean)
-    .slice(0, 3);
-  const compactThreadId =
-    selectedThreadId.length > 13
-      ? `${selectedThreadId.slice(0, 8)}…${selectedThreadId.slice(-4)}`
-      : selectedThreadId;
-  const displayedThreadId = showFullId ? selectedThreadId : compactThreadId;
   const transcriptTimestamps = (threadTranscriptData?.messages ?? [])
     .map((message) => String(message.ts ?? "").trim())
     .filter(Boolean)
@@ -179,10 +151,6 @@ export function ThreadDetail(props: ThreadDetailProps) {
     (transcriptTimestamps.length > 0
       ? new Date(transcriptTimestamps[transcriptTimestamps.length - 1]).toISOString()
       : "");
-  useEffect(() => {
-    setShowFullId(false);
-  }, [selectedThreadId]);
-
   return (
     <section className="panel thread-review-panel">
       <PanelHeader title={messages.threadDetail.title} subtitle={headerSubtitle} />
@@ -210,10 +178,6 @@ export function ThreadDetail(props: ThreadDetailProps) {
                 <p>{nextThreadSource || messages.threadDetail.emptyNextDefaultBody}</p>
               </div>
             )}
-            <p className="thread-detail-empty-opens">
-              <span className="overview-note-label">{messages.threadDetail.emptyOpensHereLabel}</span>
-              {messages.threadDetail.emptyOpensHereBody}
-            </p>
           </div>
         ) : !hasFocusedThread ? (
           <div className="thread-detail-empty-state">
@@ -232,10 +196,6 @@ export function ThreadDetail(props: ThreadDetailProps) {
                 <p>{firstSelectedThreadId}</p>
               </button>
             ) : null}
-            <p className="thread-detail-empty-opens">
-              <span className="overview-note-label">{messages.threadDetail.selectionBulkActionsLabel}</span>
-              {messages.threadDetail.selectionBulkActionsBody}
-            </p>
           </div>
         ) : (
           <>
@@ -245,15 +205,9 @@ export function ThreadDetail(props: ThreadDetailProps) {
               </div>
               <div className="detail-hero-pills" aria-label="thread detail summary">
                 {selectedThreadId ? (
-                  <button
-                    type="button"
-                    className={`detail-hero-pill detail-hero-pill-button ${showFullId ? "is-expanded" : ""}`.trim()}
-                    aria-expanded={showFullId}
-                    title={selectedThreadId}
-                    onClick={() => setShowFullId((value) => !value)}
-                  >
-                    {displayedThreadId}
-                  </button>
+                  <span className="detail-hero-pill detail-hero-pill-value" title={selectedThreadId}>
+                    {selectedThreadId}
+                  </span>
                 ) : null}
                 <span className="detail-hero-pill">
                   {resolvedRiskScore}
@@ -333,31 +287,6 @@ export function ThreadDetail(props: ThreadDetailProps) {
                   </Button>
                 </div>
                 {threadActionsDisabled ? <p className="sub-hint">{messages.threadDetail.backendDownHint}</p> : null}
-              </div>
-            </details>
-            <details className="detail-section">
-              <summary>{messages.threadDetail.sectionForensics}</summary>
-              <div className="detail-section-body">
-                {threadDetailLoading ? <div className="skeleton-line" /> : null}
-                {selectedThreadDetail?.summary ? <p className="sub-hint">{selectedThreadDetail.summary}</p> : null}
-                {artifactCount > 0 ? (
-                  <div className="impact-kv">
-                    <span>{messages.threadDetail.localFilesFound}</span>
-                    <strong>{messages.threadDetail.localFilesCount.replace("{count}", String(artifactCount))}</strong>
-                  </div>
-                ) : null}
-                {artifactKindSummary.length ? (
-                  <p className="thread-review-impact-note">
-                    <span>{messages.threadDetail.fileKinds}</span>
-                    {artifactKindSummary.join(" · ")}
-                  </p>
-                ) : null}
-                {artifactPathPreview.length ? (
-                  <p className="thread-review-impact-note">
-                    <span>{messages.threadDetail.filePreview}</span>
-                    {artifactPathPreview.join(" · ")}
-                  </p>
-                ) : null}
               </div>
             </details>
             <details className="detail-section detail-section-transcript" open>

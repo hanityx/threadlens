@@ -42,26 +42,6 @@ export function BackupHub(props: BackupHubProps) {
 
   return (
     <div className="provider-workspace-actions">
-      <div className="provider-workspace-actions-head">
-        <strong>{messages.providers.backupHubTitle}</strong>
-        <span className="sub-hint">
-          {messages.providers.backupHubSelected} {selectedProviderFilePathsCount} · {messages.providers.backupHubHeaderLatest} {latestBackupCount}
-        </span>
-      </div>
-      <div className="provider-workspace-backup-overview" aria-label="backup overview">
-        <article className="provider-summary-cell">
-          <span>{messages.providers.backupHubSelected}</span>
-          <strong>{selectedProviderFilePathsCount}</strong>
-        </article>
-        <article className="provider-summary-cell">
-          <span>{messages.providers.backupHubLatest}</span>
-          <strong>{latestBackupCount}</strong>
-        </article>
-        <article className="provider-summary-cell">
-          <span>{messages.providers.backupHubExported}</span>
-          <strong>{latestExportCount}</strong>
-        </article>
-      </div>
       <div className="provider-action-toolbar-inline">
         <label className="check-inline">
           <input
@@ -88,7 +68,7 @@ export function BackupHub(props: BackupHubProps) {
       </div>
       <div className="provider-inline-result is-static">
         <strong>
-          {latestBackupCount > 0 ? messages.providers.backupHubLatest : messages.providers.deleteWithBackup}
+          {messages.providers.backupHubSelected} {selectedProviderFilePathsCount} · {messages.providers.backupHubLatest} {latestBackupCount} · {messages.providers.backupHubExported} {latestExportCount}
         </strong>
         <span>{latestBackupCount > 0 ? latestBackupPath : backupFlowHint}</span>
       </div>

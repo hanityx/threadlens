@@ -4,9 +4,6 @@ export function SessionHero(props: {
   provider: string;
   sourceLabel: string;
   sessionFileName: string;
-  sessionDisplayFileName: string;
-  showFullSessionFileName: boolean;
-  onToggleFullSessionFileName: () => void;
 }) {
   const {
     sessionDisplayTitle,
@@ -14,9 +11,6 @@ export function SessionHero(props: {
     provider,
     sourceLabel,
     sessionFileName,
-    sessionDisplayFileName,
-    showFullSessionFileName,
-    onToggleFullSessionFileName,
   } = props;
 
   return (
@@ -29,15 +23,9 @@ export function SessionHero(props: {
         <span className="detail-hero-pill">{provider}</span>
         {sourceLabel ? <span className="detail-hero-pill">{sourceLabel}</span> : null}
         {sessionFileName ? (
-          <button
-            type="button"
-            className={`detail-hero-pill detail-hero-pill-button ${showFullSessionFileName ? "is-expanded" : ""}`.trim()}
-            aria-expanded={showFullSessionFileName}
-            title={sessionFileName}
-            onClick={onToggleFullSessionFileName}
-          >
-            {sessionDisplayFileName}
-          </button>
+          <span className="detail-hero-pill detail-hero-pill-value" title={sessionFileName}>
+            {sessionFileName}
+          </span>
         ) : null}
       </div>
     </section>
