@@ -1,5 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const { existsSync } = require("node:fs");
+const path = require("node:path");
 
 const pkg = require("./package.json");
 
@@ -20,4 +22,8 @@ test("desktop package defines cross-platform artifact scripts and targets", () =
   assert.deepEqual(pkg.build.linux.target, ["AppImage"]);
   assert(pkg.build.files.includes("main/**/*"));
   assert(pkg.build.files.includes("ipc-validation.cjs"));
+  assert(
+    existsSync(path.join(__dirname, "scripts", "smoke-packaged.cjs")),
+    "smoke-packaged.cjs should exist for CI packaged smoke",
+  );
 });
