@@ -4,8 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 import { AppContext, type AppContextValue } from "@/app/AppContext";
 import { getMessages, type Locale } from "@/i18n";
 import { OverviewWorkbench } from "@/features/overview/components/OverviewWorkbench";
+import type { ProviderSessionRow } from "@/shared/types";
 
-function renderOverview(locale: Locale) {
+function renderOverview(locale: Locale, overrides?: Partial<AppContextValue>) {
   const messages = getMessages(locale);
   const ctx = {
     setupGuideOpen: false,
@@ -58,6 +59,7 @@ function renderOverview(locale: Locale) {
     locale,
     setLocale: vi.fn(),
     messages,
+    ...overrides,
   } as unknown as AppContextValue;
 
   const queryClient = new QueryClient();
@@ -138,5 +140,63 @@ describe("OverviewWorkbench", () => {
     expect(html).toContain("fail");
     expect(html).not.toContain("preparardy");
     expect(html).not.toContain("falharil");
+  });
+
+  it("renders immediate recent-session dot status copy in the markup", () => {
+    const row: ProviderSessionRow = {
+      provider: "codex",
+      source: "session",
+      session_id: "session-1",
+      display_title: "Recent session",
+      file_path: "/tmp/recent.jsonl",
+      size_bytes: 42 * 1024 * 1024,
+      mtime: new Date().toISOString(),
+      probe: {
+        ok: true,
+        format: "jsonl",
+        error: null,
+        detected_title: "Recent session",
+        title_source: "detected",
+      },
+    };
+    const messages = getMessages("ko");
+    const html = renderOverview("ko", {
+      providerView: "codex",
+      recentSessionPreview: [row],
+      visibleProviderSessionRows: [row],
+      allProviderSessionRows: [row],
+      providers: [
+        {
+          provider: "codex",
+          name: "Codex",
+          status: "active",
+          capability_level: "full",
+          capabilities: {
+            read_sessions: true,
+            analyze_context: true,
+            safe_cleanup: true,
+            hard_delete: true,
+          },
+        },
+      ],
+      visibleProviders: [
+        {
+          provider: "codex",
+          name: "Codex",
+          status: "active",
+          capability_level: "full",
+          capabilities: {
+            read_sessions: true,
+            analyze_context: true,
+            safe_cleanup: true,
+            hard_delete: true,
+          },
+        },
+      ],
+    } as Partial<AppContextValue>);
+    expect(html).toContain("overview-side-item-dot-tooltip");
+    expect(html).toContain(messages.overview.dotReadableSession);
+    expect(html).toContain(messages.overview.dotFreshLast24Hours);
+    expect(html).toContain("세션 크기 큼 42MB");
   });
 });

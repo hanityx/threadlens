@@ -97,7 +97,7 @@ describe("overview token migration", () => {
     expect(overviewStyles).toMatch(/\.overview-side-head-icon\s*{[^}]*color:\s*var\(--text-overview-side-icon\);/s);
     expect(overviewStyles).toMatch(/\.overview-side-item-history\s*{[^}]*background:\s*var\(--surface-overview-history-item-bg\);[^}]*border-color:\s*var\(--surface-overview-history-item-border\);/s);
     expect(overviewStyles).toMatch(/\.overview-side-item-history:hover,\s*\.overview-side-item-history:focus-visible\s*{[^}]*background:\s*var\(--surface-overview-history-item-hover-bg\);/s);
-    expect(overviewStyles).toMatch(/\.overview-side-item-dots span\s*{[^}]*background:\s*var\(--surface-overview-muted-dot\);/s);
+    expect(overviewStyles).toMatch(/\.overview-side-item-dot > span:first-child\s*{[^}]*background:\s*var\(--surface-overview-muted-dot\);/s);
     expect(overviewStyles).toMatch(/\.overview-side-status-item\s*{[^}]*background:\s*var\(--surface-card-bg-ghost\);/s);
     expect(overviewStyles).toMatch(/\.overview-demo-step\s*{[^}]*border:\s*1px solid var\(--surface-overview-demo-border\);[^}]*background:\s*var\(--surface-overview-demo-bg\);/s);
     expect(overviewStyles).toMatch(/\.overview-demo-step::before\s*{[^}]*box-shadow:\s*var\(--shadow-overview-demo-step\);/s);
