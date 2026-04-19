@@ -46,11 +46,48 @@ jobs:
         with:
           version: 10.4.1
 
+      - name: Disable accidental macOS auto-signing when no signing identity is configured
+        if: matrix.os == 'macos-latest'
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_NAME: ${{ secrets.CSC_NAME }}
+        run: |
+          if [ -n "${CSC_NAME}" ]; then
+            exit 0
+          fi
+
+          if [ -z "${CSC_LINK}" ] || [ -z "${CSC_KEY_PASSWORD}" ]; then
+            echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> "$GITHUB_ENV"
+          fi
+
       - name: Install deps
         run: pnpm install --frozen-lockfile
 
+      - name: Install xvfb
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
       - name: Build desktop release artifacts
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_NAME: ${{ secrets.CSC_NAME }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_KEYCHAIN: ${{ secrets.APPLE_KEYCHAIN }}
+          APPLE_KEYCHAIN_PROFILE: ${{ secrets.APPLE_KEYCHAIN_PROFILE }}
         run: ${{ matrix.command }}
+
+      - name: Smoke packaged desktop
+        if: matrix.os == 'ubuntu-latest'
+        run: pnpm --filter @threadlens/desktop-electron smoke:packaged
 
       - name: Upload desktop release artifacts
         uses: actions/upload-artifact@v4
@@ -68,6 +105,14 @@ jobs:
     needs: build-desktop
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
       - name: Download desktop artifacts
         uses: actions/download-artifact@v5
         with:
@@ -75,6 +120,20 @@ jobs:
 
       - name: Collect release assets
         shell: bash
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_NAME: ${{ secrets.CSC_NAME }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_KEYCHAIN: ${{ secrets.APPLE_KEYCHAIN }}
+          APPLE_KEYCHAIN_PROFILE: ${{ secrets.APPLE_KEYCHAIN_PROFILE }}
         run: |
           set -euo pipefail
 
@@ -102,16 +161,7 @@ jobs:
             cd release-assets
             shasum -a 256 * > "ThreadLens-${VERSION}-SHA256SUMS.txt"
           )
-
-          cat > "release-assets/ThreadLens-${VERSION}-unsigned-install-notes.md" <<EOF
-          # Unsigned desktop build notes
-
-          These builds are unsigned.
-
-          - macOS: open the app from Finder with Control-click -> Open on the first launch.
-          - Windows: use More info -> Run anyway if SmartScreen appears.
-          - Linux: run \`chmod +x ThreadLens-*.AppImage\` before launching the AppImage.
-          EOF
+          node tools/generate-desktop-trust-notes.mjs --version "${VERSION}" --out release-assets
 
       - name: Create or update GitHub release
         env:

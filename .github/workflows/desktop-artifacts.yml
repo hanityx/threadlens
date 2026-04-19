@@ -36,6 +36,10 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile
 
+      - name: Install xvfb
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
       - name: Build desktop artifacts
         shell: bash
         run: |
@@ -50,6 +54,10 @@ jobs:
               pnpm package:desktop:linux
               ;;
           esac
+
+      - name: Smoke packaged desktop
+        if: matrix.os == 'ubuntu-latest'
+        run: pnpm --filter @threadlens/desktop-electron smoke:packaged
 
       - name: Upload desktop artifacts
         uses: actions/upload-artifact@v7
