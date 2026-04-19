@@ -97,23 +97,9 @@ export type SearchPanelProps = {
   onQueryDraftChange?: (query: string) => void;
 };
 
-function compactSessionId(sessionId?: string | null): string {
-  if (!sessionId) return "session";
-  if (sessionId.length <= 18) return sessionId;
-  return `${sessionId.slice(0, 8)}…${sessionId.slice(-4)}`;
-}
-
-function compactSourceLabel(source?: string | null): string {
+function formatSourceLabel(source?: string | null): string {
   if (!source) return "source";
-  const normalized = source.replace(/\\/g, "/");
-  if (!normalized.includes("/")) {
-    return normalized.length > 28
-      ? `${normalized.slice(0, 12)}…${normalized.slice(-8)}`
-      : normalized;
-  }
-  const parts = normalized.split("/").filter(Boolean);
-  const leaf = parts.at(-1) || normalized;
-  return leaf.length > 28 ? `${leaf.slice(0, 12)}…${leaf.slice(-8)}` : leaf;
+  return source.replace(/\\/g, "/");
 }
 
 function compactProviderName(provider?: string | null): string {
@@ -729,7 +715,7 @@ export function SearchPanel({
                             <div className="search-result-top">
                               {session.openHit.session_id ? (
                                 <span className="search-result-kind search-result-session-id">
-                                  {compactSessionId(session.openHit.session_id)}
+                                  {session.openHit.session_id}
                                 </span>
                               ) : (
                                 <span className="search-result-kind">{compactProviderName(cardProviderName)}</span>
@@ -744,7 +730,7 @@ export function SearchPanel({
                               className="search-result-source"
                               title={session.source}
                             >
-                              {compactSourceLabel(session.source)}
+                              {formatSourceLabel(session.source)}
                             </span>
                             <div className="search-result-actions">
                               {session.openHit.thread_id ? (

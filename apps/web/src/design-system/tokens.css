@@ -50,6 +50,7 @@
   --btn-accent-hover-bg: rgba(35, 40, 47, 1);
   --btn-danger-bg: rgba(98, 35, 35, 0.94);
   --btn-danger-hover-bg: rgba(122, 43, 43, 0.98);
+  --btn-danger-text: #ffe4e6;
   --chat-log-bg: #0f1112;
 
   --assistant-bg: rgba(149, 174, 187, 0.05);
@@ -144,9 +145,11 @@
   --surface-kpi-warn: linear-gradient(180deg, color-mix(in srgb, var(--warn) 10%, transparent), transparent 60%), var(--surface-card-bg-subtle);
   --surface-kpi-success: linear-gradient(180deg, color-mix(in srgb, var(--success) 10%, transparent), transparent 60%), var(--surface-card-bg-subtle);
   --surface-form-field-border: color-mix(in srgb, var(--line) 70%, var(--accent) 18%);
-  --surface-form-field-bg: linear-gradient(180deg, color-mix(in srgb, var(--bg-elev) 96%, var(--glass-mid)), color-mix(in srgb, var(--panel) 94%, transparent)), linear-gradient(135deg, transparent 0 52%, color-mix(in srgb, var(--accent) 12%, transparent) 52% 100%);
-  --surface-btn-outline: color-mix(in srgb, var(--surface-pill-bg) 90%, transparent);
-  --surface-btn-outline-hover: color-mix(in srgb, var(--hover) 88%, var(--surface-pill-bg));
+  --surface-form-field-bg: var(--bg-elev);
+  --surface-btn-outline: color-mix(in srgb, var(--surface-card-bg-strong) 94%, var(--accent-dim));
+  --surface-btn-outline-hover: color-mix(in srgb, var(--surface-card-bg-strong) 84%, var(--accent-dim));
+  --surface-btn-outline-border: color-mix(in srgb, var(--surface-card-border) 68%, var(--accent) 32%);
+  --surface-btn-outline-border-hover: color-mix(in srgb, var(--surface-card-border) 44%, var(--accent) 56%);
   --surface-panel-frosted: linear-gradient(180deg, color-mix(in srgb, var(--panel-glass) 74%, var(--glass-high)), color-mix(in srgb, var(--panel) 78%, transparent)), color-mix(in srgb, var(--panel-glass) 74%, transparent);
   --surface-panel-border: color-mix(in srgb, var(--accent) 16%, var(--line));
   --surface-panel-sheen: color-mix(in srgb, white 8%, transparent);
@@ -257,7 +260,7 @@
   --text-top-search-placeholder: color-mix(in srgb, var(--muted) 86%, transparent);
   --text-top-surface-btn: color-mix(in srgb, var(--text) 72%, transparent);
   --surface-provider-select-border: color-mix(in srgb, var(--line) 68%, var(--accent) 20%);
-  --surface-provider-select-bg: linear-gradient(180deg, color-mix(in srgb, var(--bg-elev) 94%, var(--glass-low)), color-mix(in srgb, var(--panel) 96%, transparent)), linear-gradient(135deg, transparent 0 52%, color-mix(in srgb, var(--accent) 14%, transparent) 52% 100%);
+  --surface-provider-select-bg: var(--bg-elev);
   --surface-provider-select-sheen: inset 0 1px 0 color-mix(in srgb, white 7%, transparent);
   --surface-overview-window-dot-border: color-mix(in srgb, var(--surface-card-border) 84%, transparent);
   --surface-overview-window-dot-bg: color-mix(in srgb, var(--muted) 26%, transparent);
@@ -364,6 +367,7 @@
   --btn-accent-hover-bg: rgba(35, 40, 47, 1);
   --btn-danger-bg: rgba(147, 53, 53, 0.94);
   --btn-danger-hover-bg: rgba(124, 36, 36, 0.98);
+  --btn-danger-text: #ffe4e6;
   --chat-log-bg: #f8f9fb;
   --assistant-bg: rgba(73, 97, 119, 0.05);
   --assistant-border: rgba(73, 97, 119, 0.14);
@@ -405,6 +409,10 @@
   --surface-pill-bg: rgba(241, 244, 247, 0.9);
   --surface-pill-border: rgba(170, 179, 185, 0.16);
   --surface-pill-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  --surface-btn-outline: color-mix(in srgb, var(--panel) 92%, var(--accent-dim));
+  --surface-btn-outline-hover: color-mix(in srgb, var(--panel) 82%, var(--accent-dim));
+  --surface-btn-outline-border: color-mix(in srgb, var(--line) 72%, var(--accent) 28%);
+  --surface-btn-outline-border-hover: color-mix(in srgb, var(--line) 56%, var(--accent) 44%);
   --surface-active-bg: #181c21;
   --surface-active-text: #f3f6f8;
   --surface-active-border: transparent;

@@ -1,5 +1,7 @@
+import type { FocusEventHandler, MouseEventHandler } from "react";
 import { useAppContext } from "./AppContext";
 import { Button } from "../design-system/Button";
+import { SegmentedNav, type SegmentedNavItem } from "../design-system/SegmentedNav";
 import { LocalePicker } from "./LocalePicker";
 
 export function TopShell() {
@@ -23,47 +25,50 @@ export function TopShell() {
     messages,
   } = useAppContext();
 
+  const navItems: SegmentedNavItem[] = [
+    {
+      id: "overview",
+      label: messages.nav.overview,
+      onMouseDown: ((event) => event.preventDefault()) as MouseEventHandler<HTMLButtonElement>,
+    },
+    {
+      id: "search",
+      label: messages.nav.search,
+      onMouseDown: ((event) => event.preventDefault()) as MouseEventHandler<HTMLButtonElement>,
+      onMouseEnter: handleSearchIntent as MouseEventHandler<HTMLButtonElement>,
+      onFocus: handleSearchIntent as FocusEventHandler<HTMLButtonElement>,
+    },
+    {
+      id: "threads",
+      label: messages.nav.threads,
+      onMouseDown: ((event) => event.preventDefault()) as MouseEventHandler<HTMLButtonElement>,
+    },
+    {
+      id: "providers",
+      label: messages.nav.providers,
+      onMouseDown: ((event) => event.preventDefault()) as MouseEventHandler<HTMLButtonElement>,
+      onMouseEnter: handleProvidersIntent as MouseEventHandler<HTMLButtonElement>,
+      onFocus: handleProvidersIntent as FocusEventHandler<HTMLButtonElement>,
+    },
+  ];
+
+  const handleSelectNav = (id: string) => {
+    if (id === "overview" || id === "search" || id === "threads") {
+      changeLayoutView(id);
+      return;
+    }
+    openProvidersHome();
+  };
+
   return (
     <section className="top-actions">
       <div className="top-actions-main">
-        <nav className="top-surface-nav" aria-label={messages.nav.surfaceTabs}>
-          <button
-            type="button"
-            className={`top-surface-btn ${layoutView === "overview" ? "is-active" : ""}`}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => changeLayoutView("overview")}
-          >
-            {messages.nav.overview}
-          </button>
-          <button
-            type="button"
-            className={`top-surface-btn ${layoutView === "search" ? "is-active" : ""}`}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => changeLayoutView("search")}
-            onMouseEnter={handleSearchIntent}
-            onFocus={handleSearchIntent}
-          >
-            {messages.nav.search}
-          </button>
-          <button
-            type="button"
-            className={`top-surface-btn ${layoutView === "threads" ? "is-active" : ""}`}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => changeLayoutView("threads")}
-          >
-            {messages.nav.threads}
-          </button>
-          <button
-            type="button"
-            className={`top-surface-btn ${layoutView === "providers" ? "is-active" : ""}`}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={openProvidersHome}
-            onMouseEnter={handleProvidersIntent}
-            onFocus={handleProvidersIntent}
-          >
-            {messages.nav.providers}
-          </button>
-        </nav>
+        <SegmentedNav
+          items={navItems}
+          activeId={layoutView}
+          onSelect={handleSelectNav}
+          ariaLabel={messages.nav.surfaceTabs}
+        />
       </div>
       <div className="top-actions-tools">
         <form

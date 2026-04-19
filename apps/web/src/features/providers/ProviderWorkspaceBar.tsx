@@ -1,4 +1,5 @@
 import type { Messages } from "../../i18n";
+import { Chip } from "../../design-system/Chip";
 import type { ProviderView } from "../../types";
 
 type ProviderChipTab = {
@@ -75,22 +76,17 @@ export function ProviderWorkspaceBar({
       </div>
 
       <div className="ai-management-focusbar">
-        <button
-          type="button"
-          className={`provider-chip ${providerView === "all" ? "is-active" : ""}`.trim()}
-          onClick={() => onSelectProviderView("all")}
-        >
+        <Chip active={providerView === "all"} onClick={() => onSelectProviderView("all")}>
           {messages.common.allAi}
-        </button>
+        </Chip>
         {allTabs.map((tab) => (
-          <button
+          <Chip
             key={`provider-chip-${tab.id}`}
-            type="button"
-            className={`provider-chip ${providerView === tab.id ? "is-active" : ""}`.trim()}
+            active={providerView === tab.id}
             onClick={() => onSelectProviderView(tab.id)}
           >
             {tab.name}
-          </button>
+          </Chip>
         ))}
       </div>
 
