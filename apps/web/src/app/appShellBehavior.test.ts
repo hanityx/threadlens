@@ -267,6 +267,57 @@ describe("desktop route helpers", () => {
         routeHydrating: false,
       }),
     ).toBe(false);
+
+    expect(
+      shouldDeferDesktopRouteSync({
+        currentRoute: {
+          view: "providers",
+          provider: "codex",
+          filePath: "",
+          threadId: "",
+        },
+        layoutView: "providers",
+        providerView: "all",
+        selectedSessionPath: "",
+        selectedThreadId: "",
+        routeHydrating: false,
+        visibleProviderTabs: [{ id: "all" }, { id: "claude" }],
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldDeferDesktopRouteSync({
+        currentRoute: {
+          view: "providers",
+          provider: "codex",
+          filePath: "",
+          threadId: "",
+        },
+        layoutView: "providers",
+        providerView: "all",
+        selectedSessionPath: "",
+        selectedThreadId: "",
+        routeHydrating: false,
+        visibleProviderTabs: [{ id: "all" }],
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldDeferDesktopRouteSync({
+        currentRoute: {
+          view: "providers",
+          provider: "copilot",
+          filePath: "",
+          threadId: "",
+        },
+        layoutView: "providers",
+        providerView: "all",
+        selectedSessionPath: "",
+        selectedThreadId: "",
+        routeHydrating: false,
+        visibleProviderTabs: [{ id: "all" }, { id: "copilot" }],
+      }),
+    ).toBe(true);
   });
 
   it("defers provider fallback while a provider detail deep-link is still hydrating", () => {

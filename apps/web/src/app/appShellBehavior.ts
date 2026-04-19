@@ -1,9 +1,10 @@
 import { startTransition, useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { PROVIDER_IDS } from "@threadlens/shared-contracts";
 import type { ConversationSearchHit, LayoutView, ProviderSessionRow, ProviderView, ThreadRow } from "../types";
 import { normalizeDesktopRouteFilePath } from "./desktopRoute";
 
 const VALID_LAYOUT_VIEWS = new Set<LayoutView>(["overview", "search", "providers", "threads"]);
-const VALID_PROVIDER_VIEWS = new Set(["all", "codex", "claude", "gemini", "copilot", "chatgpt"]);
+const VALID_PROVIDER_VIEWS = new Set<ProviderView>(["all", ...PROVIDER_IDS]);
 
 const preloadProvidersPanel = () => {
   void import("../features/providers/ProvidersPanel");
@@ -168,6 +169,7 @@ export function shouldDeferDesktopRouteSync(options: {
   selectedSessionPath: string;
   selectedThreadId: string;
   routeHydrating?: boolean;
+  visibleProviderTabs?: ProviderTab[];
 }): boolean {
   if (options.routeHydrating) {
     if (options.currentRoute.view === "providers") {
@@ -192,6 +194,21 @@ export function shouldDeferDesktopRouteSync(options: {
       if (!threadReady) {
         return true;
       }
+    }
+  }
+
+  if (
+    options.currentRoute.view === "providers" &&
+    options.layoutView === "providers" &&
+    options.currentRoute.provider &&
+    options.currentRoute.provider !== "all" &&
+    !options.selectedSessionPath &&
+    options.providerView === "all"
+  ) {
+    const nonAllVisibleTabs = (options.visibleProviderTabs ?? []).filter((tab) => tab.id !== "all");
+    if (nonAllVisibleTabs.length === 0) return true;
+    if (nonAllVisibleTabs.some((tab) => tab.id === options.currentRoute.provider)) {
+      return true;
     }
   }
 
@@ -408,6 +425,7 @@ export function useAppShellBehavior(options: {
         selectedSessionPath: options.selectedSessionPath,
         selectedThreadId: options.selectedThreadId,
         routeHydrating: options.desktopRouteHydratingRef.current,
+        visibleProviderTabs: options.visibleProviderTabs,
       })
     ) {
       options.desktopRouteRef.current = currentRoute;
