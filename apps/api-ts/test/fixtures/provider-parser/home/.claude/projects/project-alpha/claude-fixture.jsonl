@@ -1,0 +1,2 @@
+{"type":"user","message":{"role":"user","content":"Claude fallback title"},"sessionId":"claude-fixture"}
+{"type":"custom-title","customTitle":"Claude fixture renamed title","sessionId":"claude-fixture"}
