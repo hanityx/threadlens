@@ -14,7 +14,8 @@
     "dist:mac": "pnpm run build && electron-builder --mac zip",
     "dist:win": "pnpm run build && electron-builder --win portable",
     "dist:linux": "pnpm run build && electron-builder --linux AppImage",
-    "test": "node --test main-menu.test.cjs package-config.test.cjs",
+    "smoke:packaged": "node scripts/smoke-packaged.cjs",
+    "test": "node --test main-menu.test.cjs ipc-validation.test.cjs package-config.test.cjs",
     "lint": "node --check main.cjs && node --check main-menu.cjs && node --check preload.cjs"
   },
   "devDependencies": {
@@ -31,6 +32,7 @@
     "files": [
       "main.cjs",
       "main-menu.cjs",
+      "ipc-validation.cjs",
       "preload.cjs",
       "app/**/*",
       "package.json"
