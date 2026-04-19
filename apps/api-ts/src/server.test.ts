@@ -423,6 +423,12 @@ describe("api-ts direct endpoints", () => {
     expect(root.ok).toBe(true);
     expect(root.dry_run).toBe(true);
     expect(typeof root.confirm_token_expected).toBe("string");
+    expect(typeof root.selection_fingerprint).toBe("string");
+    expect(root.failure_summary).toMatchObject({
+      skipped_count: expect.any(Number),
+      failed_count: 0,
+      partial_failure: false,
+    });
   });
 
   it("POST /api/provider-session-action blocks execute without token", async () => {
