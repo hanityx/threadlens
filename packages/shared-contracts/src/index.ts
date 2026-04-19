@@ -1,20 +1,153 @@
 export const SCHEMA_VERSION = "2026-02-27";
+export { createApiClient, parseApiPayload } from "./api-client.js";
 
-export const SEARCHABLE_PROVIDER_IDS = [
-  "codex",
-  "claude",
-  "gemini",
-  "copilot",
-] as const;
+export type ProviderDocsVisibility = "public" | "internal";
+export type ProviderSearchScopeVisibility = "public" | "internal" | "none";
+export type ProviderTabGroup = "core" | "optional" | "internal";
 
-export type SearchableProviderId = (typeof SEARCHABLE_PROVIDER_IDS)[number];
-
-export const SEARCHABLE_PROVIDER_LABELS: Record<SearchableProviderId, string> = {
-  codex: "Codex",
-  claude: "Claude",
-  gemini: "Gemini",
-  copilot: "Copilot",
+type ProviderCapabilityDefinition = {
+  id: string;
+  label: string;
+  docs_visibility: ProviderDocsVisibility;
+  search_scope_visibility: ProviderSearchScopeVisibility;
+  provider_tab_group: ProviderTabGroup;
+  thread_review: boolean;
+  read_sessions: boolean;
+  read_transcript: boolean;
+  analyze_context: boolean;
+  safe_cleanup: boolean;
+  hard_delete: boolean;
 };
+
+export const PROVIDER_REGISTRY = [
+  {
+    id: "codex",
+    label: "Codex",
+    docs_visibility: "public",
+    search_scope_visibility: "public",
+    provider_tab_group: "core",
+    thread_review: true,
+    read_sessions: true,
+    read_transcript: true,
+    analyze_context: true,
+    safe_cleanup: true,
+    hard_delete: true,
+  },
+  {
+    id: "chatgpt",
+    label: "ChatGPT",
+    docs_visibility: "internal",
+    search_scope_visibility: "internal",
+    provider_tab_group: "internal",
+    thread_review: false,
+    read_sessions: true,
+    read_transcript: false,
+    analyze_context: true,
+    safe_cleanup: false,
+    hard_delete: false,
+  },
+  {
+    id: "claude",
+    label: "Claude",
+    docs_visibility: "public",
+    search_scope_visibility: "public",
+    provider_tab_group: "core",
+    thread_review: false,
+    read_sessions: true,
+    read_transcript: true,
+    analyze_context: true,
+    safe_cleanup: true,
+    hard_delete: true,
+  },
+  {
+    id: "gemini",
+    label: "Gemini",
+    docs_visibility: "public",
+    search_scope_visibility: "public",
+    provider_tab_group: "core",
+    thread_review: false,
+    read_sessions: true,
+    read_transcript: true,
+    analyze_context: true,
+    safe_cleanup: true,
+    hard_delete: true,
+  },
+  {
+    id: "copilot",
+    label: "Copilot",
+    docs_visibility: "public",
+    search_scope_visibility: "public",
+    provider_tab_group: "optional",
+    thread_review: false,
+    read_sessions: true,
+    read_transcript: true,
+    analyze_context: true,
+    safe_cleanup: true,
+    hard_delete: true,
+  },
+] as const satisfies readonly ProviderCapabilityDefinition[];
+
+export type ProviderId = (typeof PROVIDER_REGISTRY)[number]["id"];
+export type ProviderCapability = (typeof PROVIDER_REGISTRY)[number];
+export type SearchableProviderId = Extract<
+  ProviderId,
+  (typeof PROVIDER_REGISTRY)[number] extends infer T
+    ? T extends { id: infer I extends string; search_scope_visibility: "public" }
+      ? I
+      : never
+    : never
+>;
+
+export const PROVIDER_IDS = Object.freeze(
+  PROVIDER_REGISTRY.map((provider) => provider.id),
+) as readonly ProviderId[];
+
+export const PROVIDER_LABELS = Object.freeze(
+  Object.fromEntries(PROVIDER_REGISTRY.map((provider) => [provider.id, provider.label])),
+) as Readonly<Record<ProviderId, string>>;
+
+export const SEARCHABLE_PROVIDER_IDS = Object.freeze(
+  PROVIDER_REGISTRY.filter((provider) => provider.search_scope_visibility === "public").map(
+    (provider) => provider.id,
+  ),
+) as readonly SearchableProviderId[];
+
+export const SEARCHABLE_PROVIDER_LABELS = Object.freeze(
+  Object.fromEntries(SEARCHABLE_PROVIDER_IDS.map((id) => [id, PROVIDER_LABELS[id]])),
+) as Readonly<Record<SearchableProviderId, string>>;
+
+export const CORE_PROVIDER_IDS = Object.freeze(
+  PROVIDER_REGISTRY.filter((provider) => provider.provider_tab_group === "core").map(
+    (provider) => provider.id,
+  ),
+) as readonly ProviderId[];
+
+export const OPTIONAL_PROVIDER_IDS = Object.freeze(
+  PROVIDER_REGISTRY.filter((provider) => provider.provider_tab_group === "optional").map(
+    (provider) => provider.id,
+  ),
+) as readonly ProviderId[];
+
+export const INTERNAL_PROVIDER_IDS = Object.freeze(
+  PROVIDER_REGISTRY.filter((provider) => provider.provider_tab_group === "internal").map(
+    (provider) => provider.id,
+  ),
+) as readonly ProviderId[];
+
+const PROVIDER_CAPABILITY_MAP = Object.freeze(
+  Object.fromEntries(PROVIDER_REGISTRY.map((provider) => [provider.id, provider])),
+) as Readonly<Record<ProviderId, ProviderCapability>>;
+
+export function getProviderCapability(providerId: ProviderId): ProviderCapability {
+  return PROVIDER_CAPABILITY_MAP[providerId];
+}
+
+export function findProviderCapability(
+  providerId: string | null | undefined,
+): ProviderCapability | undefined {
+  const normalized = String(providerId ?? "").trim().toLowerCase();
+  return PROVIDER_CAPABILITY_MAP[normalized as ProviderId];
+}
 
 export type ApiEnvelope<T> = {
   ok: boolean;

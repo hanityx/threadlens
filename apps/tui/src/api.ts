@@ -1,4 +1,4 @@
-import type { ApiEnvelope, UpdateCheckStatus } from "@threadlens/shared-contracts";
+import { createApiClient, type UpdateCheckStatus } from "@threadlens/shared-contracts";
 import type {
   AnalyzeDeleteResponse,
   CleanupPreviewResponse,
@@ -11,59 +11,14 @@ import type {
 import { DEFAULT_PROVIDER_SESSIONS_LIMIT } from "./lib/sessionFetchWindow.js";
 
 const API_BASE_URL = process.env.THREADLENS_API_URL ?? "http://127.0.0.1:8788";
+const client = createApiClient({
+  resolveBaseUrl: () => API_BASE_URL,
+  unwrapEnvelope: true,
+  errorMode: "simple",
+});
 
-async function parseEnvelope<T>(response: Response, path: string): Promise<T> {
-  let payload: unknown = null;
-  try {
-    payload = await response.json();
-  } catch {
-    throw new Error(`${path} returned invalid JSON`);
-  }
-
-  if (!response.ok) {
-    if (
-      payload &&
-      typeof payload === "object" &&
-      "error" in payload &&
-      typeof (payload as { error?: unknown }).error === "string"
-    ) {
-      throw new Error((payload as { error: string }).error);
-    }
-    throw new Error(`${path} failed with status ${response.status}`);
-  }
-
-  if (
-    payload &&
-    typeof payload === "object" &&
-    "ok" in payload &&
-    typeof (payload as { ok?: unknown }).ok === "boolean" &&
-    "data" in payload
-  ) {
-    const envelope = payload as ApiEnvelope<T>;
-    if (!envelope.ok || envelope.data == null) {
-      throw new Error(envelope.error || `${path} failed`);
-    }
-    return envelope.data;
-  }
-
-  return payload as T;
-}
-
-export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`);
-  return parseEnvelope<T>(response, path);
-}
-
-export async function apiPost<T>(path: string, body: unknown): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  return parseEnvelope<T>(response, path);
-}
+export const apiGet = client.apiGet;
+export const apiPost = client.apiPost;
 
 export function getApiBaseUrl(): string {
   return API_BASE_URL;

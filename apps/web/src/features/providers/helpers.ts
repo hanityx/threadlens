@@ -1,4 +1,7 @@
+import { CORE_PROVIDER_IDS, OPTIONAL_PROVIDER_IDS } from "@threadlens/shared-contracts";
 import type { ProviderView } from "../../types";
+
+export { CORE_PROVIDER_IDS, OPTIONAL_PROVIDER_IDS } from "@threadlens/shared-contracts";
 
 export type CsvColumnKey =
   | "provider"
@@ -65,9 +68,6 @@ export const FORENSICS_CSV_COLUMNS: Record<CsvColumnKey, boolean> = {
 };
 
 export const SLOW_THRESHOLD_OPTIONS_MS = [800, 1200, 1600, 2200, 3000];
-export const CORE_PROVIDER_IDS = ["codex", "claude", "gemini"] as const;
-export const OPTIONAL_PROVIDER_IDS = ["copilot"] as const;
-
 const PROVIDER_CSV_COLUMNS_STORAGE_KEY = "po-provider-csv-columns";
 const LEGACY_PROVIDER_CSV_COLUMNS_STORAGE_KEY = "cmc-provider-csv-columns";
 const HOME_PATH_MARKER = `/${"Users"}/`;
