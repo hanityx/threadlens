@@ -270,4 +270,46 @@ describe("ThreadsTable", () => {
     expect(html).not.toContain("清理dry-runun");
     expect(html).not.toContain("气氛");
   });
+
+  it("renders hard delete confirmation copy in Korean", () => {
+    const koMessages = getMessages("ko");
+    const html = renderToStaticMarkup(
+      <ThreadsTable
+        messages={koMessages}
+        visibleRows={rows}
+        filteredRows={rows}
+        totalCount={1}
+        threadsLoading={false}
+        threadsError={false}
+        selected={{}}
+        setSelected={vi.fn()}
+        selectedThreadId=""
+        setSelectedThreadId={vi.fn()}
+        allFilteredSelected={false}
+        toggleSelectAllFiltered={vi.fn()}
+        selectedIds={[]}
+        selectedImpactCount={0}
+        dryRunReady={false}
+        dryRunReadyIds={[]}
+        busy={false}
+        threadActionsDisabled={false}
+        bulkArchive={vi.fn()}
+        analyzeDelete={vi.fn()}
+        cleanupDryRun={vi.fn()}
+        cleanupExecute={vi.fn()}
+        onRequestHardDeleteConfirm={vi.fn()}
+        hardDeleteConfirmOpen={true}
+        hardDeleteSkipConfirmChecked={false}
+        onToggleHardDeleteSkipConfirmChecked={() => undefined}
+        onConfirmHardDelete={() => undefined}
+        onCancelHardDeleteConfirm={() => undefined}
+      />,
+    );
+
+    expect(html).toContain("Hard delete");
+    expect(html).toContain("선택한 스레드 파일을 지금 하드 삭제할까요?");
+    expect(html).toContain("앞으로 하드 삭제 확인을 다시 묻지 않기");
+    expect(html).toContain("Hard delete now");
+    expect(html).not.toContain("Do not ask again for hard delete.");
+  });
 });
