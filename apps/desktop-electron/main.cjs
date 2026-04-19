@@ -9,13 +9,21 @@ const {
   getDefaultIconCandidates,
   resolveAppIconPath,
 } = require("./main-menu.cjs");
+const {
+  parseFileActionPayload,
+  parseOpenWindowPayload,
+  resolveExistingPath,
+} = require("./ipc-validation.cjs");
 
 const isDev = Boolean(process.env.ELECTRON_RENDERER_URL);
+const isSmokeTest = process.env.THREADLENS_SMOKE_TEST === "1";
 const DESKTOP_API_START_PORT = Number(
   process.env.THREADLENS_API_PORT || process.env.API_TS_PORT || 8788,
 );
 const DESKTOP_API_HOST = "127.0.0.1";
 const DESKTOP_API_READY_TIMEOUT_MS = 12000;
+const DESKTOP_SMOKE_TIMEOUT_MS = Number(process.env.THREADLENS_SMOKE_TIMEOUT_MS || 15000);
+const DESKTOP_RENDERER_SANDBOX = false;
 let desktopApiProcess = null;
 let desktopApiBaseUrl = `http://${DESKTOP_API_HOST}:${DESKTOP_API_START_PORT}`;
 const WINDOW_TITLE_SUFFIX = typeof process.env.THREADLENS_WINDOW_TITLE_SUFFIX === "string"
@@ -42,19 +50,6 @@ function applyAppIcon(targetWindow) {
   if (targetWindow && process.platform !== "darwin") {
     targetWindow.setIcon(image);
   }
-}
-
-function resolveExistingPath(filePath) {
-  const normalized = typeof filePath === "string" ? filePath.trim() : "";
-  if (!normalized) {
-    throw new Error("File path is required.");
-  }
-
-  const resolved = path.resolve(normalized);
-  if (!fs.existsSync(resolved)) {
-    throw new Error(`File not found: ${resolved}`);
-  }
-  return resolved;
 }
 
 async function previewLocalPath(filePath) {
@@ -178,6 +173,51 @@ function stopDesktopApi() {
   desktopApiProcess.kill("SIGTERM");
 }
 
+function attachDesktopSmoke(win) {
+  let settled = false;
+  const timeoutId = setTimeout(() => {
+    if (settled) return;
+    settled = true;
+    console.error(`[desktop-smoke] timeout after ${DESKTOP_SMOKE_TIMEOUT_MS}ms`);
+    app.exit(1);
+  }, DESKTOP_SMOKE_TIMEOUT_MS);
+
+  const finish = (code, message, stream = "log") => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timeoutId);
+    console[stream](message);
+    app.exit(code);
+  };
+
+  win.webContents.once("did-fail-load", (_event, errorCode, errorDescription) => {
+    finish(
+      1,
+      `[desktop-smoke] renderer failed code=${errorCode} error=${errorDescription}`,
+      "error",
+    );
+  });
+
+  win.webContents.once("did-finish-load", async () => {
+    try {
+      const status = await requestHealth(`${desktopApiBaseUrl}/api/healthz`);
+      if (status >= 200 && status < 300) {
+        finish(0, `[desktop-smoke] ready api=${desktopApiBaseUrl} status=${status}`);
+        return;
+      }
+      finish(1, `[desktop-smoke] unexpected health status=${status}`, "error");
+    } catch (error) {
+      finish(
+        1,
+        `[desktop-smoke] health check failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        "error",
+      );
+    }
+  });
+}
+
 async function startDesktopApi() {
   if (isDev || desktopApiProcess) return;
 
@@ -236,7 +276,8 @@ function createMainWindow(route = null) {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      // Keep sandbox off until a dedicated preload-compatibility pass covers packaged flows.
+      sandbox: DESKTOP_RENDERER_SANDBOX,
     },
   });
 
@@ -297,17 +338,17 @@ function createMenu() {
 
 ipcMain.handle("threadlens:file-action", async (_event, payload) => {
   try {
-    const action = typeof payload?.action === "string" ? payload.action : "";
-    const filePath = resolveExistingPath(payload?.filePath);
+    const { action, filePath } = parseFileActionPayload(payload);
+    const resolvedPath = resolveExistingPath(filePath);
     console.log(`[desktop-electron] file-action action=${action || "unknown"} path=${filePath}`);
 
     if (action === "reveal") {
-      shell.showItemInFolder(filePath);
+      shell.showItemInFolder(resolvedPath);
       return { ok: true };
     }
 
     if (action === "open") {
-      const openError = await shell.openPath(filePath);
+      const openError = await shell.openPath(resolvedPath);
       if (openError) {
         throw new Error(openError);
       }
@@ -315,11 +356,9 @@ ipcMain.handle("threadlens:file-action", async (_event, payload) => {
     }
 
     if (action === "preview") {
-      await previewLocalPath(filePath);
+      await previewLocalPath(resolvedPath);
       return { ok: true };
     }
-
-    return { ok: false, error: `Unsupported file action: ${action || "unknown"}` };
   } catch (error) {
     return {
       ok: false,
@@ -330,12 +369,7 @@ ipcMain.handle("threadlens:file-action", async (_event, payload) => {
 
 ipcMain.handle("threadlens:open-window", async (_event, payload) => {
   try {
-    const route = {
-      view: typeof payload?.view === "string" ? payload.view : "",
-      provider: typeof payload?.provider === "string" ? payload.provider : "",
-      filePath: typeof payload?.filePath === "string" ? payload.filePath : "",
-      threadId: typeof payload?.threadId === "string" ? payload.threadId : "",
-    };
+    const route = parseOpenWindowPayload(payload);
     console.log(
       `[desktop-electron] open-window view=${route.view || "none"} provider=${route.provider || "none"} filePath=${route.filePath || "none"} threadId=${route.threadId || "none"}`,
     );
@@ -366,7 +400,10 @@ app.whenReady().then(() => {
       console.error("[desktop-api] failed to start", error);
     })
     .finally(() => {
-      createMainWindow(readInitialRoute());
+      const win = createMainWindow(readInitialRoute());
+      if (isSmokeTest) {
+        attachDesktopSmoke(win);
+      }
     });
 
   app.on("activate", () => {

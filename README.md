@@ -70,8 +70,10 @@ Optional surfaces:
 ## Desktop Build Note
 
 - Desktop packaging is available for macOS, Windows, and Linux.
-- macOS builds are unsigned local app bundles. First launch can trigger Gatekeeper. Use `Open` from the context menu once, or allow the app in `System Settings > Privacy & Security`.
-- Windows portable builds can show SmartScreen. Use `More info` -> `Run anyway` on the first launch.
+- Local packaging from this repository is unsigned by default on macOS and Windows.
+- Release assets always include `ThreadLens-<version>-SHA256SUMS.txt` and `ThreadLens-<version>-desktop-trust-notes.md`.
+- macOS signing and notarization activate only when release workflow signing secrets are configured. Otherwise the trust notes explicitly mark the macOS artifact unsigned.
+- Windows signing activates only when release workflow signing secrets are configured. Otherwise the trust notes explicitly mark the Windows artifact unsigned and SmartScreen can still appear.
 - Linux AppImage builds need `chmod +x ThreadLens-*.AppImage` before launch.
 - Packaged outputs land in `apps/desktop-electron/dist/`.
 - Desktop-specific build details live in `apps/desktop-electron/README.md`.
