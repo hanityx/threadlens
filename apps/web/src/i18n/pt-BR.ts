@@ -359,6 +359,10 @@ export const ptBR = {
     loadMoreRows: "Carregar mais sessões",
     csvExported: "Exportação CSV",
     deleteWithBackup: "Backup antes da exclusão",
+    hardDeleteConfirmTitle: "Excluir agora, de forma permanente, os arquivos de sessão selecionados?",
+    hardDeleteConfirmBody:
+      "Isso remove imediatamente os arquivos de sessão selecionados sem criar uma cópia de backup.",
+    hardDeleteConfirmSkipFuture: "Não perguntar novamente para hard delete no futuro.",
     backupSelected: "Selecione o backup da sessão",
     exportAllBackups: "Exportar backup completo",
     deleteWithBackupHint: "Mantenha uma cópia de backup antes da exclusão real..",
@@ -392,6 +396,10 @@ export const ptBR = {
     bulkArchive: "Selecione o arquivo local",
     bulkImpact: "Execute a análise de impacto",
     bulkCleanupDryRun: "Execute a limpeza dry-run",
+    hardDeleteConfirmTitle: "Excluir agora, de forma permanente, os arquivos de thread selecionados?",
+    hardDeleteConfirmBody:
+      "Isso remove imediatamente os arquivos de thread selecionados usando o token de cleanup mais recente.",
+    hardDeleteConfirmSkipFuture: "Não perguntar novamente para hard delete no futuro.",
     selectAllFiltered: "Selecione todos os itens filtrados",
     selectThreadAria: "Seleção de tópicos {title}e}",
     colTitle: "título",

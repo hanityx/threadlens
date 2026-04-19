@@ -359,6 +359,10 @@ export const zhCN = {
     loadMoreRows: "加载更多会话",
     csvExported: "CSV 导出",
     deleteWithBackup: "删除前备份",
+    hardDeleteConfirmTitle: "现在永久删除选中的会话文件吗？",
+    hardDeleteConfirmBody:
+      "这会立即删除选中的会话文件，并且不会创建备份副本。",
+    hardDeleteConfirmSkipFuture: "以后不要再询问 hard delete 确认。",
     backupSelected: "选择会话备份",
     exportAllBackups: "导出完整备份",
     deleteWithBackupHint: "在实际删除之前保留备份副本。.",
@@ -392,6 +396,10 @@ export const zhCN = {
     bulkArchive: "选择本地存档",
     bulkImpact: "运行影响分析",
     bulkCleanupDryRun: "运行清理 dry-run",
+    hardDeleteConfirmTitle: "现在永久删除选中的线程文件吗？",
+    hardDeleteConfirmBody:
+      "这会使用最新的 cleanup token 立即删除选中的线程文件。",
+    hardDeleteConfirmSkipFuture: "以后不要再询问 hard delete 确认。",
     selectAllFiltered: "选择所有过滤的项目",
     selectThreadAria: "线程选择 {title}e}",
     colTitle: "标题",

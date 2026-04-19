@@ -359,6 +359,10 @@ export const hi = {
     loadMoreRows: "अधिक सत्र लोड करें",
     csvExported: "सीएसवी निर्यात",
     deleteWithBackup: "हटाने से पहले बैकअप",
+    hardDeleteConfirmTitle: "क्या चुनी गई सत्र फ़ाइलों को अभी स्थायी रूप से हटाएँ?",
+    hardDeleteConfirmBody:
+      "यह चुनी गई सत्र फ़ाइलों को बैकअप प्रति बनाए बिना तुरंत हटा देता है।",
+    hardDeleteConfirmSkipFuture: "आगे से हार्ड डिलीट के लिए दोबारा पुष्टि न पूछें।",
     backupSelected: "सत्र बैकअप का चयन करें",
     exportAllBackups: "पूर्ण बैकअप निर्यात करें",
     deleteWithBackupHint: "वास्तविक विलोपन से पहले एक बैकअप प्रतिलिपि बनाए रखें।",
@@ -392,6 +396,10 @@ export const hi = {
     bulkArchive: "स्थानीय संग्रह का चयन करें",
     bulkImpact: "प्रभाव विश्लेषण चलाएँ",
     bulkCleanupDryRun: "सफ़ाई चलाएँ dry-run",
+    hardDeleteConfirmTitle: "क्या चुनी गई थ्रेड फ़ाइलों को अभी स्थायी रूप से हटाएँ?",
+    hardDeleteConfirmBody:
+      "यह नवीनतम cleanup टोकन का उपयोग करके चुनी गई थ्रेड फ़ाइलों को तुरंत हटा देता है।",
+    hardDeleteConfirmSkipFuture: "आगे से हार्ड डिलीट के लिए दोबारा पुष्टि न पूछें।",
     selectAllFiltered: "सभी फ़िल्टर किए गए आइटम का चयन करें",
     selectThreadAria: "थ्रेड चयन {title}",
     colTitle: "शीर्षक",

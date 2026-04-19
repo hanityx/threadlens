@@ -95,6 +95,10 @@ export const id = {
     bulkArchive: "Arsip dipilih secara lokal",
     bulkImpact: "Jalankan analisis dampak",
     bulkCleanupDryRun: "Jalankan pembersihan kering",
+    hardDeleteConfirmTitle: "Hapus permanen file thread yang dipilih sekarang?",
+    hardDeleteConfirmBody:
+      "Ini segera menghapus file thread yang dipilih menggunakan token cleanup terbaru.",
+    hardDeleteConfirmSkipFuture: "Jangan tanya lagi untuk hard delete di masa mendatang.",
     selectThreadAria: "Pilih rangkaian pesan {title}",
     colTitle: "Judul",
     colRisk: "Sinyal",
@@ -195,6 +199,10 @@ export const id = {
     archiveDryRun: "Arsip uji coba",
     backupSelected: "Cadangkan sesi yang dipilih",
     deleteDryRun: "Hapus uji coba",
+    hardDeleteConfirmTitle: "Hapus permanen file sesi yang dipilih sekarang?",
+    hardDeleteConfirmBody:
+      "Ini segera menghapus file sesi yang dipilih tanpa membuat salinan cadangan.",
+    hardDeleteConfirmSkipFuture: "Jangan tanya lagi untuk hard delete di masa mendatang.",
     deleteWithBackup: "Cadangkan sebelum menghapus",
     deleteWithBackupHint: "Simpan salinan cadangan sebelum penghapusan sebenarnya.",
     exportAllBackups: "Ekspor paket cadangan lengkap",

@@ -359,6 +359,10 @@ export const es = {
     loadMoreRows: "Cargar más sesiones",
     csvExported: "Exportación CSV",
     deleteWithBackup: "Copia de seguridad antes de eliminar",
+    hardDeleteConfirmTitle: "¿Eliminar ahora de forma definitiva los archivos de sesión seleccionados?",
+    hardDeleteConfirmBody:
+      "Esto elimina de inmediato los archivos de sesión seleccionados sin crear una copia de seguridad.",
+    hardDeleteConfirmSkipFuture: "No volver a pedir confirmación para la eliminación definitiva.",
     backupSelected: "Seleccionar copia de seguridad de sesión",
     exportAllBackups: "Exportar copia de seguridad completa",
     deleteWithBackupHint: "Mantenga una copia de seguridad antes de la eliminación real.",
@@ -392,6 +396,10 @@ export const es = {
     bulkArchive: "Seleccionar archivo local",
     bulkImpact: "Ejecutar análisis de impacto",
     bulkCleanupDryRun: "Ejecutar limpieza dry-run",
+    hardDeleteConfirmTitle: "¿Eliminar ahora de forma definitiva los archivos de hilo seleccionados?",
+    hardDeleteConfirmBody:
+      "Esto elimina de inmediato los archivos de hilo seleccionados usando el token de cleanup más reciente.",
+    hardDeleteConfirmSkipFuture: "No volver a pedir confirmación para la eliminación definitiva.",
     selectAllFiltered: "Seleccionar todos los elementos filtrados",
     selectThreadAria: "Selección de tema {title}",
     colTitle: "título",
