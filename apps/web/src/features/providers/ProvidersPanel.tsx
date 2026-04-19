@@ -829,22 +829,32 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
 
   const searchSlot = (
     <div className="sub-toolbar cleanup-toolbar">
-      <input
-        className="search-input"
-        placeholder={messages.providers.sessionSearchPlaceholder}
-        value={sessionFilter}
-        onChange={(e) => setSessionFilter(e.target.value)}
-      />
-      <select
-        className="filter-select"
-        aria-label={messages.providers.probeFilterLabel}
-        value={probeFilter}
-        onChange={(e) => setProbeFilter(e.target.value as ProviderProbeFilter)}
-      >
-        <option value="all">{messages.providers.probeAll}</option>
-        <option value="ok">{messages.providers.probeOk}</option>
-        <option value="fail">{messages.providers.probeFail}</option>
-      </select>
+      <div className="toolbar-search-shell is-input">
+        <span className="toolbar-search-prompt" aria-hidden="true">
+          &gt;
+        </span>
+        <input
+          className="search-input toolbar-search-input"
+          placeholder={messages.providers.sessionSearchPlaceholder}
+          value={sessionFilter}
+          onChange={(e) => setSessionFilter(e.target.value)}
+        />
+      </div>
+      <div className="toolbar-search-shell is-select">
+        <select
+          className="filter-select toolbar-search-select"
+          aria-label={messages.providers.probeFilterLabel}
+          value={probeFilter}
+          onChange={(e) => setProbeFilter(e.target.value as ProviderProbeFilter)}
+        >
+          <option value="all">{messages.providers.probeAll}</option>
+          <option value="ok">{messages.providers.probeOk}</option>
+          <option value="fail">{messages.providers.probeFail}</option>
+        </select>
+        <span className="toolbar-search-chevron" aria-hidden="true">
+          ▾
+        </span>
+      </div>
     </div>
   );
 

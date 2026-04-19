@@ -162,7 +162,7 @@ export function ThreadsTable(props: ThreadsTableProps) {
           <div className="thread-toolbar-group">
             <div className="thread-toolbar-inline">
               <Button
-                variant="accent"
+                variant="outline"
                 disabled={selectedIds.length === 0 || busy || threadActionsDisabled}
                 title={disabledReason}
                 onClick={() => bulkArchive(selectedIds)}

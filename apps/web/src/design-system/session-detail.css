@@ -10,7 +10,7 @@
 .thread-review-panel {
   border: 1px solid var(--surface-stage-border);
   border-radius: var(--radius-shell-lg);
-  background: var(--surface-stage-subtle);
+  background: var(--surface-card-bg-subtle);
   box-shadow: var(--surface-stage-shadow);
   position: relative;
   top: auto;
@@ -23,7 +23,7 @@
 .thread-review-panel > header {
   padding: 15px 18px 13px;
   border-bottom: 1px solid var(--surface-divider-faint);
-  background: var(--surface-review-panel-header);
+  background: var(--surface-card-bg-strong);
 }
 
 .thread-review-panel > header h2 {
@@ -317,7 +317,7 @@
   grid-template-rows: auto minmax(0, 1fr);
   border: 1px solid var(--surface-stage-border);
   border-radius: var(--radius-shell-lg);
-  background: var(--surface-stage-subtle);
+  background: var(--surface-card-bg-subtle);
   box-shadow: var(--surface-stage-shadow);
   overflow: hidden;
 }
@@ -329,7 +329,7 @@
 .session-detail-panel > header {
   padding: 15px 18px 13px;
   border-bottom: 1px solid var(--surface-divider-faint);
-  background: var(--surface-review-panel-header);
+  background: var(--surface-card-bg-strong);
 }
 
 .session-detail-panel > header h2 {
@@ -935,14 +935,24 @@
 
 .thread-review-panel .transcript-search {
   min-width: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .thread-review-panel .transcript-role-filter {
   min-width: 160px;
+  background: transparent;
+  box-shadow: none;
 }
 
 .thread-review-panel .transcript-actions-row {
   gap: 5px;
+}
+
+.session-detail-panel .transcript-search,
+.session-detail-panel .transcript-role-filter {
+  background: transparent;
+  box-shadow: none;
 }
 
 .thread-review-panel .detail-action-bar {
@@ -1127,7 +1137,7 @@
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-md);
   padding: 12px 14px;
-  background: var(--gradient-accent-subtle);
+  background: var(--surface-impact-kv);
 }
 
 .impact-kv > span {

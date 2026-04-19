@@ -239,27 +239,37 @@ export function ThreadsWorkbench() {
             </article>
           </div>
           <section className="toolbar cleanup-toolbar">
-            <input
-              ref={threadSearchInputRef}
-              placeholder={messages.toolbar.searchThreads}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  (event.currentTarget as HTMLInputElement).blur();
-                }
-              }}
-              className="search-input"
-            />
-            <select
-              className="filter-select"
-              value={filterMode}
-              onChange={(event) => setFilterMode(event.target.value as "all" | "high-risk" | "pinned")}
-            >
-              <option value="all">{messages.toolbar.all}</option>
-              <option value="high-risk">{messages.toolbar.highRisk}</option>
-              <option value="pinned">{messages.toolbar.pinned}</option>
-            </select>
+            <div className="toolbar-search-shell is-input">
+              <span className="toolbar-search-prompt" aria-hidden="true">
+                &gt;
+              </span>
+              <input
+                ref={threadSearchInputRef}
+                placeholder={messages.toolbar.searchThreads}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    (event.currentTarget as HTMLInputElement).blur();
+                  }
+                }}
+                className="search-input toolbar-search-input"
+              />
+            </div>
+            <div className="toolbar-search-shell is-select">
+              <select
+                className="filter-select toolbar-search-select"
+                value={filterMode}
+                onChange={(event) => setFilterMode(event.target.value as "all" | "high-risk" | "pinned")}
+              >
+                <option value="all">{messages.toolbar.all}</option>
+                <option value="high-risk">{messages.toolbar.highRisk}</option>
+                <option value="pinned">{messages.toolbar.pinned}</option>
+              </select>
+              <span className="toolbar-search-chevron" aria-hidden="true">
+                ▾
+              </span>
+            </div>
           </section>
         </div>
       </section>
