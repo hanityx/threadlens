@@ -2,6 +2,7 @@ import { startTransition, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ApiEnvelope, UpdateCheckStatus } from "@threadlens/shared-contracts";
 import { AppContext, type AppContextValue } from "./app/AppContext";
+import { createAppContextValue } from "./app/createAppContextValue";
 import { DetailShell } from "./app/DetailShell";
 import { OverviewWorkbench } from "./features/overview/OverviewWorkbench";
 import { ProvidersWorkspace } from "./features/providers/ProvidersWorkspace";
@@ -329,9 +330,9 @@ export function App() {
       ? messages.common.allAi
       : selectedProviderLabel ?? providerView;
 
-  const ctx: AppContextValue = {
-    ...appData,
-    ...{
+  const ctx: AppContextValue = createAppContextValue({
+    appData,
+    shellModel: {
       visibleProviderTabs, visibleProviderIds, visibleProviderIdSet, visibleProviders,
       visibleProviderSummary, visibleSlowProviderIds, visibleProviderSessionRows,
       allVisibleProviderSessionRows, visibleProviderSessionSummary,
@@ -346,25 +347,42 @@ export function App() {
       showGlobalAnalyzeDeleteError, showGlobalCleanupDryRunError, hasGlobalErrorStack,
       parserScoreText, runtimeLatencyText, backupSetsCount,
     },
-    ...{ handleProvidersIntent, handleSearchIntent, handleDiagnosticsIntent, handleHeaderSearchSubmit },
-    messages,
-    locale,
-    setLocale,
-    providersDiagnosticsOpen, setProvidersDiagnosticsOpen,
-    setupGuideOpen, setSetupGuideOpen,
-    headerSearchDraft, setHeaderSearchDraft,
-    headerSearchSeed, setHeaderSearchSeed,
-    searchThreadContext, setSearchThreadContext,
-    providerProbeFilterIntent, setProviderProbeFilterIntent,
-    acknowledgedForensicsErrorKeys, setAcknowledgedForensicsErrorKeys,
-    changeLayoutView, changeProviderView, openProvidersHome,
-    showRuntimeBackendDegraded,
-    emptySessionScopeLabel,
-    analyzeErrorKey, cleanupErrorKey,
-    runtimeBackend,
-    threadSearchInputRef,
-    detailLayoutRef,
-  };
+    shellBehavior: {
+      handleProvidersIntent,
+      handleSearchIntent,
+      handleDiagnosticsIntent,
+      handleHeaderSearchSubmit,
+    },
+    localState: {
+      messages,
+      locale,
+      setLocale,
+      providersDiagnosticsOpen,
+      setProvidersDiagnosticsOpen,
+      setupGuideOpen,
+      setSetupGuideOpen,
+      headerSearchDraft,
+      setHeaderSearchDraft,
+      headerSearchSeed,
+      setHeaderSearchSeed,
+      searchThreadContext,
+      setSearchThreadContext,
+      providerProbeFilterIntent,
+      setProviderProbeFilterIntent,
+      acknowledgedForensicsErrorKeys,
+      setAcknowledgedForensicsErrorKeys,
+      changeLayoutView,
+      changeProviderView,
+      openProvidersHome,
+      showRuntimeBackendDegraded,
+      emptySessionScopeLabel,
+      analyzeErrorKey,
+      cleanupErrorKey,
+      runtimeBackend,
+      threadSearchInputRef,
+      detailLayoutRef,
+    },
+  });
 
   return (
     <AppContext.Provider value={ctx}>

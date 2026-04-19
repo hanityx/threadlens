@@ -8,7 +8,7 @@ import type { ProviderProbeFilter } from "../features/providers/sessionTableMode
 
 type RuntimeBackend = { reachable?: boolean; latency_ms?: number | null; url?: string };
 
-type AppLocalState = {
+export type AppLocalState = {
   messages: Messages;
   locale: Locale;
   setLocale: (locale: Locale) => void;
