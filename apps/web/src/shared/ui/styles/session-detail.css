@@ -599,6 +599,20 @@
   background: transparent;
 }
 
+:root[data-theme="light"] .session-copy-actions .btn-outline,
+:root[data-theme="light"] .session-desktop-actions .btn-outline {
+  background: var(--surface-card-bg-subtle);
+  color: var(--text);
+  border-color: var(--surface-card-border);
+}
+
+:root[data-theme="light"] .session-copy-actions .btn-outline:hover,
+:root[data-theme="light"] .session-desktop-actions .btn-outline:hover {
+  background: var(--surface-card-strong-subtle);
+  color: var(--text);
+  border-color: var(--surface-card-border);
+}
+
 .session-detail-actions-primary {
   gap: 8px;
   padding: 9px 10px;
