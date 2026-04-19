@@ -198,6 +198,7 @@ export function shouldDeferDesktopRouteSync(options: {
   }
 
   if (
+    options.routeHydrating &&
     options.currentRoute.view === "providers" &&
     options.layoutView === "providers" &&
     options.currentRoute.provider &&

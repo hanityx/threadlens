@@ -156,14 +156,18 @@ export function SessionActionSection(props: {
                   {messages.sessionDetail.deleteDryRun}
                 </Button>
                 <Button
+                  variant="outline"
+                  onClick={onOpenFolder}
+                  disabled={!selectedSession}
+                >
+                  {messages.sessionDetail.openFolder}
+                </Button>
+                <Button
                   variant="danger"
                   onClick={onRequestHardDeleteConfirm}
                   disabled={busy || !canRunSessionAction}
                 >
                   {messages.providers.delete}
-                </Button>
-                <Button variant="outline" onClick={onOpenFolder} disabled={!selectedSession}>
-                  {messages.sessionDetail.openFolder}
                 </Button>
               </div>
             </div>

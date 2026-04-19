@@ -152,10 +152,6 @@ export function ThreadsTable(props: ThreadsTableProps) {
               {messages.threadsTable.workflowImpactTitle}{" "}
               {selectedImpactCount > 0 ? selectedImpactCount : messages.forensics.stagePending}
             </span>
-            <span className={`status-pill ${dryRunReady ? "status-active" : "status-preview"}`}>
-              {messages.threadsTable.workflowDryRunTitle}{" "}
-              {dryRunReady ? messages.forensics.stageReady : messages.forensics.stagePending}
-            </span>
           </div>
         </div>
         <div className="sub-toolbar sticky-action-bar action-toolbar">

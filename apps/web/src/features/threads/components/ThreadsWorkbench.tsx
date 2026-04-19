@@ -95,6 +95,8 @@ export function ThreadsWorkbench() {
     [visibleRows],
   );
   const threadSideStackRef = useRef<HTMLDivElement | null>(null);
+  const threadForensicsPanelRef = useRef<HTMLDivElement | null>(null);
+  const lastReadyCleanupTokenRef = useRef("");
   const [activePanelHeight, setActivePanelHeight] = useState<number | null>(null);
   const [hardDeleteConfirmOpen, setHardDeleteConfirmOpen] = useState(false);
   const [hardDeleteSkipConfirmChecked, setHardDeleteSkipConfirmChecked] = useState<boolean>(() => {
@@ -122,9 +124,36 @@ export function ThreadsWorkbench() {
     }
   }, [hardDeleteSkipConfirmChecked]);
 
+  const focusThreadForAction = (ids: string[]) => {
+    if (ids.length !== 1) return;
+    if (selectedThreadId === ids[0]) return;
+    setSelectedThreadId(ids[0]);
+  };
+
+  const runThreadAction = (action: (ids: string[]) => void, ids: string[]) => {
+    focusThreadForAction(ids);
+    action(ids);
+  };
+
+  const handleBulkArchive = (ids: string[]) => {
+    runThreadAction(bulkArchive, ids);
+  };
+
+  const handleAnalyzeDelete = (ids: string[]) => {
+    runThreadAction(analyzeDelete, ids);
+  };
+
+  const handleCleanupDryRun = (ids: string[]) => {
+    runThreadAction(cleanupDryRun, ids);
+  };
+
+  const handleCleanupExecute = (ids: string[]) => {
+    runThreadAction(cleanupExecute, ids);
+  };
+
   const requestHardDeleteConfirm = () => {
     if (hardDeleteSkipConfirmChecked) {
-      cleanupExecute(selectedIds);
+      handleCleanupExecute(selectedIds);
       return;
     }
     setHardDeleteConfirmOpen(true);
@@ -132,7 +161,7 @@ export function ThreadsWorkbench() {
 
   const confirmHardDelete = () => {
     setHardDeleteConfirmOpen(false);
-    cleanupExecute(selectedIds);
+    handleCleanupExecute(selectedIds);
   };
 
   const cancelHardDeleteConfirm = () => {
@@ -171,6 +200,25 @@ export function ThreadsWorkbench() {
     };
   }, [selectedThreadId, showForensics]);
 
+  useEffect(() => {
+    const readyToken =
+      pendingCleanup?.confirmToken &&
+      pendingCleanup.selectionKey === reviewSelectionKey &&
+      cleanupData?.mode !== "execute"
+        ? pendingCleanup.confirmToken
+        : "";
+    if (!readyToken) {
+      lastReadyCleanupTokenRef.current = "";
+      return;
+    }
+    if (lastReadyCleanupTokenRef.current === readyToken) return;
+    lastReadyCleanupTokenRef.current = readyToken;
+    if (typeof window === "undefined") return;
+    window.setTimeout(() => {
+      threadForensicsPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  }, [cleanupData?.mode, pendingCleanup?.confirmToken, pendingCleanup?.selectionKey, reviewSelectionKey]);
+
   const detailProps = {
     messages,
     selectedThread,
@@ -199,9 +247,9 @@ export function ThreadsWorkbench() {
     threadActionsDisabled: showRuntimeBackendDegraded,
     bulkPin,
     bulkUnpin,
-    bulkArchive,
-    analyzeDelete,
-    cleanupDryRun,
+    bulkArchive: handleBulkArchive,
+    analyzeDelete: handleAnalyzeDelete,
+    cleanupDryRun: handleCleanupDryRun,
     selectedIds,
   };
 
@@ -211,9 +259,9 @@ export function ThreadsWorkbench() {
     selectedIds: reviewTargetIds,
     rows,
     busy,
-    analyzeDelete,
-    cleanupDryRun,
-    cleanupExecute,
+    analyzeDelete: handleAnalyzeDelete,
+    cleanupDryRun: handleCleanupDryRun,
+    cleanupExecute: handleCleanupExecute,
     cleanupData,
     pendingCleanup,
     selectedImpactRows: reviewImpactRows,
@@ -265,10 +313,10 @@ export function ThreadsWorkbench() {
           dryRunReadyIds={pendingCleanup?.confirmToken && cleanupData?.mode !== "execute" ? pendingCleanup.ids : []}
           busy={busy}
           threadActionsDisabled={showRuntimeBackendDegraded}
-          bulkArchive={bulkArchive}
-          analyzeDelete={analyzeDelete}
-          cleanupDryRun={cleanupDryRun}
-          cleanupExecute={cleanupExecute}
+          bulkArchive={handleBulkArchive}
+          analyzeDelete={handleAnalyzeDelete}
+          cleanupDryRun={handleCleanupDryRun}
+          cleanupExecute={handleCleanupExecute}
           onRequestHardDeleteConfirm={requestHardDeleteConfirm}
           hardDeleteConfirmOpen={hardDeleteConfirmOpen}
           hardDeleteSkipConfirmChecked={hardDeleteSkipConfirmChecked}
@@ -277,13 +325,15 @@ export function ThreadsWorkbench() {
           onCancelHardDeleteConfirm={cancelHardDeleteConfirm}
           panelStyle={activePanelHeight ? { height: `${activePanelHeight}px` } : undefined}
         />
-        <ThreadsSideStack
-          showForensics={showForensics}
-          threadSideStackRef={threadSideStackRef as RefObject<HTMLDivElement>}
-          activePanelHeight={activePanelHeight}
-          detailProps={detailProps}
-          forensicsProps={forensicsProps}
-        />
+        <div ref={threadForensicsPanelRef}>
+          <ThreadsSideStack
+            showForensics={showForensics}
+            threadSideStackRef={threadSideStackRef as RefObject<HTMLDivElement>}
+            activePanelHeight={activePanelHeight}
+            detailProps={detailProps}
+            forensicsProps={forensicsProps}
+          />
+        </div>
       </section>
     </>
   );
