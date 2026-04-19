@@ -37,6 +37,7 @@ jobs:
         run: |
           pnpm --filter @threadlens/shared-contracts build
           pnpm --filter @threadlens/api lint
+          pnpm --filter @threadlens/tui lint
           pnpm --filter @threadlens/web lint
 
       - name: Build API
@@ -45,8 +46,14 @@ jobs:
       - name: Build Web
         run: pnpm --filter @threadlens/web build
 
+      - name: Build TUI
+        run: pnpm --filter @threadlens/tui build
+
       - name: Test API
         run: pnpm --filter @threadlens/api test
+
+      - name: Test TUI
+        run: pnpm --filter @threadlens/tui test
 
       - name: Test Web (unit)
         run: pnpm --filter @threadlens/web test
