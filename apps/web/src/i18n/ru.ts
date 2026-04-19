@@ -768,5 +768,12 @@ export const ru = {
     dotHeavySessionFootprint: "Большой объем сеанса {size}",
     dotLightSessionFootprint: "Площадь светового сеанса {size}",
     dotMediumSessionFootprint: "Средний размер сеанса: {size}",
+    dotThreadRiskHigh: "высокий риск ревью",
+    dotThreadRiskMedium: "средний риск ревью",
+    dotThreadRiskLow: "низкий риск ревью",
+    dotThreadPinned: "закреплено для follow-up",
+    dotThreadNotPinned: "не закреплено",
+    dotThreadActive: "активная работа по ревью",
+    dotThreadIdle: "нет активной работы по ревью",
   },
 } as const satisfies Messages;

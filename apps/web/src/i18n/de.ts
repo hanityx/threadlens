@@ -289,6 +289,13 @@ export const de = {
     dotHeavySessionFootprint: "Sitzungsgröße groß {size}",
     dotLightSessionFootprint: "Sitzungsgröße klein {size}",
     dotMediumSessionFootprint: "Sitzungsgröße Normal {size}",
+    dotThreadRiskHigh: "hohes Review-Risiko",
+    dotThreadRiskMedium: "mittleres Review-Risiko",
+    dotThreadRiskLow: "niedriges Review-Risiko",
+    dotThreadPinned: "für Follow-up fixiert",
+    dotThreadNotPinned: "nicht fixiert",
+    dotThreadActive: "aktive Review-Arbeit",
+    dotThreadIdle: "keine aktive Review-Arbeit",
   },
   providers: {
     ...en.providers,

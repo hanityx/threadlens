@@ -768,5 +768,12 @@ export const id = {
     dotHeavySessionFootprint: "Jejak sesi yang berat {size}",
     dotLightSessionFootprint: "Jejak sesi ringan {size}",
     dotMediumSessionFootprint: "Jejak sesi sedang {size}",
+    dotThreadRiskHigh: "risiko ulasan tinggi",
+    dotThreadRiskMedium: "risiko ulasan sedang",
+    dotThreadRiskLow: "risiko ulasan rendah",
+    dotThreadPinned: "dipasang untuk tindak lanjut",
+    dotThreadNotPinned: "tidak dipasang",
+    dotThreadActive: "pekerjaan ulasan aktif",
+    dotThreadIdle: "tidak ada pekerjaan ulasan aktif",
   },
 } as const satisfies Messages;

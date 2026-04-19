@@ -289,6 +289,13 @@ export const ja = {
     dotHeavySessionFootprint: "セッションサイズが大きい{size}",
     dotLightSessionFootprint: "セッションサイズが小さい{size}",
     dotMediumSessionFootprint: "セッションサイズ通常{size}",
+    dotThreadRiskHigh: "レビューリスク高",
+    dotThreadRiskMedium: "レビューリスク中",
+    dotThreadRiskLow: "レビューリスク低",
+    dotThreadPinned: "フォローアップ用に固定済み",
+    dotThreadNotPinned: "固定されていません",
+    dotThreadActive: "レビュー作業が進行中",
+    dotThreadIdle: "進行中のレビュー作業なし",
   },
   providers: {
     ...en.providers,

@@ -289,6 +289,13 @@ export const es = {
     dotHeavySessionFootprint: "Tamaño de sesión grande {size}",
     dotLightSessionFootprint: "Tamaño de sesión pequeño {size}",
     dotMediumSessionFootprint: "Tamaño de sesión Normal {size}",
+    dotThreadRiskHigh: "alto riesgo de revisión",
+    dotThreadRiskMedium: "riesgo medio de revisión",
+    dotThreadRiskLow: "bajo riesgo de revisión",
+    dotThreadPinned: "fijado para seguimiento",
+    dotThreadNotPinned: "no fijado",
+    dotThreadActive: "revisión activa",
+    dotThreadIdle: "sin revisión activa",
   },
   providers: {
     ...en.providers,
