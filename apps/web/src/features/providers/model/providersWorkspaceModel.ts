@@ -1,6 +1,7 @@
 import type { Messages } from "@/i18n";
 import type { ProviderActionSelection, ProviderSessionActionResult, ProviderSessionRow } from "@/shared/types";
-import { compactSessionTitle, formatBytesCompact } from "@/features/providers/lib/helpers";
+import { formatBytesCompact } from "@/shared/lib/format";
+import { compactSessionTitle } from "@/features/providers/lib/helpers";
 import { formatDateTime, formatProviderDisplayName } from "@/shared/lib/format";
 
 export function pickLargestSessionCandidates(rows: ProviderSessionRow[], limit = 2) {

@@ -7,7 +7,6 @@ import {
   compactSessionTitle,
   csvCell,
   dataSourceLabel,
-  formatBytes,
   formatFetchMs,
   providerFromDataSource,
   readCsvColumnPrefs,
@@ -23,11 +22,7 @@ describe("provider helpers", () => {
     expect(csvCell("a\nb")).toBe('"a\nb"');
   });
 
-  it("formats byte counts and fetch timings for compact provider surfaces", () => {
-    expect(formatBytes(0)).toBe("0 B");
-    expect(formatBytes(1024)).toBe("1.0 KB");
-    expect(formatBytes(1536)).toBe("1.5 KB");
-    expect(formatBytes(1024 * 1024 * 12)).toBe("12 MB");
+  it("formats fetch timings for compact provider surfaces", () => {
     expect(formatFetchMs(null)).toBe("-");
     expect(formatFetchMs(12.7)).toBe("13ms");
   });
