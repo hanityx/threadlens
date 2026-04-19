@@ -1,7 +1,31 @@
-import { useAppContext } from "@/app/AppContext";
+import { memo } from "react";
+import type { Messages } from "@/i18n";
 
-export function RuntimeFeedbackStack() {
-  const {
+type ErrorStateLike = { isError?: boolean };
+
+export type RuntimeFeedbackStackProps = {
+  messages: Messages;
+  hasGlobalErrorStack: boolean;
+  runtime: ErrorStateLike;
+  smokeStatus: ErrorStateLike;
+  recovery: ErrorStateLike;
+  providerMatrix: ErrorStateLike;
+  providerSessions: ErrorStateLike;
+  providerParserHealth: ErrorStateLike;
+  showGlobalAnalyzeDeleteError: boolean;
+  analyzeDeleteErrorMessage: string;
+  showGlobalCleanupDryRunError: boolean;
+  cleanupDryRunErrorMessage: string;
+  providerSessionActionError: unknown;
+  providerSessionActionErrorMessage: string;
+  bulkActionError: unknown;
+  bulkActionErrorMessage: string;
+  showRuntimeBackendDegraded: boolean;
+  busy: boolean;
+};
+
+export const RuntimeFeedbackStack = memo(function RuntimeFeedbackStack(
+  {
     messages,
     hasGlobalErrorStack,
     runtime,
@@ -20,7 +44,8 @@ export function RuntimeFeedbackStack() {
     bulkActionErrorMessage,
     showRuntimeBackendDegraded,
     busy,
-  } = useAppContext();
+  }: RuntimeFeedbackStackProps,
+) {
 
   return (
     <>
@@ -67,4 +92,4 @@ export function RuntimeFeedbackStack() {
       {busy ? <div className="busy-indicator">{messages.busy}</div> : null}
     </>
   );
-}
+});
