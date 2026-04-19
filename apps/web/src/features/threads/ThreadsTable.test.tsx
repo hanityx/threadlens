@@ -225,8 +225,9 @@ describe("ThreadsTable", () => {
     );
 
     expect(html).toContain(`${deMessages.threadsTable.fallbackTitlePrefix} thread-1`);
-    expect(html).toContain(deMessages.threadsTable.currentSelection);
     expect(html).toContain(`>${deMessages.threadsTable.sourceSessions}<`);
+    expect(html).toContain("thread-table-title-text");
+    expect(html).not.toContain(deMessages.threadsTable.currentSelection);
   });
 
   it("keeps workflow strip glossary in English for Simplified Chinese", () => {

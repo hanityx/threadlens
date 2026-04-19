@@ -1,6 +1,7 @@
 import { useState, type CSSProperties, type Ref } from "react";
 import { Button } from "../../design-system/Button";
 import { PanelHeader } from "../../design-system/PanelHeader";
+import { StatusPill, type StatusPillVariant } from "../../design-system/StatusPill";
 import type { Messages } from "../../i18n";
 import type { ProviderSessionActionResult, ProviderSessionRow } from "../../types";
 import { SKELETON_ROWS } from "../../types";
@@ -16,6 +17,13 @@ function formatProviderMessage(template: string, values: Record<string, string |
     (message, [key, value]) => message.replaceAll(`{${key}}`, String(value)),
     template,
   );
+}
+
+function statusPillVariantFromClassName(className: string): StatusPillVariant {
+  if (className === "status-active") return "active";
+  if (className === "status-detected") return "detected";
+  if (className === "status-missing") return "missing";
+  return "preview";
 }
 
 export interface SessionTableProps {
@@ -185,15 +193,15 @@ export function SessionTable(props: SessionTableProps) {
       <div className="sticky-action-stack">
         <div className="sub-toolbar cleanup-status-strip session-status-strip">
           <div className="cleanup-status-inline">
-            <span className={`status-pill ${selectedCount > 0 ? "status-active" : "status-preview"}`}>
+            <StatusPill variant={selectedCount > 0 ? "active" : "preview"}>
               {messages.providers.workflowSelectedTitle} {selectedCount}
-            </span>
-            <span className={`status-pill ${archiveStage.className}`}>
+            </StatusPill>
+            <StatusPill variant={statusPillVariantFromClassName(archiveStage.className)}>
               {messages.providers.workflowArchiveTitle} {archiveStage.label}
-            </span>
-            <span className={`status-pill ${deleteStage.className}`}>
+            </StatusPill>
+            <StatusPill variant={statusPillVariantFromClassName(deleteStage.className)}>
               {messages.providers.workflowDeleteTitle} {deleteStage.label}
-            </span>
+            </StatusPill>
           </div>
         </div>
         <div className="sub-toolbar sessions-action-strip">
@@ -296,15 +304,15 @@ export function SessionTable(props: SessionTableProps) {
         ) : null}
         <div className="sessions-action-support">
           {selectedSessionProvider ? (
-            <button
-              type="button"
-              className={`status-pill status-pill-button ${Number(selectedSessionParseFailCount ?? 0) > 0 ? "status-detected" : "status-active"}`}
+            <StatusPill
+              variant={Number(selectedSessionParseFailCount ?? 0) > 0 ? "detected" : "active"}
+              interactive
               onClick={() => onJumpToParserProvider(selectedSessionProvider)}
+              action={messages.providers.parserLinkedOpen}
             >
               {messages.providers.parserLinkedBadge} {selectedSessionProvider} · {messages.providers.parserLinkedFails}{" "}
               {selectedSessionParseFailCount ?? messages.common.unknown}
-              <span className="status-pill-action">{messages.providers.parserLinkedOpen}</span>
-            </button>
+            </StatusPill>
           ) : null}
           {showReadOnlyHint ? (
             <span className="sub-hint">{messages.providers.readOnlyHint}</span>

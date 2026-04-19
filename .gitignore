@@ -15,6 +15,7 @@ apps/**/.vite/
 apps/**/test-results/
 apps/**/playwright-report/
 packages/**/dist/
+storybook-static/
 *.tsbuildinfo
 
 # local runtime/cache

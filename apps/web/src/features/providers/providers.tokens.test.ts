@@ -74,8 +74,6 @@ describe("providers token migration", () => {
     expect(providerStyles).toMatch(/\.provider-flow-config li\s*{[^}]*font-size:\s*var\(--text-base\);/s);
     expect(providerStyles).toMatch(/\.provider-tab-meta\s*{[^}]*font-size:\s*var\(--text-base\);/s);
     expect(providerStyles).toMatch(/\.sub-toolbar summary\s*{[^}]*font-size:\s*var\(--text-md\);/s);
-    expect(providerStyles).toMatch(/\.threads-table-panel > header h2\s*{[^}]*font-size:\s*var\(--text-lg\);/s);
-    expect(providerStyles).toMatch(/\.threads-table-panel > header span\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
     expect(providerStyles).toMatch(/\.threads-table-panel thead th\s*{[^}]*font-size:\s*var\(--text-xs\);[^}]*letter-spacing:\s*0\.04em;[^}]*text-transform:\s*none;/s);
     expect(providerStyles).toMatch(/\.threads-table-panel \.table-select-column,\s*\.threads-table-panel \.table-select-cell\s*{[^}]*width:\s*42px;[^}]*min-width:\s*42px;/s);
     expect(providerStyles).toMatch(/th,\s*td\s*{[^}]*font-size:\s*var\(--text-md\);/s);
@@ -142,7 +140,7 @@ describe("providers token migration", () => {
     expect(providerStyles).toMatch(/\.provider-tab\.is-slow\s*{[^}]*background:\s*var\(--surface-tab-warn\);/s);
     expect(providerStyles).toMatch(/\.table-wrap\s*{[^}]*background:\s*var\(--surface-table-wrap\);/s);
     expect(providerStyles).toMatch(/\.threads-table-panel\s*{[^}]*background:\s*var\(--surface-stage-soft\);/s);
-    expect(providerStyles).toMatch(/\.threads-table-panel > header\s*{[^}]*border-bottom:\s*1px solid var\(--surface-divider-faint\);[^}]*background:\s*var\(--surface-review-panel-header\);/s);
+    expect(providerStyles).toMatch(/\.threads-table-panel > \.panel-header\s*{[^}]*border-bottom:\s*1px solid var\(--surface-divider-faint\);[^}]*background:\s*var\(--surface-review-panel-header\);/s);
     expect(providerStyles).toMatch(/\.threads-table-panel \.sub-toolbar\s*{[^}]*background:\s*var\(--surface-table-toolbar\);[^}]*border-bottom:\s*1px solid var\(--surface-divider-faint\);/s);
     expect(providerStyles).toMatch(/th,\s*td\s*{[^}]*border-bottom:\s*1px solid var\(--surface-divider-faint\);/s);
     expect(providerStyles).toMatch(/th\s*{[^}]*background:\s*var\(--surface-table-head\);/s);

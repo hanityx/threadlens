@@ -49,6 +49,7 @@ describe("TopShell", () => {
     const messages = getMessages("es");
     const html = renderTopShell("es");
 
+    expect(html).toContain('aria-pressed="true"');
     expect(html).toContain(">Overview<");
     expect(html).toContain(">Search<");
     expect(html).toContain(">Thread<");

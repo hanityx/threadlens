@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
 import type { ProviderView } from "../../types";
 import type { ProviderSessionRow, ProviderSessionsEnvelope, ThreadRow } from "../../types";
+import { Card } from "../../design-system/Card";
 import {
   compactWorkbenchId,
   formatWorkbenchRailTime,
@@ -582,7 +583,7 @@ export function OverviewWorkbench() {
               </section>
 
               <div className="overview-insight-grid">
-                <article className="overview-insight-card is-primary">
+                <Card variant="primary">
                   <div className="overview-primary-panel-grid">
                     <div className="overview-primary-copy">
                       <span className="overview-note-label">{messages.overview.activeSession}</span>
@@ -696,10 +697,11 @@ export function OverviewWorkbench() {
                       </div>
                     </div>
                   </div>
-                </article>
+                </Card>
                 <div className="overview-support-stack">
-                  <article
-                    className="overview-insight-card is-review is-clickable"
+                  <Card
+                    variant="review"
+                    className="is-clickable"
                     role="button"
                     tabIndex={0}
                     onClick={onOpenThreads}
@@ -759,14 +761,14 @@ export function OverviewWorkbench() {
                     ) : (
                       <p>{messages.overview.noAdditionalReviewThreads}</p>
                     )}
-                  </article>
+                  </Card>
                   <div className="overview-support-mini-grid">
-                    <article className="overview-insight-card is-mini">
+                    <Card variant="mini">
                       <span className="overview-note-label">{messages.overview.providersLabel}</span>
                       <strong>{overviewActiveSummary}</strong>
                       <p>{overviewActiveSummaryLine}</p>
-                    </article>
-                    <article className="overview-insight-card is-mini">
+                    </Card>
+                    <Card variant="mini">
                       <span className="overview-note-label">{messages.overview.syncLabel}</span>
                       <strong>{parserScoreText}</strong>
                       <p>
@@ -777,7 +779,7 @@ export function OverviewWorkbench() {
                               runtime: runtimeLatencyText,
                             })}
                       </p>
-                    </article>
+                    </Card>
                   </div>
                 </div>
               </div>

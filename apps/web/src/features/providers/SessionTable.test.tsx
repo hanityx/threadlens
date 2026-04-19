@@ -145,6 +145,7 @@ describe("SessionTable", () => {
     expect(html).toContain("Current selection 1");
     expect(html).toContain("Archive dry-run Pending");
     expect(html).toContain("Delete dry-run Ready");
+    expect(html).toContain("status-pill status-detected status-pill-button");
     expect(html).toContain("Provider");
     expect(html).toContain("Source");
     expect(html).toContain("Format");

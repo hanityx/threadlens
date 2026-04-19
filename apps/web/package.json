@@ -8,6 +8,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.json && vite build",
+    "storybook": "storybook dev --ci --port 6006",
+    "build-storybook": "storybook build",
     "preview": "vite preview",
     "test": "vitest run -c vitest.config.ts",
     "test:e2e": "playwright test -c playwright.config.ts",
@@ -15,16 +17,22 @@
     "lint": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@threadlens/shared-contracts": "workspace:*",
     "@tanstack/react-query": "^5.64.2",
+    "@threadlens/shared-contracts": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
+    "@storybook/addon-essentials": "8.6.18",
+    "@storybook/react": "8.6.18",
+    "@storybook/react-vite": "8.6.18",
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
+    "agentation": "^3.0.2",
+    "agentation-mcp": "^1.2.0",
+    "storybook": "8.6.18",
     "typescript": "^5.7.3",
     "vite": "^6.0.7",
     "vitest": "^2.1.8"

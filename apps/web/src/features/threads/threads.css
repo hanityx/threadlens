@@ -8,30 +8,6 @@
   color: var(--text-secondary);
 }
 
-.panel header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 18px 22px;
-  border-bottom: 1px solid var(--line-soft);
-  background: var(--surface-panel-header);
-}
-
-.panel header span {
-  color: var(--muted);
-  font-size: var(--text-base);
-  font-family: var(--font-mono);
-  letter-spacing: 0.04em;
-}
-
-.panel h2 {
-  margin: 0;
-  font-size: var(--text-lg);
-  font-family: var(--font-mono);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
 .sub-toolbar {
   display: flex;
   justify-content: space-between;

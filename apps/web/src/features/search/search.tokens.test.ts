@@ -69,4 +69,11 @@ describe("search token migration", () => {
     expect(searchStyles).toMatch(/\.search-idle-strip\s*{[^}]*backdrop-filter:\s*blur\(var\(--blur-md\)\);/s);
     expect(searchStyles).toMatch(/\.search-result-card\s*{[^}]*backdrop-filter:\s*blur\(var\(--blur-md\)\);/s);
   });
+
+  it("keeps search result spacing on the approved design-system scale", () => {
+    expect(searchStyles).toMatch(/\.search-result-card-stage\s*{[^}]*padding:\s*12px 14px;/s);
+    expect(searchStyles).toMatch(/\.search-group-list\s*{[^}]*gap:\s*8px;/s);
+    expect(searchStyles).toMatch(/\.search-result-card\s*{[^}]*padding:\s*12px;[^}]*gap:\s*8px;/s);
+    expect(searchStyles).toMatch(/\.search-result-meta\s*{[^}]*gap:\s*6px 8px;/s);
+  });
 });

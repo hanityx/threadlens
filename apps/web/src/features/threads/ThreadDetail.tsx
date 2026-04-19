@@ -114,7 +114,7 @@ export function ThreadDetail(props: ThreadDetailProps) {
       ? (selectedIds.length === 1
           ? messages.threadDetail.selectedRow
           : messages.threadDetail.selectedRows).replace("{count}", String(selectedIds.length))
-      : undefined;
+      : messages.threadDetail.emptyStateBody;
   const fallbackThreadTitle = selectedThreadId
     ? `${messages.threadDetail.fallbackTitlePrefix} ${selectedThreadId.slice(0, 8)}`
     : messages.threadDetail.unknownTitle;
