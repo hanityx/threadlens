@@ -40,8 +40,8 @@ describe("ThreadDetail", () => {
     expect(html.match(/Pick one row to open the full review surface\./g)?.length).toBe(2);
     expect(html).toContain("next pick");
     expect(html).toContain("Next cleanup candidate");
-    expect(html).toContain("opens here");
-    expect(html).toContain("Transcript, local files, and cleanup preview.");
+    expect(html).not.toContain("opens here");
+    expect(html).not.toContain("Transcript, local files, and cleanup preview.");
     expect(html).toContain("thread-detail-empty-next-button");
     expect(html).not.toContain("Open first visible row");
     expect(html).not.toContain(">rows<");
@@ -49,7 +49,7 @@ describe("ThreadDetail", () => {
     expect(html).not.toContain(">total<");
   });
 
-  it("shows local file evidence instead of a raw artifacts count", () => {
+  it("keeps overview metadata and transcript without the duplicate cleanup section", () => {
     const html = renderToStaticMarkup(
       <ThreadDetail
         messages={messages}
@@ -131,19 +131,15 @@ describe("ThreadDetail", () => {
       />,
     );
 
-    expect(html).toContain("Local files found");
-    expect(html).toContain("3 files");
-    expect(html).toContain("session log 1");
-    expect(html).toContain("archived log 2");
-    expect(html).toContain("thread-1.jsonl");
     expect(html).toContain("2 Rows Selected");
     expect(html).not.toContain("review · next steps");
-    expect(html).toContain("019d2f65…4d85");
+    expect(html).toContain("019d2f65-1111-2222-3333-4444444d4d85");
     expect(html).toContain("Earliest loaded");
     expect(html).toContain("Updated");
     expect(html).toContain("Workspace");
     expect(html).toContain("/workspace/threadlens");
-    expect(html).toContain("aria-expanded=\"false\"");
+    expect(html).not.toContain(">Cleanup check<");
+    expect(html).not.toContain("Local files found");
     expect(html).not.toContain(">cleanup dry-run<");
     expect(html).not.toContain("<p>sessions</p>");
     expect(html).not.toContain(">Artifacts<");
@@ -227,6 +223,7 @@ describe("ThreadDetail", () => {
     expect(html).toContain("Selection ready");
     expect(html).toContain("Open selected row");
     expect(html).not.toContain("No thread selected.");
+    expect(html).not.toContain("Selected rows stay in the action rail below.");
   });
 
   it("renders Korean thread-detail copy with localized helper labels", () => {
@@ -263,8 +260,8 @@ describe("ThreadDetail", () => {
     expect(html).toContain("선택한 스레드가 없습니다.");
     expect(html).toContain("다음 후보");
     expect(html).toContain("다음 정리 후보");
-    expect(html).toContain("여기서 열림");
-    expect(html).toContain("트랜스크립트, 로컬 파일, cleanup 미리보기를 여기서 확인합니다.");
+    expect(html).not.toContain("여기서 열림");
+    expect(html).not.toContain("트랜스크립트, 로컬 파일, cleanup 미리보기를 여기서 확인합니다.");
   });
 
   it("renders Korean fallback thread title and source label in detail view", () => {

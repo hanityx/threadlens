@@ -1,10 +1,10 @@
 import { findProviderCapability } from "@threadlens/shared-contracts";
 import { buildProviderSessionActionSummary } from "@/features/providers/model/providerPanelPresentationModel";
-import { compactSessionFileName, compactSessionTitle } from "@/features/providers/lib/helpers";
+import { compactSessionTitle } from "@/features/providers/lib/helpers";
 import type { SessionDetailProps } from "@/features/providers/session/SessionDetail";
 import { formatDateTime, normalizeDisplayValue } from "@/shared/lib/format";
 
-export function useSessionDetailDisplay(props: SessionDetailProps, options: { showFullSessionFileName: boolean }) {
+export function useSessionDetailDisplay(props: SessionDetailProps) {
   const {
     messages,
     selectedSession,
@@ -15,8 +15,6 @@ export function useSessionDetailDisplay(props: SessionDetailProps, options: { sh
     canRunSessionAction,
     providerDeleteBackupEnabled,
   } = props;
-  const { showFullSessionFileName } = options;
-
   const resolvedEmptyScopeLabel = emptyScopeLabel || messages.common.allAi;
   const emptyTranscriptLabel = (() => {
     if (!selectedSession) return messages.sessionDetail.emptyTranscript;
@@ -54,9 +52,6 @@ export function useSessionDetailDisplay(props: SessionDetailProps, options: { sh
   const sessionFileName = selectedSession
     ? selectedSession.file_path.split(/[\\/]/).pop() || selectedSession.file_path
     : "";
-  const sessionDisplayFileName = showFullSessionFileName
-    ? sessionFileName
-    : compactSessionFileName(sessionFileName);
   const sessionCompactMeta = selectedSession
     ? `${sourceLabel || selectedSession.provider} · ${formatDateTime(selectedSession.mtime)}`
     : "";
@@ -105,7 +100,6 @@ export function useSessionDetailDisplay(props: SessionDetailProps, options: { sh
     emptyTranscriptLabel,
     sessionDisplayTitle,
     sessionFileName,
-    sessionDisplayFileName,
     sessionCompactMeta,
     sourceLabel,
     sessionScopedActionResult,

@@ -18,7 +18,6 @@ export function useSessionDetailActions(props: SessionDetailProps) {
   } = props;
   const [copyNotice, setCopyNotice] = useState("");
   const [hardDeleteConfirmOpen, setHardDeleteConfirmOpen] = useState(false);
-  const [showFullSessionFileName, setShowFullSessionFileName] = useState(false);
   const [hardDeleteSkipConfirmChecked, setHardDeleteSkipConfirmChecked] = useState(false);
   const [hardDeleteSkipConfirmPref, setHardDeleteSkipConfirmPref] = useState(
     readProviderHardDeleteSkipConfirmPref,
@@ -37,10 +36,6 @@ export function useSessionDetailActions(props: SessionDetailProps) {
   useEffect(() => {
     if (!bodyRef.current) return;
     bodyRef.current.scrollTop = 0;
-  }, [selectedSession?.file_path]);
-
-  useEffect(() => {
-    setShowFullSessionFileName(false);
   }, [selectedSession?.file_path]);
 
   const copyText = async (text: string, label: string) => {
@@ -183,8 +178,6 @@ export function useSessionDetailActions(props: SessionDetailProps) {
     hardDeleteConfirmOpen,
     hardDeleteSkipConfirmChecked,
     setHardDeleteSkipConfirmChecked,
-    showFullSessionFileName,
-    setShowFullSessionFileName,
     openHardDeleteConfirm,
     confirmHardDelete,
     resetHardDeleteConfirm,

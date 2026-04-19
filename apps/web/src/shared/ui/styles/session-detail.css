@@ -141,9 +141,9 @@
 }
 
 .impact-body {
-  padding: 13px 14px;
+  padding: 16px 18px;
   display: grid;
-  gap: 10px;
+  gap: 12px;
   min-height: 100%;
   align-content: start;
   grid-template-rows: auto minmax(0, 1fr);
@@ -165,7 +165,7 @@
 .detail-section > summary {
   list-style: none;
   cursor: pointer;
-  padding: 9px 10px;
+  padding: 11px 14px;
   font-size: var(--text-sm);
   font-weight: 650;
   text-transform: uppercase;
@@ -188,7 +188,7 @@
 }
 
 .detail-section-static-head {
-  padding: 9px 10px;
+  padding: 11px 14px;
   font-size: var(--text-sm);
   font-weight: 650;
   text-transform: uppercase;
@@ -199,13 +199,13 @@
 }
 
 .detail-section-body {
-  padding: 9px;
+  padding: 12px 14px;
   display: grid;
-  gap: 7px;
+  gap: 8px;
 }
 
 .detail-section-transcript .detail-section-body {
-  padding-top: 10px;
+  padding-top: 12px;
   min-height: 0;
 }
 
@@ -216,7 +216,7 @@
 .detail-hero {
   display: grid;
   gap: 5px;
-  padding: 9px 10px;
+  padding: 12px 14px;
   border: 1px solid var(--surface-card-border);
   border-radius: var(--radius-shell-lg);
   background: var(--surface-card-strong-subtle);
@@ -263,27 +263,18 @@
   text-transform: uppercase;
 }
 
-.detail-hero-pill-button {
-  appearance: none;
-  cursor: pointer;
+.detail-hero-pill-value {
   text-transform: none;
   letter-spacing: 0.01em;
   font-family: var(--font-mono);
-  max-width: min(100%, 18rem);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.detail-hero-pill-button.is-expanded {
   max-width: 100%;
   white-space: normal;
   overflow-wrap: anywhere;
 }
 
 .detail-hero-session-compact {
-  gap: 6px;
-  padding: 8px 10px;
+  gap: 8px;
+  padding: 11px 14px;
   border-radius: var(--radius-shell-md);
   background: var(--surface-card-strong-ghost);
   box-shadow: none;
@@ -552,6 +543,7 @@
 
 .session-detail-panel .detail-action-bar {
   position: static;
+  padding: 10px 12px;
   border: 1px solid var(--surface-detail-divider);
   background: var(--surface-detail-action-bar);
 }
@@ -631,8 +623,8 @@
 
 .thread-review-panel .detail-hero {
   margin-bottom: 0;
-  gap: 3px;
-  padding: 7px 8px;
+  gap: 4px;
+  padding: 11px 14px;
   border-radius: var(--radius-shell-md);
   background: var(--surface-card-strong-ghost);
   box-shadow: none;
@@ -646,8 +638,8 @@
 
 .thread-detail-empty-state {
   display: grid;
-  gap: 8px;
-  padding: 9px 10px;
+  gap: 12px;
+  padding: 12px 14px;
   border: 1px solid var(--surface-card-border);
   border-radius: var(--radius-shell-md);
   background: var(--surface-card-strong-subtle);
@@ -659,7 +651,7 @@
 
 .thread-detail-empty-copy {
   display: grid;
-  gap: 3px;
+  gap: 5px;
   justify-items: start;
   text-align: left;
 }
@@ -679,8 +671,8 @@
 .thread-detail-empty-next {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 3px;
-  padding: 8px 9px;
+  gap: 5px;
+  padding: 10px 12px;
   border: 1px solid var(--surface-detail-empty-border);
   border-radius: var(--radius-card);
   background: var(--surface-nav-ghost);
@@ -744,22 +736,6 @@
   line-height: 1.22;
   width: 100%;
   text-align: left;
-}
-
-.thread-detail-empty-opens {
-  display: grid;
-  gap: 2px;
-  padding: 0 2px;
-  justify-items: start;
-  text-align: left;
-}
-
-.thread-detail-empty-opens .overview-note-label {
-  color: var(--text-secondary);
-  font-size: var(--text-2xs);
-  font-family: var(--font-label);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .session-detail-empty-state {
@@ -885,7 +861,7 @@
 
 .thread-review-panel .detail-section > summary,
 .thread-review-panel .detail-section-static-head {
-  padding: 8px 9px;
+  padding: 11px 14px;
   font-size: var(--text-xs);
 }
 
@@ -900,8 +876,8 @@
 }
 
 .thread-review-panel .detail-section-body {
-  padding: 8px;
-  gap: 6px;
+  padding: 12px 14px;
+  gap: 8px;
 }
 
 .thread-review-panel .transcript-summary-strip {
@@ -970,14 +946,14 @@
 }
 
 .thread-review-panel .detail-action-bar {
-  padding: 5px 7px;
+  padding: 8px 10px;
   border-color: var(--surface-border-ghost);
   background: var(--surface-detail-action-bar-ghost);
 }
 
 .thread-review-panel .impact-list h3 {
   font-size: var(--text-base);
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .thread-review-panel .impact-list ul {
