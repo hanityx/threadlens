@@ -93,7 +93,7 @@ async function run() {
       throw new Error("xvfb-run is required for packaged smoke on Linux when DISPLAY is absent.");
     }
     command = "xvfb-run";
-    args = ["-a", executable];
+    args = ["-a", executable, "--no-sandbox"];
   }
 
   await new Promise((resolve, reject) => {
