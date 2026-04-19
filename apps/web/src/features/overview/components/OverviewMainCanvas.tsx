@@ -335,15 +335,17 @@ export function OverviewMainCanvas({
                         onOpenRecentThread(row.thread_id);
                       }}
                     >
-                      <strong>
-                        {normalizeWorkbenchTitle(
-                          row.title,
-                          compactWorkbenchId(row.thread_id, "thread"),
-                        )}
-                      </strong>
-                      <span>
-                        {formatOverviewReviewSource(row.source, overviewMessages)} / {formatOverviewReviewRisk(row.risk_level, overviewMessages)}
-                      </span>
+                      <div className="overview-review-list-copy">
+                        <strong>
+                          {normalizeWorkbenchTitle(
+                            row.title,
+                            compactWorkbenchId(row.thread_id, "thread"),
+                          )}
+                        </strong>
+                        <span>
+                          {formatOverviewReviewSource(row.source, overviewMessages)} / {formatOverviewReviewRisk(row.risk_level, overviewMessages)}
+                        </span>
+                      </div>
                     </button>
                   ))}
                 </div>

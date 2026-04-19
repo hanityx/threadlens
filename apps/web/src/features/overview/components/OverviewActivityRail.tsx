@@ -68,6 +68,11 @@ export function OverviewActivityRail({
                     const healthDot = describeSessionHealthDot(row, overviewMessages);
                     const freshnessDot = describeSessionFreshnessDot(row, overviewMessages);
                     const weightDot = describeSessionWeightDot(row, overviewMessages);
+                    const dotEntries = [
+                      { key: "health", label: healthDot.label, className: healthDot.className },
+                      { key: "freshness", label: freshnessDot.label, className: freshnessDot.className },
+                      { key: "weight", label: weightDot.label, className: weightDot.className },
+                    ];
                     return (
                       <button
                         key={`overview-session-${row.file_path}`}
@@ -91,11 +96,19 @@ export function OverviewActivityRail({
                         </div>
                         <div
                           className="overview-side-item-dots"
-                          aria-label={`${healthDot.label}. ${freshnessDot.label}. ${weightDot.label}.`}
+                          aria-label={dotEntries.map((entry) => entry.label).join(". ")}
                         >
-                          <span className={healthDot.className} title={healthDot.label} />
-                          <span className={freshnessDot.className} title={freshnessDot.label} />
-                          <span className={weightDot.className} title={weightDot.label} />
+                          {dotEntries.map((entry) => (
+                            <span
+                              key={`${row.session_id}-${entry.key}`}
+                              className="overview-side-item-dot"
+                            >
+                              <span className={entry.className} />
+                              <span role="tooltip" className="overview-side-item-dot-tooltip">
+                                {entry.label}
+                              </span>
+                            </span>
+                          ))}
                         </div>
                       </button>
                     );
