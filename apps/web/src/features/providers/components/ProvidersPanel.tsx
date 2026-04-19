@@ -14,6 +14,7 @@ import {
   ProviderAdvancedTools,
 } from "@/features/providers/components/ProviderAdvancedTools";
 import { ProviderMainPanels } from "@/features/providers/components/ProviderMainPanels";
+import { ProviderWorkspaceBar } from "@/features/providers/components/ProviderWorkspaceBar";
 import { useProvidersPanelState } from "@/features/providers/hooks/useProvidersPanelState";
 import { useProvidersPanelModel } from "@/features/providers/hooks/useProvidersPanelModel";
 import {
@@ -210,6 +211,24 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
 
   return (
     <>
+      <ProviderWorkspaceBar
+        messages={messages}
+        providerLabel={model.presentationModel.providerLabel}
+        providerView={props.providerView}
+        coreProviderTabs={model.workbenchModel.coreProviderTabs}
+        optionalProviderTabs={model.workbenchModel.optionalProviderTabs}
+        onSelectProviderView={props.setProviderView}
+        summary={{
+          sessions: props.providerSessionSummary.rows ?? props.providerSessionRows.length,
+          sources: model.workbenchModel.detectedDataSourceCount,
+          transcriptReady: props.providerSessionSummary.parse_ok ?? 0,
+          parseFail: props.providerSessionSummary.parse_fail ?? 0,
+          archived: model.sessionModel.archivedSessionCount,
+          lastRefreshAt: props.providersLastRefreshAt,
+        }}
+        searchSlot={searchSlot}
+      />
+
       <ProviderMainPanels
         selectedSessionPath={props.selectedSessionPath}
         activeSessionPanelHeight={state.activeSessionPanelHeight}

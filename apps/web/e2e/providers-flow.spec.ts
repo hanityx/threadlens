@@ -8,7 +8,7 @@ const selectAllFilteredLabel = /^(Select all filtered|Select all in current filt
 const deleteDryRunLabel = /^(Delete dry-run|Delete source files \(dry-run\))$/i;
 const bulkArchiveLabel = /^(Archive selected locally|Archive locally|Archive)$/i;
 const threadDetailTitle = /^(Thread Detail|Selected Thread Detail)$/i;
-const impactAnalysisLabel = /^(Impact Analysis|Impact)$/i;
+const impactAnalysisLabel = /^(Run impact analysis|Impact Analysis|Impact)$/i;
 const cleanupDryRunLabel = /^(Cleanup Dry-Run|Dry-run|Run cleanup dry-run)$/i;
 const backupSelectedLabel = /^(Backup Selected Sessions|Back up selected sessions|Back up selected)$/i;
 const bundleAllBackupsLabel = /^(Bundle All Backups|Export backup bundle|Export full backup bundle|Export bundle)$/i;
@@ -574,21 +574,17 @@ test("thread detail forensics actions send selected ids", async ({ page }) => {
   await page.goto("/");
   await openPrimaryView(page, "Threads");
   await expect(page.getByText("Forensics action test").first()).toBeVisible();
+  await page
+    .getByRole("checkbox", { name: /Select thread Forensics action test/i })
+    .check();
   await page.getByText("Forensics action test").first().click();
+  await expect(page.getByText(/Current selection 1/i).first()).toBeVisible();
 
-  const threadDetailPanel = page.locator(".thread-review-panel").first();
-  await expect(threadDetailPanel).toBeVisible();
-  await threadDetailPanel.locator("summary").filter({ hasText: /^Actions$/i }).click();
-
-  await threadDetailPanel
-    .getByRole("button", { name: impactAnalysisLabel })
-    .click();
+  await page.getByRole("button", { name: impactAnalysisLabel }).first().click();
   await expect.poll(() => analyzeDeleteCalls.length).toBe(1);
   expect(analyzeDeleteCalls[0]?.ids).toEqual(["thread-2"]);
 
-  await threadDetailPanel
-    .getByRole("button", { name: cleanupDryRunLabel })
-    .click();
+  await page.getByRole("button", { name: cleanupDryRunLabel }).first().click();
   await expect.poll(() => cleanupDryRunCalls.length).toBe(1);
   expect(cleanupDryRunCalls[0]?.ids).toEqual(["thread-2"]);
   expect(cleanupDryRunCalls[0]?.dry_run).toBe(true);
