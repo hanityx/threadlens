@@ -52,6 +52,7 @@ describe("ProviderAdvancedShell", () => {
     expect(html).toContain("Last fetch DS 120ms");
     expect(html).toContain("Slow providers 1/4");
     expect(html).toContain("Matrix slot");
+    expect(html).not.toContain("<details class=\"inline-tools-disclosure\"");
     expect(onAdvancedOpenChange).not.toHaveBeenCalled();
     expect(onRefreshProvidersData).not.toHaveBeenCalled();
     expect(onProviderDataDepthChange).not.toHaveBeenCalled();

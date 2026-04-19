@@ -98,9 +98,9 @@ export function ProviderAdvancedShell({
                   ? `${messages.providers.lastRefresh} ${formatDateTime(providersLastRefreshAt)}`
                   : messages.providers.advancedNoRefreshYet}
               </span>
-              <details className="inline-tools-disclosure">
-                <summary>{messages.providers.advancedSettingsSummary}</summary>
+              <div className="inline-tools-disclosure">
                 <div className="sub-toolbar inline-tools-disclosure-body">
+                  <strong>{messages.providers.advancedSettingsSummary}</strong>
                   <label className="provider-quick-switch">
                     <span>{messages.providers.depthLabel}</span>
                     <select
@@ -155,7 +155,7 @@ export function ProviderAdvancedShell({
                     {hasSlowProviderFetch ? ` · ${messages.providers.fetchMsSlow}` : ""}
                   </span>
                 </div>
-              </details>
+              </div>
             </section>
 
             {matrixSlot}
