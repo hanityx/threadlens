@@ -291,4 +291,77 @@ describe("SessionTable", () => {
     expect(html).toContain("No session rows match the current filters.");
     expect(html).not.toContain("Loading sessions...");
   });
+
+  it("renders hard delete confirmation copy in Korean", () => {
+    const koMessages = getMessages("ko");
+    const html = renderToStaticMarkup(
+      <SessionTable
+        messages={koMessages}
+        providerSessionSummary={{ rows: 1, parse_ok: 1 }}
+        providerSessionRows={rows}
+        providerSessionsLimit={50}
+        providerRowsSampled={false}
+        showProviderSessionsZeroState={false}
+        selectedProviderHasPresentSource={true}
+        onPromoteDepthRefresh={vi.fn()}
+        sortedProviderSessionRows={rows}
+        renderedProviderSessionRows={rows}
+        canRunProviderAction={true}
+        busy={false}
+        onRunArchiveDryRun={vi.fn()}
+        onRunArchive={vi.fn()}
+        onRunDeleteDryRun={vi.fn()}
+        onRunDelete={vi.fn()}
+        onRequestHardDeleteConfirm={vi.fn()}
+        hardDeleteConfirmOpen={true}
+        hardDeleteSkipConfirmChecked={false}
+        onToggleHardDeleteSkipConfirmChecked={() => undefined}
+        onConfirmHardDelete={() => undefined}
+        onCancelHardDeleteConfirm={() => undefined}
+        selectedSessionProvider="codex"
+        selectedSessionParseFailCount={2}
+        onJumpToParserProvider={vi.fn()}
+        sourceFilter="all"
+        onSourceFilterChange={vi.fn()}
+        sourceFilterOptions={[{ source: "history", count: 1 }]}
+        sessionSort="mtime_desc"
+        onSessionSortChange={vi.fn()}
+        staleOnlyActive={false}
+        canSelectStaleOnly={true}
+        onToggleSelectStaleOnly={() => undefined}
+        enabledCsvColumnsCount={3}
+        totalCsvColumns={10}
+        onExportCsv={vi.fn()}
+        onSetCsvColumnsPreset={vi.fn()}
+        csvColumnItems={[{ key: "provider", label: "Provider", checked: true }]}
+        onCsvColumnChange={vi.fn()}
+        showReadOnlyHint={false}
+        showProviderColumn={true}
+        selectedSessionPath="/tmp/session.jsonl"
+        slowProviderSet={new Set<string>(["codex"])}
+        onSelectSessionPath={vi.fn()}
+        onSetParserDetailProvider={vi.fn()}
+        selectedProviderFiles={{ "/tmp/session.jsonl": true }}
+        allProviderRowsSelected={false}
+        allFilteredProviderRowsSelected={true}
+        toggleSelectAllProviderRows={() => undefined}
+        onSelectedProviderFileChange={vi.fn()}
+        providerSessionsLoading={false}
+        onLoadMoreRows={vi.fn()}
+        hasMoreRows={false}
+        archiveStage={{ label: "대기", className: "status-preview" }}
+        deleteStage={{ label: "준비", className: "status-active" }}
+        sessionFileActionResult={actionResult}
+        sessionFileActionCanExecute={true}
+        actionLabel={(action) => action}
+        csvExportedRows={1}
+      />,
+    );
+
+    expect(html).toContain("Hard delete");
+    expect(html).toContain("선택한 세션 파일을 지금 하드 삭제할까요?");
+    expect(html).toContain("앞으로 하드 삭제 확인을 다시 묻지 않기");
+    expect(html).toContain("Hard delete now");
+    expect(html).not.toContain("Do not ask again for hard delete.");
+  });
 });

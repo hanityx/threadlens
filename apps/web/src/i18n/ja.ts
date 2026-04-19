@@ -359,6 +359,10 @@ export const ja = {
     loadMoreRows: "セッションをもっと読み込む",
     csvExported: "CSVのエクスポート",
     deleteWithBackup: "削除前のバックアップ",
+    hardDeleteConfirmTitle: "選択したセッションファイルを今すぐ完全に削除しますか？",
+    hardDeleteConfirmBody:
+      "バックアップコピーを作成せずに、選択したセッションファイルをすぐに削除します。",
+    hardDeleteConfirmSkipFuture: "今後はハード削除の確認を再表示しない。",
     backupSelected: "選択セッションのバックアップ",
     exportAllBackups: "フルバックアップのエクスポート",
     deleteWithBackupHint: "実際の削除前にバックアップコピーを保持します。",
@@ -392,6 +396,10 @@ export const ja = {
     bulkArchive: "オプションのローカルアーカイブ",
     bulkImpact: "影響度分析の実行",
     bulkCleanupDryRun: "cleanup dry-run 実行",
+    hardDeleteConfirmTitle: "選択したスレッドファイルを今すぐ完全に削除しますか？",
+    hardDeleteConfirmBody:
+      "最新のcleanupトークンを使って、選択したスレッドファイルをすぐに削除します。",
+    hardDeleteConfirmSkipFuture: "今後はハード削除の確認を再表示しない。",
     selectAllFiltered: "フィルタリングされたアイテム全体を選択",
     selectThreadAria: "スレッドの選択{title}",
     colTitle: "タイトル",

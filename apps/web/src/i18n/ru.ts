@@ -95,6 +95,10 @@ export const ru = {
     bulkArchive: "Архив выбран локально",
     bulkImpact: "Запустите анализ воздействия",
     bulkCleanupDryRun: "Запустить очистку вхолостую",
+    hardDeleteConfirmTitle: "Удалить выбранные файлы треда безвозвратно прямо сейчас?",
+    hardDeleteConfirmBody:
+      "Это немедленно удаляет выбранные файлы треда с использованием последнего cleanup-токена.",
+    hardDeleteConfirmSkipFuture: "Больше не спрашивать подтверждение для hard delete.",
     selectThreadAria: "Выберите тему {title}",
     colTitle: "Название",
     colRisk: "Сигнал",
@@ -195,6 +199,10 @@ export const ru = {
     archiveDryRun: "Архив пробного прогона",
     backupSelected: "Резервное копирование выбранных сеансов",
     deleteDryRun: "Удалить пробный прогон",
+    hardDeleteConfirmTitle: "Удалить выбранные файлы сеанса безвозвратно прямо сейчас?",
+    hardDeleteConfirmBody:
+      "Это немедленно удаляет выбранные файлы сеанса без создания резервной копии.",
+    hardDeleteConfirmSkipFuture: "Больше не спрашивать подтверждение для hard delete.",
     deleteWithBackup: "Резервное копирование перед удалением",
     deleteWithBackupHint: "Сохраните резервную копию перед настоящим удалением.",
     exportAllBackups: "Экспортировать полный пакет резервных копий",

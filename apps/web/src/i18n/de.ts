@@ -359,6 +359,10 @@ export const de = {
     loadMoreRows: "Laden Sie weitere Sitzungen",
     csvExported: "CSV-Export",
     deleteWithBackup: "Sicherung vor dem Löschen",
+    hardDeleteConfirmTitle: "Ausgewählte Sitzungsdateien jetzt endgültig löschen?",
+    hardDeleteConfirmBody:
+      "Dadurch werden die ausgewählten Sitzungsdateien sofort entfernt, ohne eine Sicherungskopie zu erstellen.",
+    hardDeleteConfirmSkipFuture: "Für endgültiges Löschen künftig nicht erneut nachfragen.",
     backupSelected: "Wählen Sie Sitzungssicherung aus",
     exportAllBackups: "Vollständiges Backup exportieren",
     deleteWithBackupHint: "Bewahren Sie vor dem tatsächlichen Löschen eine Sicherungskopie auf.",
@@ -392,6 +396,10 @@ export const de = {
     bulkArchive: "Lokales Archiv auswählen",
     bulkImpact: "Führen Sie eine Auswirkungsanalyse durch",
     bulkCleanupDryRun: "Bereinigung ausführen dry-run",
+    hardDeleteConfirmTitle: "Ausgewählte Thread-Dateien jetzt endgültig löschen?",
+    hardDeleteConfirmBody:
+      "Dadurch werden die ausgewählten Thread-Dateien sofort mit dem neuesten Cleanup-Token entfernt.",
+    hardDeleteConfirmSkipFuture: "Für endgültiges Löschen künftig nicht erneut nachfragen.",
     selectAllFiltered: "Wählen Sie alle gefilterten Elemente aus",
     selectThreadAria: "Threadauswahl {title}",
     colTitle: "Titel",
