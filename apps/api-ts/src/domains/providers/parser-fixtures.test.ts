@@ -12,6 +12,7 @@ const FIXTURE_ROOT = path.resolve(
 describe("provider parser fixtures", () => {
   const originalHome = process.env.HOME;
   const originalXdgConfigHome = process.env.XDG_CONFIG_HOME;
+  const originalCodexHome = process.env.CODEX_HOME;
   let tempHome = "";
 
   beforeEach(async () => {
@@ -19,58 +20,53 @@ describe("provider parser fixtures", () => {
     await cp(FIXTURE_ROOT, tempHome, { recursive: true });
     process.env.HOME = tempHome;
     process.env.XDG_CONFIG_HOME = path.join(tempHome, ".config");
+    process.env.CODEX_HOME = path.join(tempHome, ".codex");
     vi.resetModules();
-    vi.doMock("../../lib/constants.js", async () => {
-      const actual = await vi.importActual<typeof import("../../lib/constants.js")>(
-        "../../lib/constants.js",
-      );
-      const appDataDir = path.join(tempHome, ".config");
-      return {
-        ...actual,
-        HOME_DIR: tempHome,
-        APP_DATA_DIR: appDataDir,
-        CODEX_HOME: path.join(tempHome, ".codex"),
-        CLAUDE_HOME: path.join(tempHome, ".claude"),
-        CLAUDE_PROJECTS_DIR: path.join(tempHome, ".claude", "projects"),
-        CLAUDE_TRANSCRIPTS_DIR: path.join(tempHome, ".claude", "transcripts"),
-        GEMINI_HOME: path.join(tempHome, ".gemini"),
-        GEMINI_HISTORY_DIR: path.join(tempHome, ".gemini", "history"),
-        GEMINI_TMP_DIR: path.join(tempHome, ".gemini", "tmp"),
-        GEMINI_ANTIGRAVITY_CONVERSATIONS_DIR: path.join(
-          tempHome,
-          ".gemini",
-          "antigravity",
-          "conversations",
-        ),
-        CHAT_DIR: path.join(appDataDir, "com.openai.chat"),
-        COPILOT_VSCODE_GLOBAL: path.join(
-          appDataDir,
-          "Code",
-          "User",
-          "globalStorage",
-          "github.copilot-chat",
-        ),
-        COPILOT_VSCODE_WORKSPACE_STORAGE: path.join(
-          appDataDir,
-          "Code",
-          "User",
-          "workspaceStorage",
-        ),
-        COPILOT_CURSOR_GLOBAL: path.join(
-          appDataDir,
-          "Cursor",
-          "User",
-          "globalStorage",
-          "github.copilot-chat",
-        ),
-        COPILOT_CURSOR_WORKSPACE_STORAGE: path.join(
-          appDataDir,
-          "Cursor",
-          "User",
-          "workspaceStorage",
-        ),
-      };
-    });
+    const appDataDir = path.join(tempHome, ".config");
+    vi.doMock("../../lib/constants.js", () => ({
+      HOME_DIR: tempHome,
+      APP_DATA_DIR: appDataDir,
+      CODEX_HOME: path.join(tempHome, ".codex"),
+      CHAT_DIR: path.join(appDataDir, "com.openai.chat"),
+      CLAUDE_HOME: path.join(tempHome, ".claude"),
+      CLAUDE_PROJECTS_DIR: path.join(tempHome, ".claude", "projects"),
+      CLAUDE_TRANSCRIPTS_DIR: path.join(tempHome, ".claude", "transcripts"),
+      GEMINI_HOME: path.join(tempHome, ".gemini"),
+      GEMINI_HISTORY_DIR: path.join(tempHome, ".gemini", "history"),
+      GEMINI_TMP_DIR: path.join(tempHome, ".gemini", "tmp"),
+      GEMINI_ANTIGRAVITY_CONVERSATIONS_DIR: path.join(
+        tempHome,
+        ".gemini",
+        "antigravity",
+        "conversations",
+      ),
+      COPILOT_VSCODE_GLOBAL: path.join(
+        appDataDir,
+        "Code",
+        "User",
+        "globalStorage",
+        "github.copilot-chat",
+      ),
+      COPILOT_VSCODE_WORKSPACE_STORAGE: path.join(
+        appDataDir,
+        "Code",
+        "User",
+        "workspaceStorage",
+      ),
+      COPILOT_CURSOR_GLOBAL: path.join(
+        appDataDir,
+        "Cursor",
+        "User",
+        "globalStorage",
+        "github.copilot-chat",
+      ),
+      COPILOT_CURSOR_WORKSPACE_STORAGE: path.join(
+        appDataDir,
+        "Cursor",
+        "User",
+        "workspaceStorage",
+      ),
+    }));
   });
 
   afterEach(async () => {
@@ -83,6 +79,11 @@ describe("provider parser fixtures", () => {
       delete process.env.XDG_CONFIG_HOME;
     } else {
       process.env.XDG_CONFIG_HOME = originalXdgConfigHome;
+    }
+    if (originalCodexHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = originalCodexHome;
     }
     vi.resetModules();
     vi.doUnmock("../../lib/constants.js");
