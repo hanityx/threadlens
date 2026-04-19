@@ -157,6 +157,12 @@
   align-items: center;
 }
 
+.cleanup-toolbar .search-input,
+.cleanup-toolbar .filter-select {
+  background: transparent;
+  box-shadow: none;
+}
+
 .sticky-action-bar + .sticky-action-bar {
   border-top: 0;
 }

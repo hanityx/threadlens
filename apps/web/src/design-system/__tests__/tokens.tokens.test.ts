@@ -42,14 +42,16 @@ describe("tokens surface migration", () => {
     expect(tokensStyles).toMatch(/--surface-kpi-success:\s*linear-gradient\(180deg, color-mix\(in srgb, var\(--success\) 10%, transparent\), transparent 60%\),\s*var\(--surface-card-bg-subtle\);/);
     expect(tokensStyles).toMatch(/--surface-form-field-border:\s*color-mix\(in srgb, var\(--line\) 70%, var\(--accent\) 18%\);/);
     expect(tokensStyles).toMatch(/--surface-form-field-bg:\s*var\(--bg-elev\);/);
-    expect(tokensStyles).toMatch(/--btn-base-bg:\s*rgba\(31, 39, 46, 0\.96\);/);
-    expect(tokensStyles).toMatch(/--btn-accent-bg:\s*rgba\(24, 28, 33, 0\.99\);/);
-    expect(tokensStyles).toMatch(/--btn-accent-hover-bg:\s*rgba\(35, 40, 47, 1\);/);
+    expect(tokensStyles).toMatch(/--btn-base-bg:\s*rgba\(56, 66, 76, 0\.98\);/);
+    expect(tokensStyles).toMatch(/--btn-base-hover-bg:\s*rgba\(70, 82, 93, 1\);/);
+    expect(tokensStyles).toMatch(/--btn-accent-bg:\s*rgba\(88, 113, 136, 0\.98\);/);
+    expect(tokensStyles).toMatch(/--btn-accent-hover-bg:\s*rgba\(103, 129, 153, 1\);/);
+    expect(tokensStyles).toMatch(/--btn-outline-text:\s*var\(--accent-strong\);/);
     expect(tokensStyles).toMatch(/--btn-danger-bg:\s*rgba\(98, 35, 35, 0\.94\);/);
     expect(tokensStyles).toMatch(/--btn-danger-hover-bg:\s*rgba\(122, 43, 43, 0\.98\);/);
     expect(tokensStyles).toMatch(/--btn-danger-text:\s*#ffe4e6;/);
-    expect(tokensStyles).toMatch(/--surface-btn-outline:\s*color-mix\(in srgb, var\(--surface-card-bg-strong\) 94%, var\(--accent-dim\)\);/);
-    expect(tokensStyles).toMatch(/--surface-btn-outline-hover:\s*color-mix\(in srgb, var\(--surface-card-bg-strong\) 84%, var\(--accent-dim\)\);/);
+    expect(tokensStyles).toMatch(/--surface-btn-outline:\s*color-mix\(in srgb, var\(--surface-card-bg-strong\) 36%, var\(--accent-dim\)\);/);
+    expect(tokensStyles).toMatch(/--surface-btn-outline-hover:\s*color-mix\(in srgb, var\(--surface-card-bg-strong\) 18%, var\(--accent-dim\)\);/);
     expect(tokensStyles).toMatch(/--surface-btn-outline-border:\s*color-mix\(in srgb, var\(--surface-card-border\) 68%, var\(--accent\) 32%\);/);
     expect(tokensStyles).toMatch(/--surface-btn-outline-border-hover:\s*color-mix\(in srgb, var\(--surface-card-border\) 44%, var\(--accent\) 56%\);/);
     expect(tokensStyles).toMatch(/--surface-panel-frosted:\s*linear-gradient\(180deg, color-mix\(in srgb, var\(--panel-glass\) 74%, var\(--glass-high\)\), color-mix\(in srgb, var\(--panel\) 78%, transparent\)\),\s*color-mix\(in srgb, var\(--panel-glass\) 74%, transparent\);/);
@@ -60,6 +62,9 @@ describe("tokens surface migration", () => {
     expect(tokensStyles).toMatch(/--surface-provider-slow-row:\s*color-mix\(in srgb, var\(--warn-dim\) 55%, transparent\);/);
     expect(tokensStyles).toMatch(/--surface-provider-slow-row-hover:\s*color-mix\(in srgb, var\(--warn-dim\) 70%, var\(--hover\)\);/);
     expect(tokensStyles).toMatch(/--surface-active-row-bg:\s*color-mix\(in srgb, var\(--accent\) 14%, var\(--bg-elev\)\);/);
+    expect(tokensStyles).toMatch(/:root\[data-theme="light"\]\s*{[\s\S]*?--btn-outline-text:\s*var\(--surface-active-text\);/);
+    expect(tokensStyles).toMatch(/:root\[data-theme="light"\]\s*{[\s\S]*?--surface-btn-outline:\s*var\(--btn-accent-bg\);/);
+    expect(tokensStyles).toMatch(/:root\[data-theme="light"\]\s*{[\s\S]*?--surface-btn-outline-hover:\s*var\(--btn-accent-hover-bg\);/);
   });
 
   it("defines semantic routing surface and state tokens", () => {

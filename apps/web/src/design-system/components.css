@@ -182,6 +182,81 @@
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
+.toolbar-search-shell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 13px;
+  border: 1px solid var(--surface-card-border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-search-command-bar);
+}
+
+.toolbar-search-shell.is-input {
+  min-width: min(100%, 360px);
+  flex: 1 1 320px;
+}
+
+.toolbar-search-shell.is-select {
+  min-width: 170px;
+  justify-content: space-between;
+}
+
+.toolbar-search-prompt,
+.toolbar-search-chevron {
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  flex: 0 0 auto;
+}
+
+.toolbar-search-chevron {
+  pointer-events: none;
+}
+
+.toolbar-search-input,
+.toolbar-search-select {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: transparent;
+  min-height: 42px;
+  padding: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  letter-spacing: -0.02em;
+  color: var(--text);
+  outline: none;
+  box-shadow: none;
+  flex: 1 1 auto;
+}
+
+.toolbar-search-input::placeholder {
+  color: var(--text-search-muted);
+}
+
+.toolbar-search-input:focus,
+.toolbar-search-input:focus-visible,
+.toolbar-search-select:focus,
+.toolbar-search-select:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.toolbar-search-input::-webkit-search-decoration,
+.toolbar-search-input::-webkit-search-cancel-button,
+.toolbar-search-input::-webkit-search-results-button,
+.toolbar-search-input::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
+.toolbar-search-shell:focus-within {
+  border-color: var(--surface-form-field-border);
+}
+
 .provider-quick-select:focus {
   outline: none;
   border-color: var(--accent);
@@ -226,6 +301,11 @@ button:disabled {
   box-shadow: none;
 }
 
+.btn-base:hover {
+  background: var(--btn-base-hover-bg);
+  box-shadow: none;
+}
+
 .btn-accent {
   background: var(--btn-accent-bg);
   color: var(--surface-active-text);
@@ -254,7 +334,7 @@ button:disabled {
 
 .btn-outline {
   background: var(--surface-btn-outline);
-  color: var(--text);
+  color: var(--btn-outline-text);
   box-shadow: none;
 }
 

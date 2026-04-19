@@ -45,9 +45,11 @@
   --tab-active-bg: rgba(181, 194, 202, 0.12);
   --table-head-bg: rgba(18, 20, 22, 0.94);
   --btn-bg: rgba(22, 26, 30, 0.9);
-  --btn-base-bg: rgba(31, 39, 46, 0.96);
-  --btn-accent-bg: rgba(24, 28, 33, 0.99);
-  --btn-accent-hover-bg: rgba(35, 40, 47, 1);
+  --btn-base-bg: rgba(56, 66, 76, 0.98);
+  --btn-base-hover-bg: rgba(70, 82, 93, 1);
+  --btn-accent-bg: rgba(88, 113, 136, 0.98);
+  --btn-accent-hover-bg: rgba(103, 129, 153, 1);
+  --btn-outline-text: var(--accent-strong);
   --btn-danger-bg: rgba(98, 35, 35, 0.94);
   --btn-danger-hover-bg: rgba(122, 43, 43, 0.98);
   --btn-danger-text: #ffe4e6;
@@ -146,8 +148,8 @@
   --surface-kpi-success: linear-gradient(180deg, color-mix(in srgb, var(--success) 10%, transparent), transparent 60%), var(--surface-card-bg-subtle);
   --surface-form-field-border: color-mix(in srgb, var(--line) 70%, var(--accent) 18%);
   --surface-form-field-bg: var(--bg-elev);
-  --surface-btn-outline: color-mix(in srgb, var(--surface-card-bg-strong) 94%, var(--accent-dim));
-  --surface-btn-outline-hover: color-mix(in srgb, var(--surface-card-bg-strong) 84%, var(--accent-dim));
+  --surface-btn-outline: color-mix(in srgb, var(--surface-card-bg-strong) 36%, var(--accent-dim));
+  --surface-btn-outline-hover: color-mix(in srgb, var(--surface-card-bg-strong) 18%, var(--accent-dim));
   --surface-btn-outline-border: color-mix(in srgb, var(--surface-card-border) 68%, var(--accent) 32%);
   --surface-btn-outline-border-hover: color-mix(in srgb, var(--surface-card-border) 44%, var(--accent) 56%);
   --surface-panel-frosted: linear-gradient(180deg, color-mix(in srgb, var(--panel-glass) 74%, var(--glass-high)), color-mix(in srgb, var(--panel) 78%, transparent)), color-mix(in srgb, var(--panel-glass) 74%, transparent);
@@ -363,8 +365,10 @@
   --table-head-bg: rgba(241, 244, 247, 0.96);
   --btn-bg: rgba(243, 246, 249, 0.98);
   --btn-base-bg: rgba(231, 237, 242, 0.98);
+  --btn-base-hover-bg: rgba(220, 228, 234, 1);
   --btn-accent-bg: rgba(24, 28, 33, 0.99);
   --btn-accent-hover-bg: rgba(35, 40, 47, 1);
+  --btn-outline-text: var(--surface-active-text);
   --btn-danger-bg: rgba(147, 53, 53, 0.94);
   --btn-danger-hover-bg: rgba(124, 36, 36, 0.98);
   --btn-danger-text: #ffe4e6;
@@ -409,10 +413,10 @@
   --surface-pill-bg: rgba(241, 244, 247, 0.9);
   --surface-pill-border: rgba(170, 179, 185, 0.16);
   --surface-pill-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
-  --surface-btn-outline: color-mix(in srgb, var(--panel) 92%, var(--accent-dim));
-  --surface-btn-outline-hover: color-mix(in srgb, var(--panel) 82%, var(--accent-dim));
-  --surface-btn-outline-border: color-mix(in srgb, var(--line) 72%, var(--accent) 28%);
-  --surface-btn-outline-border-hover: color-mix(in srgb, var(--line) 56%, var(--accent) 44%);
+  --surface-btn-outline: var(--btn-accent-bg);
+  --surface-btn-outline-hover: var(--btn-accent-hover-bg);
+  --surface-btn-outline-border: transparent;
+  --surface-btn-outline-border-hover: transparent;
   --surface-active-bg: #181c21;
   --surface-active-text: #f3f6f8;
   --surface-active-border: transparent;
@@ -451,10 +455,7 @@
 
 :root:not([data-theme="light"]) .overview-insight-card.is-primary strong,
 :root:not([data-theme="light"]) .overview-insight-card.is-review strong,
-:root:not([data-theme="light"]) .overview-side-head strong,
-:root:not([data-theme="light"]) .search-stage-title h2,
-:root:not([data-theme="light"]) .provider-archive-stage > header h2,
-:root:not([data-theme="light"]) .threads-table-panel > header h2 {
+:root:not([data-theme="light"]) .overview-side-head strong {
   color: var(--accent-strong);
 }
 
