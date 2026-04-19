@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { Messages } from "../../i18n";
 import type {
   ProviderMatrixProvider,
@@ -40,21 +40,18 @@ import {
 } from "./sessionTableModel";
 import { buildProviderFlowModel } from "./providerFlowModel";
 import {
-  buildParserDetailState,
-  filterParserReports,
-  sortParserReports,
-  type ParserSort,
-} from "./parserModel";
-import {
   buildHotspotOriginLabel,
   buildJumpToParserProviderState,
   buildJumpToProviderSessionsState,
   buildJumpToSessionFromParserErrorState,
   canFocusPendingParserProvider,
   resolvePendingSessionJump,
-  type ParserJumpStatus,
-  type PendingSessionJump,
 } from "./providerJumpModel";
+import {
+  buildParserWorkspaceView,
+  createParserWorkspaceState,
+  parserWorkspaceReducer,
+} from "./parserWorkspaceModel";
 import { buildProviderWorkbenchModel } from "./providerWorkbenchModel";
 import {
   buildProviderCsvColumnItems,
@@ -62,8 +59,6 @@ import {
 } from "./providerCsvModel";
 import {
   providerActionSelectionKey,
-  readStorageValue,
-  writeStorageValue,
 } from "../../hooks/appDataUtils";
 import {
   buildProviderPanelPresentationModel,
@@ -73,11 +68,15 @@ import {
   getProviderStatusLabel,
   getProviderWorkflowStage,
 } from "./providerPanelPresentationModel";
+import {
+  buildHardDeleteConfirmRequestState,
+  buildHardDeleteConfirmResolvedState,
+  readProviderHardDeleteSkipConfirmPref,
+  writeProviderHardDeleteSkipConfirmPref,
+} from "./hardDeleteConfirmModel";
 type ProviderFlowState = "done" | "pending" | "blocked";
 
 const SESSION_PANEL_ACTIVE_MIN_HEIGHT = 640;
-const PROVIDER_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY = "po-provider-hard-delete-skip-confirm";
-const LEGACY_PROVIDER_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY = "cmc-provider-hard-delete-skip-confirm";
 
 export function resolveSessionPanelHeight(options: {
   detailHeight?: number | null;
@@ -259,9 +258,11 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const [sourceFilter, setSourceFilter] = useState<ProviderSourceFilter>("all");
   const [renderLimit, setRenderLimit] = useState(INITIAL_CHUNK);
   const [csvExportedRows, setCsvExportedRows] = useState<number | null>(null);
-  const [parserDetailProvider, setParserDetailProvider] = useState<string>("");
-  const [parserFailOnly, setParserFailOnly] = useState(false);
-  const [parserSort, setParserSort] = useState<ParserSort>("fail_desc");
+  const [parserWorkspace, dispatchParserWorkspace] = useReducer(
+    parserWorkspaceReducer,
+    undefined,
+    createParserWorkspaceState,
+  );
   const [slowOnly, setSlowOnly] = useState(false);
   const [hotspotScopeOrigin, setHotspotScopeOrigin] = useState<ProviderView | null>(null);
   const [csvColumns, setCsvColumns] = useState<Record<CsvColumnKey, boolean>>(readCsvColumnPrefs);
@@ -269,20 +270,13 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const providerSideStackRef = useRef<HTMLElement | null>(null);
   const activeSessionPanelBaselineRef = useRef<number | null>(null);
   const parserSectionRef = useRef<HTMLDetailsElement | null>(null);
-  const [pendingSessionJump, setPendingSessionJump] = useState<PendingSessionJump | null>(null);
-  const [pendingParserFocusProvider, setPendingParserFocusProvider] = useState<string>("");
-  const [parserJumpStatus, setParserJumpStatus] = useState<ParserJumpStatus>("idle");
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [activeSessionPanelHeight, setActiveSessionPanelHeight] = useState<number | null>(null);
   const [hardDeleteConfirmOpen, setHardDeleteConfirmOpen] = useState(false);
   const [hardDeleteSkipConfirmChecked, setHardDeleteSkipConfirmChecked] = useState(false);
-  const [hardDeleteSkipConfirmPref, setHardDeleteSkipConfirmPref] = useState(() => {
-    const raw = readStorageValue([
-      PROVIDER_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY,
-      LEGACY_PROVIDER_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY,
-    ]);
-    return raw === "true";
-  });
+  const [hardDeleteSkipConfirmPref, setHardDeleteSkipConfirmPref] = useState(
+    readProviderHardDeleteSkipConfirmPref,
+  );
 
   const statusLabel = (status: "active" | "detected" | "missing") =>
     getProviderStatusLabel(messages, status);
@@ -421,41 +415,42 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   useEffect(() => {
     writeCsvColumnPrefs(csvColumns);
   }, [csvColumns]);
-  const filteredParserReports = useMemo(
+  const parserWorkspaceView = useMemo(
     () =>
-      filterParserReports(parserReports, {
-        parserFailOnly,
+      buildParserWorkspaceView({
+        state: parserWorkspace,
+        parserReports,
+        providerSessionRows,
+        selectedSessionPath,
         effectiveSlowOnly,
         slowProviderSet,
       }),
-    [parserReports, parserFailOnly, effectiveSlowOnly, slowProviderSet],
-  );
-  const sortedParserReports = useMemo(
-    () => sortParserReports(filteredParserReports, parserSort),
-    [filteredParserReports, parserSort],
-  );
-  const parserDetailState = useMemo(
-    () =>
-      buildParserDetailState({
-        sortedParserReports,
-        parserDetailProvider,
-        providerSessionRows,
-        selectedSessionPath,
-      }),
-    [sortedParserReports, parserDetailProvider, providerSessionRows, selectedSessionPath],
+    [
+      parserWorkspace,
+      parserReports,
+      providerSessionRows,
+      selectedSessionPath,
+      effectiveSlowOnly,
+      slowProviderSet,
+    ],
   );
   const {
+    filteredParserReports,
+    sortedParserReports,
     parserReportsWithErrors,
     resolvedParserDetailProvider,
     parserDetailReport,
     selectedSessionProvider,
     selectedSessionProviderVisibleInParser,
-  } = parserDetailState;
+  } = parserWorkspaceView;
   useEffect(() => {
-    if (parserDetailProvider !== resolvedParserDetailProvider) {
-      setParserDetailProvider(resolvedParserDetailProvider);
+    if (parserWorkspace.parserDetailProvider !== resolvedParserDetailProvider) {
+      dispatchParserWorkspace({
+        type: "sync_resolved_parser_detail_provider",
+        providerId: resolvedParserDetailProvider,
+      });
     }
-  }, [parserDetailProvider, resolvedParserDetailProvider]);
+  }, [parserWorkspace.parserDetailProvider, resolvedParserDetailProvider]);
   const providerFlowModel = useMemo(
     () =>
       buildProviderFlowModel({
@@ -624,30 +619,32 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   };
 
   const resetHardDeleteConfirmState = () => {
-    setHardDeleteConfirmOpen(false);
-    setHardDeleteSkipConfirmChecked(false);
+    const next = buildHardDeleteConfirmResolvedState(hardDeleteSkipConfirmPref);
+    setHardDeleteConfirmOpen(next.confirmOpen);
+    setHardDeleteSkipConfirmChecked(next.skipConfirmChecked);
   };
 
   const openHardDeleteConfirm = () => {
-    if (!canRunProviderAction || busy) return;
-    if (hardDeleteSkipConfirmPref) {
+    const next = buildHardDeleteConfirmRequestState({
+      enabled: canRunProviderAction && !busy,
+      skipConfirmPref: hardDeleteSkipConfirmPref,
+    });
+    if (next.shouldRunImmediately) {
       void runProviderHardDelete();
       return;
     }
-    setHardDeleteSkipConfirmChecked(false);
-    setHardDeleteConfirmOpen(true);
+    setHardDeleteSkipConfirmChecked(next.skipConfirmChecked);
+    setHardDeleteConfirmOpen(next.confirmOpen);
   };
 
   const confirmHardDelete = () => {
     if (busy) return;
-    writeStorageValue(
-      PROVIDER_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY,
-      hardDeleteSkipConfirmChecked ? "true" : "false",
-    );
-    setHardDeleteSkipConfirmPref(hardDeleteSkipConfirmChecked);
-    setHardDeleteConfirmOpen(false);
+    writeProviderHardDeleteSkipConfirmPref(hardDeleteSkipConfirmChecked);
+    const next = buildHardDeleteConfirmResolvedState(hardDeleteSkipConfirmChecked);
+    setHardDeleteSkipConfirmPref(next.skipConfirmPref);
+    setHardDeleteConfirmOpen(next.confirmOpen);
     void runProviderHardDelete().finally(() => {
-      setHardDeleteSkipConfirmChecked(false);
+      setHardDeleteSkipConfirmChecked(next.skipConfirmChecked);
     });
   };
 
@@ -665,7 +662,10 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     setHotspotScopeOrigin(next.hotspotScopeOrigin);
     setProviderView(next.providerView);
     setProbeFilter(next.probeFilter);
-    setParserDetailProvider(next.parserDetailProvider);
+    dispatchParserWorkspace({
+      type: "set_parser_detail_provider",
+      providerId: next.parserDetailProvider,
+    });
     setSessionFilter(next.sessionFilter);
     if (typeof window !== "undefined") {
       window.setTimeout(() => {
@@ -702,9 +702,10 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     const next = buildJumpToParserProviderState(providerId);
     if (!next) return;
     setAdvancedOpen(next.advancedOpen);
-    setParserFailOnly(next.parserFailOnly);
-    setParserDetailProvider(next.parserDetailProvider);
-    setPendingParserFocusProvider(next.pendingParserFocusProvider);
+    dispatchParserWorkspace({
+      type: "jump_to_parser_provider",
+      providerId: next.parserDetailProvider,
+    });
     if (typeof window !== "undefined") {
       window.setTimeout(() => {
         parserSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -717,9 +718,11 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     setProviderView(next.providerView);
     setProbeFilter(next.probeFilter);
     setSessionFilter(next.sessionFilter);
-    setParserDetailProvider(next.parserDetailProvider);
-    setPendingSessionJump(next.pendingSessionJump);
-    setParserJumpStatus(next.parserJumpStatus);
+    dispatchParserWorkspace({
+      type: "jump_to_session_from_parser_error",
+      providerId: next.parserDetailProvider,
+      sessionId: next.pendingSessionJump.sessionId,
+    });
     if (typeof window !== "undefined") {
       window.setTimeout(() => {
         providerSessionsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -728,7 +731,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   };
   useEffect(() => {
     const resolved = resolvePendingSessionJump({
-      pendingSessionJump,
+      pendingSessionJump: parserWorkspace.pendingSessionJump,
       providerView,
       providerSessionsLoading,
       providerSessionRows,
@@ -736,24 +739,29 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
     if (!resolved) return;
     if (resolved.selectedSessionPath) {
       setSelectedSessionPath(resolved.selectedSessionPath);
-      setParserJumpStatus(resolved.parserJumpStatus);
+      dispatchParserWorkspace({
+        type: "resolve_pending_session_jump",
+        parserJumpStatus: resolved.parserJumpStatus,
+      });
       scrollToSessionRow(resolved.selectedSessionPath);
     } else {
-      setParserJumpStatus(resolved.parserJumpStatus);
+      dispatchParserWorkspace({
+        type: "resolve_pending_session_jump",
+        parserJumpStatus: resolved.parserJumpStatus,
+      });
     }
-    setPendingSessionJump(null);
   }, [
-    pendingSessionJump,
+    parserWorkspace.pendingSessionJump,
     providerView,
     providerSessionsLoading,
     providerSessionRows,
     setSelectedSessionPath,
   ]);
   useEffect(() => {
-    if (!canFocusPendingParserProvider(pendingParserFocusProvider, sortedParserReports)) return;
-    scrollToParserProviderRow(pendingParserFocusProvider);
-    setPendingParserFocusProvider("");
-  }, [pendingParserFocusProvider, sortedParserReports]);
+    if (!canFocusPendingParserProvider(parserWorkspace.pendingParserFocusProvider, sortedParserReports)) return;
+    scrollToParserProviderRow(parserWorkspace.pendingParserFocusProvider);
+    dispatchParserWorkspace({ type: "clear_pending_parser_focus" });
+  }, [parserWorkspace.pendingParserFocusProvider, sortedParserReports]);
   useEffect(() => {
     if (!selectedSessionPath || !providerSideStackRef.current) {
       setActiveSessionPanelHeight(null);
@@ -946,7 +954,12 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
           selectedSessionPath={selectedSessionPath}
           slowProviderSet={slowProviderSet}
           onSelectSessionPath={setSelectedSessionPath}
-          onSetParserDetailProvider={setParserDetailProvider}
+          onSetParserDetailProvider={(providerId) =>
+            dispatchParserWorkspace({
+              type: "set_parser_detail_provider",
+              providerId,
+            })
+          }
           selectedProviderFiles={selectedProviderFiles}
           allProviderRowsSelected={allProviderRowsSelected}
           allFilteredProviderRowsSelected={allFilteredProviderRowsSelected}
@@ -995,25 +1008,40 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
             <ParserHealthTable
               messages={messages}
               parserSummary={parserSummary}
-              selectedSessionProvider={selectedSessionProvider}
-              selectedSessionProviderVisibleInParser={selectedSessionProviderVisibleInParser}
-              parserFailOnly={parserFailOnly}
-              onParserFailOnlyChange={setParserFailOnly}
-              filteredParserReportsCount={filteredParserReports.length}
-              totalParserReportsCount={parserReports.length}
-              parserSort={parserSort}
-              onParserSortChange={(value) => setParserSort(value as ParserSort)}
-              sortedParserReports={sortedParserReports}
-              parserLoading={parserLoading}
-              slowProviderSet={slowProviderSet}
-              statusLabel={statusLabel}
-              onJumpToProviderSessions={jumpToProviderSessions}
-              parserReportsWithErrors={parserReportsWithErrors}
-              parserDetailProvider={parserDetailProvider}
-              onParserDetailProviderChange={setParserDetailProvider}
-              parserJumpStatus={parserJumpStatus}
-              parserDetailReport={parserDetailReport}
-              onJumpToSessionFromParserError={jumpToSessionFromParserError}
+              linkedSession={{
+                provider: selectedSessionProvider,
+                visibleInParser: selectedSessionProviderVisibleInParser,
+              }}
+              overview={{
+                parserFailOnly: parserWorkspace.parserFailOnly,
+                onParserFailOnlyChange: (value) =>
+                  dispatchParserWorkspace({ type: "set_parser_fail_only", value }),
+                filteredParserReportsCount: filteredParserReports.length,
+                totalParserReportsCount: parserReports.length,
+                parserSort: parserWorkspace.parserSort,
+                onParserSortChange: (value) =>
+                  dispatchParserWorkspace({
+                    type: "set_parser_sort",
+                    value: value as typeof parserWorkspace.parserSort,
+                  }),
+                sortedParserReports,
+                parserLoading,
+                slowProviderSet,
+                statusLabel,
+                onJumpToProviderSessions: jumpToProviderSessions,
+              }}
+              detail={{
+                parserReportsWithErrors,
+                parserDetailProvider: parserWorkspace.parserDetailProvider,
+                onParserDetailProviderChange: (providerId) =>
+                  dispatchParserWorkspace({
+                    type: "set_parser_detail_provider",
+                    providerId,
+                  }),
+                parserJumpStatus: parserWorkspace.parserJumpStatus,
+                parserDetailReport,
+                onJumpToSessionFromParserError: jumpToSessionFromParserError,
+              }}
               detailsRef={parserSectionRef}
             />
           }
