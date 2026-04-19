@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { findProviderCapability } from "@threadlens/shared-contracts";
 import { Button } from "../../design-system/Button";
 import { PanelHeader } from "../../design-system/PanelHeader";
 import type { Messages } from "../../i18n";
@@ -210,7 +211,8 @@ export function SessionDetail(props: SessionDetailProps) {
 
   const emptyTranscriptLabel = (() => {
     if (!selectedSession) return messages.sessionDetail.emptyTranscript;
-    if ((sessionTranscriptData?.message_count ?? 0) === 0 && selectedSession.provider === "chatgpt") {
+    const capability = findProviderCapability(selectedSession.provider);
+    if ((sessionTranscriptData?.message_count ?? 0) === 0 && capability && !capability.read_transcript) {
       return messages.sessionDetail.emptyTranscriptChatGptDesktopCache;
     }
     if (

@@ -15,6 +15,13 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import {
+  PROVIDER_IDS,
+  PROVIDER_LABELS,
+  getProviderCapability,
+  type ProviderId,
+} from "@threadlens/shared-contracts";
+export type { ProviderId } from "@threadlens/shared-contracts";
+import {
   CODEX_HOME,
   CLAUDE_HOME,
   CLAUDE_PROJECTS_DIR,
@@ -54,14 +61,6 @@ import { invalidateProviderSearchCaches } from "../domains/providers/search.js";
  *  Types                                                              *
  * ─────────────────────────────────────────────────────────────────── */
 
-export const PROVIDER_IDS = [
-  "codex",
-  "chatgpt",
-  "claude",
-  "gemini",
-  "copilot",
-] as const;
-export type ProviderId = (typeof PROVIDER_IDS)[number];
 export type ProviderStatus = "active" | "detected" | "missing";
 export type ProviderSessionAction =
   | "backup_local"
@@ -224,14 +223,7 @@ export function invalidateCodexThreadTitleMapCache() {
  * ─────────────────────────────────────────────────────────────────── */
 
 export function providerName(provider: ProviderId): string {
-  const labels: Record<ProviderId, string> = {
-    codex: "Codex",
-    chatgpt: "ChatGPT",
-    claude: "Claude",
-    gemini: "Gemini",
-    copilot: "Copilot",
-  };
-  return labels[provider] ?? provider;
+  return PROVIDER_LABELS[provider] ?? provider;
 }
 
 export function listProviderIds(): ProviderId[] {
@@ -239,8 +231,11 @@ export function listProviderIds(): ProviderId[] {
 }
 
 function supportsProviderCleanup(provider: ProviderId): boolean {
-  if (provider === "chatgpt") return false;
-  return true;
+  return getProviderCapability(provider).safe_cleanup;
+}
+
+function supportsProviderHardDelete(provider: ProviderId): boolean {
+  return getProviderCapability(provider).hard_delete;
 }
 
 async function discoverChatGptConversationRoots(): Promise<ProviderRootSpec[]> {
@@ -1082,7 +1077,7 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
         read_sessions: true,
         analyze_context: true,
         safe_cleanup: supportsProviderCleanup("codex"),
-        hard_delete: supportsProviderCleanup("codex"),
+        hard_delete: supportsProviderHardDelete("codex"),
       },
       evidence: {
         roots: codexHomes,
@@ -1103,7 +1098,7 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
         read_sessions: chatGptRootExists,
         analyze_context: chatGptSessionLogs > 0,
         safe_cleanup: supportsProviderCleanup("chatgpt"),
-        hard_delete: supportsProviderCleanup("chatgpt"),
+        hard_delete: supportsProviderHardDelete("chatgpt"),
       },
       evidence: {
         roots: [CHAT_DIR],
@@ -1124,7 +1119,8 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
         read_sessions: claudeRootExists,
         analyze_context: claudeSessionLogs > 0,
         safe_cleanup: supportsProviderCleanup("claude") && claudeStatus !== "missing",
-        hard_delete: supportsProviderCleanup("claude") && claudeStatus !== "missing",
+        hard_delete:
+          supportsProviderHardDelete("claude") && claudeStatus !== "missing",
       },
       evidence: {
         roots: [CLAUDE_HOME, CLAUDE_PROJECTS_DIR, CLAUDE_TRANSCRIPTS_DIR],
@@ -1145,7 +1141,8 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
         read_sessions: geminiRootExists,
         analyze_context: geminiSessionLogs > 0,
         safe_cleanup: supportsProviderCleanup("gemini") && geminiStatus !== "missing",
-        hard_delete: supportsProviderCleanup("gemini") && geminiStatus !== "missing",
+        hard_delete:
+          supportsProviderHardDelete("gemini") && geminiStatus !== "missing",
       },
       evidence: {
         roots: [
@@ -1177,7 +1174,7 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
         safe_cleanup:
           supportsProviderCleanup("copilot") && copilotStatus !== "missing",
         hard_delete:
-          supportsProviderCleanup("copilot") && copilotStatus !== "missing",
+          supportsProviderHardDelete("copilot") && copilotStatus !== "missing",
       },
       evidence: {
         roots: [
