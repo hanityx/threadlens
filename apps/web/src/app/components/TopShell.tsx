@@ -1,10 +1,37 @@
-import type { FocusEventHandler, MouseEventHandler } from "react";
-import { useAppContext } from "@/app/AppContext";
+import {
+  memo,
+  type Dispatch,
+  type FocusEventHandler,
+  type MouseEventHandler,
+  type SetStateAction,
+} from "react";
 import { Button } from "@/shared/ui/components/Button";
 import { SegmentedNav, type SegmentedNavItem } from "@/shared/ui/components/SegmentedNav";
 import { LocalePicker } from "@/app/components/LocalePicker";
+import type { Locale, Messages } from "@/i18n";
+import type { LayoutView } from "@/shared/types";
 
-export function TopShell() {
+export type TopShellProps = {
+  layoutView: LayoutView;
+  changeLayoutView: (view: LayoutView) => void;
+  openProvidersHome: () => void;
+  handleSearchIntent: MouseEventHandler<HTMLButtonElement> & FocusEventHandler<HTMLButtonElement>;
+  handleProvidersIntent: MouseEventHandler<HTMLButtonElement> & FocusEventHandler<HTMLButtonElement>;
+  headerSearchDraft: string;
+  setHeaderSearchDraft: (value: string) => void;
+  handleHeaderSearchSubmit: () => void;
+  syncStatusText: string;
+  theme: "light" | "dark";
+  setTheme: Dispatch<SetStateAction<"light" | "dark">>;
+  refreshAllData: () => Promise<void>;
+  busy: boolean;
+  refreshingAllData: boolean;
+  locale: Locale;
+  setLocale: (locale: Locale) => void;
+  messages: Messages;
+};
+
+export const TopShell = memo(function TopShell(props: TopShellProps) {
   const {
     layoutView,
     changeLayoutView,
@@ -23,7 +50,7 @@ export function TopShell() {
     locale,
     setLocale,
     messages,
-  } = useAppContext();
+  } = props;
 
   const navItems: SegmentedNavItem[] = [
     {
@@ -121,4 +148,4 @@ export function TopShell() {
       </div>
     </section>
   );
-}
+});

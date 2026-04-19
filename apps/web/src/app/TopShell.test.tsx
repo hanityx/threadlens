@@ -1,11 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { getMessages, type Locale } from "@/i18n";
-import { AppContext, type AppContextValue } from "@/app/AppContext";
-import { TopShell } from "@/app/components/TopShell";
+import { TopShell, type TopShellProps } from "@/app/components/TopShell";
 
 function renderTopShell(locale: Locale) {
-  const ctx = {
+  const props = {
     layoutView: "overview",
     changeLayoutView: vi.fn(),
     openProvidersHome: vi.fn(),
@@ -23,13 +22,9 @@ function renderTopShell(locale: Locale) {
     locale,
     setLocale: vi.fn(),
     messages: getMessages(locale),
-  } as unknown as AppContextValue;
+  } as unknown as TopShellProps;
 
-  return renderToStaticMarkup(
-    <AppContext.Provider value={ctx}>
-      <TopShell />
-    </AppContext.Provider>,
-  );
+  return renderToStaticMarkup(<TopShell {...props} />);
 }
 
 describe("TopShell", () => {
