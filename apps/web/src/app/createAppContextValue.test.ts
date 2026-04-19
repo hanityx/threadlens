@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createAppContextValue } from "./createAppContextValue";
+import { createAppContextValue } from "@/app/createAppContextValue";
 
 describe("createAppContextValue", () => {
   it("combines app data, shell state, behavior, and local state into one context object", () => {

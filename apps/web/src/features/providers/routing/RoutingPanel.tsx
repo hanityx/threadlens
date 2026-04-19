@@ -1,13 +1,13 @@
 import { useMemo } from "react";
-import { PanelHeader } from "../../../design-system/PanelHeader";
+import { PanelHeader } from "@/shared/ui/components/PanelHeader";
 import type { ExecutionGraphData } from "@threadlens/shared-contracts";
-import type { Messages } from "../../../i18n";
-import { compactPath, formatDateTime } from "../../../lib/helpers";
+import type { Messages } from "@/i18n";
+import { compactPath, formatDateTime } from "@/shared/lib/format";
 import type {
   ProviderParserHealthReport,
   ProviderSessionRow,
   ProviderView,
-} from "../../../types";
+} from "@/shared/types";
 
 type Props = {
   messages: Messages;

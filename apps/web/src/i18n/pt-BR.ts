@@ -1,4 +1,4 @@
-import { en, type Messages } from "./en";
+import { en, type Messages } from "@/i18n/en";
 
 // Keep product names and core workflow terms in English.
 // Use neutral UI tone in every locale. Avoid casual or conversational speech.
