@@ -7,7 +7,7 @@ import type {
   ProviderId,
   ProviderSessionAction,
   ProviderSessionActionOptions,
-} from "../../lib/providers.js";
+} from "./types.js";
 
 type ProviderActionTokenEntry = {
   provider: ProviderId;

@@ -4,7 +4,7 @@ import type {
   ProviderId,
   TranscriptMessage,
   TranscriptPayload,
-} from "../../lib/providers.js";
+} from "./types.js";
 
 function inferFormat(filePath: string): "jsonl" | "json" | "unknown" {
   const lower = filePath.toLowerCase();

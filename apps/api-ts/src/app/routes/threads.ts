@@ -18,8 +18,8 @@ import { getThreadForensicsTs } from "../../domains/threads/forensics.js";
 import { getThreadsTs } from "../../domains/threads/query.js";
 import {
   buildSessionTranscript,
-  invalidateCodexThreadTitleMapCache,
-} from "../../lib/providers.js";
+} from "../../domains/providers/transcript.js";
+import { invalidateCodexThreadTitleMapCache } from "../../domains/providers/title-detection.js";
 import { resolveCodexSessionPathByThreadId } from "../../domains/providers/search.js";
 import {
   bulkRequestSchema,

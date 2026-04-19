@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { ExecutionGraphData, ExecutionGraphEdge, ExecutionGraphNode } from "@threadlens/shared-contracts";
-import { getProviderMatrixTs } from "./lib/providers.js";
+import { getProviderMatrixTs } from "./domains/providers/matrix.js";
 import { getDataSourceInventoryTs } from "./domains/recovery/inventory.js";
 
 const HOME_ROOT_NAMES = ["Users", "home"] as const;

@@ -33,8 +33,11 @@ vi.mock("../../domains/threads/query.js", () => ({
   getThreadsTs: mockGetThreadsTs,
 }));
 
-vi.mock("../../lib/providers.js", () => ({
+vi.mock("../../domains/providers/transcript.js", () => ({
   buildSessionTranscript: mockBuildSessionTranscript,
+}));
+
+vi.mock("../../domains/providers/title-detection.js", () => ({
   invalidateCodexThreadTitleMapCache: mockInvalidateCodexThreadTitleMapCache,
 }));
 
