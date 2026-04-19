@@ -2,9 +2,7 @@ import { lazy, Suspense, useMemo } from "react";
 import { PanelHeader } from "../../design-system/PanelHeader";
 import type { ProvidersPanelProps } from "./ProvidersPanel";
 import { useAppContext } from "../../app/AppContext";
-import type { ProviderSessionRow } from "../../types";
-import { compactSessionTitle, formatBytesCompact } from "./helpers";
-import { formatDateTime, formatProviderDisplayName } from "../../lib/helpers";
+import { buildProvidersWorkspaceState } from "./providersWorkspaceModel";
 
 const ProvidersPanel = lazy(async () => {
   const mod = await import("./ProvidersPanel");
@@ -20,14 +18,6 @@ const RoutingPanel = lazy(async () => {
   const mod = await import("./routing/RoutingPanel");
   return { default: mod.RoutingPanel };
 });
-
-export function pickLargestSessionCandidates(rows: ProviderSessionRow[], limit = 2) {
-  return [...rows].sort((left, right) => {
-    const sizeDiff = Number(right.size_bytes || 0) - Number(left.size_bytes || 0);
-    if (sizeDiff !== 0) return sizeDiff;
-    return Date.parse(right.mtime || "") - Date.parse(left.mtime || "");
-  }).slice(0, limit);
-}
 
 export function ProvidersWorkspace() {
   const {
@@ -101,27 +91,34 @@ export function ProvidersWorkspace() {
     setProviderProbeFilterIntent,
   } = useAppContext();
 
-  const largestSessionCandidates = useMemo(
-    () => pickLargestSessionCandidates(providerSessionRows, 2),
-    [providerSessionRows],
+  const {
+    selectedSessionCount,
+    emptyNextSessions,
+    selectedSessionActionResult,
+    sessionDetailKey,
+  } = useMemo(
+    () =>
+      buildProvidersWorkspaceState({
+        messages,
+        providerSessionRows,
+        selectedProviderFiles,
+        emptySessionNextTitle,
+        emptySessionNextPath,
+        selectedSession,
+        providerActionData,
+        providerActionSelection,
+      }),
+    [
+      messages,
+      providerSessionRows,
+      selectedProviderFiles,
+      emptySessionNextTitle,
+      emptySessionNextPath,
+      selectedSession,
+      providerActionData,
+      providerActionSelection,
+    ],
   );
-  const selectedSessionCount = useMemo(
-    () => Object.values(selectedProviderFiles).filter(Boolean).length,
-    [selectedProviderFiles],
-  );
-
-  const emptyNextSessions = largestSessionCandidates.length
-    ? largestSessionCandidates.map((candidate) => ({
-        title: compactSessionTitle(
-          candidate.display_title || candidate.probe.detected_title,
-          candidate.session_id,
-        ),
-        path: candidate.file_path,
-        description: `${formatProviderDisplayName(candidate.provider)} · ${formatBytesCompact(candidate.size_bytes)} · ${formatDateTime(candidate.mtime)} · ${messages.sessionDetail.emptyNextLargestInScope}`,
-      }))
-    : emptySessionNextTitle
-      ? [{ title: emptySessionNextTitle, path: emptySessionNextPath, description: "" }]
-      : [];
 
   const panelProps: Omit<ProvidersPanelProps, "sessionDetailSlot" | "diagnosticsSlot"> = {
     messages,
@@ -175,14 +172,6 @@ export function ProvidersWorkspace() {
     setProviderProbeFilterIntent,
   };
 
-  const selectedSessionActionResult =
-    selectedSession &&
-    providerActionData &&
-    providerActionSelection?.file_paths?.length === 1 &&
-    providerActionSelection.file_paths[0] === selectedSession.file_path
-      ? providerActionData
-      : null;
-
   const sessionDetailProps = {
     messages,
     selectedSession,
@@ -212,8 +201,6 @@ export function ProvidersWorkspace() {
     parserReports,
     visibleProviderIds,
   };
-
-  const sessionDetailKey = selectedSession?.file_path ?? "empty-session-detail";
 
   const onToggleDiagnostics = (nextOpen: boolean) => {
     setProvidersDiagnosticsOpen(nextOpen);
