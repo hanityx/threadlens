@@ -10,9 +10,7 @@ export function useSessionDetailModel(props: SessionDetailProps) {
     runSingleProviderAction,
   } = props;
   const actionState = useSessionDetailActions(props);
-  const display = useSessionDetailDisplay(props, {
-    showFullSessionFileName: actionState.showFullSessionFileName,
-  });
+  const display = useSessionDetailDisplay(props);
 
   const executeSessionAction = () => {
     if (!display.selectedSession || !display.sessionScopedActionResult) return;
@@ -36,11 +34,8 @@ export function useSessionDetailModel(props: SessionDetailProps) {
     resolvedEmptyScopeLabel: display.resolvedEmptyScopeLabel,
     sessionDisplayTitle: display.sessionDisplayTitle,
     sessionFileName: display.sessionFileName,
-    sessionDisplayFileName: display.sessionDisplayFileName,
     sessionCompactMeta: display.sessionCompactMeta,
     sourceLabel: display.sourceLabel,
-    showFullSessionFileName: actionState.showFullSessionFileName,
-    setShowFullSessionFileName: actionState.setShowFullSessionFileName,
     sessionActionSummary: display.sessionActionSummary,
     sessionActionCardClass: display.sessionActionCardClass,
     sessionActionCanExecute: display.sessionActionCanExecute,

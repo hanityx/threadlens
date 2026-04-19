@@ -64,7 +64,6 @@ describe("BackupHub", () => {
       />,
     );
 
-    expect(html).toContain("Backup vault");
     expect(html).toContain("Selected sessions 2");
     expect(html).toContain("Full backup export");
     expect(html).toContain("Open Codex Cleanup");
@@ -123,9 +122,7 @@ describe("BackupHub", () => {
       />,
     );
 
-    expect(html).toContain(ptMessages.providers.backupHubTitle);
-    expect(html).toContain(`${ptMessages.providers.backupHubSelected} 2 · ${ptMessages.providers.backupHubHeaderLatest} 2`);
-    expect(html).toContain(ptMessages.providers.backupHubExported);
+    expect(html).toContain(`${ptMessages.providers.backupHubSelected} 2 · ${ptMessages.providers.backupHubLatest} 2 · ${ptMessages.providers.backupHubExported} 5`);
     expect(html).toContain(ptMessages.providers.latestBackupRunTitle);
     expect(html).toContain(`${ptMessages.providers.valid} 2 · ${ptMessages.providers.applied} 2 · ${ptMessages.providers.backedUp} 2`);
     expect(html).toContain(`${ptMessages.providers.deleteWithBackup} Ligado`);

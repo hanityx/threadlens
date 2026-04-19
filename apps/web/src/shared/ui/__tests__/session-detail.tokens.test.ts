@@ -80,17 +80,21 @@ describe("session detail token migration", () => {
   });
 
   it("keeps detail section spacing on the approved design-system scale", () => {
-    expect(sessionDetailStyles).toMatch(/\.detail-section > summary\s*{[^}]*padding:\s*9px 10px;/s);
-    expect(sessionDetailStyles).toMatch(/\.detail-section-static-head\s*{[^}]*padding:\s*9px 10px;/s);
-    expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.detail-section > summary,\s*\.thread-review-panel \.detail-section-static-head\s*{[^}]*padding:\s*8px 9px;/s);
+    expect(sessionDetailStyles).toMatch(/\.detail-section > summary\s*{[^}]*padding:\s*11px 14px;/s);
+    expect(sessionDetailStyles).toMatch(/\.detail-section-static-head\s*{[^}]*padding:\s*11px 14px;/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.detail-section > summary,\s*\.thread-review-panel \.detail-section-static-head\s*{[^}]*padding:\s*11px 14px;/s);
+    expect(sessionDetailStyles).toMatch(/\.impact-body\s*{[^}]*padding:\s*16px 18px;[^}]*gap:\s*12px;/s);
     expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.detail-hero\s*{[^}]*margin-bottom:\s*0;/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.detail-hero\s*{[^}]*padding:\s*11px 14px;/s);
     expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.impact-body\s*{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;/s);
-    expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.impact-list h3\s*{[^}]*margin-bottom:\s*8px;/s);
-    expect(sessionDetailStyles).toMatch(/\.thread-detail-empty-state\s*{[^}]*gap:\s*8px;[^}]*padding:\s*9px 10px;/s);
-    expect(sessionDetailStyles).toMatch(/\.thread-detail-empty-copy\s*{[^}]*gap:\s*3px;/s);
-    expect(sessionDetailStyles).toMatch(/\.thread-detail-empty-next\s*{[^}]*gap:\s*3px;[^}]*padding:\s*8px 9px;/s);
-    expect(sessionDetailStyles).toMatch(/\.thread-detail-empty-opens\s*{[^}]*gap:\s*2px;[^}]*padding:\s*0 2px;/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.detail-section-body\s*{[^}]*padding:\s*12px 14px;[^}]*gap:\s*8px;/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.impact-list h3\s*{[^}]*margin-bottom:\s*10px;/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-detail-empty-state\s*{[^}]*gap:\s*12px;[^}]*padding:\s*12px 14px;/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-detail-empty-copy\s*{[^}]*gap:\s*5px;/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-detail-empty-next\s*{[^}]*gap:\s*5px;[^}]*padding:\s*10px 12px;/s);
+    expect(sessionDetailStyles).not.toMatch(/\.thread-detail-empty-opens\s*{/s);
     expect(sessionDetailStyles).toMatch(/\.thread-review-empty-guide\s*{[^}]*gap:\s*7px;/s);
     expect(sessionDetailStyles).toMatch(/\.thread-review-empty-guide article\s*{[^}]*gap:\s*4px;[^}]*padding:\s*10px 11px;/s);
+    expect(sessionDetailStyles).toMatch(/\.detail-hero-session-compact\s*{[^}]*gap:\s*8px;[^}]*padding:\s*11px 14px;/s);
   });
 });

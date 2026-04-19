@@ -83,8 +83,7 @@ describe("SessionDetail", () => {
     expect(html).toContain("Open folder");
     expect(html).toContain("/tmp/rollout-2026-03-29T03-15-34-session-notes.jsonl");
     expect(html).toContain("history");
-    expect(html).toContain("rollout-2026-03-29T03-15…notes.jsonl");
-    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain("rollout-2026-03-29T03-15-34-session-notes.jsonl");
     expect(html).not.toContain(">Back up<");
     expect(html).not.toContain("What this panel manages");
     expect(html).not.toContain("Format / probe");
