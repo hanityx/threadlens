@@ -1,6 +1,7 @@
 import type { DataSourceInventoryRow, ProviderView } from "@/shared/types";
 import { formatDateTime } from "@/shared/lib/format";
-import { dataSourceLabel, formatBytes, providerFromDataSource } from "@/features/providers/lib/helpers";
+import { formatBytes } from "@/shared/lib/format";
+import { dataSourceLabel, providerFromDataSource } from "@/features/providers/lib/helpers";
 
 export interface DataSourcesListCopy {
   disclosure: string;
