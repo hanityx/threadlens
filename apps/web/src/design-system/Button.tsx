@@ -1,6 +1,6 @@
 import * as React from "react";
 
-type ButtonVariant = "outline" | "accent" | "danger" | "base";
+export type ButtonVariant = "outline" | "accent" | "danger" | "base";
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;

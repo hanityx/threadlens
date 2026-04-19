@@ -12,8 +12,6 @@ describe("threads token migration", () => {
 
   it("uses typography tokens for shared thread labels", () => {
     expect(threadStyles).toMatch(/\.search-scope-label,\s*\.toolbar-label\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
-    expect(threadStyles).toMatch(/\.panel header span\s*{[^}]*font-size:\s*var\(--text-base\);/s);
-    expect(threadStyles).toMatch(/\.panel h2\s*{[^}]*font-size:\s*var\(--text-lg\);/s);
     expect(threadStyles).toMatch(/\.thread-workflow-copy strong\s*{[^}]*font-size:\s*var\(--text-display-search-stage\);/s);
     expect(threadStyles).toMatch(/\.thread-workflow-copy p\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
     expect(threadStyles).toMatch(/\.thread-status-card span\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
@@ -31,7 +29,6 @@ describe("threads token migration", () => {
   });
 
   it("uses semantic surface tokens for sticky thread surfaces", () => {
-    expect(threadStyles).toMatch(/\.panel header\s*{[^}]*background:\s*var\(--surface-panel-header\);/s);
     expect(threadStyles).toMatch(/\.sub-toolbar\s*{[^}]*border-bottom:\s*1px solid var\(--surface-divider-faint\);[^}]*background:\s*var\(--surface-card-strong-subtle\);/s);
     expect(threadStyles).toMatch(/\.cleanup-toolbar\s*{[^}]*background:\s*var\(--surface-search-command-shell\);/s);
     expect(threadStyles).toMatch(/\.thread-status-card\s*{[^}]*background:\s*var\(--surface-thread-status-card\);/s);

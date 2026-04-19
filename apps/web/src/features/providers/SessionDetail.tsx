@@ -358,7 +358,6 @@ export function SessionDetail(props: SessionDetailProps) {
           <>
             <section className="detail-hero detail-hero-session detail-hero-session-compact">
               <div className="detail-hero-copy">
-                <span className="overview-note-label">{messages.sessionDetail.title}</span>
                 <strong>{sessionDisplayTitle}</strong>
                 <p>{sessionCompactMeta}</p>
               </div>

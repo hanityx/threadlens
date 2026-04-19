@@ -313,35 +313,31 @@
 }
 
 .degraded-banner {
-  border: 1px solid rgba(248, 208, 125, 0.18);
-  background:
-    radial-gradient(circle at 100% 0%, rgba(248, 208, 125, 0.14), transparent 28%),
-    linear-gradient(180deg, rgba(44, 37, 24, 0.92), rgba(20, 18, 14, 0.98));
+  border: 1px solid var(--degraded-border);
+  background: var(--degraded-bg);
   border-radius: 24px;
   padding: 16px 18px;
   display: grid;
   gap: 8px;
-  box-shadow:
-    0 18px 36px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: var(--degraded-shadow);
   backdrop-filter: blur(var(--blur-md)) saturate(140%);
 }
 
 .degraded-banner strong {
   font-size: var(--text-lg);
-  color: rgba(255, 230, 173, 0.96);
+  color: var(--degraded-title);
   letter-spacing: 0.01em;
 }
 
 .degraded-banner p {
   margin: 0;
-  color: rgba(233, 222, 201, 0.82);
+  color: var(--degraded-text);
   font-size: var(--text-md);
   line-height: 1.5;
 }
 
 .degraded-banner span {
-  color: rgba(217, 204, 176, 0.62);
+  color: var(--degraded-muted);
   font-size: var(--text-base);
 }
 
@@ -359,7 +355,7 @@
   background: transparent;
   padding: 0;
   font: inherit;
-  color: rgba(255, 230, 173, 0.96);
+  color: var(--degraded-title);
   cursor: pointer;
   text-decoration: underline;
 }

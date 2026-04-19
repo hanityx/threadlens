@@ -161,7 +161,7 @@
   justify-content: center;
   padding: 24px 28px;
   overflow: hidden;
-  background: rgba(5, 8, 13, 0.84);
+  background: var(--chat-focus-overlay);
   backdrop-filter: blur(calc(var(--blur-md) * 1.35));
 }
 
@@ -174,12 +174,8 @@
   padding: 0;
   border: 1px solid var(--surface-stage-border);
   border-radius: 28px;
-  background:
-    radial-gradient(circle at top right, rgba(118, 146, 190, 0.08), transparent 22%),
-    linear-gradient(180deg, rgba(14, 17, 23, 0.98), rgba(9, 12, 17, 0.98));
-  box-shadow:
-    0 32px 80px rgba(0, 0, 0, 0.42),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  background: var(--chat-focus-card-bg);
+  box-shadow: var(--chat-focus-card-shadow);
 }
 
 .transcript-focus-sheet {
@@ -196,7 +192,7 @@
   gap: 16px;
   padding: 18px 22px 14px;
   border-bottom: 1px solid var(--surface-divider-faint);
-  background: rgba(18, 22, 31, 0.84);
+  background: var(--chat-focus-head-bg);
   backdrop-filter: blur(var(--blur-sm));
 }
 
@@ -235,7 +231,7 @@
   gap: 10px;
   padding: 14px 22px 12px;
   border-bottom: 1px solid var(--surface-divider-faint);
-  background: rgba(13, 16, 22, 0.92);
+  background: var(--chat-focus-controls-bg);
   backdrop-filter: blur(var(--blur-md));
 }
 
@@ -269,7 +265,7 @@
 
 .chat-item:hover {
   border-color: var(--line);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  box-shadow: var(--chat-item-hover-shadow);
 }
 
 .chat-item header {
@@ -346,13 +342,11 @@
 .chat-item.role-user {
   border-color: var(--user-border);
   background: var(--user-bg);
-  border-left-width: 3px;
 }
 
 .chat-item.role-assistant {
   border-color: var(--assistant-border);
   background: var(--assistant-bg);
-  border-left-width: 3px;
 }
 
 .chat-item.role-tool,

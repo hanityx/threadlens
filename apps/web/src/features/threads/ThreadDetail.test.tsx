@@ -37,6 +37,7 @@ describe("ThreadDetail", () => {
     );
 
     expect(html).toContain("No thread selected.");
+    expect(html.match(/Pick one row to open the full review surface\./g)?.length).toBe(2);
     expect(html).toContain("next pick");
     expect(html).toContain("Next cleanup candidate");
     expect(html).toContain("opens here");

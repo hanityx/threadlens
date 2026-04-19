@@ -280,16 +280,13 @@ export function ThreadsTable(props: ThreadsTableProps) {
                     </label>
                   </td>
                   <td className="title-col">
-                    <div
-                      className="title-main thread-table-title"
-                      title={normalizeDisplayValue(row.title) || row.thread_id}
-                    >
-                      {compactThreadTitle(messages, row)}
-                      {selectedThreadId === row.thread_id ? (
-                        <span className="status-pill status-active" style={{ marginLeft: 8 }}>
-                          {messages.threadsTable.currentSelection}
-                        </span>
-                      ) : null}
+                    <div className="thread-table-title">
+                      <div
+                        className="title-main thread-table-title-text"
+                        title={normalizeDisplayValue(row.title) || row.thread_id}
+                      >
+                        {compactThreadTitle(messages, row)}
+                      </div>
                     </div>
                     <div className="mono-sub thread-table-id" title={row.thread_id}>
                       {compactThreadId(row.thread_id)}
