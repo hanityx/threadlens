@@ -300,7 +300,7 @@ describe("desktop route helpers", () => {
         routeHydrating: false,
         visibleProviderTabs: [{ id: "all" }],
       }),
-    ).toBe(true);
+    ).toBe(false);
 
     expect(
       shouldDeferDesktopRouteSync({
@@ -316,6 +316,40 @@ describe("desktop route helpers", () => {
         selectedThreadId: "",
         routeHydrating: false,
         visibleProviderTabs: [{ id: "all" }, { id: "copilot" }],
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldDeferDesktopRouteSync({
+        currentRoute: {
+          view: "providers",
+          provider: "copilot",
+          filePath: "",
+          threadId: "",
+        },
+        layoutView: "providers",
+        providerView: "all",
+        selectedSessionPath: "",
+        selectedThreadId: "",
+        routeHydrating: true,
+        visibleProviderTabs: [{ id: "all" }, { id: "copilot" }],
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldDeferDesktopRouteSync({
+        currentRoute: {
+          view: "providers",
+          provider: "codex",
+          filePath: "",
+          threadId: "",
+        },
+        layoutView: "providers",
+        providerView: "all",
+        selectedSessionPath: "",
+        selectedThreadId: "",
+        routeHydrating: true,
+        visibleProviderTabs: [{ id: "all" }],
       }),
     ).toBe(true);
   });

@@ -130,8 +130,17 @@ function buildContext(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function getThreadsTableProps() {
+  return mockThreadsTable.mock.calls[0]?.[0] as {
+    analyzeDelete?: (ids: string[]) => void;
+    cleanupDryRun?: (ids: string[]) => void;
+    onRequestHardDeleteConfirm?: () => void;
+  };
+}
+
 describe("ThreadsWorkbench", () => {
   beforeEach(() => {
+    vi.unstubAllGlobals();
     mockThreadDetailSlot.mockClear();
     mockThreadsForensicsSlot.mockClear();
     mockThreadsTable.mockClear();
@@ -270,5 +279,59 @@ describe("ThreadsWorkbench", () => {
         .replace("{score}", "91")
         .replace("{risk}", messages.overview.reviewRiskHigh),
     );
+  });
+
+  it("focuses the single selected thread before running impact analysis or cleanup dry-run", () => {
+    const setSelectedThreadId = vi.fn();
+    const analyzeDelete = vi.fn();
+    const cleanupDryRun = vi.fn();
+    mockUseAppContext.mockReturnValue(
+      buildContext({
+        selectedThreadId: "",
+        selectedIds: ["thread-2"],
+        setSelectedThreadId,
+        analyzeDelete,
+        cleanupDryRun,
+      }),
+    );
+
+    renderToStaticMarkup(<ThreadsWorkbench />);
+    const props = getThreadsTableProps();
+
+    props.analyzeDelete?.(["thread-2"]);
+    props.cleanupDryRun?.(["thread-2"]);
+
+    expect(setSelectedThreadId).toHaveBeenNthCalledWith(1, "thread-2");
+    expect(setSelectedThreadId).toHaveBeenNthCalledWith(2, "thread-2");
+    expect(analyzeDelete).toHaveBeenCalledWith(["thread-2"]);
+    expect(cleanupDryRun).toHaveBeenCalledWith(["thread-2"]);
+  });
+
+  it("focuses the single selected thread before hard delete when skip-confirm is enabled", () => {
+    const localStorage = {
+      getItem: vi.fn((key: string) => (key === "po-thread-hard-delete-skip-confirm" ? "1" : null)),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+      clear: vi.fn(),
+    };
+    vi.stubGlobal("window", { localStorage });
+    const setSelectedThreadId = vi.fn();
+    const cleanupExecute = vi.fn();
+    mockUseAppContext.mockReturnValue(
+      buildContext({
+        selectedThreadId: "",
+        selectedIds: ["thread-2"],
+        setSelectedThreadId,
+        cleanupExecute,
+      }),
+    );
+
+    renderToStaticMarkup(<ThreadsWorkbench />);
+    const props = getThreadsTableProps();
+
+    props.onRequestHardDeleteConfirm?.();
+
+    expect(setSelectedThreadId).toHaveBeenCalledWith("thread-2");
+    expect(cleanupExecute).toHaveBeenCalledWith(["thread-2"]);
   });
 });

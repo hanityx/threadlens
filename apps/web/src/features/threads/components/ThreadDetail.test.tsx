@@ -144,6 +144,7 @@ describe("ThreadDetail", () => {
     expect(html).toContain("Workspace");
     expect(html).toContain("/workspace/threadlens");
     expect(html).toContain("aria-expanded=\"false\"");
+    expect(html).not.toContain(">cleanup dry-run<");
     expect(html).not.toContain("<p>sessions</p>");
     expect(html).not.toContain(">Artifacts<");
   });

@@ -331,14 +331,6 @@ export function ThreadDetail(props: ThreadDetailProps) {
                   >
                     {messages.threadDetail.impactAnalysis}
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => selectedThreadId && cleanupDryRun([selectedThreadId])}
-                    disabled={!selectedThreadId || busy || threadActionsDisabled}
-                    title={disabledReason}
-                  >
-                    {messages.threadDetail.cleanupDryRun}
-                  </Button>
                 </div>
                 {threadActionsDisabled ? <p className="sub-hint">{messages.threadDetail.backendDownHint}</p> : null}
               </div>

@@ -155,7 +155,6 @@ describe("ThreadsTable", () => {
 
     expect(html).toContain(`${deMessages.threadsTable.workflowSelectedTitle} 0`);
     expect(html).toContain(`${deMessages.threadsTable.workflowImpactTitle} ${deMessages.forensics.stagePending}`);
-    expect(html).toContain(`${deMessages.threadsTable.workflowDryRunTitle} ${deMessages.forensics.stagePending}`);
     expect(html).toContain(deMessages.threadsTable.bulkArchive);
     expect(html).toContain(deMessages.threadsTable.bulkImpact);
     expect(html).toContain(deMessages.threadsTable.bulkCleanupDryRun);
@@ -267,7 +266,7 @@ describe("ThreadsTable", () => {
 
     expect(html).toContain("Current selection 0");
     expect(html).toContain("Impact analysis Pending");
-    expect(html).toContain("Cleanup dry-run Pending");
+    expect(html).not.toContain("Cleanup dry-run Pending");
     expect(html).not.toContain("清理dry-runun");
     expect(html).not.toContain("气氛");
   });
