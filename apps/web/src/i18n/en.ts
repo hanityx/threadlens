@@ -1156,6 +1156,13 @@ export const en = {
     dotHeavySessionFootprint: "Heavy session footprint {size}",
     dotLightSessionFootprint: "Light session footprint {size}",
     dotMediumSessionFootprint: "Medium session footprint {size}",
+    dotThreadRiskHigh: "High review risk",
+    dotThreadRiskMedium: "Medium review risk",
+    dotThreadRiskLow: "Low review risk",
+    dotThreadPinned: "Pinned for follow-up",
+    dotThreadNotPinned: "Not pinned",
+    dotThreadActive: "Active review work",
+    dotThreadIdle: "No active review work",
   },
 } as const;
 

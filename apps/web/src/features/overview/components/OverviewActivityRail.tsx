@@ -36,6 +36,26 @@ export function OverviewActivityRail({
   onOpenRecentSession,
   onOpenRecentThread,
 }: OverviewActivityRailProps) {
+  const describeThreadRiskDot = (row: ThreadRow) => {
+    if (row.risk_level === "high") {
+      return { label: overviewMessages.dotThreadRiskHigh, className: "is-active" };
+    }
+    if (row.risk_level === "medium") {
+      return { label: overviewMessages.dotThreadRiskMedium, className: "is-warn" };
+    }
+    return { label: overviewMessages.dotThreadRiskLow, className: "" };
+  };
+
+  const describeThreadPinnedDot = (row: ThreadRow) =>
+    row.is_pinned
+      ? { label: overviewMessages.dotThreadPinned, className: "is-active" }
+      : { label: overviewMessages.dotThreadNotPinned, className: "" };
+
+  const describeThreadActivityDot = (row: ThreadRow) =>
+    row.activity_status === "active"
+      ? { label: overviewMessages.dotThreadActive, className: "is-active" }
+      : { label: overviewMessages.dotThreadIdle, className: "" };
+
   return (
     <aside className="overview-side-rail">
       <section className="overview-side-card overview-side-card-history">
@@ -127,27 +147,46 @@ export function OverviewActivityRail({
                   <span>{group.label}</span>
                 </div>
                 <div className="overview-side-group-list">
-                  {group.rows.map((row) => (
-                    <button
-                      key={`overview-thread-${row.thread_id}`}
-                      type="button"
-                      className="overview-side-item overview-side-item-history"
-                      onClick={() => onOpenRecentThread(row.thread_id)}
-                    >
-                      <div className="overview-side-item-meta">
-                        <span>{formatWorkbenchRailTime(row.timestamp)}</span>
-                      </div>
-                      <div className="overview-side-item-copy">
-                        <strong>{getRecentThreadTitle(row)}</strong>
-                        <p>{getRecentThreadSummary(row)}</p>
-                      </div>
-                      <div className="overview-side-item-dots" aria-hidden="true">
-                        <span className={row.risk_level === "high" ? "is-active" : ""} />
-                        <span className={row.is_pinned ? "is-active" : ""} />
-                        <span className={row.activity_status === "active" ? "is-active" : ""} />
-                      </div>
-                    </button>
-                  ))}
+                  {group.rows.map((row) => {
+                    const riskDot = describeThreadRiskDot(row);
+                    const pinnedDot = describeThreadPinnedDot(row);
+                    const activityDot = describeThreadActivityDot(row);
+                    const dotEntries = [
+                      { key: "risk", label: riskDot.label, className: riskDot.className },
+                      { key: "pinned", label: pinnedDot.label, className: pinnedDot.className },
+                      { key: "activity", label: activityDot.label, className: activityDot.className },
+                    ];
+
+                    return (
+                      <button
+                        key={`overview-thread-${row.thread_id}`}
+                        type="button"
+                        className="overview-side-item overview-side-item-history"
+                        onClick={() => onOpenRecentThread(row.thread_id)}
+                      >
+                        <div className="overview-side-item-meta">
+                          <span>{formatWorkbenchRailTime(row.timestamp)}</span>
+                        </div>
+                        <div className="overview-side-item-copy">
+                          <strong>{getRecentThreadTitle(row)}</strong>
+                          <p>{getRecentThreadSummary(row)}</p>
+                        </div>
+                        <div
+                          className="overview-side-item-dots"
+                          aria-label={dotEntries.map((entry) => entry.label).join(". ")}
+                        >
+                          {dotEntries.map((entry) => (
+                            <span key={`${row.thread_id}-${entry.key}`} className="overview-side-item-dot">
+                              <span className={entry.className} />
+                              <span role="tooltip" className="overview-side-item-dot-tooltip">
+                                {entry.label}
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </section>
             ))

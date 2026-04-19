@@ -199,4 +199,31 @@ describe("OverviewWorkbench", () => {
     expect(html).toContain(messages.overview.dotFreshLast24Hours);
     expect(html).toContain("세션 크기 큼 42MB");
   });
+
+  it("renders recent-thread dot tooltips in the markup", () => {
+    const messages = getMessages("ko");
+    const html = renderOverview("ko", {
+      recentThreadGroups: [
+        {
+          label: messages.overview.today,
+          rows: [
+            {
+              thread_id: "thread-1",
+              title: "크몽 사진스레드",
+              source: "sessions",
+              risk_level: "high",
+              risk_score: 54,
+              is_pinned: true,
+              activity_status: "active",
+              timestamp: new Date().toISOString(),
+            },
+          ],
+        },
+      ],
+    } as Partial<AppContextValue>);
+    expect(html).toContain("overview-side-item-dot-tooltip");
+    expect(html).toContain(messages.overview.dotThreadRiskHigh);
+    expect(html).toContain(messages.overview.dotThreadPinned);
+    expect(html).toContain(messages.overview.dotThreadActive);
+  });
 });
