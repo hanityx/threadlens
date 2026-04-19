@@ -289,6 +289,13 @@ export const hi = {
     dotHeavySessionFootprint: "सत्र का आकार बड़ा {size}",
     dotLightSessionFootprint: "सत्र का आकार छोटा {size}",
     dotMediumSessionFootprint: "सत्र का आकार सामान्य {size}",
+    dotThreadRiskHigh: "उच्च समीक्षा जोखिम",
+    dotThreadRiskMedium: "मध्यम समीक्षा जोखिम",
+    dotThreadRiskLow: "कम समीक्षा जोखिम",
+    dotThreadPinned: "फ़ॉलो-अप के लिए पिन किया गया",
+    dotThreadNotPinned: "पिन नहीं किया गया",
+    dotThreadActive: "सक्रिय समीक्षा कार्य",
+    dotThreadIdle: "कोई सक्रिय समीक्षा कार्य नहीं",
   },
   providers: {
     ...en.providers,

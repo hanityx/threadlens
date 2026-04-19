@@ -289,6 +289,13 @@ export const ko = {
     dotHeavySessionFootprint: "세션 크기 큼 {size}",
     dotLightSessionFootprint: "세션 크기 작음 {size}",
     dotMediumSessionFootprint: "세션 크기 보통 {size}",
+    dotThreadRiskHigh: "검토 위험도 높음",
+    dotThreadRiskMedium: "검토 위험도 보통",
+    dotThreadRiskLow: "검토 위험도 낮음",
+    dotThreadPinned: "후속 확인을 위해 고정됨",
+    dotThreadNotPinned: "고정되지 않음",
+    dotThreadActive: "활성 검토 작업 있음",
+    dotThreadIdle: "현재 활성 검토 작업 없음",
   },
   providers: {
     ...en.providers,

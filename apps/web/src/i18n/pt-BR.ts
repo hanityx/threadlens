@@ -289,6 +289,13 @@ export const ptBR = {
     dotHeavySessionFootprint: "Tamanho da sessão grande {size}e}",
     dotLightSessionFootprint: "Tamanho da sessão pequeno {size}e}",
     dotMediumSessionFootprint: "Tamanho da sessão Normal {size}e}",
+    dotThreadRiskHigh: "risco alto de revisão",
+    dotThreadRiskMedium: "risco médio de revisão",
+    dotThreadRiskLow: "risco baixo de revisão",
+    dotThreadPinned: "fixado para acompanhamento",
+    dotThreadNotPinned: "não fixado",
+    dotThreadActive: "revisão ativa",
+    dotThreadIdle: "sem revisão ativa",
   },
   providers: {
     ...en.providers,

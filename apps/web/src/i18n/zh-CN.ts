@@ -289,6 +289,13 @@ export const zhCN = {
     dotHeavySessionFootprint: "会话大小大 {size}e}",
     dotLightSessionFootprint: "会话大小小 {size}e}",
     dotMediumSessionFootprint: "会话大小正常 {size}e}",
+    dotThreadRiskHigh: "审查风险高",
+    dotThreadRiskMedium: "审查风险中等",
+    dotThreadRiskLow: "审查风险低",
+    dotThreadPinned: "已固定以便后续跟进",
+    dotThreadNotPinned: "未固定",
+    dotThreadActive: "有活跃审查工作",
+    dotThreadIdle: "当前无活跃审查工作",
   },
   providers: {
     ...en.providers,
