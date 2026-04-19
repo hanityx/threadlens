@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectPreferredLocale, getMessages } from "./i18n/index";
+import { detectPreferredLocale, getMessages } from "@/i18n";
 
 describe("i18n provider flow labels", () => {
   const nonEnglishLocales = ["zh-CN", "hi", "es", "pt-BR", "ru", "id", "de", "ja", "ko"] as const;

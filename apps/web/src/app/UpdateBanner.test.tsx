@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { getMessages } from "../i18n";
-import { UpdateBanner } from "./UpdateBanner";
+import { getMessages } from "@/i18n";
+import { UpdateBanner } from "@/app/components/UpdateBanner";
 
 describe("UpdateBanner", () => {
   it("renders the latest version and release link", () => {

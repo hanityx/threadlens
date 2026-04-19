@@ -2,9 +2,14 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Agentation } from "agentation";
-import { App } from "./App";
-import { LocaleProvider } from "./i18n";
-import "./design-system/index.css";
+import { App } from "@/App";
+import { LocaleProvider } from "@/i18n";
+import "@/shared/ui/index.css";
+import "@/features/overview/overview.css";
+import "@/features/threads/threads.css";
+import "@/features/providers/providers.css";
+import "@/features/search/search.css";
+import "@/features/providers/routing/routing.css";
 
 const queryClient = new QueryClient();
 const agentationEndpoint =

@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { getMessages } from "../i18n";
-import { AppContext, type AppContextValue } from "./AppContext";
-import { RuntimeFeedbackStack } from "./RuntimeFeedbackStack";
+import { getMessages } from "@/i18n";
+import { AppContext, type AppContextValue } from "@/app/AppContext";
+import { RuntimeFeedbackStack } from "@/app/components/RuntimeFeedbackStack";
 
 function renderRuntimeFeedback(locale: "en" | "ko" | "ru" = "en") {
   const messages = getMessages(locale);

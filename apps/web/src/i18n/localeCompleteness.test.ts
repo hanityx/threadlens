@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { en } from "./en";
-import { CANONICAL_ENGLISH_PATHS, getMessages } from "./index";
-import { de } from "./de";
-import { es } from "./es";
-import { hi } from "./hi";
-import { id } from "./id";
-import { ja } from "./ja";
-import { ko } from "./ko";
-import { ptBR } from "./pt-BR";
-import { ru } from "./ru";
-import { zhCN } from "./zh-CN";
+import { en } from "@/i18n/en";
+import { CANONICAL_ENGLISH_PATHS, getMessages } from "@/i18n";
+import { de } from "@/i18n/de";
+import { es } from "@/i18n/es";
+import { hi } from "@/i18n/hi";
+import { id } from "@/i18n/id";
+import { ja } from "@/i18n/ja";
+import { ko } from "@/i18n/ko";
+import { ptBR } from "@/i18n/pt-BR";
+import { ru } from "@/i18n/ru";
+import { zhCN } from "@/i18n/zh-CN";
 
 const tokenPattern = /\{[a-zA-Z0-9_]+\}/g;
 

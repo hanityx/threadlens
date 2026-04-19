@@ -10,20 +10,20 @@ import {
 import {
   LEGACY_LOCALE_STORAGE_KEY,
   LOCALE_STORAGE_KEY,
-} from "../hooks/appDataUtils";
-import { en, type Messages } from "./en";
-import { de } from "./de";
-import { es } from "./es";
-import { hi } from "./hi";
-import { id } from "./id";
-import { ja } from "./ja";
-import { ko } from "./ko";
-import { ptBR } from "./pt-BR";
-import { ru } from "./ru";
-import { zhCN } from "./zh-CN";
-import { resolveSupportedLocale } from "./locales";
-import type { Locale } from "./types";
-export type { Messages } from "./en";
+} from "@/shared/lib/appState";
+import { en, type Messages } from "@/i18n/en";
+import { de } from "@/i18n/de";
+import { es } from "@/i18n/es";
+import { hi } from "@/i18n/hi";
+import { id } from "@/i18n/id";
+import { ja } from "@/i18n/ja";
+import { ko } from "@/i18n/ko";
+import { ptBR } from "@/i18n/pt-BR";
+import { ru } from "@/i18n/ru";
+import { zhCN } from "@/i18n/zh-CN";
+import { resolveSupportedLocale } from "@/i18n/locales";
+import type { Locale } from "@/i18n/types";
+export type { Messages } from "@/i18n/en";
 const ENGLISH_MESSAGES = en;
 export const CANONICAL_ENGLISH_PATHS = [
   "nav.overview",

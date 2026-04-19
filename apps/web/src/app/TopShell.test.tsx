@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { getMessages, type Locale } from "../i18n";
-import { AppContext, type AppContextValue } from "./AppContext";
-import { TopShell } from "./TopShell";
+import { getMessages, type Locale } from "@/i18n";
+import { AppContext, type AppContextValue } from "@/app/AppContext";
+import { TopShell } from "@/app/components/TopShell";
 
 function renderTopShell(locale: Locale) {
   const ctx = {

@@ -1,9 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { ExecutionGraphData } from "@threadlens/shared-contracts";
-import { getMessages } from "../../../i18n";
-import type { ProviderParserHealthReport, ProviderSessionRow } from "../../../types";
-import { RoutingPanel } from "./RoutingPanel";
+import { getMessages } from "@/i18n";
+import type { ProviderParserHealthReport, ProviderSessionRow } from "@/shared/types";
+import { RoutingPanel } from "@/features/providers/routing/RoutingPanel";
 
 const graphData: ExecutionGraphData = {
   generated_at: "2026-03-31T03:00:00.000Z",
