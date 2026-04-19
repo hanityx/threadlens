@@ -1,4 +1,5 @@
 import { useState, type CSSProperties, type Ref } from "react";
+import { formatBytesCompact } from "@/shared/lib/format";
 import { Button } from "@/shared/ui/components/Button";
 import { PanelHeader } from "@/shared/ui/components/PanelHeader";
 import { StatusPill, type StatusPillVariant } from "@/shared/ui/components/StatusPill";
@@ -6,7 +7,7 @@ import type { Messages } from "@/i18n";
 import type { ProviderSessionActionResult, ProviderSessionRow } from "@/shared/types";
 import { SKELETON_ROWS } from "@/shared/types";
 import { formatDateTime, formatProviderDisplayName, normalizeDisplayValue } from "@/shared/lib/format";
-import { compactSessionId, compactSessionTitle, formatBytesCompact, suppressMouseFocus } from "@/features/providers/lib/helpers";
+import { compactSessionId, compactSessionTitle, suppressMouseFocus } from "@/features/providers/lib/helpers";
 import {
   buildProviderSessionActionSummary,
   type ProviderWorkflowStage,

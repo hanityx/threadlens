@@ -1,67 +1,32 @@
-import { startTransition, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ApiEnvelope, UpdateCheckStatus } from "@threadlens/shared-contracts";
-import { AppContext, type AppContextValue } from "./app/AppContext";
-import { createAppContextValue } from "./app/createAppContextValue";
-import { DetailShell } from "./app/DetailShell";
-import { OverviewWorkbench } from "./features/overview/OverviewWorkbench";
-import { ProvidersWorkspace } from "./features/providers/ProvidersWorkspace";
-import { RuntimeFeedbackStack } from "./app/RuntimeFeedbackStack";
-import { SearchRoute } from "./features/search/SearchRoute";
-import { ThreadsWorkbench } from "./features/threads/ThreadsWorkbench";
-import { TopShell } from "./app/TopShell";
+import { AppShell } from "@/app/AppShell";
+import { AppContext, type AppContextValue } from "@/app/AppContext";
+import { createAppContextValue } from "@/app/createAppContextValue";
+import { useAppShellState } from "@/app/hooks/useAppShellState";
 import {
   resolvePreferredProvidersEntry,
   useAppShellBehavior,
-  type DesktopRouteState,
-} from "./app/appShellBehavior";
-import { useAppShellModel } from "./app/appShellModel";
+} from "@/app/model/appShellBehavior";
+import { useAppShellModel } from "@/app/model/appShellModel";
+import { useAppData } from "@/app/hooks/useAppData";
+import { useLocale } from "@/i18n";
+import { apiGet } from "@/api";
+import { extractEnvelopeData } from "@/shared/lib/format";
 import {
-  persistDismissedUpdateVersion,
   PROVIDER_VIEW_STORAGE_KEY,
-  readDismissedUpdateVersion,
   readStorageValue,
-  SEARCH_DRAFT_STORAGE_KEY,
   SETUP_PREFERRED_PROVIDER_STORAGE_KEY,
-  writeStorageValue,
-} from "./hooks/appDataUtils";
-import { useAppData } from "./hooks/useAppData";
-import { useLocale } from "./i18n";
-import { apiGet } from "./api";
-import { extractEnvelopeData } from "./lib/helpers";
-import type { ConversationSearchHit, LayoutView, ProviderView } from "./types";
-import type { ProviderProbeFilter } from "./features/providers/sessionTableModel";
-import { UpdateBanner } from "./app/UpdateBanner";
+} from "@/shared/lib/appState";
 
 const preloadProvidersHomePanels = () => {
-  void import("./features/providers/ProvidersPanel");
-  void import("./features/providers/SessionDetail");
+  void import("@/features/providers/components/ProvidersPanel");
+  void import("@/features/providers/session/SessionDetail");
 };
 
 export function App() {
-  const panelChunkWarmupStartedRef = useRef(false);
-  const desktopRouteAppliedRef = useRef(false);
-  const desktopRouteHydratingRef = useRef(false);
-  const desktopRouteRef = useRef<DesktopRouteState>({
-    view: "",
-    provider: "",
-    filePath: "",
-    threadId: "",
-  });
-  const threadSearchInputRef = useRef<HTMLInputElement | null>(null);
-  const detailLayoutRef = useRef<HTMLElement | null>(null);
-  const pendingLayoutScrollRestoreRef = useRef<number | null>(null);
-  const [searchThreadContext, setSearchThreadContext] = useState<ConversationSearchHit | null>(null);
-  const [providerProbeFilterIntent, setProviderProbeFilterIntent] = useState<ProviderProbeFilter | null>(null);
   const [providersDiagnosticsOpen, setProvidersDiagnosticsOpen] = useState(false);
-  const [setupGuideOpen, setSetupGuideOpen] = useState(false);
-  const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState(() =>
-    readDismissedUpdateVersion(),
-  );
-  const [headerSearchDraft, setHeaderSearchDraft] = useState("");
-  const [headerSearchSeed, setHeaderSearchSeed] = useState(() => {
-    return readStorageValue([SEARCH_DRAFT_STORAGE_KEY]) ?? "";
-  });
   const appData = useAppData({ providersDiagnosticsOpen });
   const updateCheck = useQuery({
     queryKey: ["update-check"],
@@ -92,78 +57,35 @@ export function App() {
     providersRefreshing, refreshingAllData, providersLastRefreshAt,
     prefetchProvidersData, prefetchRoutingData,
   } = appData;
-
-  const changeLayoutView = (nextView: LayoutView) => {
-    if (typeof window !== "undefined" && nextView !== layoutView) {
-      pendingLayoutScrollRestoreRef.current = window.scrollY;
-    }
-    startTransition(() => {
-      setLayoutView(nextView);
-    });
-  };
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (pendingLayoutScrollRestoreRef.current === null) return;
-
-    const targetY = pendingLayoutScrollRestoreRef.current;
-    pendingLayoutScrollRestoreRef.current = null;
-
-    const restore = () => {
-      const maxScrollY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
-      window.scrollTo(0, Math.min(targetY, maxScrollY));
-    };
-
-    let rafTwo = 0;
-    let timeoutOne = 0;
-    let timeoutTwo = 0;
-    const rafOne = window.requestAnimationFrame(() => {
-      rafTwo = window.requestAnimationFrame(() => {
-        restore();
-        timeoutOne = window.setTimeout(restore, 80);
-        timeoutTwo = window.setTimeout(restore, 240);
-      });
-    });
-
-    return () => {
-      window.cancelAnimationFrame(rafOne);
-      if (rafTwo) window.cancelAnimationFrame(rafTwo);
-      if (timeoutOne) window.clearTimeout(timeoutOne);
-      if (timeoutTwo) window.clearTimeout(timeoutTwo);
-    };
-  }, [layoutView]);
-
-  useEffect(() => {
-    writeStorageValue(SEARCH_DRAFT_STORAGE_KEY, headerSearchSeed);
-  }, [headerSearchSeed]);
-
-  useEffect(() => {
-    setHeaderSearchDraft("");
-  }, [layoutView]);
-
-  useEffect(() => {
-    persistDismissedUpdateVersion(dismissedUpdateVersion);
-  }, [dismissedUpdateVersion]);
-
-  const changeProviderView = (nextView: ProviderView) => {
-    startTransition(() => {
-      setProviderView(nextView);
-    });
-  };
-
-  const openProvidersHome = () => {
-    prefetchProvidersData();
-    preloadProvidersHomePanels();
-    const preferredProvider = resolvePreferredProvidersEntry({
-      preferredProviderId: readStorageValue([SETUP_PREFERRED_PROVIDER_STORAGE_KEY]),
-      storedProviderView: readStorageValue([PROVIDER_VIEW_STORAGE_KEY]),
-      visibleProviderIdSet,
-    });
-    startTransition(() => {
-      setProviderView(preferredProvider);
-    });
-    changeLayoutView("providers");
-  };
+  const shellState = useAppShellState({
+    layoutView,
+    setLayoutView,
+    setProviderView,
+  });
+  const {
+    panelChunkWarmupStartedRef,
+    desktopRouteAppliedRef,
+    desktopRouteHydratingRef,
+    desktopRouteRef,
+    threadSearchInputRef,
+    detailLayoutRef,
+    searchThreadContext,
+    setSearchThreadContext,
+    providerProbeFilterIntent,
+    setProviderProbeFilterIntent,
+    setupGuideOpen,
+    setSetupGuideOpen,
+    dismissedUpdateVersion,
+    setDismissedUpdateVersion,
+    headerSearchDraft,
+    setHeaderSearchDraft,
+    headerSearchSeed,
+    setHeaderSearchSeed,
+    acknowledgedForensicsErrorKeys,
+    setAcknowledgedForensicsErrorKeys,
+    changeLayoutView,
+    changeProviderView,
+  } = shellState;
 
   const { locale, setLocale, messages } = useLocale();
   const updateCheckData = extractEnvelopeData<UpdateCheckStatus>(updateCheck.data);
@@ -175,13 +97,17 @@ export function App() {
   const runtimeBackend = runtime.data?.data?.runtime_backend;
   const showRuntimeBackendDegraded =
     runtime.isError || (!runtimeLoading && runtimeBackend?.reachable === false);
-  const [acknowledgedForensicsErrorKeys, setAcknowledgedForensicsErrorKeys] = useState<{
-    analyze: string;
-    cleanup: string;
-  }>({
-    analyze: "",
-    cleanup: "",
-  });
+  const openProvidersHome = () => {
+    prefetchProvidersData();
+    preloadProvidersHomePanels();
+    const preferredProvider = resolvePreferredProvidersEntry({
+      preferredProviderId: readStorageValue([SETUP_PREFERRED_PROVIDER_STORAGE_KEY]),
+      storedProviderView: readStorageValue([PROVIDER_VIEW_STORAGE_KEY]),
+      visibleProviderIdSet,
+    });
+    changeProviderView(preferredProvider);
+    changeLayoutView("providers");
+  };
   const analyzeErrorKey = analyzeDeleteError
     ? `analyze:${analyzeDeleteErrorMessage || "unknown"}`
     : "";
@@ -386,35 +312,13 @@ export function App() {
 
   return (
     <AppContext.Provider value={ctx}>
-      <div className="app-shell">
-        <main className="page page-shell-main">
-          <TopShell />
-          {showRuntimeBackendDegraded ? (
-            <section className="degraded-banner" role="status" aria-live="polite">
-              <strong>{messages.alerts.runtimeBackendDownTitle}</strong>
-              <p>{messages.alerts.runtimeBackendDownBody}</p>
-              <span>
-                {messages.alerts.runtimeBackendDownHint} {runtimeBackend?.url ?? "ts-native"}
-              </span>
-            </section>
-          ) : null}
-          {showUpdateBanner && updateCheckData?.latest_version ? (
-            <UpdateBanner
-              messages={messages.alerts}
-              currentVersion={updateCheckData.current_version}
-              latestVersion={updateCheckData.latest_version}
-              releaseUrl={updateCheckData.release_url}
-              onDismiss={() => setDismissedUpdateVersion(updateCheckData.latest_version ?? "")}
-            />
-          ) : null}
-          {layoutView === "overview" ? <OverviewWorkbench /> : null}
-          {showSearch ? <SearchRoute /> : null}
-          {showProviders ? <ProvidersWorkspace /> : null}
-          {showThreadsTable ? <ThreadsWorkbench /> : null}
-          <DetailShell />
-          <RuntimeFeedbackStack />
-        </main>
-      </div>
+      <AppShell
+        showRuntimeBackendDegraded={showRuntimeBackendDegraded}
+        runtimeBackend={runtimeBackend}
+        showUpdateBanner={showUpdateBanner}
+        updateCheckData={updateCheckData ?? null}
+        onDismissUpdate={setDismissedUpdateVersion}
+      />
     </AppContext.Provider>
   );
 }

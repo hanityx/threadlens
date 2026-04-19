@@ -43,6 +43,35 @@ export function formatInteger(value: number | null | undefined): string {
   return new Intl.NumberFormat("en-US").format(Math.round(num));
 }
 
+export function formatBytes(value: number): string {
+  const bytes = Number(value || 0);
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let size = bytes / 1024;
+  let idx = 0;
+  while (size >= 1024 && idx < units.length - 1) {
+    size /= 1024;
+    idx += 1;
+  }
+  return `${size.toFixed(size < 10 ? 1 : 0)} ${units[idx]}`;
+}
+
+export function formatBytesCompact(value: number): string {
+  const bytes = Number(value || 0);
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0B";
+  if (bytes < 1024) return `${Math.round(bytes)}B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let size = bytes / 1024;
+  let idx = 0;
+  while (size >= 1024 && idx < units.length - 1) {
+    size /= 1024;
+    idx += 1;
+  }
+  const digits = size >= 10 ? 0 : 1;
+  return `${size.toFixed(digits)}${units[idx]}`;
+}
+
 export function compactPath(value: string | null | undefined, keep = 28): string {
   const raw = String(value ?? "").trim();
   if (!raw) return "-";

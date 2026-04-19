@@ -18,7 +18,7 @@ import type {
   ProviderSessionRow,
 } from "@/shared/types";
 import { formatProviderDisplayName } from "@/shared/lib/format";
-import { formatBytes } from "@/features/providers/lib/helpers";
+import { formatBytes } from "@/shared/lib/format";
 
 const WIZARD_COMPLETED_AT_STORAGE_KEY = "po-setup-wizard-completed-at";
 
