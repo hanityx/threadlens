@@ -1,12 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { getMessages } from "@/i18n";
-import { AppContext, type AppContextValue } from "@/app/AppContext";
-import { RuntimeFeedbackStack } from "@/app/components/RuntimeFeedbackStack";
+import {
+  RuntimeFeedbackStack,
+  type RuntimeFeedbackStackProps,
+} from "@/app/components/RuntimeFeedbackStack";
 
 function renderRuntimeFeedback(locale: "en" | "ko" | "ru" = "en") {
   const messages = getMessages(locale);
-  const ctx = {
+  const props = {
     messages,
     hasGlobalErrorStack: true,
     runtime: { isError: true },
@@ -25,28 +27,9 @@ function renderRuntimeFeedback(locale: "en" | "ko" | "ru" = "en") {
     bulkActionErrorMessage: "",
     showRuntimeBackendDegraded: false,
     busy: false,
-    layoutView: "overview",
-    changeLayoutView: vi.fn(),
-    openProvidersHome: vi.fn(),
-    handleSearchIntent: vi.fn(),
-    handleProvidersIntent: vi.fn(),
-    headerSearchDraft: "",
-    setHeaderSearchDraft: vi.fn(),
-    handleHeaderSearchSubmit: vi.fn(),
-    syncStatusText: "",
-    theme: "dark",
-    setTheme: vi.fn(),
-    refreshAllData: vi.fn(),
-    refreshingAllData: false,
-    locale,
-    setLocale: vi.fn(),
-  } as unknown as AppContextValue;
+  } as unknown as RuntimeFeedbackStackProps;
 
-  return renderToStaticMarkup(
-    <AppContext.Provider value={ctx}>
-      <RuntimeFeedbackStack />
-    </AppContext.Provider>,
-  );
+  return renderToStaticMarkup(<RuntimeFeedbackStack {...props} />);
 }
 
 describe("RuntimeFeedbackStack", () => {
