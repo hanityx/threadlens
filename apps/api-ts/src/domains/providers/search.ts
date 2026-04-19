@@ -10,26 +10,34 @@ import type {
   ProviderSessionRow,
   ProviderSessionScan,
   TranscriptPayload,
-} from "../../lib/providers.js";
+} from "./types.js";
 import {
   buildSearchSnippet,
   buildSearchTokens,
-  codexTranscriptSearchRoots,
-  extractCodexThreadIdFromSessionName,
   fallbackDisplayTitle,
-  getCodexThreadTitleMap,
-  inferSessionId,
-  invalidateCodexThreadTitleMapCache,
-  isCopilotGlobalSessionLikeFile,
-  isWorkspaceChatSessionPath,
   matchesConversationSearch,
   normalizeSearchQuery,
   normalizeSearchText,
-  probeSessionFile,
+} from "./search-helpers.js";
+import {
+  codexTranscriptSearchRoots,
   providerName,
   providerScanRootSpecs,
+} from "./path-safety.js";
+import {
+  extractCodexThreadIdFromSessionName,
+  getCodexThreadTitleMap,
+  invalidateCodexThreadTitleMapCache,
+} from "./title-detection.js";
+import {
+  inferSessionId,
+  isCopilotGlobalSessionLikeFile,
+  isWorkspaceChatSessionPath,
+  probeSessionFile,
+} from "./probe.js";
+import {
   providerStatus,
-} from "../../lib/providers.js";
+} from "./matrix.js";
 import {
   nowIsoUtc,
   walkFilesByExt,
