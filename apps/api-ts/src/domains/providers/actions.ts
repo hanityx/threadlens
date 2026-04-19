@@ -204,6 +204,16 @@ export function buildProviderActionToken(
   filePaths: string[],
   options?: ProviderSessionActionOptions,
 ): string {
+  const digest = buildProviderActionFingerprint(provider, action, filePaths, options);
+  return `PROVIDER-${digest}`;
+}
+
+export function buildProviderActionFingerprint(
+  provider: ProviderId,
+  action: ProviderSessionAction,
+  filePaths: string[],
+  options?: ProviderSessionActionOptions,
+): string {
   const normalizedOptions = normalizeProviderActionOptions(options);
   const normalized = normalizeProviderActionPaths(filePaths);
   const raw = JSON.stringify({
@@ -217,7 +227,7 @@ export function buildProviderActionToken(
     .digest("hex")
     .slice(0, 12)
     .toUpperCase();
-  return `PROVIDER-${digest}`;
+  return digest;
 }
 
 export async function runProviderSessionAction(
@@ -248,7 +258,13 @@ export async function runProviderSessionAction(
       applied_count: 0,
       confirm_token_expected: "",
       confirm_token_accepted: false,
+      selection_fingerprint: "",
       backup_before_delete: normalizedOptions.backup_before_delete,
+      failure_summary: {
+        skipped_count: 0,
+        failed_count: 0,
+        partial_failure: false,
+      },
       skipped: [],
       error: "cleanup-disabled-provider",
     };
@@ -288,11 +304,21 @@ export async function runProviderSessionAction(
       applied_count: 0,
       confirm_token_expected: "",
       confirm_token_accepted: false,
+      selection_fingerprint: "",
       backup_before_delete: normalizedOptions.backup_before_delete,
+      failure_summary: {
+        skipped_count: skipped.length,
+        failed_count: 0,
+        partial_failure: false,
+      },
       skipped,
       error: "no-valid-targets",
     };
   }
+
+  const selectionFingerprint = valid.length
+    ? buildProviderActionFingerprint(provider, action, valid, normalizedOptions)
+    : "";
 
   if (dryRun) {
     const expectedToken = valid.length
@@ -308,7 +334,13 @@ export async function runProviderSessionAction(
       applied_count: 0,
       confirm_token_expected: expectedToken,
       confirm_token_accepted: false,
+      selection_fingerprint: selectionFingerprint,
       backup_before_delete: normalizedOptions.backup_before_delete,
+      failure_summary: {
+        skipped_count: skipped.length,
+        failed_count: 0,
+        partial_failure: false,
+      },
       skipped,
       mode: "preview",
     };
@@ -333,14 +365,20 @@ export async function runProviderSessionAction(
         dry_run: false,
         target_count: uniquePaths.length,
         valid_count: valid.length,
-        applied_count: 0,
-        confirm_token_expected: expectedToken,
-        confirm_token_accepted: false,
-        backup_before_delete: normalizedOptions.backup_before_delete,
-        skipped,
-        error: consume.reason,
-      };
-    }
+      applied_count: 0,
+      confirm_token_expected: expectedToken,
+      confirm_token_accepted: false,
+      selection_fingerprint: selectionFingerprint,
+      backup_before_delete: normalizedOptions.backup_before_delete,
+      failure_summary: {
+        skipped_count: skipped.length,
+        failed_count: 0,
+        partial_failure: false,
+      },
+      skipped,
+      error: consume.reason,
+    };
+  }
   }
 
   let applied = 0;
@@ -408,10 +446,24 @@ export async function runProviderSessionAction(
     applied_count: applied,
     confirm_token_expected: "",
     confirm_token_accepted: action === "backup_local" ? false : true,
+    selection_fingerprint: selectionFingerprint,
     backup_before_delete: normalizedOptions.backup_before_delete,
     backed_up_count: backedUpCount,
     backup_to: backupTo,
     backup_manifest_path: backupManifestPath,
+    backup_summary: shouldBackup
+      ? {
+          destination: backupTo,
+          manifest_path: backupManifestPath,
+          copied_count: backedUpCount,
+          failed_count: backupStage?.failed.length ?? 0,
+        }
+      : null,
+    failure_summary: {
+      skipped_count: skipped.length,
+      failed_count: failed.length,
+      partial_failure: failed.length > 0 && applied > 0,
+    },
     skipped,
     failed,
     archived_to: archivedTo,

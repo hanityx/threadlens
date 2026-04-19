@@ -140,10 +140,22 @@ export type ProviderActionResponse = ApiEnvelope<{
   applied_count: number;
   confirm_token_expected: string;
   confirm_token_accepted: boolean;
+  selection_fingerprint?: string;
   backup_before_delete?: boolean;
   backed_up_count?: number;
   backup_to?: string | null;
   backup_manifest_path?: string | null;
+  backup_summary?: {
+    destination?: string | null;
+    manifest_path?: string | null;
+    copied_count: number;
+    failed_count: number;
+  } | null;
+  failure_summary?: {
+    skipped_count: number;
+    failed_count: number;
+    partial_failure: boolean;
+  };
   skipped?: Array<{ file_path: string; reason: string }>;
   archived_to?: string | null;
   mode?: string;
