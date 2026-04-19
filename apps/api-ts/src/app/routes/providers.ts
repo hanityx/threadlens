@@ -2,15 +2,15 @@ import { execFile } from "node:child_process";
 import path from "node:path";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import type { ProviderId } from "../../lib/providers.js";
+import type { ProviderId } from "../../domains/providers/types.js";
 import {
-  buildSessionTranscript,
-  getProviderMatrixTs,
   listProviderIds,
   parseProviderId,
   resolveAllowedProviderFilePath,
-  runProviderSessionAction,
-} from "../../lib/providers.js";
+} from "../../domains/providers/path-safety.js";
+import { getProviderMatrixTs } from "../../domains/providers/matrix.js";
+import { buildSessionTranscript } from "../../domains/providers/transcript.js";
+import { runProviderSessionAction } from "../../lib/providers.js";
 import {
   getProviderParserHealthTs,
   getProviderSessionsTs,

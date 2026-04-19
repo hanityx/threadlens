@@ -25,10 +25,8 @@ import {
   getTmuxSessions,
 } from "../lib/utils.js";
 
-import {
-  type ProviderId,
-  parseProviderId,
-} from "../lib/providers.js";
+import type { ProviderId } from "../domains/providers/types.js";
+import { parseProviderId } from "../domains/providers/path-safety.js";
 import { getDataSourceInventoryTs } from "../domains/recovery/inventory.js";
 import { invalidateOverviewTsCache } from "../domains/threads/overview.js";
 import { invalidateProviderSearchCaches } from "../domains/providers/search.js";
