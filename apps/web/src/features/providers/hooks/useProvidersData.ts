@@ -45,6 +45,125 @@ export function resolveSelectedProviderLabel(options: {
   return options.providerById.get(options.providerView)?.name ?? options.providerView;
 }
 
+export function resolveProviderQueryView(
+  providerView: ProviderView,
+  knownProviderIds: Set<string>,
+): ProviderView {
+  return providerView !== "all" && knownProviderIds.has(providerView)
+    ? providerView
+    : "all";
+}
+
+export function shouldHydrateProviderScope(options: {
+  providerView: ProviderView;
+  knownProviderCount: number;
+  providerMatrixQueryEnabled: boolean;
+  providerMatrixLoading: boolean;
+  providerMatrixFetching: boolean;
+}): boolean {
+  return (
+    options.providerView !== "all" &&
+    options.knownProviderCount === 0 &&
+    options.providerMatrixQueryEnabled &&
+    (options.providerMatrixLoading || options.providerMatrixFetching)
+  );
+}
+
+export function resolveProviderLimits(
+  providerQueryView: ProviderView,
+  providerDataDepth: ProviderDataDepth,
+): {
+  providerSessionsLimit: number;
+  providerParserLimit: number;
+  providerScopeQuery: string;
+  providerSummarySessionsLimit: number;
+  providerSummaryParserLimit: number;
+} {
+  const providerSessionsLimit =
+    providerQueryView === "all"
+      ? { fast: 30, balanced: 60, deep: 140 }[providerDataDepth]
+      : { fast: 120, balanced: 240, deep: 500 }[providerDataDepth];
+  const providerParserLimit =
+    providerQueryView === "all"
+      ? { fast: 25, balanced: 40, deep: 80 }[providerDataDepth]
+      : { fast: 80, balanced: 120, deep: 220 }[providerDataDepth];
+  return {
+    providerSessionsLimit,
+    providerParserLimit,
+    providerScopeQuery:
+      providerQueryView === "all" ? "" : `&provider=${encodeURIComponent(providerQueryView)}`,
+    providerSummarySessionsLimit: { fast: 30, balanced: 60, deep: 140 }[providerDataDepth],
+    providerSummaryParserLimit: { fast: 25, balanced: 40, deep: 80 }[providerDataDepth],
+  };
+}
+
+export function buildDataSourceRows(
+  sources: NonNullable<DataSourcesEnvelope["data"]>["sources"] | undefined,
+): DataSourceInventoryRow[] {
+  const sourceObj = sources;
+  if (!sourceObj || typeof sourceObj !== "object") return [];
+  const rows = Object.entries(sourceObj).map(([sourceKey, rawValue]) => {
+    const value =
+      rawValue && typeof rawValue === "object" ? (rawValue as Record<string, unknown>) : {};
+    return {
+      source_key: sourceKey,
+      path: String(value.path ?? ""),
+      present: Boolean(value.present ?? value.exists),
+      file_count: parseNum(value.file_count),
+      dir_count: parseNum(value.dir_count),
+      total_bytes: parseNum(value.total_bytes ?? value.size_bytes),
+      latest_mtime: String(value.latest_mtime ?? value.mtime ?? ""),
+    };
+  });
+  rows.sort((a, b) => {
+    if (a.present !== b.present) return a.present ? -1 : 1;
+    if (a.file_count !== b.file_count) return b.file_count - a.file_count;
+    if (a.total_bytes !== b.total_bytes) return b.total_bytes - a.total_bytes;
+    return a.source_key.localeCompare(b.source_key);
+  });
+  return rows;
+}
+
+export function mergeProviderScopedRows<T extends { provider: string }>(
+  summaryRows: T[],
+  currentRows: T[],
+  providerQueryView: ProviderView,
+): T[] {
+  if (providerQueryView === "all") return summaryRows;
+  if (currentRows.length === 0) return summaryRows;
+  return [
+    ...summaryRows.filter((row) => row.provider !== providerQueryView),
+    ...currentRows,
+  ];
+}
+
+export function pruneAvailableProviderSelections(
+  selectedProviderFiles: Record<string, boolean>,
+  availableProviderFilePaths: Set<string>,
+) {
+  let changed = false;
+  const next: Record<string, boolean> = {};
+  for (const [filePath, selected] of Object.entries(selectedProviderFiles)) {
+    if (!selected) continue;
+    if (availableProviderFilePaths.has(filePath)) {
+      next[filePath] = true;
+      continue;
+    }
+    changed = true;
+  }
+  return changed ? next : selectedProviderFiles;
+}
+
+export function resolveAllProviderRowsSelected(
+  providerSessionRows: Array<{ file_path: string }>,
+  selectedProviderFiles: Record<string, boolean>,
+) {
+  return (
+    providerSessionRows.length > 0 &&
+    providerSessionRows.every((row) => Boolean(selectedProviderFiles[row.file_path]))
+  );
+}
+
 export function useProvidersData(options: {
   layoutView: LayoutView;
   providerView: ProviderView;
@@ -113,30 +232,24 @@ export function useProvidersData(options: {
       .map((item) => String(item.provider || "").trim())
       .filter(Boolean),
   );
-  const providerQueryView =
-    providerView !== "all" && knownProviderIds.has(providerView)
-      ? providerView
-      : "all";
-  const providerScopeHydrating =
-    providerView !== "all" &&
-    knownProviderIds.size === 0 &&
-    providerMatrixQueryEnabled &&
-    (providerMatrix.isLoading || providerMatrix.isFetching);
+  const providerQueryView = resolveProviderQueryView(providerView, knownProviderIds);
+  const providerScopeHydrating = shouldHydrateProviderScope({
+    providerView,
+    knownProviderCount: knownProviderIds.size,
+    providerMatrixQueryEnabled,
+    providerMatrixLoading: providerMatrix.isLoading,
+    providerMatrixFetching: providerMatrix.isFetching,
+  });
   const providerSessionsQueryEnabled = wantsProvidersData && !providerScopeHydrating;
   const providerParserQueryEnabled = wantsProvidersData && !providerScopeHydrating;
 
-  const providerSessionsLimit =
-    providerQueryView === "all"
-      ? { fast: 30, balanced: 60, deep: 140 }[providerDataDepth]
-      : { fast: 120, balanced: 240, deep: 500 }[providerDataDepth];
-  const providerParserLimit =
-    providerQueryView === "all"
-      ? { fast: 25, balanced: 40, deep: 80 }[providerDataDepth]
-      : { fast: 80, balanced: 120, deep: 220 }[providerDataDepth];
-  const providerScopeQuery =
-    providerQueryView === "all" ? "" : `&provider=${encodeURIComponent(providerQueryView)}`;
-  const providerSummarySessionsLimit = { fast: 30, balanced: 60, deep: 140 }[providerDataDepth];
-  const providerSummaryParserLimit = { fast: 25, balanced: 40, deep: 80 }[providerDataDepth];
+  const {
+    providerSessionsLimit,
+    providerParserLimit,
+    providerScopeQuery,
+    providerSummarySessionsLimit,
+    providerSummaryParserLimit,
+  } = resolveProviderLimits(providerQueryView, providerDataDepth);
 
   const providerSessionsQueryKey = ["provider-sessions", providerQueryView, providerDataDepth, providerSessionsLimit] as const;
   const providerSessionsQueryPath = `/api/provider-sessions?limit=${providerSessionsLimit}${providerScopeQuery}`;
@@ -213,29 +326,10 @@ export function useProvidersData(options: {
 
   /* ---- derived data ---- */
   const dataSourcesRoot = extractEnvelopeData<NonNullable<DataSourcesEnvelope["data"]>>(dataSources.data) ?? {};
-  const dataSourceRows = useMemo<DataSourceInventoryRow[]>(() => {
-    const sourceObj = dataSourcesRoot.sources;
-    if (!sourceObj || typeof sourceObj !== "object") return [];
-    const rows = Object.entries(sourceObj).map(([sourceKey, rawValue]) => {
-      const value = rawValue && typeof rawValue === "object" ? (rawValue as Record<string, unknown>) : {};
-      return {
-        source_key: sourceKey,
-        path: String(value.path ?? ""),
-        present: Boolean(value.present ?? value.exists),
-        file_count: parseNum(value.file_count),
-        dir_count: parseNum(value.dir_count),
-        total_bytes: parseNum(value.total_bytes ?? value.size_bytes),
-        latest_mtime: String(value.latest_mtime ?? value.mtime ?? ""),
-      };
-    });
-    rows.sort((a, b) => {
-      if (a.present !== b.present) return a.present ? -1 : 1;
-      if (a.file_count !== b.file_count) return b.file_count - a.file_count;
-      if (a.total_bytes !== b.total_bytes) return b.total_bytes - a.total_bytes;
-      return a.source_key.localeCompare(b.source_key);
-    });
-    return rows;
-  }, [dataSourcesRoot.sources]);
+  const dataSourceRows = useMemo<DataSourceInventoryRow[]>(
+    () => buildDataSourceRows(dataSourcesRoot.sources),
+    [dataSourcesRoot.sources],
+  );
 
   const providerMatrixRoot = extractEnvelopeData<NonNullable<ProviderMatrixEnvelope["data"]>>(providerMatrix.data) ?? {};
   const providerSessionsRoot = extractEnvelopeData<NonNullable<ProviderSessionsEnvelope["data"]>>(providerSessions.data) ?? {};
@@ -257,30 +351,15 @@ export function useProvidersData(options: {
 
   const allProviderSessionRows = useMemo(() => {
     const summaryRows = providerSessionsSummaryRoot.rows ?? [];
-    if (providerQueryView === "all") return summaryRows;
-    if (currentProviderSessionRows.length === 0) return summaryRows;
-    return [
-      ...summaryRows.filter((row) => row.provider !== providerQueryView),
-      ...currentProviderSessionRows,
-    ];
+    return mergeProviderScopedRows(summaryRows, currentProviderSessionRows, providerQueryView);
   }, [providerSessionsSummaryRoot.rows, providerQueryView, currentProviderSessionRows]);
   const allProviderSessionProviders = useMemo(() => {
     const summaryProviders = providerSessionsSummaryRoot.providers ?? [];
-    if (providerQueryView === "all") return summaryProviders;
-    if (currentProviderSessionProviders.length === 0) return summaryProviders;
-    return [
-      ...summaryProviders.filter((row) => row.provider !== providerQueryView),
-      ...currentProviderSessionProviders,
-    ];
+    return mergeProviderScopedRows(summaryProviders, currentProviderSessionProviders, providerQueryView);
   }, [providerSessionsSummaryRoot.providers, providerQueryView, currentProviderSessionProviders]);
   const allParserReports = useMemo(() => {
     const summaryReports = providerParserSummaryRoot.reports ?? [];
-    if (providerQueryView === "all") return summaryReports;
-    if (currentParserReports.length === 0) return summaryReports;
-    return [
-      ...summaryReports.filter((row) => row.provider !== providerQueryView),
-      ...currentParserReports,
-    ];
+    return mergeProviderScopedRows(summaryReports, currentParserReports, providerQueryView);
   }, [providerParserSummaryRoot.reports, providerQueryView, currentParserReports]);
 
   const providerRowsByProvider = useMemo(() => {
@@ -429,19 +508,9 @@ export function useProvidersData(options: {
     );
   }, [providerScopedFilePaths, providerView]);
   useEffect(() => {
-    setSelectedProviderFiles((prev) => {
-      let changed = false;
-      const next: Record<string, boolean> = {};
-      for (const [filePath, selected] of Object.entries(prev)) {
-        if (!selected) continue;
-        if (availableProviderFilePaths.has(filePath)) {
-          next[filePath] = true;
-          continue;
-        }
-        changed = true;
-      }
-      return changed ? next : prev;
-    });
+    setSelectedProviderFiles((prev) =>
+      pruneAvailableProviderSelections(prev, availableProviderFilePaths),
+    );
   }, [availableProviderFilePaths]);
 
   const selectedProviderLabel = resolveSelectedProviderLabel({
@@ -462,7 +531,10 @@ export function useProvidersData(options: {
       ),
     );
   }, [providerSessionRows, selectedProviderFiles]);
-  const allProviderRowsSelected = providerSessionRows.length > 0 && providerSessionRows.every((row) => Boolean(selectedProviderFiles[row.file_path]));
+  const allProviderRowsSelected = resolveAllProviderRowsSelected(
+    providerSessionRows,
+    selectedProviderFiles,
+  );
   const providerRowsSampled = useMemo(() => {
     if (providerView === "all") return allProviderSessionProviders.some((row) => Boolean(row.truncated));
     const hit = currentProviderSessionProviders.find((row) => row.provider === providerView) ?? allProviderSessionProviders.find((row) => row.provider === providerView);

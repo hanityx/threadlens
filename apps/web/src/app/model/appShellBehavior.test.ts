@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   buildDesktopRouteSearch,
+  getFallbackProviderView,
+  parseDesktopRouteSearch,
+  shouldAutoScrollDetailIntoView,
   shouldApplyProviderFallback,
   resolvePreferredProvidersEntry,
   resolveHeaderSearchTarget,
@@ -126,6 +129,30 @@ describe("desktop route helpers", () => {
     );
   });
 
+  it("parses only valid desktop route params", () => {
+    expect(
+      parseDesktopRouteSearch(
+        "?view=providers&provider=codex&filePath=%2Ftmp%2Fcodex%2Fsession.jsonl&threadId=thread-1",
+      ),
+    ).toEqual({
+      view: "providers",
+      provider: "codex",
+      filePath: "/tmp/codex/session.jsonl",
+      threadId: "thread-1",
+    });
+
+    expect(
+      parseDesktopRouteSearch(
+        "?view=invalid&provider=invalid&filePath=%2Ftmp%2Fcodex%2Fsession.jsonl&threadId=thread-2",
+      ),
+    ).toEqual({
+      view: "",
+      provider: "",
+      filePath: "/tmp/codex/session.jsonl",
+      threadId: "thread-2",
+    });
+  });
+
   it("clears provider-only params when switching to search", () => {
     expect(
       buildDesktopRouteSearch(
@@ -138,6 +165,26 @@ describe("desktop route helpers", () => {
         },
       ),
     ).toBe("?ts=123&view=search");
+  });
+
+  it("keeps thread params only on the threads surface", () => {
+    expect(
+      buildDesktopRouteSearch("?foo=bar", {
+        view: "threads",
+        provider: "",
+        filePath: "",
+        threadId: "thread-42",
+      }),
+    ).toBe("?foo=bar&view=threads&threadId=thread-42");
+
+    expect(
+      buildDesktopRouteSearch("?foo=bar&threadId=thread-42", {
+        view: "overview",
+        provider: "",
+        filePath: "",
+        threadId: "",
+      }),
+    ).toBe("?foo=bar&view=overview");
   });
 
   it("pushes history only when the surface changes", () => {
@@ -368,6 +415,44 @@ describe("desktop route helpers", () => {
     ).toBe(true);
   });
 
+  it("does not defer provider fallback when the route is not a provider detail deep-link", () => {
+    expect(
+      shouldDeferProviderFallback({
+        currentRoute: {
+          view: "threads",
+          provider: "",
+          filePath: "",
+          threadId: "thread-1",
+        },
+        visibleProviderTabs: [{ id: "all" }],
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldDeferProviderFallback({
+        currentRoute: {
+          view: "providers",
+          provider: "all",
+          filePath: "/tmp/codex/session.jsonl",
+          threadId: "",
+        },
+        visibleProviderTabs: [{ id: "all" }],
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldDeferProviderFallback({
+        currentRoute: {
+          view: "providers",
+          provider: "codex",
+          filePath: "",
+          threadId: "",
+        },
+        visibleProviderTabs: [{ id: "all" }],
+      }),
+    ).toBe(false);
+  });
+
   it("only applies provider fallback inside the sessions surface", () => {
     expect(
       shouldApplyProviderFallback({
@@ -390,7 +475,73 @@ describe("desktop route helpers", () => {
     ).toBe(true);
   });
 
+  it("resolves provider fallback only when the current provider disappears", () => {
+    expect(
+      getFallbackProviderView("all", [{ id: "all" }, { id: "codex" }], new Set(["all", "codex"])),
+    ).toBeNull();
+
+    expect(
+      getFallbackProviderView(
+        "codex",
+        [{ id: "all" }, { id: "codex" }],
+        new Set(["all", "codex"]),
+      ),
+    ).toBeNull();
+
+    expect(
+      getFallbackProviderView(
+        "gemini",
+        [{ id: "all" }, { id: "codex" }, { id: "claude" }],
+        new Set(["all", "codex", "claude"]),
+      ),
+    ).toBe("codex");
+
+    expect(getFallbackProviderView("gemini", [{ id: "all" }], new Set(["all"]))).toBe("all");
+  });
+
+  it("autoscrolls detail only for visible changed selections", () => {
+    expect(
+      shouldAutoScrollDetailIntoView({
+        detailVisible: true,
+        previousSelection: "",
+        nextSelection: "thread-1",
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldAutoScrollDetailIntoView({
+        detailVisible: false,
+        previousSelection: "",
+        nextSelection: "thread-1",
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldAutoScrollDetailIntoView({
+        detailVisible: true,
+        previousSelection: "thread-1",
+        nextSelection: "thread-1",
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldAutoScrollDetailIntoView({
+        detailVisible: true,
+        previousSelection: "",
+        nextSelection: "",
+      }),
+    ).toBe(false);
+  });
+
   it("uses the stored preferred provider when it is visible", () => {
+    expect(
+      resolvePreferredProvidersEntry({
+        preferredProviderId: " claude ",
+        storedProviderView: "codex",
+        visibleProviderIdSet: new Set(["all", "codex", "claude"]),
+      }),
+    ).toBe("claude");
+
     expect(
       resolvePreferredProvidersEntry({
         preferredProviderId: "gemini",

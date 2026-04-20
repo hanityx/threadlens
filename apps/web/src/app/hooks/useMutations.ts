@@ -78,6 +78,111 @@ export async function startRecoveryBackupDownload(archivePath: string) {
   anchor.click();
 }
 
+export function resolveSmokeStatusQueryState(layoutView: LayoutView) {
+  return {
+    enabled: layoutView === "overview",
+    refetchInterval: layoutView === "overview" ? 20000 : false,
+  } as const;
+}
+
+export function resolveRecoveryQueryState(layoutView: LayoutView) {
+  const wantsRecoveryData = layoutView === "overview";
+  return {
+    enabled: wantsRecoveryData,
+    refetchInterval: wantsRecoveryData ? 15000 : false,
+  } as const;
+}
+
+export function assertRuntimeBackendReachable(cachedReachable: boolean | undefined) {
+  if (cachedReachable === false) {
+    throw new Error(`${RUNTIME_BACKEND_DOWN_CACHED}: runtime-down`);
+  }
+}
+
+export function shouldReturnProviderActionPreview(
+  input: ProviderSessionActionInput,
+  firstData: ProviderSessionActionResult | null | undefined,
+): boolean {
+  const expectedToken = String(firstData?.confirm_token_expected ?? "").trim();
+  return (
+    input.action !== "backup_local" &&
+    !input.dry_run &&
+    !String(input.confirm_token ?? "").trim() &&
+    Boolean(expectedToken)
+  );
+}
+
+export function updateProviderActionTokenState(
+  previous: Record<string, string>,
+  key: string,
+  expectedToken: string,
+  actionOk: boolean,
+  dryRun: boolean,
+) {
+  if (expectedToken) {
+    return { ...previous, [key]: expectedToken };
+  }
+  if (actionOk && !dryRun) {
+    const next = { ...previous };
+    delete next[key];
+    return next;
+  }
+  return previous;
+}
+
+export function formatMutationHookError(error: unknown): string {
+  if (error instanceof Error) return formatMutationErrorMessage(error.message);
+  if (error) return formatMutationErrorMessage(String(error));
+  return "";
+}
+
+export function resolveBulkActionErrorState(options: {
+  bulkArchiveError: unknown;
+  bulkPinError: unknown;
+  bulkUnpinError: unknown;
+  bulkArchiveIsError: boolean;
+  bulkPinIsError: boolean;
+  bulkUnpinIsError: boolean;
+}) {
+  const errorMessage = options.bulkArchiveIsError
+    ? formatMutationHookError(options.bulkArchiveError)
+    : options.bulkPinIsError
+      ? formatMutationHookError(options.bulkPinError)
+      : options.bulkUnpinIsError
+        ? formatMutationHookError(options.bulkUnpinError)
+        : "";
+  return {
+    bulkActionError: options.bulkArchiveIsError || options.bulkPinIsError || options.bulkUnpinIsError,
+    bulkActionErrorMessage: errorMessage,
+  };
+}
+
+export function resolveMutationBusyState(options: {
+  bulkPinPending: boolean;
+  bulkUnpinPending: boolean;
+  bulkArchivePending: boolean;
+  analyzeDeletePending: boolean;
+  cleanupDryRunPending: boolean;
+  cleanupExecutePending: boolean;
+  providerSessionActionPending: boolean;
+  recoveryBackupExportPending: boolean;
+}) {
+  return (
+    options.bulkPinPending ||
+    options.bulkUnpinPending ||
+    options.bulkArchivePending ||
+    options.analyzeDeletePending ||
+    options.cleanupDryRunPending ||
+    options.cleanupExecutePending ||
+    options.providerSessionActionPending ||
+    options.recoveryBackupExportPending
+  );
+}
+
+export function resolveQueryLoadingState(isLoading: boolean, hasData: boolean) {
+  return isLoading && !hasData;
+}
+
 export function useMutations(options: {
   layoutView: LayoutView;
   providerActionProvider: string;
@@ -104,24 +209,21 @@ export function useMutations(options: {
     refetchInterval: 10000, staleTime: 5000, refetchOnWindowFocus: false, retry: 1,
   });
 
-  const smokeStatusQueryEnabled = layoutView === "overview";
-  const smokeStatusRefetchInterval = layoutView === "overview" ? 20000 : false;
+  const smokeStatusQueryState = resolveSmokeStatusQueryState(layoutView);
   const smokeStatus = useQuery({
     queryKey: ["smoke-status"],
     queryFn: ({ signal }) => apiGet<SmokeStatusEnvelope>("/api/smoke-status?limit=6", { signal }),
-    enabled: smokeStatusQueryEnabled,
-    refetchInterval: smokeStatusRefetchInterval,
+    enabled: smokeStatusQueryState.enabled,
+    refetchInterval: smokeStatusQueryState.refetchInterval,
     staleTime: 10000, refetchOnWindowFocus: false, retry: 1,
   });
 
-  const wantsRecoveryData = layoutView === "overview";
-  const recoveryQueryEnabled = wantsRecoveryData;
-  const recoveryRefetchInterval = wantsRecoveryData ? 15000 : false;
+  const recoveryQueryState = resolveRecoveryQueryState(layoutView);
   const recovery = useQuery({
     queryKey: ["recovery"],
     queryFn: ({ signal }) => apiGet<RecoveryResponse>("/api/recovery-center", { signal }),
-    enabled: recoveryQueryEnabled,
-    refetchInterval: recoveryRefetchInterval,
+    enabled: recoveryQueryState.enabled,
+    refetchInterval: recoveryQueryState.refetchInterval,
     staleTime: 10000, refetchOnWindowFocus: false, retry: 1,
   });
 
@@ -143,7 +245,7 @@ export function useMutations(options: {
   const bulkPin = useMutation({
     mutationFn: (threadIds: string[]) => {
       const cachedReachable = runtime.data?.data?.runtime_backend?.reachable;
-      if (cachedReachable === false) throw new Error(`${RUNTIME_BACKEND_DOWN_CACHED}: runtime-down`);
+      assertRuntimeBackendReachable(cachedReachable);
       return apiPost<ApiEnvelope<BulkThreadActionResult>>("/api/bulk-thread-action", { action: "pin", thread_ids: threadIds });
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["threads"] }); },
@@ -153,7 +255,7 @@ export function useMutations(options: {
   const bulkUnpin = useMutation({
     mutationFn: (threadIds: string[]) => {
       const cachedReachable = runtime.data?.data?.runtime_backend?.reachable;
-      if (cachedReachable === false) throw new Error(`${RUNTIME_BACKEND_DOWN_CACHED}: runtime-down`);
+      assertRuntimeBackendReachable(cachedReachable);
       return apiPost<ApiEnvelope<BulkThreadActionResult>>("/api/bulk-thread-action", { action: "unpin", thread_ids: threadIds });
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["threads"] }); },
@@ -163,7 +265,7 @@ export function useMutations(options: {
   const bulkArchive = useMutation({
     mutationFn: (threadIds: string[]) => {
       const cachedReachable = runtime.data?.data?.runtime_backend?.reachable;
-      if (cachedReachable === false) throw new Error(`${RUNTIME_BACKEND_DOWN_CACHED}: runtime-down`);
+      assertRuntimeBackendReachable(cachedReachable);
       return apiPost<ApiEnvelope<BulkThreadActionResult>>("/api/bulk-thread-action", { action: "archive_local", thread_ids: threadIds });
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["threads"] }); queryClient.invalidateQueries({ queryKey: ["recovery"] }); },
@@ -173,7 +275,7 @@ export function useMutations(options: {
   const analyzeDelete = useMutation({
     mutationFn: (threadIds: string[]) => {
       const cachedReachable = runtime.data?.data?.runtime_backend?.reachable;
-      if (cachedReachable === false) throw new Error(`${RUNTIME_BACKEND_DOWN_CACHED}: runtime-down`);
+      assertRuntimeBackendReachable(cachedReachable);
       const ids = normalizeThreadIds(threadIds);
       if (ids.length === 0) throw new Error("no-valid-thread-ids");
       return postWithTransientRetry<unknown>("/api/analyze-delete", { ids });
@@ -185,7 +287,7 @@ export function useMutations(options: {
   const cleanupDryRun = useMutation({
     mutationFn: (threadIds: string[]) => {
       const cachedReachable = runtime.data?.data?.runtime_backend?.reachable;
-      if (cachedReachable === false) throw new Error(`${RUNTIME_BACKEND_DOWN_CACHED}: runtime-down`);
+      assertRuntimeBackendReachable(cachedReachable);
       const ids = normalizeThreadIds(threadIds);
       if (ids.length === 0) throw new Error("no-valid-thread-ids");
       return postWithTransientRetry<unknown>("/api/local-cleanup", {
@@ -216,7 +318,7 @@ export function useMutations(options: {
   const cleanupExecute = useMutation({
     mutationFn: async (threadIds: string[]) => {
       const cachedReachable = runtime.data?.data?.runtime_backend?.reachable;
-      if (cachedReachable === false) throw new Error(`${RUNTIME_BACKEND_DOWN_CACHED}: runtime-down`);
+      assertRuntimeBackendReachable(cachedReachable);
       const ids = normalizeThreadIds(threadIds);
       if (ids.length === 0) throw new Error("no-valid-thread-ids");
       if (!pendingCleanup?.confirmToken) throw new Error("cleanup-preview-required");
@@ -268,12 +370,7 @@ export function useMutations(options: {
       const first = await apiPostJsonAllowError<ProviderSessionActionResult>("/api/provider-session-action", requestBody);
       if (first.ok) return first.data;
       const firstData = first.data;
-      const expectedToken = String(firstData?.confirm_token_expected ?? "").trim();
-      const previewReady =
-        input.action !== "backup_local" &&
-        !input.dry_run &&
-        !String(input.confirm_token ?? "").trim() &&
-        Boolean(expectedToken);
+      const previewReady = shouldReturnProviderActionPreview(input, firstData);
       if (previewReady) return firstData;
       throw new Error(String(firstData?.error || `provider-session-action status ${first.status}`));
     },
@@ -289,11 +386,15 @@ export function useMutations(options: {
       const actionData = extractEnvelopeData<ProviderSessionActionResult>(data);
       const expectedToken = String(actionData?.confirm_token_expected ?? "").trim();
       const key = providerActionSelectionKey(variables.provider, variables.action, variables.file_paths, { backup_before_delete: variables.backup_before_delete });
-      if (expectedToken) {
-        setProviderActionTokens((prev) => ({ ...prev, [key]: expectedToken }));
-      } else if (actionData?.ok && !variables.dry_run) {
-        setProviderActionTokens((prev) => { const next = { ...prev }; delete next[key]; return next; });
-      }
+      setProviderActionTokens((prev) =>
+        updateProviderActionTokenState(
+          prev,
+          key,
+          expectedToken,
+          Boolean(actionData?.ok),
+          variables.dry_run,
+        ),
+      );
       if (actionData?.ok) {
         invalidateProviderSurfaceQueries();
         queryClient.invalidateQueries({ queryKey: ["recovery"] });
@@ -329,18 +430,33 @@ export function useMutations(options: {
   const providerActionData = extractEnvelopeData<ProviderSessionActionResult>(providerActionRaw);
   const recoveryBackupExportData = extractEnvelopeData<RecoveryBackupExportResponse>(recoveryBackupExportRaw);
 
-  const analyzeDeleteErrorMessage = analyzeDelete.error instanceof Error ? formatMutationErrorMessage(analyzeDelete.error.message) : analyzeDelete.error ? formatMutationErrorMessage(String(analyzeDelete.error)) : "";
-  const cleanupDryRunErrorMessage = cleanupDryRun.error instanceof Error ? formatMutationErrorMessage(cleanupDryRun.error.message) : cleanupDryRun.error ? formatMutationErrorMessage(String(cleanupDryRun.error)) : "";
-  const cleanupExecuteErrorMessage = cleanupExecute.error instanceof Error ? formatMutationErrorMessage(cleanupExecute.error.message) : cleanupExecute.error ? formatMutationErrorMessage(String(cleanupExecute.error)) : "";
-  const bulkActionErrorMessage = bulkArchive.error instanceof Error ? formatMutationErrorMessage(bulkArchive.error.message) : bulkArchive.error ? formatMutationErrorMessage(String(bulkArchive.error)) : bulkPin.error instanceof Error ? formatMutationErrorMessage(bulkPin.error.message) : bulkPin.error ? formatMutationErrorMessage(String(bulkPin.error)) : bulkUnpin.error instanceof Error ? formatMutationErrorMessage(bulkUnpin.error.message) : bulkUnpin.error ? formatMutationErrorMessage(String(bulkUnpin.error)) : "";
-  const bulkActionError = bulkArchive.isError || bulkPin.isError || bulkUnpin.isError;
-  const providerSessionActionErrorMessage = providerSessionAction.error instanceof Error ? formatMutationErrorMessage(providerSessionAction.error.message) : providerSessionAction.error ? formatMutationErrorMessage(String(providerSessionAction.error)) : "";
-  const recoveryBackupExportErrorMessage = recoveryBackupExport.error instanceof Error ? formatMutationErrorMessage(recoveryBackupExport.error.message) : recoveryBackupExport.error ? formatMutationErrorMessage(String(recoveryBackupExport.error)) : "";
+  const analyzeDeleteErrorMessage = formatMutationHookError(analyzeDelete.error);
+  const cleanupDryRunErrorMessage = formatMutationHookError(cleanupDryRun.error);
+  const cleanupExecuteErrorMessage = formatMutationHookError(cleanupExecute.error);
+  const { bulkActionError, bulkActionErrorMessage } = resolveBulkActionErrorState({
+    bulkArchiveError: bulkArchive.error,
+    bulkPinError: bulkPin.error,
+    bulkUnpinError: bulkUnpin.error,
+    bulkArchiveIsError: bulkArchive.isError,
+    bulkPinIsError: bulkPin.isError,
+    bulkUnpinIsError: bulkUnpin.isError,
+  });
+  const providerSessionActionErrorMessage = formatMutationHookError(providerSessionAction.error);
+  const recoveryBackupExportErrorMessage = formatMutationHookError(recoveryBackupExport.error);
 
-  const busy = bulkPin.isPending || bulkUnpin.isPending || bulkArchive.isPending || analyzeDelete.isPending || cleanupDryRun.isPending || cleanupExecute.isPending || providerSessionAction.isPending || recoveryBackupExport.isPending;
-  const runtimeLoading = runtime.isLoading && !runtime.data;
-  const smokeStatusLoading = smokeStatus.isLoading && !smokeStatus.data;
-  const recoveryLoading = recovery.isLoading && !recovery.data;
+  const busy = resolveMutationBusyState({
+    bulkPinPending: bulkPin.isPending,
+    bulkUnpinPending: bulkUnpin.isPending,
+    bulkArchivePending: bulkArchive.isPending,
+    analyzeDeletePending: analyzeDelete.isPending,
+    cleanupDryRunPending: cleanupDryRun.isPending,
+    cleanupExecutePending: cleanupExecute.isPending,
+    providerSessionActionPending: providerSessionAction.isPending,
+    recoveryBackupExportPending: recoveryBackupExport.isPending,
+  });
+  const runtimeLoading = resolveQueryLoadingState(runtime.isLoading, Boolean(runtime.data));
+  const smokeStatusLoading = resolveQueryLoadingState(smokeStatus.isLoading, Boolean(smokeStatus.data));
+  const recoveryLoading = resolveQueryLoadingState(recovery.isLoading, Boolean(recovery.data));
 
   /* ---- action dispatchers ---- */
   const runProviderAction = (action: "backup_local" | "archive_local" | "delete_local", dryRun: boolean, actionOptions?: { backup_before_delete?: boolean }) => {

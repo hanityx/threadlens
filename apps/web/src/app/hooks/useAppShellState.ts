@@ -10,6 +10,27 @@ import {
 import type { ConversationSearchHit, LayoutView, ProviderView } from "@/shared/types";
 import type { ProviderProbeFilter } from "@/features/providers/model/sessionTableModel";
 
+export function shouldCaptureLayoutScroll(
+  nextView: LayoutView,
+  currentView: LayoutView,
+  hasWindow: boolean,
+): boolean {
+  return hasWindow && nextView !== currentView;
+}
+
+export function clampLayoutScrollTarget(
+  targetY: number,
+  scrollHeight: number,
+  innerHeight: number,
+): number {
+  const maxScrollY = Math.max(0, scrollHeight - innerHeight);
+  return Math.min(targetY, maxScrollY);
+}
+
+export function resolveHeaderSearchSeed(storedDraft: string | null): string {
+  return storedDraft ?? "";
+}
+
 export function useAppShellState(options: {
   layoutView: LayoutView;
   setLayoutView: (view: LayoutView) => void;
@@ -35,9 +56,9 @@ export function useAppShellState(options: {
     readDismissedUpdateVersion(),
   );
   const [headerSearchDraft, setHeaderSearchDraft] = useState("");
-  const [headerSearchSeed, setHeaderSearchSeed] = useState(() => {
-    return readStorageValue([SEARCH_DRAFT_STORAGE_KEY]) ?? "";
-  });
+  const [headerSearchSeed, setHeaderSearchSeed] = useState(() =>
+    resolveHeaderSearchSeed(readStorageValue([SEARCH_DRAFT_STORAGE_KEY])),
+  );
   const [acknowledgedForensicsErrorKeys, setAcknowledgedForensicsErrorKeys] = useState<{
     analyze: string;
     cleanup: string;
@@ -47,7 +68,7 @@ export function useAppShellState(options: {
   });
 
   const changeLayoutView = (nextView: LayoutView) => {
-    if (typeof window !== "undefined" && nextView !== layoutView) {
+    if (shouldCaptureLayoutScroll(nextView, layoutView, typeof window !== "undefined")) {
       pendingLayoutScrollRestoreRef.current = window.scrollY;
     }
     startTransition(() => {
@@ -69,8 +90,14 @@ export function useAppShellState(options: {
     pendingLayoutScrollRestoreRef.current = null;
 
     const restore = () => {
-      const maxScrollY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
-      window.scrollTo(0, Math.min(targetY, maxScrollY));
+      window.scrollTo(
+        0,
+        clampLayoutScrollTarget(
+          targetY,
+          document.documentElement.scrollHeight,
+          window.innerHeight,
+        ),
+      );
     };
 
     let rafTwo = 0;
