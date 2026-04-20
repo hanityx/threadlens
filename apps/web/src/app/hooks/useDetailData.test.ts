@@ -79,13 +79,16 @@ describe("useDetailData helpers", () => {
     expect(resolveThreadSelectionResetState("thread-1")).toBeNull();
     expect(resolveThreadSelectionResetState("")).toEqual({
       threadDetailRaw: null,
+      threadDetailLoading: false,
       threadTranscriptRaw: null,
+      threadTranscriptLoading: false,
       threadTranscriptLimit: THREAD_TRANSCRIPT_INITIAL_LIMIT,
     });
 
     expect(resolveSessionSelectionResetState(session)).toBeNull();
     expect(resolveSessionSelectionResetState(null)).toEqual({
       sessionTranscriptRaw: null,
+      sessionTranscriptLoading: false,
       sessionTranscriptLimit: SESSION_TRANSCRIPT_INITIAL_LIMIT,
     });
 
