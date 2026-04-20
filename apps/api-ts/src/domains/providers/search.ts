@@ -215,11 +215,13 @@ export function createCachedConversationTranscriptLoader(
     }
 
     const transcript = await baseLoader(row.provider, row.file_path).catch(() => null);
-    transcriptSearchCache.set(key, {
-      mtime: row.mtime,
-      transcript,
-    });
-    trimTranscriptSearchCache();
+    if (transcript) {
+      transcriptSearchCache.set(key, {
+        mtime: row.mtime,
+        transcript,
+      });
+      trimTranscriptSearchCache();
+    }
     return transcript;
   };
 }
