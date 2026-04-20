@@ -20,7 +20,7 @@ const PROVIDER_PATH_NOTES = {
   copilot:
     "resolves local app-data roots by platform: macOS `~/Library/Application Support`, Windows `%APPDATA%`, and Linux `XDG_CONFIG_HOME` or `~/.config`.",
   chatgpt:
-    "reads the desktop cache from the local app-data path under `com.openai.chat`; this provider remains internal and read-only.",
+    "reads the local desktop cache for the installed app; this provider remains read-only and stays outside the default search and cleanup flow.",
 };
 
 const PROVIDER_WORKFLOW_NOTES = {
@@ -45,9 +45,9 @@ const PROVIDER_WORKFLOW_NOTES = {
     "It does not use the dedicated Codex cleanup path.",
   ],
   chatgpt: [
-    "Internal read-only cache source.",
+    "Read-only desktop cache source.",
     "Useful for desktop cache discovery and provider diagnostics.",
-    "Excluded from the default public search scope and destructive cleanup workflow.",
+    "Excluded from the default search scope and destructive cleanup workflow.",
   ],
 };
 
@@ -70,13 +70,13 @@ function sessionActionSummary(provider) {
 
 function buildCapabilityTable() {
   const header = [
-    "| Provider | Docs | Search scope | Sessions | Transcript | Analyze | Safe cleanup | Hard delete | Thread review |",
+    "| Provider | Category | Search scope | Sessions | Transcript | Analyze | Safe cleanup | Hard delete | Thread review |",
     "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
   ];
   const rows = PROVIDER_REGISTRY.map((provider) =>
     [
       provider.label,
-      provider.docs_visibility,
+      provider.docs_visibility === "public" ? "primary workflow" : "read-only cache source",
       provider.search_scope_visibility,
       yesNo(provider.read_sessions),
       yesNo(provider.read_transcript),
@@ -99,7 +99,7 @@ function buildWorkflowSummaryTable() {
       provider.search_scope_visibility === "public"
         ? "Public workflow"
         : provider.search_scope_visibility === "internal"
-          ? "Internal only"
+          ? "Cache-only provider inspection"
           : "No";
     return `| ${provider.label} | ${searchSummary}${provider.read_transcript ? " + transcript read" : ""} | ${sessionActionSummary(provider)} | ${yesNo(provider.thread_review)} |`;
   });
@@ -139,10 +139,13 @@ async function main() {
 _Generated from \`packages/shared-contracts/src/index.ts\`. Do not hand-edit this file; run \`pnpm docs:provider-support\`._
 
 ThreadLens reads local conversation data from multiple provider-specific stores.
-Support is split between \`public workflow surfaces\` and \`internal read-only stores\`.
+This document distinguishes between:
 
-The public search/session workflow currently covers ${publicScope.map((label) => `\`${label}\``).join(", ")}.
-${internalScope.length > 0 ? `${internalScope.map((label) => `\`${label}\``).join(", ")} is currently treated as an internal read-only desktop cache source and is excluded from the default public search scope and destructive cleanup workflow.` : ""}
+- \`primary workflow providers\` used in the main search, sessions, and cleanup flows
+- \`read-only cache sources\` that can still appear in diagnostics or provider-specific inspection
+
+The primary search/session workflow currently covers ${publicScope.map((label) => `\`${label}\``).join(", ")}.
+${internalScope.length > 0 ? `${internalScope.map((label) => `\`${label}\``).join(", ")} is currently treated as a read-only desktop cache source. It remains available to the provider registry, but stays outside the default search scope and destructive cleanup workflow.` : ""}
 
 ## Capability Registry
 

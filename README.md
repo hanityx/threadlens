@@ -8,6 +8,8 @@
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D10-orange)](https://pnpm.io)
 [![CI](https://github.com/hanityx/threadlens/actions/workflows/ci.yml/badge.svg)](https://github.com/hanityx/threadlens/actions/workflows/ci.yml)
 
+English | [한국어](README.ko.md)
+
 ThreadLens is a local-first workbench for AI conversation search, provider-session review, and safe thread cleanup.
 
 Search local conversations across Codex, Claude, Gemini, and Copilot, inspect transcripts, back up session files, and stop destructive work behind dry-run guardrails.
@@ -81,21 +83,19 @@ Optional surfaces:
 ## Documentation
 
 - Architecture: `docs/ARCHITECTURE.md`
+- Design system: `docs/DESIGN_SYSTEM.md`
 - Workflows: `docs/WORKFLOWS.md`
 - Provider support: `docs/PROVIDER_SUPPORT.md`
 - TUI guide: `docs/TUI.md`
+- Release notes: GitHub Releases and merged PR history
 
 ## Contributing
 
-For development guidelines, read [CONTRIBUTING.md](CONTRIBUTING.md).
+For development guidelines, issue reporting, and feature proposal flow, read [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Security
 
 For vulnerability reporting, read [SECURITY.md](SECURITY.md).
-
-## Support
-
-For bug reports, feature requests, and release support, read [SUPPORT.md](SUPPORT.md).
 
 ## License
 

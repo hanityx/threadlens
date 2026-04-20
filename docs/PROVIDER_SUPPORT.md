@@ -3,27 +3,30 @@
 _Generated from `packages/shared-contracts/src/index.ts`. Do not hand-edit this file; run `pnpm docs:provider-support`._
 
 ThreadLens reads local conversation data from multiple provider-specific stores.
-Support is split between `public workflow surfaces` and `internal read-only stores`.
+This document distinguishes between:
 
-The public search/session workflow currently covers `Codex`, `Claude`, `Gemini`, `Copilot`.
-`ChatGPT` is currently treated as an internal read-only desktop cache source and is excluded from the default public search scope and destructive cleanup workflow.
+- `primary workflow providers` used in the main search, sessions, and cleanup flows
+- `read-only cache sources` that can still appear in diagnostics or provider-specific inspection
+
+The primary search/session workflow currently covers `Codex`, `Claude`, `Gemini`, `Copilot`.
+`ChatGPT` is currently treated as a read-only desktop cache source. It remains available to the provider registry, but stays outside the default search scope and destructive cleanup workflow.
 
 ## Capability Registry
 
-| Provider | Docs | Search scope | Sessions | Transcript | Analyze | Safe cleanup | Hard delete | Thread review |
+| Provider | Category | Search scope | Sessions | Transcript | Analyze | Safe cleanup | Hard delete | Thread review |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Codex | public | public | Yes | Yes | Yes | Yes | Yes | Yes |
-| ChatGPT | internal | internal | Yes | No | Yes | No | No | No |
-| Claude | public | public | Yes | Yes | Yes | Yes | Yes | No |
-| Gemini | public | public | Yes | Yes | Yes | Yes | Yes | No |
-| Copilot | public | public | Yes | Yes | Yes | Yes | Yes | No |
+| Codex | primary workflow | public | Yes | Yes | Yes | Yes | Yes | Yes |
+| ChatGPT | read-only cache source | internal | Yes | No | Yes | No | No | No |
+| Claude | primary workflow | public | Yes | Yes | Yes | Yes | Yes | No |
+| Gemini | primary workflow | public | Yes | Yes | Yes | Yes | Yes | No |
+| Copilot | primary workflow | public | Yes | Yes | Yes | Yes | Yes | No |
 
 ## Workflow Summary
 
 | Provider | Search / transcript workflow | Session archive / delete workflow | Dedicated thread review |
 | --- | --- | --- | --- |
 | Codex | Public workflow + transcript read | Yes | Yes |
-| ChatGPT | Internal only | Read-only | No |
+| ChatGPT | Cache-only provider inspection | Read-only | No |
 | Claude | Public workflow + transcript read | Yes | No |
 | Gemini | Public workflow + transcript read | Yes | No |
 | Copilot | Public workflow + transcript read | Yes | No |
@@ -31,7 +34,7 @@ The public search/session workflow currently covers `Codex`, `Claude`, `Gemini`,
 ## Local Path Notes
 
 - `Codex` reads session logs from `CODEX_HOME` plus detected Codex home mirrors such as `~/.codex` and `~/.codex-cli`; it is not tied to macOS app-data paths.
-- `ChatGPT` reads the desktop cache from the local app-data path under `com.openai.chat`; this provider remains internal and read-only.
+- `ChatGPT` reads the local desktop cache for the installed app; this provider remains read-only and stays outside the default search and cleanup flow.
 - `Claude` reads local session stores from dot-home roots such as `~/.claude`.
 - `Gemini` reads local session stores from dot-home roots such as `~/.gemini`.
 - `Copilot` resolves local app-data roots by platform: macOS `~/Library/Application Support`, Windows `%APPDATA%`, and Linux `XDG_CONFIG_HOME` or `~/.config`.
@@ -46,9 +49,9 @@ The public search/session workflow currently covers `Codex`, `Claude`, `Gemini`,
 
 ### ChatGPT
 
-- Internal read-only cache source.
+- Read-only desktop cache source.
 - Useful for desktop cache discovery and provider diagnostics.
-- Excluded from the default public search scope and destructive cleanup workflow.
+- Excluded from the default search scope and destructive cleanup workflow.
 
 ### Claude
 
