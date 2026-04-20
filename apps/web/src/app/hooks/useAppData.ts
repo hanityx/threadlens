@@ -14,6 +14,74 @@ import { useMutations } from "@/app/hooks/useMutations";
 /*  Composes domain hooks and exposes the same public API as before.   */
 /* ------------------------------------------------------------------ */
 
+export function selectSessionByPath(rows: ProviderSessionRow[], selectedSessionPath: string) {
+  return rows.find((row) => row.file_path === selectedSessionPath) ?? null;
+}
+
+export function selectThreadById<TRow extends { thread_id: string }>(
+  rows: TRow[],
+  selectedThreadId: string,
+) {
+  return rows.find((row) => row.thread_id === selectedThreadId) ?? null;
+}
+
+export function buildProviderById(
+  providers: Array<{ provider: string; capabilities?: { safe_cleanup?: boolean } }> | null | undefined,
+) {
+  return new Map<string, { capabilities?: { safe_cleanup?: boolean } }>(
+    (providers ?? []).map((p) => [p.provider, p]),
+  );
+}
+
+export function computeLayoutFlags(layoutView: LayoutView) {
+  return {
+    showProviders: layoutView === "providers",
+    showThreadsTable: layoutView === "threads",
+    showForensics: layoutView === "threads",
+    showRouting: layoutView === "providers",
+    showDetails: layoutView === "threads" || layoutView === "providers",
+  };
+}
+
+export function selectImpactRows(selectedIds: string[], reports: Array<{ id: string }> | undefined) {
+  const selectedSet = new Set(selectedIds);
+  return (reports ?? []).filter((row) => selectedSet.has(row.id));
+}
+
+export function shouldRefreshExecutionGraph(layoutView: LayoutView) {
+  return layoutView === "providers";
+}
+
+export function shouldRefreshProvidersAfterGlobalRefresh(layoutView: LayoutView) {
+  return layoutView === "providers" || layoutView === "overview";
+}
+
+type RefreshRefetcher = {
+  refetch: (options: { cancelRefetch: false }) => Promise<unknown>;
+};
+
+export function buildRefreshAllDataJobs(
+  layoutView: LayoutView,
+  refetchers: {
+    runtime: RefreshRefetcher;
+    threads: RefreshRefetcher;
+    smokeStatus: RefreshRefetcher;
+    recovery: RefreshRefetcher;
+    executionGraph: RefreshRefetcher;
+  },
+) {
+  const refreshJobs: Array<Promise<unknown>> = [
+    refetchers.runtime.refetch({ cancelRefetch: false }),
+    refetchers.threads.refetch({ cancelRefetch: false }),
+    refetchers.smokeStatus.refetch({ cancelRefetch: false }),
+    refetchers.recovery.refetch({ cancelRefetch: false }),
+  ];
+  if (shouldRefreshExecutionGraph(layoutView)) {
+    refreshJobs.push(refetchers.executionGraph.refetch({ cancelRefetch: false }));
+  }
+  return refreshJobs;
+}
+
 export function useAppData(options?: { providersDiagnosticsOpen?: boolean }) {
   const providersDiagnosticsOpen = options?.providersDiagnosticsOpen ?? false;
 
@@ -30,20 +98,15 @@ export function useAppData(options?: { providersDiagnosticsOpen?: boolean }) {
   });
 
   const selectedSession = useMemo(
-    () => providersData.providerSessionRows.find((row: ProviderSessionRow) => row.file_path === providersData.selectedSessionPath) ?? null,
+    () => selectSessionByPath(providersData.providerSessionRows, providersData.selectedSessionPath),
     [providersData.providerSessionRows, providersData.selectedSessionPath],
   );
   const selectedThread = useMemo(
-    () => threadsData.rows.find((row) => row.thread_id === threadsData.selectedThreadId) ?? null,
+    () => selectThreadById(threadsData.rows, threadsData.selectedThreadId),
     [threadsData.rows, threadsData.selectedThreadId],
   );
   const providerById = useMemo(
-    () =>
-      new Map<string, { capabilities?: { safe_cleanup?: boolean } }>(
-        (providersData.providers ?? []).map(
-          (p: { provider: string; capabilities?: { safe_cleanup?: boolean } }) => [p.provider, p],
-        ),
-      ),
+    () => buildProviderById(providersData.providers),
     [providersData.providers],
   );
 
@@ -62,32 +125,29 @@ export function useAppData(options?: { providersDiagnosticsOpen?: boolean }) {
     selectedProviderFilePaths: providersData.selectedProviderFilePaths,
   });
 
-  const selectedSet = new Set(threadsData.selectedIds);
-  const selectedImpactRows = (mutations.analysisData?.reports ?? []).filter((r: { id: string }) => selectedSet.has(r.id));
+  const selectedImpactRows = selectImpactRows(
+    threadsData.selectedIds,
+    mutations.analysisData?.reports as Array<{ id: string }> | undefined,
+  );
 
   /* ---- computed UI flags ---- */
-  const showProviders = prefs.layoutView === "providers";
-  const showThreadsTable = prefs.layoutView === "threads";
-  const showForensics = prefs.layoutView === "threads";
-  const showRouting = prefs.layoutView === "providers";
-  const showDetails = prefs.layoutView === "threads" || prefs.layoutView === "providers";
+  const { showProviders, showThreadsTable, showForensics, showRouting, showDetails } =
+    computeLayoutFlags(prefs.layoutView);
 
   /* ---- refreshAllData ---- */
   const refreshAllData = useCallback(async () => {
     if (providersData.globalRefreshPending) return;
     providersData.setGlobalRefreshPending(true);
     try {
-      const refreshJobs: Array<Promise<unknown>> = [
-        mutations.runtime.refetch({ cancelRefetch: false }),
-        threadsData.threads.refetch({ cancelRefetch: false }),
-        mutations.smokeStatus.refetch({ cancelRefetch: false }),
-        mutations.recovery.refetch({ cancelRefetch: false }),
-      ];
-      if (prefs.layoutView === "providers") {
-        refreshJobs.push(providersData.executionGraph.refetch({ cancelRefetch: false }));
-      }
+      const refreshJobs = buildRefreshAllDataJobs(prefs.layoutView, {
+        runtime: mutations.runtime,
+        threads: threadsData.threads,
+        smokeStatus: mutations.smokeStatus,
+        recovery: mutations.recovery,
+        executionGraph: providersData.executionGraph,
+      });
       await Promise.allSettled(refreshJobs);
-      if (prefs.layoutView === "providers" || prefs.layoutView === "overview") {
+      if (shouldRefreshProvidersAfterGlobalRefresh(prefs.layoutView)) {
         await providersData.refreshProvidersData();
       }
     } finally {

@@ -13,6 +13,80 @@ import {
   THREADS_FAST_BOOT_LIMIT,
 } from "@/shared/lib/appState";
 
+export function restoreThreadsBootstrapRows(raw: string | null) {
+  if (!raw) return [] as ThreadRow[];
+  try {
+    const parsed = JSON.parse(raw) as { rows?: Array<Record<string, unknown>> };
+    if (!Array.isArray(parsed.rows)) return [];
+    return parsed.rows.map((row) => normalizeThreadRow(row)).slice(0, PAGE_SIZE);
+  } catch {
+    return [];
+  }
+}
+
+export function resolveThreadsQueryLimit(layoutView: LayoutView, threadsFastBoot: boolean) {
+  if (layoutView === "threads") {
+    return threadsFastBoot ? THREADS_FAST_BOOT_LIMIT : PAGE_SIZE;
+  }
+  return 60;
+}
+
+export function filterThreadRows(rows: ThreadRow[], query: string, filterMode: FilterMode) {
+  const normalizedQuery = query.trim().toLowerCase();
+  return rows.filter((row) => {
+    if (normalizedQuery && !`${row.title ?? ""} ${row.thread_id}`.toLowerCase().includes(normalizedQuery)) {
+      return false;
+    }
+    if (filterMode === "high-risk") return Number(row.risk_score ?? 0) >= 70;
+    if (filterMode === "pinned") return Boolean(row.is_pinned);
+    return true;
+  });
+}
+
+export function pruneSelectedThreads(
+  selected: Record<string, boolean>,
+  availableThreadIds: Set<string>,
+) {
+  let changed = false;
+  const next: Record<string, boolean> = {};
+  for (const [threadId, isSelected] of Object.entries(selected)) {
+    if (!isSelected) continue;
+    if (availableThreadIds.has(threadId)) {
+      next[threadId] = true;
+      continue;
+    }
+    changed = true;
+  }
+  return changed ? next : selected;
+}
+
+export function resolveAllFilteredSelected(
+  filteredRows: Array<Pick<ThreadRow, "thread_id">>,
+  selectedIds: string[],
+) {
+  const selectedSet = new Set(selectedIds);
+  return (
+    filteredRows.length > 0 &&
+    filteredRows.every((row) => selectedSet.has(row.thread_id))
+  );
+}
+
+export function resolveThreadsLoadingState(
+  isLoading: boolean,
+  rowCount: number,
+  threadsFastBoot: boolean,
+  isThreadsFocused: boolean,
+  isFetching: boolean,
+) {
+  return {
+    threadsLoading: isLoading && rowCount === 0,
+    threadsFastBooting:
+      threadsFastBoot &&
+      isThreadsFocused &&
+      (isLoading || isFetching),
+  };
+}
+
 export function useThreadsData(layoutView: LayoutView) {
   const [query, setQuery] = useState("");
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
@@ -23,26 +97,17 @@ export function useThreadsData(layoutView: LayoutView) {
   const [threadsFetchMs, setThreadsFetchMs] = useState<number | null>(null);
   const [threadsBootstrapRows, setThreadsBootstrapRows] = useState<ThreadRow[]>(() => {
     if (typeof window === "undefined") return [];
-    try {
-      const raw = readStorageValue([
+    return restoreThreadsBootstrapRows(
+      readStorageValue([
         THREADS_BOOTSTRAP_CACHE_KEY,
         LEGACY_THREADS_BOOTSTRAP_CACHE_KEY,
-      ]);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw) as { rows?: Array<Record<string, unknown>> };
-      if (!Array.isArray(parsed.rows)) return [];
-      return parsed.rows.map((row) => normalizeThreadRow(row)).slice(0, PAGE_SIZE);
-    } catch {
-      return [];
-    }
+      ]),
+    );
   });
 
   const deferredQuery = useDeferredValue(query);
   const isThreadsFocused = layoutView === "threads";
-  const threadsQueryLimit =
-    isThreadsFocused
-      ? (threadsFastBoot ? THREADS_FAST_BOOT_LIMIT : PAGE_SIZE)
-      : 60;
+  const threadsQueryLimit = resolveThreadsQueryLimit(layoutView, threadsFastBoot);
 
   const threads = useQuery({
     queryKey: ["threads", deferredQuery, threadsQueryLimit],
@@ -98,13 +163,7 @@ export function useThreadsData(layoutView: LayoutView) {
   }, [hasApiRows, rowsFromApi]);
 
   const filteredRows = useMemo(() => {
-    const q = deferredQuery.trim().toLowerCase();
-    return rows.filter((row) => {
-      if (q && !`${row.title ?? ""} ${row.thread_id}`.toLowerCase().includes(q)) return false;
-      if (filterMode === "high-risk") return Number(row.risk_score ?? 0) >= 70;
-      if (filterMode === "pinned") return Boolean(row.is_pinned);
-      return true;
-    });
+    return filterThreadRows(rows, deferredQuery, filterMode);
   }, [rows, deferredQuery, filterMode]);
 
   /* progressive rendering */
@@ -145,30 +204,21 @@ export function useThreadsData(layoutView: LayoutView) {
   }, [availableThreadIds, selectedThreadId]);
   useEffect(() => {
     setSelected((prev) => {
-      let changed = false;
-      const next: Record<string, boolean> = {};
-      for (const [threadId, isSelected] of Object.entries(prev)) {
-        if (!isSelected) continue;
-        if (availableThreadIds.has(threadId)) {
-          next[threadId] = true;
-          continue;
-        }
-        changed = true;
-      }
-      return changed ? next : prev;
+      return pruneSelectedThreads(prev, availableThreadIds);
     });
   }, [availableThreadIds]);
 
-  const selectedSet = new Set(selectedIds);
-  const allFilteredSelected = filteredRows.length > 0 && filteredRows.every((row) => selectedSet.has(row.thread_id));
+  const allFilteredSelected = resolveAllFilteredSelected(filteredRows, selectedIds);
   const pinnedCount = useMemo(() => rows.filter((r) => r.is_pinned).length, [rows]);
   const highRiskCount = useMemo(() => rows.filter((r) => Number(r.risk_score || 0) >= 70).length, [rows]);
 
-  const threadsLoading = threads.isLoading && rows.length === 0;
-  const threadsFastBooting =
-    threadsFastBoot &&
-    isThreadsFocused &&
-    (threads.isLoading || threads.isFetching);
+  const { threadsLoading, threadsFastBooting } = resolveThreadsLoadingState(
+    threads.isLoading,
+    rows.length,
+    threadsFastBoot,
+    isThreadsFocused,
+    threads.isFetching,
+  );
 
   const toggleSelectAllFiltered = (checked: boolean) => {
     if (checked) {

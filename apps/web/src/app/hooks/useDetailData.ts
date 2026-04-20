@@ -11,6 +11,68 @@ import { extractEnvelopeData } from "@/shared/lib/format";
 export const THREAD_TRANSCRIPT_INITIAL_LIMIT = 250;
 export const SESSION_TRANSCRIPT_INITIAL_LIMIT = 40;
 
+export function resolveThreadTranscriptCacheKey(threadId: string, limit: number): string {
+  return `${threadId}|${limit}`;
+}
+
+export function resolveSessionTranscriptCacheKey(
+  session: Pick<ProviderSessionRow, "provider" | "file_path">,
+  limit: number,
+): string {
+  return `${session.provider}|${session.file_path}|${limit}`;
+}
+
+export function buildThreadTranscriptPath(threadId: string, limit: number): string {
+  return `/api/thread-transcript?thread_id=${encodeURIComponent(threadId)}&limit=${limit}`;
+}
+
+export function buildSessionTranscriptPath(
+  session: Pick<ProviderSessionRow, "provider" | "file_path">,
+  limit: number,
+): string {
+  return `/api/session-transcript?provider=${encodeURIComponent(session.provider)}&file_path=${encodeURIComponent(session.file_path)}&limit=${limit}`;
+}
+
+export function resolveSelectedThreadDetail(
+  raw: unknown,
+): NonNullable<ThreadForensicsEnvelope["reports"]>[number] | null {
+  const threadDetailData = extractEnvelopeData<ThreadForensicsEnvelope>(raw);
+  return threadDetailData?.reports?.[0] ?? null;
+}
+
+export function resolveCanRunSelectedSessionAction(
+  selectedSession: ProviderSessionRow | null,
+  providerById: Map<string, { capabilities?: { safe_cleanup?: boolean } }>,
+): boolean {
+  const selectedSessionMeta = selectedSession ? providerById.get(selectedSession.provider) : null;
+  return Boolean(selectedSessionMeta?.capabilities?.safe_cleanup);
+}
+
+export function resolveThreadSelectionResetState(selectedThreadId: string) {
+  if (selectedThreadId) return null;
+  return {
+    threadDetailRaw: null,
+    threadTranscriptRaw: null,
+    threadTranscriptLimit: THREAD_TRANSCRIPT_INITIAL_LIMIT,
+  };
+}
+
+export function resolveSessionSelectionResetState(selectedSession: ProviderSessionRow | null) {
+  if (selectedSession) return null;
+  return {
+    sessionTranscriptRaw: null,
+    sessionTranscriptLimit: SESSION_TRANSCRIPT_INITIAL_LIMIT,
+  };
+}
+
+export function resolveCachedQueryState(cached: unknown) {
+  if (!cached) return null;
+  return {
+    raw: cached,
+    loading: false,
+  };
+}
+
 export function useDetailData(options: {
   selectedThreadId: string;
   selectedSession: ProviderSessionRow | null;
@@ -40,16 +102,18 @@ export function useDetailData(options: {
 
   /* ---- thread detail loading ---- */
   useEffect(() => {
-    if (!selectedThreadId) {
-      setThreadDetailRaw(null);
-      setThreadTranscriptRaw(null);
-      setThreadTranscriptLimit(THREAD_TRANSCRIPT_INITIAL_LIMIT);
+    const threadResetState = resolveThreadSelectionResetState(selectedThreadId);
+    if (threadResetState) {
+      setThreadDetailRaw(threadResetState.threadDetailRaw);
+      setThreadTranscriptRaw(threadResetState.threadTranscriptRaw);
+      setThreadTranscriptLimit(threadResetState.threadTranscriptLimit);
       return;
     }
     const cached = threadDetailCacheRef.current.get(selectedThreadId);
-    if (cached) {
-      setThreadDetailRaw(cached);
-      setThreadDetailLoading(false);
+    const cachedState = resolveCachedQueryState(cached);
+    if (cachedState) {
+      setThreadDetailRaw(cachedState.raw);
+      setThreadDetailLoading(cachedState.loading);
       return;
     }
     let cancelled = false;
@@ -85,18 +149,19 @@ export function useDetailData(options: {
       setThreadTranscriptRaw(null);
       return;
     }
-    const cacheKey = `${selectedThreadId}|${threadTranscriptLimit}`;
+    const cacheKey = resolveThreadTranscriptCacheKey(selectedThreadId, threadTranscriptLimit);
     const cached = threadTranscriptCacheRef.current.get(cacheKey);
-    if (cached) {
-      setThreadTranscriptRaw(cached);
-      setThreadTranscriptLoading(false);
+    const cachedState = resolveCachedQueryState(cached);
+    if (cachedState) {
+      setThreadTranscriptRaw(cachedState.raw);
+      setThreadTranscriptLoading(cachedState.loading);
       return;
     }
     let cancelled = false;
     const controller = new AbortController();
     setThreadTranscriptLoading(true);
     apiGet<unknown>(
-      `/api/thread-transcript?thread_id=${encodeURIComponent(selectedThreadId)}&limit=${threadTranscriptLimit}`,
+      buildThreadTranscriptPath(selectedThreadId, threadTranscriptLimit),
       { signal: controller.signal },
     )
       .then((data) => {
@@ -120,23 +185,27 @@ export function useDetailData(options: {
 
   /* ---- session transcript loading ---- */
   useEffect(() => {
-    if (!selectedSession) {
-      setSessionTranscriptRaw(null);
-      setSessionTranscriptLimit(SESSION_TRANSCRIPT_INITIAL_LIMIT);
+    const sessionResetState = resolveSessionSelectionResetState(selectedSession);
+    if (sessionResetState) {
+      setSessionTranscriptRaw(sessionResetState.sessionTranscriptRaw);
+      setSessionTranscriptLimit(sessionResetState.sessionTranscriptLimit);
       return;
     }
-    const cacheKey = `${selectedSession.provider}|${selectedSession.file_path}|${sessionTranscriptLimit}`;
+    const activeSession = selectedSession;
+    if (!activeSession) return;
+    const cacheKey = resolveSessionTranscriptCacheKey(activeSession, sessionTranscriptLimit);
     const cached = sessionTranscriptCacheRef.current.get(cacheKey);
-    if (cached) {
-      setSessionTranscriptRaw(cached);
-      setSessionTranscriptLoading(false);
+    const cachedState = resolveCachedQueryState(cached);
+    if (cachedState) {
+      setSessionTranscriptRaw(cachedState.raw);
+      setSessionTranscriptLoading(cachedState.loading);
       return;
     }
     let cancelled = false;
     const controller = new AbortController();
     setSessionTranscriptLoading(true);
     apiGet<unknown>(
-      `/api/session-transcript?provider=${encodeURIComponent(selectedSession.provider)}&file_path=${encodeURIComponent(selectedSession.file_path)}&limit=${sessionTranscriptLimit}`,
+      buildSessionTranscriptPath(activeSession, sessionTranscriptLimit),
       { signal: controller.signal },
     )
       .then((data) => {
@@ -159,12 +228,10 @@ export function useDetailData(options: {
   }, [selectedSession, sessionTranscriptLimit]);
 
   /* ---- derived ---- */
-  const threadDetailData = extractEnvelopeData<ThreadForensicsEnvelope>(threadDetailRaw);
-  const selectedThreadDetail = threadDetailData?.reports?.[0] ?? null;
+  const selectedThreadDetail = resolveSelectedThreadDetail(threadDetailRaw);
   const threadTranscriptData = extractEnvelopeData<TranscriptPayload>(threadTranscriptRaw);
   const sessionTranscriptData = extractEnvelopeData<TranscriptPayload>(sessionTranscriptRaw);
-  const selectedSessionMeta = selectedSession ? providerById.get(selectedSession.provider) : null;
-  const canRunSelectedSessionAction = Boolean(selectedSessionMeta?.capabilities?.safe_cleanup);
+  const canRunSelectedSessionAction = resolveCanRunSelectedSessionAction(selectedSession, providerById);
 
   return {
     threadDetailLoading, selectedThreadDetail,

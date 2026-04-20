@@ -118,7 +118,10 @@ const providerSessionRows: ProviderSessionRow[] = [
   },
 ];
 
-function renderModelProbe(locale: "en" | "es" | "id" | "ru" = "en") {
+function renderModelProbe(
+  locale: "en" | "es" | "id" | "ru" = "en",
+  overrides: Partial<Parameters<typeof useAppShellModel>[0]> = {},
+) {
   const messages = getMessages(locale);
 
   function Probe() {
@@ -170,6 +173,7 @@ function renderModelProbe(locale: "en" | "es" | "id" | "ru" = "en") {
       showRuntimeBackendDegraded: false,
       recoveryBackupSets: 0,
       messages,
+      ...overrides,
     });
 
     return createElement(
@@ -180,6 +184,13 @@ function renderModelProbe(locale: "en" | "es" | "id" | "ru" = "en") {
       createElement("span", { "data-line": model.activeProviderSummaryLine }),
       createElement("span", { "data-parser": model.parserScoreText }),
       createElement("span", { "data-runtime": model.runtimeLatencyText }),
+      createElement("span", { "data-focus-session-title": model.focusSessionTitle }),
+      createElement("span", { "data-focus-session-meta": model.focusSessionMeta }),
+      createElement("span", { "data-review-title": model.focusReviewTitle }),
+      createElement("span", { "data-review-meta": model.focusReviewMeta }),
+      createElement("span", { "data-global-errors": String(model.hasGlobalErrorStack) }),
+      createElement("span", { "data-global-analyze": String(model.showGlobalAnalyzeDeleteError) }),
+      createElement("span", { "data-global-cleanup": String(model.showGlobalCleanupDryRunError) }),
     );
   }
 
@@ -314,5 +325,73 @@ describe("appShellModel", () => {
     expect(buildRecentThreadSummary(noWorkspaceRow, messages)).toBe(
       messages.recentThreadSummaryNoWorkspace,
     );
+  });
+
+  it("shows booting copy while overview sources are still loading with no visible data", () => {
+    const messages = getMessages("en").overview;
+    const html = renderModelProbe("en", {
+      runtimeLoading: true,
+      threadsLoading: true,
+      providerMatrixLoading: true,
+      providerSessionRows: [],
+      allProviderSessionRows: [],
+      providers: [],
+      providerTabs: [{ id: "all", name: "All", status: "active", scanned: 0, scan_ms: null, is_slow: false }],
+    });
+
+    expect(html).toContain(`data-active="${messages.statusSyncing}"`);
+    expect(html).toContain(`data-parser="${messages.statusSyncing}"`);
+    expect(html).toContain(`data-runtime="${messages.runtimeStatusSync}"`);
+    expect(html).toContain(`data-focus-session-title="${messages.focusSessionSyncingTitle}"`);
+  });
+
+  it("shows updated sync text, active provider names, and session focus metadata when data exists", () => {
+    const html = renderModelProbe("en", {
+      providers,
+      providerTabs: buildVisibleProviderTabs(providerTabs).map((tab) => ({
+        ...tab,
+        scanned: 0,
+        scan_ms: null,
+        is_slow: false,
+      })),
+      providerSessionRows,
+      allProviderSessionRows: providerSessionRows,
+      providersLastRefreshAt: "2026-03-24T12:30:00.000Z",
+      runtimeBackendReachable: true,
+      runtimeBackendLatencyMs: 88,
+    });
+
+    expect(html).toContain('data-line="Claude"');
+    expect(html).toContain('data-runtime="88 ms"');
+    expect(html).toContain('data-focus-session-title="Claude Session"');
+    expect(html).toContain('data-focus-session-meta="Claude /');
+    expect(html).toContain('data-sync="Updated');
+  });
+
+  it("surfaces review queue and global error stack when overview is degraded outside forensics", () => {
+    const html = renderModelProbe("en", {
+      visibleRows: [
+        {
+          thread_id: "thread-1",
+          title: "",
+          risk_level: "high",
+          risk_score: 90,
+          risk_tags: ["no-cwd"],
+          activity_status: "recent",
+          timestamp: "2026-03-24T10:00:00.000Z",
+          is_pinned: false,
+          source: "sessions",
+        } as never,
+      ],
+      analyzeErrorKey: "analyze:boom",
+      cleanupErrorKey: "cleanup:boom",
+      acknowledgedForensicsErrorKeys: { analyze: "", cleanup: "" },
+    });
+
+    expect(html).toContain('data-review-title="No-Workspace Review"');
+    expect(html).toContain('data-review-meta="sessions / high /');
+    expect(html).toContain('data-global-errors="true"');
+    expect(html).toContain('data-global-analyze="true"');
+    expect(html).toContain('data-global-cleanup="true"');
   });
 });
