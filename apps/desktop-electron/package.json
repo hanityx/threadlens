@@ -15,7 +15,7 @@
     "dist:win": "pnpm run build && electron-builder --win portable",
     "dist:linux": "pnpm run build && electron-builder --linux AppImage",
     "smoke:packaged": "node scripts/smoke-packaged.cjs",
-    "test": "node --test main-menu.test.cjs ipc-validation.test.cjs package-config.test.cjs main/api-lifecycle.test.cjs main/window-runtime.test.cjs",
+    "test": "node --test main-menu.test.cjs ipc-validation.test.cjs package-config.test.cjs main/api-lifecycle.test.cjs main/window-runtime.test.cjs main/smoke-runtime.test.cjs",
     "lint": "node --check main.cjs && node --check main-menu.cjs && node --check preload.cjs && node --check main/api-lifecycle.cjs && node --check main/ipc-handlers.cjs && node --check main/smoke-runtime.cjs && node --check main/window-runtime.cjs"
   },
   "devDependencies": {

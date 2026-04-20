@@ -9,7 +9,7 @@ test("desktop package defines cross-platform artifact scripts and targets", () =
   assert.equal(pkg.scripts["icon:build"], "node scripts/build-app-icon.cjs");
   assert.equal(
     pkg.scripts.test,
-    "node --test main-menu.test.cjs ipc-validation.test.cjs package-config.test.cjs main/api-lifecycle.test.cjs main/window-runtime.test.cjs",
+    "node --test main-menu.test.cjs ipc-validation.test.cjs package-config.test.cjs main/api-lifecycle.test.cjs main/window-runtime.test.cjs main/smoke-runtime.test.cjs",
   );
   assert.equal(pkg.scripts["smoke:packaged"], "node scripts/smoke-packaged.cjs");
   assert.equal(pkg.scripts["dist:win"], "pnpm run build && electron-builder --win portable");
