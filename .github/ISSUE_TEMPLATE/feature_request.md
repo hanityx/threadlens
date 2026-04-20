@@ -17,7 +17,6 @@ Describe the feature and how it would work.
 - [ ] Web dashboard
 - [ ] API / backend
 - [ ] Provider parsing / observability
-- [ ] Release / packaging workflow
 
 **User value**
 Who benefits from this and what becomes easier?
