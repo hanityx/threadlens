@@ -52,7 +52,9 @@ export function resolveThreadSelectionResetState(selectedThreadId: string) {
   if (selectedThreadId) return null;
   return {
     threadDetailRaw: null,
+    threadDetailLoading: false,
     threadTranscriptRaw: null,
+    threadTranscriptLoading: false,
     threadTranscriptLimit: THREAD_TRANSCRIPT_INITIAL_LIMIT,
   };
 }
@@ -61,6 +63,7 @@ export function resolveSessionSelectionResetState(selectedSession: ProviderSessi
   if (selectedSession) return null;
   return {
     sessionTranscriptRaw: null,
+    sessionTranscriptLoading: false,
     sessionTranscriptLimit: SESSION_TRANSCRIPT_INITIAL_LIMIT,
   };
 }
@@ -105,7 +108,9 @@ export function useDetailData(options: {
     const threadResetState = resolveThreadSelectionResetState(selectedThreadId);
     if (threadResetState) {
       setThreadDetailRaw(threadResetState.threadDetailRaw);
+      setThreadDetailLoading(threadResetState.threadDetailLoading);
       setThreadTranscriptRaw(threadResetState.threadTranscriptRaw);
+      setThreadTranscriptLoading(threadResetState.threadTranscriptLoading);
       setThreadTranscriptLimit(threadResetState.threadTranscriptLimit);
       return;
     }
@@ -188,6 +193,7 @@ export function useDetailData(options: {
     const sessionResetState = resolveSessionSelectionResetState(selectedSession);
     if (sessionResetState) {
       setSessionTranscriptRaw(sessionResetState.sessionTranscriptRaw);
+      setSessionTranscriptLoading(sessionResetState.sessionTranscriptLoading);
       setSessionTranscriptLimit(sessionResetState.sessionTranscriptLimit);
       return;
     }

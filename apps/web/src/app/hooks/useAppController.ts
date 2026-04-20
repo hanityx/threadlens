@@ -24,6 +24,42 @@ const preloadProvidersHomePanels = () => {
   void import("@/features/providers/session/SessionDetail");
 };
 
+export function resolveShowUpdateBanner(
+  updateCheckData: UpdateCheckStatus | null | undefined,
+  dismissedUpdateVersion: string,
+): boolean {
+  return Boolean(
+    updateCheckData?.has_update &&
+      updateCheckData.latest_version &&
+      updateCheckData.latest_version !== dismissedUpdateVersion,
+  );
+}
+
+export function resolveRuntimeBackendDegraded(options: {
+  runtimeError: boolean;
+  runtimeLoading: boolean;
+  runtimeBackendReachable: boolean | undefined;
+}): boolean {
+  const { runtimeError, runtimeLoading, runtimeBackendReachable } = options;
+  return runtimeError || (!runtimeLoading && runtimeBackendReachable === false);
+}
+
+export function resolveForensicsErrorKey(
+  prefix: "analyze" | "cleanup",
+  hasError: boolean,
+  message: string,
+): string {
+  return hasError ? `${prefix}:${message || "unknown"}` : "";
+}
+
+export function resolveEmptySessionScopeLabel(
+  providerView: string,
+  selectedProviderLabel: string | null | undefined,
+  allAiLabel: string,
+): string {
+  return providerView === "all" ? allAiLabel : selectedProviderLabel ?? providerView;
+}
+
 export function useAppController(options: {
   appData: ReturnType<typeof useAppData>;
   shellState: ReturnType<typeof useAppShellState>;
@@ -89,20 +125,23 @@ export function useAppController(options: {
     retry: false,
   });
   const updateCheckData = extractEnvelopeData<UpdateCheckStatus>(updateCheck.data);
-  const showUpdateBanner = Boolean(
-    updateCheckData?.has_update &&
-      updateCheckData.latest_version &&
-      updateCheckData.latest_version !== dismissedUpdateVersion,
-  );
+  const showUpdateBanner = resolveShowUpdateBanner(updateCheckData, dismissedUpdateVersion);
   const runtimeBackend = runtime.data?.data?.runtime_backend;
-  const showRuntimeBackendDegraded =
-    runtime.isError || (!runtimeLoading && runtimeBackend?.reachable === false);
-  const analyzeErrorKey = analyzeDeleteError
-    ? `analyze:${analyzeDeleteErrorMessage || "unknown"}`
-    : "";
-  const cleanupErrorKey = cleanupDryRunError
-    ? `cleanup:${cleanupDryRunErrorMessage || "unknown"}`
-    : "";
+  const showRuntimeBackendDegraded = resolveRuntimeBackendDegraded({
+    runtimeError: runtime.isError,
+    runtimeLoading,
+    runtimeBackendReachable: runtimeBackend?.reachable,
+  });
+  const analyzeErrorKey = resolveForensicsErrorKey(
+    "analyze",
+    Boolean(analyzeDeleteError),
+    analyzeDeleteErrorMessage,
+  );
+  const cleanupErrorKey = resolveForensicsErrorKey(
+    "cleanup",
+    Boolean(cleanupDryRunError),
+    cleanupDryRunErrorMessage,
+  );
 
   const {
     visibleProviderTabs,
@@ -252,10 +291,11 @@ export function useAppController(options: {
     changeLayoutView("providers");
   };
 
-  const emptySessionScopeLabel =
-    providerView === "all"
-      ? messages.common.allAi
-      : selectedProviderLabel ?? providerView;
+  const emptySessionScopeLabel = resolveEmptySessionScopeLabel(
+    providerView,
+    selectedProviderLabel,
+    messages.common.allAi,
+  );
 
   const ctx: AppContextValue = createAppContextValue({
     appData,
