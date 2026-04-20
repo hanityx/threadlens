@@ -25,15 +25,9 @@ A clear and concise description of what you expected to happen.
 - pnpm: [e.g., 10.4]
 - Browser: [e.g., Chrome 130]
 
-**Validation checks already run**
-- [ ] no unintended private files or local-only helpers are included
-- [ ] `pnpm build`
-- [ ] I attached the relevant `.run/` report or terminal output
-
 **Relevant paths / artifacts**
-- Export dir (if using `pnpm public:export`):
 - App bundle path (if desktop issue):
-- Smoke report path (if available):
+- Terminal output or screenshot (if available):
 
 **Additional context**
 Add any other context, screenshots, or terminal output.
