@@ -408,7 +408,7 @@ export const ptBR = {
       "Isso remove imediatamente os arquivos de thread selecionados usando o token de cleanup mais recente.",
     hardDeleteConfirmSkipFuture: "Não perguntar novamente para hard delete no futuro.",
     selectAllFiltered: "Selecione todos os itens filtrados",
-    selectThreadAria: "Seleção de tópicos {title}e}",
+    selectThreadAria: "Seleção de tópicos {title}",
     colTitle: "título",
     colRisk: "sinal",
     colPinned: "Fixo",
