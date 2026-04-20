@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from "react";
 import { formatBytes, formatDateTime, normalizeDisplayValue } from "@/shared/lib/format";
 import { PanelHeader } from "@/shared/ui/components/PanelHeader";
 import type { Messages } from "@/i18n";
@@ -24,11 +25,11 @@ export interface SessionDetailProps {
   sessionTranscriptData: TranscriptPayload | null;
   sessionTranscriptLoading: boolean;
   sessionTranscriptLimit: number;
-  setSessionTranscriptLimit: React.Dispatch<React.SetStateAction<number>>;
+  setSessionTranscriptLimit: Dispatch<SetStateAction<number>>;
   busy: boolean;
   canRunSessionAction: boolean;
   providerDeleteBackupEnabled: boolean;
-  setProviderDeleteBackupEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  setProviderDeleteBackupEnabled: Dispatch<SetStateAction<boolean>>;
   runSingleProviderAction: (
     provider: string,
     filePath: string,

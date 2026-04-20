@@ -140,7 +140,7 @@ export type ProviderActionResponse = ApiEnvelope<{
   applied_count: number;
   confirm_token_expected: string;
   confirm_token_accepted: boolean;
-  selection_fingerprint?: string;
+  selection_fingerprint: string;
   backup_before_delete?: boolean;
   backed_up_count?: number;
   backup_to?: string | null;
@@ -151,7 +151,7 @@ export type ProviderActionResponse = ApiEnvelope<{
     copied_count: number;
     failed_count: number;
   } | null;
-  failure_summary?: {
+  failure_summary: {
     skipped_count: number;
     failed_count: number;
     partial_failure: boolean;

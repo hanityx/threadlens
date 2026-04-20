@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from "react";
 import { TranscriptLog } from "@/shared/ui/components/TranscriptLog";
 import type { Messages } from "@/i18n";
 import type { TranscriptPayload } from "@/shared/types";
@@ -8,7 +9,7 @@ export function SessionTranscriptPane(props: {
   sessionTranscriptLoading: boolean;
   sessionTranscriptLimit: number;
   emptyTranscriptLabel: string;
-  setSessionTranscriptLimit: React.Dispatch<React.SetStateAction<number>>;
+  setSessionTranscriptLimit: Dispatch<SetStateAction<number>>;
 }) {
   const {
     messages,

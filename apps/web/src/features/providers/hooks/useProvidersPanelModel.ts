@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { useProvidersPanelState } from "@/features/providers/hooks/useProvidersPanelState";
+import { useProvidersPanelState } from "@/features/providers/hooks/useProvidersPanelState";
 import type { ProvidersPanelProps } from "@/features/providers/components/ProvidersPanel";
 import { useProvidersPanelDerived } from "@/features/providers/hooks/useProvidersPanelDerived";
 import {
