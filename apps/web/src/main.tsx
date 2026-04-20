@@ -14,6 +14,8 @@ import "@/features/providers/routing/routing.css";
 const queryClient = new QueryClient();
 const agentationEndpoint =
   import.meta.env.VITE_AGENTATION_ENDPOINT ?? "http://127.0.0.1:4747";
+const agentationEnabled =
+  import.meta.env.DEV && import.meta.env.VITE_AGENTATION_ENABLED === "1";
 const AgentationBridge = Agentation as unknown as React.ComponentType<{
   endpoint: string;
 }>;
@@ -23,7 +25,7 @@ createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={queryClient}>
       <LocaleProvider>
         <App />
-        {import.meta.env.DEV ? <AgentationBridge endpoint={agentationEndpoint} /> : null}
+        {agentationEnabled ? <AgentationBridge endpoint={agentationEndpoint} /> : null}
       </LocaleProvider>
     </QueryClientProvider>
   </React.StrictMode>
