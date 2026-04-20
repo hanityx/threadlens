@@ -12,6 +12,7 @@
     "build-storybook": "storybook build",
     "preview": "vite preview",
     "test": "vitest run -c vitest.config.ts",
+    "test:coverage": "vitest run -c vitest.config.ts --coverage",
     "test:e2e": "playwright test -c playwright.config.ts",
     "test:e2e:live": "playwright test -c playwright.live.config.ts",
     "lint": "tsc -p tsconfig.json --noEmit"
@@ -30,6 +31,7 @@
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
+    "@vitest/coverage-v8": "^2.1.8",
     "agentation": "^3.0.2",
     "agentation-mcp": "^1.2.0",
     "storybook": "8.6.18",
