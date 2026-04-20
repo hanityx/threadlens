@@ -53,6 +53,7 @@ function createMainWindow({
   getAppIconPath,
   applyAppIcon,
   createMenu,
+  onBeforeLoad,
 }) {
   const windowTitle = buildWindowTitle(windowTitleSuffix);
   const iconPath = getAppIconPath();
@@ -77,6 +78,10 @@ function createMainWindow({
     void shell.openExternal(url);
     return { action: "deny" };
   });
+
+  if (typeof onBeforeLoad === "function") {
+    onBeforeLoad(win);
+  }
 
   const entry = resolveRendererEntry({ isDev, rendererUrl, appDir });
   const routeSearch = createRouteSearch(route);

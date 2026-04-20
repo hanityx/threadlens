@@ -117,6 +117,18 @@ function createWindow(route = null) {
     getAppIconPath,
     applyAppIcon,
     createMenu,
+    onBeforeLoad: isSmokeTest
+      ? (win) => {
+          attachDesktopSmoke({
+            win,
+            app,
+            requestHealth,
+            apiBaseUrl: desktopApiBaseUrl,
+            timeoutMs: DESKTOP_SMOKE_TIMEOUT_MS,
+            logger: console,
+          });
+        }
+      : undefined,
   });
 }
 
@@ -169,17 +181,7 @@ app.whenReady().then(() => {
       console.error("[desktop-api] failed to start", error);
     })
     .finally(() => {
-      const win = createWindow(readInitialRoute());
-      if (isSmokeTest) {
-        attachDesktopSmoke({
-          win,
-          app,
-          requestHealth,
-          apiBaseUrl: desktopApiBaseUrl,
-          timeoutMs: DESKTOP_SMOKE_TIMEOUT_MS,
-          logger: console,
-        });
-      }
+      createWindow(readInitialRoute());
     });
 
   app.on("activate", () => {

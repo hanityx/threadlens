@@ -22,15 +22,7 @@ function attachDesktopSmoke({
     app.exit(code);
   };
 
-  win.webContents.once("did-fail-load", (_event, errorCode, errorDescription) => {
-    finish(
-      1,
-      `[desktop-smoke] renderer failed code=${errorCode} error=${errorDescription}`,
-      "error",
-    );
-  });
-
-  win.webContents.once("did-finish-load", async () => {
+  const runHealthCheck = async () => {
     try {
       const status = await requestHealth(`${apiBaseUrl}/api/healthz`);
       if (status >= 200 && status < 300) {
@@ -47,7 +39,28 @@ function attachDesktopSmoke({
         "error",
       );
     }
+  };
+
+  win.webContents.once("did-fail-load", (_event, errorCode, errorDescription) => {
+    finish(
+      1,
+      `[desktop-smoke] renderer failed code=${errorCode} error=${errorDescription}`,
+      "error",
+    );
   });
+
+  win.webContents.once("dom-ready", () => {
+    void runHealthCheck();
+  });
+
+  if (
+    typeof win.webContents.isLoadingMainFrame === "function"
+    && typeof win.webContents.getURL === "function"
+    && !win.webContents.isLoadingMainFrame()
+    && win.webContents.getURL()
+  ) {
+    queueMicrotask(runHealthCheck);
+  }
 }
 
 module.exports = {
