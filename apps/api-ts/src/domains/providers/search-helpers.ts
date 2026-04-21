@@ -1,12 +1,5 @@
 import type { ProviderId } from "./types.js";
 
-function shortSessionId(sessionId: string): string {
-  const id = String(sessionId || "").trim();
-  if (!id) return "unknown";
-  if (id.length <= 20) return id;
-  return `${id.slice(0, 8)}…${id.slice(-4)}`;
-}
-
 export function normalizeSearchText(value: string): string {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
@@ -80,12 +73,12 @@ export function fallbackDisplayTitle(
   sessionId: string,
   source: string,
 ): string {
-  const shortId = shortSessionId(sessionId);
+  const normalizedId = normalizeSearchText(sessionId) || "unknown";
   if (provider === "chatgpt") {
     if (source === "project-conversations") {
-      return `ChatGPT Project · ${shortId}`;
+      return `ChatGPT Project · ${normalizedId}`;
     }
-    return `ChatGPT Conversation · ${shortId}`;
+    return `ChatGPT Conversation · ${normalizedId}`;
   }
-  return shortId;
+  return normalizedId;
 }
