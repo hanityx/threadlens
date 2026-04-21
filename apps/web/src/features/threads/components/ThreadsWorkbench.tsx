@@ -13,6 +13,29 @@ import {
   THREAD_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY,
 } from "@/features/threads/model/threadsWorkbenchModel";
 
+export function resolveThreadWorkbenchPanelHeight({
+  tableHeight,
+  stackHeight,
+  stackScrollHeight,
+  hasSelectedThread,
+  availableViewportHeight,
+}: {
+  tableHeight: number;
+  stackHeight: number;
+  stackScrollHeight: number;
+  hasSelectedThread: boolean;
+  availableViewportHeight?: number;
+}) {
+  if (hasSelectedThread) {
+    const viewportClamp =
+      typeof availableViewportHeight === "number" && availableViewportHeight > 0
+        ? Math.floor(availableViewportHeight)
+        : tableHeight;
+    return viewportClamp;
+  }
+  return Math.max(tableHeight, stackHeight, stackScrollHeight);
+}
+
 export function ThreadsWorkbench() {
   const {
     messages,
@@ -169,16 +192,29 @@ export function ThreadsWorkbench() {
   };
 
   useEffect(() => {
-    if (!showForensics || !selectedThreadId || !threadSideStackRef.current) {
+    if (!showForensics || !threadSideStackRef.current) {
       setActivePanelHeight(null);
       return;
     }
 
     const target = threadSideStackRef.current;
+    const tableTarget = document.querySelector<HTMLElement>(".threads-table-panel");
     let frameId = 0;
 
     const syncHeight = () => {
-      const nextHeight = Math.ceil(target.getBoundingClientRect().height);
+      const tableRect = tableTarget?.getBoundingClientRect();
+      const tableHeight = Math.ceil(tableRect?.height ?? 0);
+      const stackHeight = Math.ceil(target.getBoundingClientRect().height);
+      const stackScrollHeight = Math.ceil(target.scrollHeight);
+      const availableViewportHeight =
+        typeof window !== "undefined" && tableRect ? window.innerHeight - tableRect.top : undefined;
+      const nextHeight = resolveThreadWorkbenchPanelHeight({
+        tableHeight,
+        stackHeight,
+        stackScrollHeight,
+        hasSelectedThread: Boolean(selectedThreadId),
+        availableViewportHeight,
+      });
       setActivePanelHeight((current) => (current === nextHeight ? current : nextHeight));
     };
 
@@ -193,6 +229,10 @@ export function ThreadsWorkbench() {
     });
 
     observer.observe(target);
+    if (tableTarget) observer.observe(tableTarget);
+    Array.from(target.children).forEach((child) => {
+      if (child instanceof HTMLElement) observer.observe(child);
+    });
 
     return () => {
       if (frameId) cancelAnimationFrame(frameId);
@@ -325,11 +365,11 @@ export function ThreadsWorkbench() {
           onCancelHardDeleteConfirm={cancelHardDeleteConfirm}
           panelStyle={activePanelHeight ? { height: `${activePanelHeight}px` } : undefined}
         />
-        <div ref={threadForensicsPanelRef}>
+        <div className="thread-side-stack-anchor" ref={threadForensicsPanelRef}>
           <ThreadsSideStack
             showForensics={showForensics}
             threadSideStackRef={threadSideStackRef as RefObject<HTMLDivElement>}
-            activePanelHeight={activePanelHeight}
+            activePanelHeight={selectedThreadId ? null : activePanelHeight}
             detailProps={detailProps}
             forensicsProps={forensicsProps}
           />
