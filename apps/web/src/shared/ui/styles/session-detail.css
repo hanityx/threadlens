@@ -633,35 +633,12 @@
 .thread-side-stack {
   display: grid;
   gap: 12px;
-  grid-template-rows: minmax(0, 1fr) auto;
-  align-content: stretch;
-  height: 100%;
-  min-height: 0;
-}
-
-.thread-side-stack-anchor {
-  height: 100%;
-  min-height: 0;
-}
-
-.thread-side-stack > .thread-review-panel:first-child,
-.thread-side-stack > .impact-panel:last-child {
-  min-height: 0;
-  height: 100%;
-}
-
-.ops-layout.is-thread-active .thread-side-stack-anchor {
-  height: auto;
-}
-
-.ops-layout.is-thread-active .thread-side-stack {
-  height: auto;
   grid-template-rows: auto auto;
   align-content: start;
 }
 
-.ops-layout.is-thread-active .thread-side-stack > * {
-  height: auto;
+.thread-side-stack > .thread-review-panel:first-child,
+.thread-side-stack > .impact-panel:last-child {
   min-height: 0;
 }
 
@@ -911,28 +888,6 @@
   gap: 8px;
 }
 
-.thread-review-panel .detail-section-transcript {
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-}
-
-.thread-review-panel .detail-section-transcript .detail-section-body {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.thread-review-panel .transcript-shell {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  min-height: 0;
-}
-
 .thread-review-panel .transcript-summary-strip {
   gap: 4px 8px;
   padding: 7px 9px;
@@ -1129,7 +1084,6 @@
 }
 
 .thread-review-panel .chat-log {
-  flex: 1 1 auto;
   min-height: clamp(220px, 30vh, 360px);
   height: auto;
   max-height: none;

@@ -1749,7 +1749,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(420px, 1.12fr);
   gap: 18px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .ops-layout.single {

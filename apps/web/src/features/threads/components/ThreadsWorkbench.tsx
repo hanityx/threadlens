@@ -13,27 +13,22 @@ import {
   THREAD_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY,
 } from "@/features/threads/model/threadsWorkbenchModel";
 
-export function resolveThreadWorkbenchPanelHeight({
-  tableHeight,
-  stackHeight,
-  stackScrollHeight,
-  hasSelectedThread,
-  availableViewportHeight,
-}: {
-  tableHeight: number;
-  stackHeight: number;
-  stackScrollHeight: number;
-  hasSelectedThread: boolean;
-  availableViewportHeight?: number;
+const THREAD_PANEL_ACTIVE_MIN_HEIGHT = 640;
+
+export function resolveThreadWorkbenchPanelHeight(options: {
+  stackHeight?: number | null;
+  detailHeight?: number | null;
+  baselineHeight?: number | null;
+  minHeight?: number;
 }) {
-  if (hasSelectedThread) {
-    const viewportClamp =
-      typeof availableViewportHeight === "number" && availableViewportHeight > 0
-        ? Math.floor(availableViewportHeight)
-        : tableHeight;
-    return viewportClamp;
-  }
-  return Math.max(tableHeight, stackHeight, stackScrollHeight);
+  const {
+    stackHeight = null,
+    detailHeight = null,
+    baselineHeight = null,
+    minHeight = THREAD_PANEL_ACTIVE_MIN_HEIGHT,
+  } = options;
+  const measured = Math.max(Number(stackHeight || 0), Number(detailHeight || 0));
+  return Math.max(minHeight, Number(baselineHeight || 0), Math.ceil(measured));
 }
 
 export function ThreadsWorkbench() {
@@ -120,6 +115,7 @@ export function ThreadsWorkbench() {
   const threadSideStackRef = useRef<HTMLDivElement | null>(null);
   const threadForensicsPanelRef = useRef<HTMLDivElement | null>(null);
   const lastReadyCleanupTokenRef = useRef("");
+  const panelHeightBaselineRef = useRef<number | null>(null);
   const [activePanelHeight, setActivePanelHeight] = useState<number | null>(null);
   const [hardDeleteConfirmOpen, setHardDeleteConfirmOpen] = useState(false);
   const [hardDeleteSkipConfirmChecked, setHardDeleteSkipConfirmChecked] = useState<boolean>(() => {
@@ -192,30 +188,25 @@ export function ThreadsWorkbench() {
   };
 
   useEffect(() => {
-    if (!showForensics || !threadSideStackRef.current) {
+    if (!showForensics || !selectedThreadId || !threadSideStackRef.current) {
       setActivePanelHeight(null);
+      panelHeightBaselineRef.current = null;
       return;
     }
 
     const target = threadSideStackRef.current;
-    const tableTarget = document.querySelector<HTMLElement>(".threads-table-panel");
+    const detailTarget = target.querySelector<HTMLElement>(".thread-review-panel");
     let frameId = 0;
 
     const syncHeight = () => {
-      const tableRect = tableTarget?.getBoundingClientRect();
-      const tableHeight = Math.ceil(tableRect?.height ?? 0);
-      const stackHeight = Math.ceil(target.getBoundingClientRect().height);
-      const stackScrollHeight = Math.ceil(target.scrollHeight);
-      const availableViewportHeight =
-        typeof window !== "undefined" && tableRect ? window.innerHeight - tableRect.top : undefined;
       const nextHeight = resolveThreadWorkbenchPanelHeight({
-        tableHeight,
-        stackHeight,
-        stackScrollHeight,
-        hasSelectedThread: Boolean(selectedThreadId),
-        availableViewportHeight,
+        stackHeight: target.getBoundingClientRect().height,
+        detailHeight: detailTarget?.getBoundingClientRect().height ?? null,
+        baselineHeight: panelHeightBaselineRef.current,
       });
-      setActivePanelHeight((current) => (current === nextHeight ? current : nextHeight));
+      panelHeightBaselineRef.current = Math.max(panelHeightBaselineRef.current ?? 0, nextHeight);
+      const resolved = Math.max(nextHeight, panelHeightBaselineRef.current);
+      setActivePanelHeight((current) => (current === resolved ? current : resolved));
     };
 
     syncHeight();
@@ -229,10 +220,9 @@ export function ThreadsWorkbench() {
     });
 
     observer.observe(target);
-    if (tableTarget) observer.observe(tableTarget);
-    Array.from(target.children).forEach((child) => {
-      if (child instanceof HTMLElement) observer.observe(child);
-    });
+    if (detailTarget && detailTarget !== target) {
+      observer.observe(detailTarget);
+    }
 
     return () => {
       if (frameId) cancelAnimationFrame(frameId);
@@ -369,7 +359,7 @@ export function ThreadsWorkbench() {
           <ThreadsSideStack
             showForensics={showForensics}
             threadSideStackRef={threadSideStackRef as RefObject<HTMLDivElement>}
-            activePanelHeight={selectedThreadId ? null : activePanelHeight}
+            activePanelHeight={null}
             detailProps={detailProps}
             forensicsProps={forensicsProps}
           />
