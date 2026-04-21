@@ -67,7 +67,7 @@ export async function probeSessionFile(
   let head = await readFileHead(filePath, format === "jsonl" ? 12288 : 12288);
   if (format === "jsonl") {
     const lineCount = head.split("\n").length;
-    const likelyTruncatedSingleLine = head.length >= 12000 && lineCount <= 2;
+    const likelyTruncatedSingleLine = Buffer.byteLength(head, "utf8") >= 12000 && lineCount <= 2;
     if (likelyTruncatedSingleLine) {
       head = await readFileHead(filePath, 524288);
     }

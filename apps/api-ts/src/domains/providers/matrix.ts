@@ -74,6 +74,32 @@ export function invalidateProviderMatrixCache() {
   providerMatrixCache = null;
 }
 
+function shouldIncludeCopilotMatrixSessionFile(source: string, filePath: string): boolean {
+  if (source === "cleanup_backups" && path.basename(filePath) === "_manifest.json") {
+    return false;
+  }
+  if (source === "vscode_workspace_chats" || source === "cursor_workspace_chats") {
+    return isWorkspaceChatSessionPath(filePath);
+  }
+  if (source === "vscode_global" || source === "cursor_global") {
+    return isCopilotGlobalSessionLikeFile(filePath);
+  }
+  return true;
+}
+
+async function countCopilotMatrixSessionFiles() {
+  const roots = providerRootSpecs("copilot");
+  const counts = await Promise.all(
+    roots.map(async (spec) => {
+      const files = await walkFilesByExt(spec.root, spec.exts, Number.MAX_SAFE_INTEGER);
+      return files.filter((filePath) =>
+        shouldIncludeCopilotMatrixSessionFile(spec.source, filePath),
+      ).length;
+    }),
+  );
+  return counts.reduce((sum, count) => sum + count, 0);
+}
+
 async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
   const codexHomes = Array.from(
     new Set(codexTranscriptSearchRoots().map((spec) => path.dirname(spec.root))),
@@ -107,30 +133,7 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
       chatGptConversationRoots.map((spec) => quickFileCount(spec.root)),
     )
   ).reduce((sum, count) => sum + count, 0);
-  const copilotGlobalSessionFiles = (
-    await Promise.all(
-      [COPILOT_VSCODE_GLOBAL, COPILOT_CURSOR_GLOBAL].map(async (root) => {
-        const files = await walkFilesByExt(root, [".jsonl", ".json"], 1500);
-        return files.filter((filePath) =>
-          isCopilotGlobalSessionLikeFile(filePath),
-        ).length;
-      }),
-    )
-  ).reduce((sum, value) => sum + value, 0);
-  const copilotWorkspaceChatFiles = (
-    await Promise.all(
-      [
-        COPILOT_VSCODE_WORKSPACE_STORAGE,
-        COPILOT_CURSOR_WORKSPACE_STORAGE,
-      ].map(async (root) => {
-        const files = await walkFilesByExt(root, [".json"], 8000);
-        return files.filter((filePath) =>
-          isWorkspaceChatSessionPath(filePath),
-        ).length;
-      }),
-    )
-  ).reduce((sum, value) => sum + value, 0);
-  const copilotSignalFiles = copilotGlobalSessionFiles + copilotWorkspaceChatFiles;
+  const copilotSignalFiles = await countCopilotMatrixSessionFiles();
 
   const codexStatus = providerStatus(codexRootExists, codexSessionLogs);
   const chatGptStatus = providerStatus(chatGptRootExists, chatGptSessionLogs);
@@ -159,8 +162,7 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
       evidence: {
         roots: codexHomes,
         session_log_count: codexSessionLogs,
-        notes:
-          "This is an operations-grade model built around thread_id, pinned state, and global state, so impact analysis and cleanup dry-runs live in a dedicated surface.",
+        notes: "Thread logs, pinned state, and global state.",
       },
     },
     {
@@ -180,8 +182,7 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
       evidence: {
         roots: [CHAT_DIR],
         session_log_count: chatGptSessionLogs,
-        notes:
-          "Read-first cache model: focused on desktop cache and conversation artifacts, with destructive actions disabled.",
+        notes: "Desktop cache and conversation files.",
       },
     },
     {
@@ -202,8 +203,7 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
       evidence: {
         roots: [CLAUDE_HOME, CLAUDE_PROJECTS_DIR, CLAUDE_TRANSCRIPTS_DIR],
         session_log_count: claudeSessionLogs,
-        notes:
-          "Managed around session_id plus raw project and transcript files. Reading the original conversation and running file-level dry-runs is the main path.",
+        notes: "Session and transcript files.",
       },
     },
     {
@@ -229,8 +229,7 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
           GEMINI_ANTIGRAVITY_CONVERSATIONS_DIR,
         ],
         session_log_count: geminiSessionLogs,
-        notes:
-          "Managed across history, tmp, and checkpoint-style session stores. Raw session-store distribution matters more than a thread model here.",
+        notes: "History, tmp, and checkpoint files.",
       },
     },
     {
@@ -259,10 +258,12 @@ async function buildProviderMatrixData(): Promise<ProviderMatrixData> {
           COPILOT_CURSOR_GLOBAL,
           COPILOT_VSCODE_WORKSPACE_STORAGE,
           COPILOT_CURSOR_WORKSPACE_STORAGE,
+          ...providerRootSpecs("copilot")
+            .filter((spec) => spec.source === "cleanup_backups")
+            .map((spec) => spec.root),
         ],
         session_log_count: copilotSignalFiles,
-        notes:
-          "Auxiliary diagnostics only: scans global traces and workspace chat sessions, but it is not part of the core operating path.",
+        notes: "Workspace chat files and editor traces.",
       },
     },
   ];
