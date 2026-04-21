@@ -1,8 +1,9 @@
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { copyFile, mkdir, stat, unlink, writeFile } from "node:fs/promises";
-import { BACKUP_ROOT } from "../../lib/constants.js";
+import { BACKUP_ROOT, HOME_DIR } from "../../lib/constants.js";
 import { nowIsoUtc } from "../../lib/utils.js";
+import { isPathInsideRoot, providerRootSpecs } from "./path-safety.js";
 import type {
   ProviderId,
   ProviderSessionAction,
@@ -14,6 +15,7 @@ type ProviderActionTokenEntry = {
   action: ProviderSessionAction;
   paths: string[];
   backup_before_delete: boolean;
+  backup_root: string;
   expires_at: number;
 };
 
@@ -60,14 +62,113 @@ function normalizeProviderActionPaths(filePaths: string[]): string[] {
 
 function normalizeProviderActionOptions(
   options?: ProviderSessionActionOptions,
-): { backup_before_delete: boolean } {
+): { backup_before_delete: boolean; backup_root: string } {
   return {
     backup_before_delete: Boolean(options?.backup_before_delete),
+    backup_root: String(options?.backup_root ?? "").trim(),
   };
+}
+
+function resolveProviderActionBackupRoot(
+  backupRootOverride: string,
+): { ok: true; backupRoot: string } | { ok: false; error: string } {
+  const backupRoot = backupRootOverride
+    ? path.resolve(backupRootOverride)
+    : BACKUP_ROOT;
+  if (!isPathInsideRoot(backupRoot, HOME_DIR)) {
+    return { ok: false, error: "backup_root_outside_home" };
+  }
+  if (path.relative(HOME_DIR, backupRoot).split(path.sep).some((segment) => segment.startsWith("."))) {
+    return { ok: false, error: "backup_root_hidden" };
+  }
+  return { ok: true, backupRoot };
+}
+
+function deriveProviderBackupId(backupRoot: string, backupTo: string | null): string | null {
+  if (!backupTo) return null;
+  const relativePath = path.relative(path.resolve(backupRoot), path.resolve(backupTo));
+  if (!relativePath || relativePath.startsWith("..") || path.isAbsolute(relativePath)) return null;
+  return relativePath.split(path.sep).join("/");
 }
 
 function requiresProviderCleanupPrivilege(action: ProviderSessionAction): boolean {
   return action !== "backup_local";
+}
+
+function resolveArchivedSessionRestoreTarget(
+  provider: ProviderId,
+  filePath: string,
+): string | null {
+  const resolvedPath = path.resolve(filePath);
+  const specs = providerRootSpecs(provider);
+  const archivedSpec = specs
+    .filter((spec) => spec.source === "archived_sessions" && isPathInsideRoot(resolvedPath, spec.root))
+    .sort((left, right) => right.root.length - left.root.length)[0];
+  const sessionsSpec = specs.find((spec) => spec.source === "sessions");
+  if (!archivedSpec) return null;
+  const relativePath = path.relative(archivedSpec.root, resolvedPath);
+  if (
+    !relativePath ||
+    relativePath === "." ||
+    relativePath === ".." ||
+    relativePath.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativePath)
+  ) {
+    return null;
+  }
+  if (sessionsSpec && !relativePath.includes(path.sep)) {
+    return path.join(sessionsSpec.root, relativePath);
+  }
+  const [sourceName = "", ...sourceRelativeParts] = relativePath.split(path.sep);
+  const sourceRelativePath = sourceRelativeParts.join(path.sep);
+  const sourceSpec = specs.find(
+    (spec) =>
+      spec.source === sourceName &&
+      spec.source !== "cleanup_backups" &&
+      spec.source !== "archived_sessions",
+  );
+  if (sourceSpec && sourceRelativePath) {
+    return path.join(sourceSpec.root, sourceRelativePath);
+  }
+  if (sessionsSpec) {
+    return path.join(sessionsSpec.root, relativePath);
+  }
+  return null;
+}
+
+function resolveArchivedSessionStoreTarget(
+  provider: ProviderId,
+  filePath: string,
+): string | null {
+  const resolvedPath = path.resolve(filePath);
+  const specs = providerRootSpecs(provider);
+  const archivedSpec = specs.find((spec) => spec.source === "archived_sessions");
+  if (!archivedSpec) return null;
+  const sourceSpec = specs
+    .filter(
+      (spec) =>
+        spec.source !== "cleanup_backups" &&
+        spec.source !== "archived_sessions" &&
+        spec.exts.includes(path.extname(resolvedPath).toLowerCase()) &&
+        isPathInsideRoot(resolvedPath, spec.root),
+    )
+    .sort((left, right) => right.root.length - left.root.length)[0];
+  if (!sourceSpec) return null;
+  const relativePath = path.relative(sourceSpec.root, resolvedPath);
+  if (
+    !relativePath ||
+    relativePath === "." ||
+    relativePath === ".." ||
+    relativePath.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativePath)
+  ) {
+    return null;
+  }
+  const archiveRelativePath =
+    provider === "codex" && sourceSpec.source === "sessions"
+      ? relativePath
+      : path.join(sourceSpec.source, relativePath);
+  return path.join(archivedSpec.root, archiveRelativePath);
 }
 
 function pruneProviderActionTokens(now = Date.now()) {
@@ -90,6 +191,7 @@ function issueProviderActionConfirmToken(
     action,
     paths: normalized,
     backup_before_delete: normalizedOptions.backup_before_delete,
+    backup_root: normalizedOptions.backup_root,
     expires_at: Date.now() + PROVIDER_ACTION_TOKEN_TTL_MS,
   });
   return token;
@@ -116,7 +218,8 @@ function consumeProviderActionConfirmToken(
   const sameProvider = entry.provider === provider;
   const sameAction = entry.action === action;
   const sameOptions =
-    entry.backup_before_delete === normalizedOptions.backup_before_delete;
+    entry.backup_before_delete === normalizedOptions.backup_before_delete &&
+    entry.backup_root === normalizedOptions.backup_root;
   const samePaths =
     entry.paths.length === normalized.length &&
     entry.paths.every((item, idx) => item === normalized[idx]);
@@ -127,14 +230,42 @@ function consumeProviderActionConfirmToken(
   return { ok: true, reason: "" };
 }
 
+export function deriveProviderBackupRelativePath(
+  provider: ProviderId,
+  filePath: string,
+): string {
+  const resolvedPath = path.resolve(filePath);
+  const ext = path.extname(resolvedPath).toLowerCase();
+  const matchingSpecs = providerRootSpecs(provider)
+    .filter((spec) => spec.exts.includes(ext) && isPathInsideRoot(resolvedPath, spec.root))
+    .sort((left, right) => right.root.length - left.root.length);
+
+  for (const spec of matchingSpecs) {
+    const relativePath = path.relative(spec.root, resolvedPath);
+    if (
+      !relativePath ||
+      relativePath === "." ||
+      relativePath === ".." ||
+      relativePath.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relativePath)
+    ) {
+      continue;
+    }
+    return path.join(spec.source, relativePath);
+  }
+
+  return path.join("misc", path.basename(resolvedPath));
+}
+
 async function stageProviderActionBackup(
   provider: ProviderId,
   action: ProviderSessionAction,
   filePaths: string[],
+  backupRoot = BACKUP_ROOT,
 ): Promise<ProviderBackupStageResult> {
   const folderName = `${nowIsoUtc().replace(/[:.]/g, "-")}-${action}`;
   const destination = path.join(
-    BACKUP_ROOT,
+    backupRoot,
     "provider_actions",
     provider,
     folderName,
@@ -146,14 +277,14 @@ async function stageProviderActionBackup(
 
   for (const rawSourcePath of filePaths) {
     const sourcePath = path.resolve(rawSourcePath);
-    const relFromFsRoot = sourcePath.replace(/^([A-Za-z]:)?[\\/]+/, "");
-    const targetPath = path.join(destination, relFromFsRoot);
+    const backupRelativePath = deriveProviderBackupRelativePath(provider, sourcePath);
+    const targetPath = path.join(destination, backupRelativePath);
     try {
       await mkdir(path.dirname(targetPath), { recursive: true });
       await copyFile(sourcePath, targetPath);
       items.push({
         source_path: sourcePath,
-        backup_rel_path: relFromFsRoot,
+        backup_rel_path: backupRelativePath,
         backup_abs_path: targetPath,
       });
     } catch (error) {
@@ -221,6 +352,7 @@ export function buildProviderActionFingerprint(
     action,
     paths: normalized,
     backup_before_delete: normalizedOptions.backup_before_delete,
+    backup_root: normalizedOptions.backup_root,
   });
   const digest = createHash("sha256")
     .update(raw, "utf-8")
@@ -319,6 +451,34 @@ export async function runProviderSessionAction(
   const selectionFingerprint = valid.length
     ? buildProviderActionFingerprint(provider, action, valid, normalizedOptions)
     : "";
+  const shouldBackup =
+    action === "backup_local" ||
+    normalizedOptions.backup_before_delete;
+  const backupRootResult = resolveProviderActionBackupRoot(
+    normalizedOptions.backup_root,
+  );
+  if (shouldBackup && !backupRootResult.ok) {
+    return {
+      ok: false,
+      provider,
+      action,
+      dry_run: dryRun,
+      target_count: uniquePaths.length,
+      valid_count: valid.length,
+      applied_count: 0,
+      confirm_token_expected: "",
+      confirm_token_accepted: false,
+      selection_fingerprint: selectionFingerprint,
+      backup_before_delete: normalizedOptions.backup_before_delete,
+      failure_summary: {
+        skipped_count: skipped.length,
+        failed_count: 0,
+        partial_failure: false,
+      },
+      skipped,
+      error: backupRootResult.error,
+    };
+  }
 
   if (dryRun) {
     const expectedToken = valid.length
@@ -387,12 +547,9 @@ export async function runProviderSessionAction(
   let backupManifestPath: string | null = null;
   let backedUpCount = 0;
   const failed: Array<{ file_path: string; step: string; error: string }> = [];
-  const shouldBackup =
-    action === "backup_local" ||
-    action === "archive_local" ||
-    normalizedOptions.backup_before_delete;
+  const backupRoot = backupRootResult.ok ? backupRootResult.backupRoot : BACKUP_ROOT;
   const backupStage = shouldBackup
-    ? await stageProviderActionBackup(provider, action, valid)
+    ? await stageProviderActionBackup(provider, action, valid, backupRoot)
     : null;
   if (backupStage) {
     failed.push(...backupStage.failed);
@@ -404,11 +561,33 @@ export async function runProviderSessionAction(
   if (action === "backup_local") {
     applied = backupStage?.items.length ?? 0;
   } else if (action === "archive_local") {
-    const deleteTargets = backupStage?.items.map((item) => item.source_path) ?? [];
-    for (const sourcePath of deleteTargets) {
+    for (const sourcePath of valid) {
+      const targetPath = resolveArchivedSessionStoreTarget(provider, sourcePath);
+      if (!targetPath) {
+        failed.push({
+          file_path: sourcePath,
+          step: "archive_local",
+          error: "no-archived-session-target",
+        });
+        continue;
+      }
       try {
+        await stat(targetPath);
+        failed.push({
+          file_path: sourcePath,
+          step: "archive_local",
+          error: "target-already-exists",
+        });
+        continue;
+      } catch {
+        // Missing target is expected before archive.
+      }
+      try {
+        await mkdir(path.dirname(targetPath), { recursive: true });
+        await copyFile(sourcePath, targetPath);
         await unlink(sourcePath);
         applied += 1;
+        archivedTo = path.dirname(targetPath);
       } catch (error) {
         failed.push({
           file_path: sourcePath,
@@ -417,7 +596,41 @@ export async function runProviderSessionAction(
         });
       }
     }
-    archivedTo = backupTo;
+  } else if (action === "unarchive_local") {
+    for (const sourcePath of valid) {
+      const targetPath = resolveArchivedSessionRestoreTarget(provider, sourcePath);
+      if (!targetPath) {
+        failed.push({
+          file_path: sourcePath,
+          step: "unarchive_local",
+          error: "not-an-archived-session",
+        });
+        continue;
+      }
+      try {
+        await stat(targetPath);
+        failed.push({
+          file_path: sourcePath,
+          step: "unarchive_local",
+          error: "target-already-exists",
+        });
+        continue;
+      } catch {
+        // Missing target is expected before restore.
+      }
+      try {
+        await mkdir(path.dirname(targetPath), { recursive: true });
+        await copyFile(sourcePath, targetPath);
+        await unlink(sourcePath);
+        applied += 1;
+      } catch (error) {
+        failed.push({
+          file_path: sourcePath,
+          step: "unarchive_local",
+          error: String(error),
+        });
+      }
+    }
   } else {
     const deleteTargets = backupStage?.items.map((item) => item.source_path) ?? valid;
     for (const sourcePath of deleteTargets) {
@@ -449,6 +662,7 @@ export async function runProviderSessionAction(
     selection_fingerprint: selectionFingerprint,
     backup_before_delete: normalizedOptions.backup_before_delete,
     backed_up_count: backedUpCount,
+    backup_id: deriveProviderBackupId(backupRoot, backupTo),
     backup_to: backupTo,
     backup_manifest_path: backupManifestPath,
     backup_summary: shouldBackup

@@ -2,7 +2,11 @@ import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { exportRecoveryBackupsTs, getLatestSmokeStatusTs } from "./recovery";
+import {
+  exportRecoveryBackupsTs,
+  getLatestSmokeStatusTs,
+  getRecoveryCenterDataTs,
+} from "./recovery";
 
 async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
   const dir = await mkdtemp(path.join(os.tmpdir(), "threadlens-smoke-"));
@@ -220,6 +224,63 @@ describe("exportRecoveryBackupsTs", () => {
         "provider_actions/claude/20260305T020202Z",
       ]);
       expect(result.missing_backup_ids).toEqual(["missing-backup-id"]);
+    });
+  });
+
+  it("rejects hidden backup or export roots before creating a ZIP", async () => {
+    await withTempDir(async (rootDir) => {
+      const backupRoot = path.join(rootDir, "backups");
+      const hiddenBackupRoot = path.join(rootDir, ".hidden-backups");
+      const hiddenExportRoot = path.join(rootDir, ".hidden-exports");
+      await mkdir(backupRoot, { recursive: true });
+      await mkdir(path.join(backupRoot, "20260304T224500Z"), { recursive: true });
+
+      await expect(
+        exportRecoveryBackupsTs({
+          roots: { backup_root: hiddenBackupRoot, export_root: path.join(rootDir, "exports") },
+          archiveWriter: async () => undefined,
+        }),
+      ).resolves.toMatchObject({
+        ok: false,
+        error: "backup_root_hidden",
+      });
+
+      await expect(
+        exportRecoveryBackupsTs({
+          roots: { backup_root: backupRoot, export_root: hiddenExportRoot },
+          archiveWriter: async () => undefined,
+        }),
+      ).resolves.toMatchObject({
+        ok: false,
+        error: "export_root_hidden",
+      });
+    });
+  });
+});
+
+describe("getRecoveryCenterDataTs", () => {
+  it("reports legacy backup sets separately from the active backup root", async () => {
+    await withTempDir(async (rootDir) => {
+      const backupRoot = path.join(rootDir, "backups");
+      const legacyBackupRoot = path.join(rootDir, "legacy-backups");
+      const currentBackup = path.join(backupRoot, "20260304T224500Z");
+      const legacyBackup = path.join(legacyBackupRoot, "provider_actions", "codex", "20260305T010101Z");
+      await mkdir(currentBackup, { recursive: true });
+      await mkdir(legacyBackup, { recursive: true });
+      await writeFile(path.join(currentBackup, "keep.txt"), "alpha", "utf8");
+      await writeFile(path.join(legacyBackup, "legacy.txt"), "beta", "utf8");
+
+      const data = await getRecoveryCenterDataTs({
+        backupRoot,
+        legacyBackupRoot,
+      });
+
+      expect(data.backup_root).toBe(backupRoot);
+      expect(data.backup_sets).toHaveLength(1);
+      expect(data.legacy_backup_sets).toHaveLength(1);
+      expect(data.legacy_backup_sets[0]?.backup_id).toBe(
+        "provider_actions/codex/20260305T010101Z",
+      );
     });
   });
 });

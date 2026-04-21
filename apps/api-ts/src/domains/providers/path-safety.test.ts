@@ -2,9 +2,10 @@ import { mkdtemp, mkdir, realpath, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { APP_DATA_DIR, CHAT_DIR } from "../../lib/constants.js";
+import { APP_DATA_DIR, CHAT_DIR, CODEX_HOME } from "../../lib/constants.js";
 import {
   codexTranscriptSearchRoots,
+  isAllowedProviderFilePath,
   listProviderIds,
   parseProviderId,
   providerRootSpecs,
@@ -58,8 +59,14 @@ describe("provider path safety", () => {
 
     expect(codexRoots.every((spec) => !spec.root.includes(APP_DATA_DIR))).toBe(true);
     expect(codexTranscriptSearchRoots().some((spec) => spec.root.includes(".codex"))).toBe(true);
-    expect(claudeRoots.every((spec) => spec.root.includes(".claude"))).toBe(true);
-    expect(geminiRoots.every((spec) => spec.root.includes(".gemini"))).toBe(true);
+    expect(claudeRoots.some((spec) => spec.root.includes(".claude"))).toBe(true);
+    expect(
+      claudeRoots.some((spec) => spec.source === "cleanup_backups"),
+    ).toBe(true);
+    expect(geminiRoots.some((spec) => spec.root.includes(".gemini"))).toBe(true);
+    expect(
+      geminiRoots.some((spec) => spec.source === "cleanup_backups"),
+    ).toBe(true);
     expect(chatGptRoots.some((spec) => spec.root === CHAT_DIR)).toBe(true);
     expect(
       copilotRoots.some((spec) =>
@@ -81,6 +88,15 @@ describe("provider path safety", () => {
         spec.root.endsWith(path.join("Cursor", "User", "workspaceStorage")),
       ),
     ).toBe(true);
+  });
+
+  it("allows codex cwd backup session paths", () => {
+    const backupFilePath = path.join(
+      CODEX_HOME,
+      "jsonl-cwd-backups-20260421-000000",
+      "rollout-2026-04-21T00-00-00-019d0000-1111-7222-8333-444444444444.jsonl",
+    );
+    expect(isAllowedProviderFilePath("codex", backupFilePath)).toBe(true);
   });
 });
 
