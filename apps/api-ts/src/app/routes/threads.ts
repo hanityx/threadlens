@@ -1,3 +1,5 @@
+import { execFile } from "node:child_process";
+import path from "node:path";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import {
@@ -9,9 +11,11 @@ import {
   getThreadResumeCommandsTs,
   renameThreadTitleTs,
   setThreadPinnedTs,
+  unarchiveThreadsLocalTs,
 } from "../../domains/threads/state.js";
 import {
   analyzeDeleteTs,
+  executeBackupCleanupTs,
   executeLocalCleanupTs,
 } from "../../domains/threads/cleanup.js";
 import { getThreadForensicsTs } from "../../domains/threads/forensics.js";
@@ -25,9 +29,29 @@ import {
   bulkRequestSchema,
   envelope,
   isRecord,
+  pathExists,
   type QueryMap,
   withSchemaVersion,
 } from "../../lib/utils.js";
+
+async function openDirectoryInOs(directoryPath: string): Promise<void> {
+  const [command, args] =
+    process.platform === "darwin"
+      ? ["open", [directoryPath]]
+      : process.platform === "win32"
+        ? ["explorer", [directoryPath]]
+        : ["xdg-open", [directoryPath]];
+
+  await new Promise<void>((resolve, reject) => {
+    execFile(command, args, (error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+}
 
 export async function registerThreadRoutes(
   app: FastifyInstance,
@@ -38,6 +62,10 @@ export async function registerThreadRoutes(
 ): Promise<void> {
   const idsPayloadSchema = z.object({
     ids: z.array(z.string().min(1)).min(1).max(500),
+  });
+  const analyzeDeletePayloadSchema = z.object({
+    ids: z.array(z.string().min(1)).min(1).max(500),
+    session_scan_limit: z.number().int().min(1).max(240).optional(),
   });
 
   const pinPayloadSchema = z.object({
@@ -62,6 +90,10 @@ export async function registerThreadRoutes(
   const renameThreadSchema = z.object({
     id: z.string().min(1),
     title: z.string().min(1),
+  });
+
+  const threadOpenFolderSchema = z.object({
+    thread_id: z.string().min(1),
   });
 
   const threadForensicsSchema = z.object({
@@ -108,6 +140,16 @@ export async function registerThreadRoutes(
                 ok: Boolean(data.ok),
                 status: data.ok ? 200 : 400,
                 error: data.ok ? null : String(data.error ?? "archive failed"),
+                data,
+              };
+            }
+            case "unarchive_local": {
+              const data = await unarchiveThreadsLocalTs([threadId]);
+              return {
+                thread_id: threadId,
+                ok: Boolean(data.ok),
+                status: data.ok ? 200 : 400,
+                error: data.ok ? null : String(data.error ?? "unarchive failed"),
                 data,
               };
             }
@@ -213,12 +255,14 @@ export async function registerThreadRoutes(
   );
 
   app.post<{ Body: unknown }>("/api/analyze-delete", async (req, reply) => {
-    const parsed = idsPayloadSchema.safeParse(req.body);
+    const parsed = analyzeDeletePayloadSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply.code(400).send(envelope(null, parsed.error.message));
     }
     try {
-      const data = await analyzeDeleteTs(parsed.data.ids);
+      const data = await analyzeDeleteTs(parsed.data.ids, {
+        sessionScanLimit: parsed.data.session_scan_limit,
+      });
       return reply.code(200).send(withSchemaVersion(data));
     } catch (error) {
       return reply
@@ -255,6 +299,23 @@ export async function registerThreadRoutes(
     }
   });
 
+  app.post<{ Body: unknown }>("/api/local-cleanup-backups", async (req, reply) => {
+    const parsed = idsPayloadSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send(envelope(null, parsed.error.message));
+    }
+    try {
+      const data = await executeBackupCleanupTs(parsed.data.ids);
+      deps.invalidateOverviewCache();
+      deps.invalidateProviderSessionCache("codex");
+      return reply.code(data.ok ? 200 : 400).send(withSchemaVersion(data));
+    } catch (error) {
+      return reply
+        .code(500)
+        .send(envelope(null, `local-cleanup-backups-error: ${String(error)}`));
+    }
+  });
+
   app.post<{ Body: unknown }>("/api/rename-thread", async (req, reply) => {
     const parsed = renameThreadSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -287,6 +348,39 @@ export async function registerThreadRoutes(
       return reply
         .code(500)
         .send(envelope(null, `thread-forensics-error: ${String(error)}`));
+    }
+  });
+
+  app.post<{ Body: unknown }>("/api/thread-open-folder", async (req, reply) => {
+    const parsed = threadOpenFolderSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send(envelope(null, parsed.error.message));
+    }
+    try {
+      const filePath = await resolveCodexSessionPathByThreadId(parsed.data.thread_id);
+      if (!filePath) {
+        return reply
+          .code(404)
+          .send(envelope(null, "thread session file not found"));
+      }
+      if (!(await pathExists(filePath))) {
+        return reply.code(404).send(envelope(null, "thread session file not found"));
+      }
+      const directoryPath = path.dirname(filePath);
+      if (!(await pathExists(directoryPath))) {
+        return reply.code(404).send(envelope(null, "thread session folder not found"));
+      }
+      await openDirectoryInOs(directoryPath);
+      return reply.code(200).send(
+        withSchemaVersion({
+          ok: true,
+          directory_path: directoryPath,
+        }),
+      );
+    } catch (error) {
+      return reply
+        .code(500)
+        .send(envelope(null, `thread-open-folder-error: ${String(error)}`));
     }
   });
 

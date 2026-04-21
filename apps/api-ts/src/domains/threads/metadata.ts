@@ -1,7 +1,9 @@
+import { createReadStream } from "node:fs";
 import { readdir } from "node:fs/promises";
 import path from "node:path";
+import { createInterface } from "node:readline";
 import { CHAT_DIR } from "../../lib/constants.js";
-import { isRecord, pathExists, readHeadLines } from "../../lib/utils.js";
+import { isRecord, pathExists } from "../../lib/utils.js";
 import { resolveCodexSessionPathByThreadId } from "../providers/search.js";
 
 export type ThreadSessionMeta = {
@@ -46,6 +48,25 @@ function extractSessionCwdFromLine(line: string): string {
   return cwd;
 }
 
+async function readSessionMetaHeadLines(filePath: string, maxLines = 40): Promise<string[]> {
+  const stream = createReadStream(filePath, { encoding: "utf-8" });
+  const reader = createInterface({ input: stream, crlfDelay: Infinity });
+  const lines: string[] = [];
+  try {
+    for await (const line of reader) {
+      const normalized = line.trimEnd();
+      if (normalized) {
+        lines.push(normalized);
+      }
+      if (lines.length >= maxLines) break;
+    }
+  } finally {
+    reader.close();
+    stream.destroy();
+  }
+  return lines;
+}
+
 export async function readCodexSessionMeta(filePath: string | null): Promise<ThreadSessionMeta> {
   const resolvedPath = String(filePath ?? "").trim();
   if (!resolvedPath) {
@@ -55,7 +76,7 @@ export async function readCodexSessionMeta(filePath: string | null): Promise<Thr
     return { has_session_log: false, cwd: "" };
   }
 
-  const lines = await readHeadLines(resolvedPath, 40);
+  const lines = await readSessionMetaHeadLines(resolvedPath, 40);
   for (const line of lines) {
     try {
       const cwd = extractSessionCwdFromLine(line);

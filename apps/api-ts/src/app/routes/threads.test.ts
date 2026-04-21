@@ -1,20 +1,31 @@
 import Fastify, { type FastifyInstance } from "fastify";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockArchiveThreadsLocalTs = vi.hoisted(() => vi.fn());
+const mockUnarchiveThreadsLocalTs = vi.hoisted(() => vi.fn());
 const mockGetThreadResumeCommandsTs = vi.hoisted(() => vi.fn());
 const mockRenameThreadTitleTs = vi.hoisted(() => vi.fn());
 const mockSetThreadPinnedTs = vi.hoisted(() => vi.fn());
 const mockAnalyzeDeleteTs = vi.hoisted(() => vi.fn());
+const mockExecuteBackupCleanupTs = vi.hoisted(() => vi.fn());
 const mockExecuteLocalCleanupTs = vi.hoisted(() => vi.fn());
 const mockGetThreadForensicsTs = vi.hoisted(() => vi.fn());
 const mockGetThreadsTs = vi.hoisted(() => vi.fn());
 const mockBuildSessionTranscript = vi.hoisted(() => vi.fn());
 const mockInvalidateCodexThreadTitleMapCache = vi.hoisted(() => vi.fn());
 const mockResolveCodexSessionPathByThreadId = vi.hoisted(() => vi.fn());
+const mockExecFile = vi.hoisted(() => vi.fn());
+
+vi.mock("node:child_process", () => ({
+  execFile: mockExecFile,
+}));
 
 vi.mock("../../domains/threads/state.js", () => ({
   archiveThreadsLocalTs: mockArchiveThreadsLocalTs,
+  unarchiveThreadsLocalTs: mockUnarchiveThreadsLocalTs,
   getThreadResumeCommandsTs: mockGetThreadResumeCommandsTs,
   renameThreadTitleTs: mockRenameThreadTitleTs,
   setThreadPinnedTs: mockSetThreadPinnedTs,
@@ -22,6 +33,7 @@ vi.mock("../../domains/threads/state.js", () => ({
 
 vi.mock("../../domains/threads/cleanup.js", () => ({
   analyzeDeleteTs: mockAnalyzeDeleteTs,
+  executeBackupCleanupTs: mockExecuteBackupCleanupTs,
   executeLocalCleanupTs: mockExecuteLocalCleanupTs,
 }));
 
@@ -49,11 +61,16 @@ import { registerThreadRoutes } from "./threads.js";
 
 describe("registerThreadRoutes cleanup invalidation", () => {
   let app: FastifyInstance;
+  let tempDir = "";
   const invalidateOverviewCache = vi.fn();
   const invalidateProviderSessionCache = vi.fn();
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    mockExecFile.mockImplementation(
+      (_command: string, _args: string[], callback: (error: Error | null) => void) => callback(null),
+    );
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "threadlens-thread-routes-"));
     app = Fastify();
     await registerThreadRoutes(app, {
       invalidateOverviewCache,
@@ -64,6 +81,10 @@ describe("registerThreadRoutes cleanup invalidation", () => {
 
   afterEach(async () => {
     await app.close();
+    if (tempDir) {
+      await rm(tempDir, { recursive: true, force: true });
+      tempDir = "";
+    }
   });
 
   it("invalidates overview and provider session caches after execute", async () => {
@@ -112,6 +133,54 @@ describe("registerThreadRoutes cleanup invalidation", () => {
     expect(invalidateProviderSessionCache).not.toHaveBeenCalled();
   });
 
+  it("forwards analyze-delete session scan limits", async () => {
+    mockAnalyzeDeleteTs.mockResolvedValue({
+      count: 1,
+      reports: [{ id: "thread-1", exists: true }],
+      session_scan_limit: 12,
+    });
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/analyze-delete",
+      payload: {
+        ids: ["thread-1"],
+        session_scan_limit: 12,
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(mockAnalyzeDeleteTs).toHaveBeenCalledWith(["thread-1"], {
+      sessionScanLimit: 12,
+    });
+  });
+
+  it("runs local unarchive through the bulk thread action route", async () => {
+    mockUnarchiveThreadsLocalTs.mockResolvedValue({
+      ok: true,
+      mode: "local-unhide",
+      requested_ids: ["thread-archived"],
+      total_archived: 0,
+    });
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/bulk-thread-action",
+      payload: {
+        action: "unarchive_local",
+        thread_ids: ["thread-archived"],
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(mockUnarchiveThreadsLocalTs).toHaveBeenCalledWith(["thread-archived"]);
+    expect(res.json().data.results[0]).toMatchObject({
+      thread_id: "thread-archived",
+      ok: true,
+      status: 200,
+    });
+  });
+
   it("invalidates overview, provider session cache, and codex title cache after rename", async () => {
     mockRenameThreadTitleTs.mockResolvedValue({
       ok: true,
@@ -133,5 +202,27 @@ describe("registerThreadRoutes cleanup invalidation", () => {
     expect(invalidateProviderSessionCache).toHaveBeenCalledTimes(1);
     expect(invalidateProviderSessionCache).toHaveBeenCalledWith("codex");
     expect(mockInvalidateCodexThreadTitleMapCache).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens the folder for a resolved thread session file", async () => {
+    const sessionPath = path.join(tempDir, "rollout-thread-1.jsonl");
+    await writeFile(sessionPath, "{}\n", "utf-8");
+    mockResolveCodexSessionPathByThreadId.mockResolvedValue(sessionPath);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/thread-open-folder",
+      payload: {
+        thread_id: "thread-1",
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(mockResolveCodexSessionPathByThreadId).toHaveBeenCalledWith("thread-1");
+    expect(mockExecFile).toHaveBeenCalledWith(
+      process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open",
+      [tempDir],
+      expect.any(Function),
+    );
   });
 });

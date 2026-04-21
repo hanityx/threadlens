@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   collectCodexLocalRefs,
+  readCodexSessionMeta,
   readCodexSessionMetaForThreadIdWithResolver,
 } from "./metadata.js";
 
@@ -28,6 +29,30 @@ describe("thread metadata", () => {
     expect(result).toEqual({
       has_session_log: true,
       cwd: "/tmp/demo-workspace",
+    });
+  });
+
+  it("reads cwd when the session_meta line is larger than the file-head byte window", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "po-thread-meta-long-"));
+    const sessionFile = path.join(root, "rollout-thread-long.jsonl");
+    await writeFile(
+      sessionFile,
+      [
+        JSON.stringify({
+          type: "session_meta",
+          payload: {
+            cwd: "/tmp/long-demo-workspace",
+            base_instructions: "x".repeat(20_000),
+          },
+        }),
+        JSON.stringify({ type: "response_item", payload: { type: "message", role: "user", content: "hello" } }),
+      ].join("\n"),
+      "utf-8",
+    );
+
+    await expect(readCodexSessionMeta(sessionFile)).resolves.toEqual({
+      has_session_log: true,
+      cwd: "/tmp/long-demo-workspace",
     });
   });
 
