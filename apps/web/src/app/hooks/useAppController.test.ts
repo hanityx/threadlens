@@ -43,6 +43,14 @@ vi.mock("@/app/model/appShellBehavior", async () => {
   };
 });
 
+vi.mock("@/features/providers/components/ProvidersPanel", () => ({
+  ProvidersPanel: () => null,
+}));
+
+vi.mock("@/features/providers/session/SessionDetail", () => ({
+  SessionDetail: () => null,
+}));
+
 vi.mock("@/shared/lib/appState", async () => {
   const actual = await vi.importActual<typeof import("@/shared/lib/appState")>(
     "@/shared/lib/appState",
