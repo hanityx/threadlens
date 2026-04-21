@@ -332,6 +332,12 @@ button:disabled {
   box-shadow: none;
 }
 
+.btn-danger:disabled {
+  background: var(--btn-base-bg);
+  color: var(--muted);
+  opacity: 0.55;
+}
+
 .btn-outline {
   background: var(--surface-btn-outline);
   color: var(--btn-outline-text);
