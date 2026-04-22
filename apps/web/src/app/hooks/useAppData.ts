@@ -14,8 +14,45 @@ import { useMutations } from "@/app/hooks/useMutations";
 /*  Composes domain hooks and exposes the same public API as before.   */
 /* ------------------------------------------------------------------ */
 
-export function selectSessionByPath(rows: ProviderSessionRow[], selectedSessionPath: string) {
-  return rows.find((row) => row.file_path === selectedSessionPath) ?? null;
+export function buildFallbackSessionRow(
+  selectedSessionPath: string,
+  providerView: string,
+): ProviderSessionRow {
+  const pathParts = selectedSessionPath.split("/").filter(Boolean);
+  const fileName = pathParts[pathParts.length - 1] ?? selectedSessionPath;
+  const lastDotIndex = fileName.lastIndexOf(".");
+  const displayTitle = lastDotIndex > 0 ? fileName.slice(0, lastDotIndex) : fileName;
+  const extension = lastDotIndex > 0 ? fileName.slice(lastDotIndex + 1).toLowerCase() : "";
+  const format = extension === "jsonl" ? "jsonl" : extension === "json" ? "json" : "unknown";
+
+  return {
+    provider: providerView,
+    source: "search_result",
+    session_id: fileName,
+    display_title: displayTitle,
+    file_path: selectedSessionPath,
+    size_bytes: 0,
+    mtime: "",
+    probe: {
+      ok: false,
+      format,
+      error: null,
+      detected_title: displayTitle,
+      title_source: "route",
+    },
+  };
+}
+
+export function selectSessionByPath(
+  rows: ProviderSessionRow[],
+  selectedSessionPath: string,
+  providerView: string,
+) {
+  const selectedSession =
+    rows.find((row) => row.file_path === selectedSessionPath) ?? null;
+  if (selectedSession) return selectedSession;
+  if (!selectedSessionPath || !providerView || providerView === "all") return null;
+  return buildFallbackSessionRow(selectedSessionPath, providerView);
 }
 
 export function selectThreadById<TRow extends { thread_id: string }>(
@@ -98,8 +135,13 @@ export function useAppData(options?: { providersDiagnosticsOpen?: boolean }) {
   });
 
   const selectedSession = useMemo(
-    () => selectSessionByPath(providersData.providerSessionRows, providersData.selectedSessionPath),
-    [providersData.providerSessionRows, providersData.selectedSessionPath],
+    () =>
+      selectSessionByPath(
+        providersData.providerSessionRows,
+        providersData.selectedSessionPath,
+        prefs.providerView,
+      ),
+    [prefs.providerView, providersData.providerSessionRows, providersData.selectedSessionPath],
   );
   const selectedThread = useMemo(
     () => selectThreadById(threadsData.rows, threadsData.selectedThreadId),
@@ -192,7 +234,9 @@ export function useAppData(options?: { providersDiagnosticsOpen?: boolean }) {
 
     /* mutations */
     bulkPin: mutations.bulkPin, bulkUnpin: mutations.bulkUnpin, bulkArchive: mutations.bulkArchive,
+    bulkUnarchive: mutations.bulkUnarchive,
     analyzeDelete: mutations.analyzeDelete, cleanupDryRun: mutations.cleanupDryRun, cleanupExecute: mutations.cleanupExecute,
+    cleanupBackupsExecute: mutations.cleanupBackupsExecute,
     analyzeDeleteError: mutations.analyzeDeleteError, cleanupDryRunError: mutations.cleanupDryRunError, cleanupExecuteError: mutations.cleanupExecuteError,
     analyzeDeleteErrorMessage: mutations.analyzeDeleteErrorMessage, cleanupDryRunErrorMessage: mutations.cleanupDryRunErrorMessage, cleanupExecuteErrorMessage: mutations.cleanupExecuteErrorMessage,
     bulkActionError: mutations.bulkActionError, bulkActionErrorMessage: mutations.bulkActionErrorMessage,
@@ -200,6 +244,14 @@ export function useAppData(options?: { providersDiagnosticsOpen?: boolean }) {
 
     /* derived – threads */
     rows: threadsData.rows, filteredRows: threadsData.filteredRows, visibleRows: threadsData.visibleRows,
+    threadSort: threadsData.threadSort, setThreadSort: threadsData.setThreadSort,
+    hasMoreThreadRows: threadsData.hasMoreThreadRows, loadMoreThreadRows: threadsData.loadMoreThreadRows,
+    showThreadBackupRows: threadsData.showBackupRows,
+    setShowThreadBackupRows: threadsData.setShowBackupRows,
+    hasThreadBackupRows: threadsData.hasBackupRows,
+    showThreadArchivedRows: threadsData.showArchivedRows,
+    setShowThreadArchivedRows: threadsData.setShowArchivedRows,
+    hasThreadArchivedRows: threadsData.hasArchivedRows,
     selectedIds: threadsData.selectedIds, allFilteredSelected: threadsData.allFilteredSelected,
     pinnedCount: threadsData.pinnedCount, highRiskCount: threadsData.highRiskCount,
 
@@ -213,6 +265,7 @@ export function useAppData(options?: { providersDiagnosticsOpen?: boolean }) {
     providers: providersData.providers, providerSummary: providersData.providerSummary,
     providerTabs: providersData.providerTabs, providerSessionRows: providersData.providerSessionRows,
     allProviderSessionRows: providersData.allProviderSessionRows,
+    allProviderSessionProviders: providersData.allProviderSessionProviders,
     slowProviderIds: providersData.slowProviderIds,
     providerSessionSummary: providersData.providerSessionSummary,
     providerSessionsLimit: providersData.providerSessionsLimit,
@@ -226,8 +279,15 @@ export function useAppData(options?: { providersDiagnosticsOpen?: boolean }) {
     canRunSelectedSessionAction: detailData.canRunSelectedSessionAction,
     providerActionData: mutations.providerActionData,
     providerActionSelection: mutations.providerActionSelection,
+    providerSessionActionPending: mutations.providerSessionActionPending,
+    recoveryBackupExportPending: mutations.recoveryBackupExportPending,
+    groupedBackupProgress: mutations.groupedBackupProgress,
     providerDeleteBackupEnabled: mutations.providerDeleteBackupEnabled, setProviderDeleteBackupEnabled: mutations.setProviderDeleteBackupEnabled,
+    backupRoot: mutations.backupRoot, setBackupRoot: mutations.setBackupRoot,
+    exportRoot: mutations.exportRoot, setExportRoot: mutations.setExportRoot,
+    latestExportArchivePath: mutations.latestExportArchivePath,
     recoveryBackupExportData: mutations.recoveryBackupExportData,
+    recoveryData: mutations.recovery.data ?? null,
     allParserReports: providersData.allParserReports,
     parserReports: providersData.parserReports, parserSummary: providersData.parserSummary,
     readOnlyProviders: providersData.readOnlyProviders, cleanupReadyProviders: providersData.cleanupReadyProviders,
@@ -264,6 +324,10 @@ export function useAppData(options?: { providersDiagnosticsOpen?: boolean }) {
     toggleSelectAllFiltered: threadsData.toggleSelectAllFiltered,
     toggleSelectAllProviderRows: providersData.toggleSelectAllProviderRows,
     runProviderAction: mutations.runProviderAction,
+    runProviderConfirmedAction: mutations.runProviderConfirmedAction,
+    runPreparedProviderAction: mutations.runPreparedProviderAction,
+    runGroupedProviderBackup: mutations.runGroupedProviderBackup,
+    runGroupedProviderBackupExport: mutations.runGroupedProviderBackupExport,
     runProviderHardDelete: mutations.runProviderHardDelete,
     runSingleProviderAction: mutations.runSingleProviderAction,
     runSingleProviderHardDelete: mutations.runSingleProviderHardDelete,

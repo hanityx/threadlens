@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
-import { PanelHeader } from "@/shared/ui/components/PanelHeader";
 import { useAppContext } from "@/app/AppContext";
+import { SurfaceSlotSkeleton } from "@/app/components/SurfaceSlotSkeleton";
 
 const ThreadDetail = lazy(async () => {
   const mod = await import("@/features/threads/components/ThreadDetail");
@@ -54,13 +54,16 @@ export function DetailShell() {
     setSessionTranscriptLimit,
     canRunSelectedSessionAction,
     providerDeleteBackupEnabled,
-    setProviderDeleteBackupEnabled,
     runSingleProviderAction,
     runSingleProviderHardDelete,
     rows,
   } = useAppContext();
 
   if (!showDetails || showForensics) return null;
+  const shouldHideEmptySessionDetail =
+    showSessionDetail &&
+    !selectedSession &&
+    (visibleProviderSessionSummary?.rows ?? 0) === 0;
 
   return (
     <section
@@ -69,14 +72,7 @@ export function DetailShell() {
     >
       {showThreadDetail && !showForensics ? (
         <Suspense
-          fallback={
-            <section className="panel">
-              <PanelHeader title={messages.threadDetail.title} subtitle={messages.common.loading} />
-              <div className="sub-toolbar">
-                <div className="skeleton-line" />
-              </div>
-            </section>
-          }
+          fallback={<SurfaceSlotSkeleton />}
         >
           <ThreadDetail
             messages={messages}
@@ -109,16 +105,9 @@ export function DetailShell() {
         </Suspense>
       ) : null}
 
-      {showSessionDetail && !showProviders ? (
+      {showSessionDetail && !showProviders && !shouldHideEmptySessionDetail ? (
         <Suspense
-          fallback={
-            <section className="panel">
-              <PanelHeader title={messages.sessionDetail.title} subtitle={messages.common.loading} />
-              <div className="sub-toolbar">
-                <div className="skeleton-line" />
-              </div>
-            </section>
-          }
+          fallback={<SurfaceSlotSkeleton />}
         >
           <SessionDetail
             messages={messages}
@@ -137,7 +126,6 @@ export function DetailShell() {
             busy={busy}
             canRunSessionAction={canRunSelectedSessionAction}
             providerDeleteBackupEnabled={providerDeleteBackupEnabled}
-            setProviderDeleteBackupEnabled={setProviderDeleteBackupEnabled}
             runSingleProviderAction={runSingleProviderAction}
             runSingleProviderHardDelete={runSingleProviderHardDelete}
           />

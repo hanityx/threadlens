@@ -54,6 +54,7 @@ type AppShellDerivedState = Pick<
   | "hasGlobalErrorStack"
   | "parserScoreText"
   | "runtimeLatencyText"
+  | "runtimeStatusText"
   | "backupSetsCount"
 >;
 

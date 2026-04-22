@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ProviderSessionRow, ThreadRow } from "@/shared/types";
 import {
+  buildFallbackSessionRow,
   buildRefreshAllDataJobs,
   buildProviderById,
   computeLayoutFlags,
@@ -42,12 +43,22 @@ function buildThread(threadId: string): ThreadRow {
 
 describe("useAppData helpers", () => {
   it("selects session and thread records from current ids", () => {
-    expect(selectSessionByPath([buildSession("/tmp/a.jsonl")], "/tmp/a.jsonl")?.session_id).toContain(
-      "/tmp/a.jsonl",
-    );
-    expect(selectSessionByPath([buildSession("/tmp/a.jsonl")], "/tmp/missing.jsonl")).toBeNull();
+    expect(
+      selectSessionByPath([buildSession("/tmp/a.jsonl")], "/tmp/a.jsonl", "codex")?.session_id,
+    ).toContain("/tmp/a.jsonl");
+    expect(selectSessionByPath([buildSession("/tmp/a.jsonl")], "/tmp/missing.jsonl", "all")).toBeNull();
     expect(selectThreadById([buildThread("thread-1")], "thread-1")?.thread_id).toBe("thread-1");
     expect(selectThreadById([buildThread("thread-1")], "thread-2")).toBeNull();
+  });
+
+  it("builds a fallback selected session for routed provider detail paths", () => {
+    const fallback = selectSessionByPath([], "/Users/example/.gemini/tmp/chat/session-123.json", "gemini");
+
+    expect(fallback).toEqual(
+      buildFallbackSessionRow("/Users/example/.gemini/tmp/chat/session-123.json", "gemini"),
+    );
+    expect(fallback?.probe.ok).toBe(false);
+    expect(fallback?.probe.format).toBe("json");
   });
 
   it("builds provider capability maps and layout flags from current view", () => {
