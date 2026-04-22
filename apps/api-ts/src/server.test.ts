@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { FastifyInstance } from "fastify";
 import { RECOVERY_EXPORT_ROOT, UPDATE_CHECK_CACHE_FILE } from "./lib/constants";
 import { resetUpdateCheckCacheForTests } from "./lib/update-check";
+import { issueRecoveryBackupDownloadTokenForTests } from "./app/routes/platform";
 import { createServer } from "./server";
 
 vi.mock("./domains/threads/state.js", async (importOriginal) => {
@@ -231,11 +232,12 @@ describe("api-ts direct endpoints", () => {
     const archivePath = path.join(exportRoot, `vitest-export-${Date.now()}.zip`);
     await mkdir(exportRoot, { recursive: true });
     await writeFile(archivePath, "fake-zip", "utf-8");
+    const token = issueRecoveryBackupDownloadTokenForTests(archivePath);
 
     try {
       const downloadRes = await app.inject({
         method: "GET",
-        url: `/api/recovery-backup-export/download?archive_path=${encodeURIComponent(archivePath)}`,
+        url: `/api/recovery-backup-export/download?token=${encodeURIComponent(token)}`,
       });
 
       expect(downloadRes.statusCode).toBe(200);
@@ -248,9 +250,10 @@ describe("api-ts direct endpoints", () => {
   }, 15000);
 
   it("GET /api/recovery-backup-export/download rejects paths outside the export root", async () => {
+    const token = issueRecoveryBackupDownloadTokenForTests("/tmp/not-allowed.zip");
     const res = await app.inject({
       method: "GET",
-      url: `/api/recovery-backup-export/download?archive_path=${encodeURIComponent("/tmp/not-allowed.zip")}`,
+      url: `/api/recovery-backup-export/download?token=${encodeURIComponent(token)}`,
     });
     expect(res.statusCode).toBe(400);
     const payload = res.json();
@@ -341,6 +344,9 @@ describe("api-ts direct endpoints", () => {
     expect(root.summary).toBeTruthy();
     expect(Array.isArray(root.rows)).toBe(true);
     expect(Array.isArray(root.providers)).toBe(true);
+    if (root.providers.length > 0) {
+      expect(typeof root.providers[0].total_bytes).toBe("number");
+    }
   });
 
   it("GET /api/provider-sessions accepts refresh=1 for forced rescan", async () => {

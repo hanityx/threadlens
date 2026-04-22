@@ -65,6 +65,7 @@ describe("update check", () => {
       currentVersion: "0.1.0",
       now: () => 1234,
       cacheFilePath,
+      timeoutMs: 0,
     });
 
     expect(result.status).toBe("unavailable");
@@ -73,6 +74,49 @@ describe("update check", () => {
     expect(result.release_title).toBeNull();
     expect(result.release_summary).toBeNull();
     expect(result.release_url).toContain("/releases/latest");
+  });
+
+  it("retries a failed GitHub check after the shorter failure ttl", async () => {
+    const cacheFilePath = await createCacheFilePath();
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            tag_name: "v0.1.1",
+            name: "ThreadLens v0.1.1",
+            body: "Recovered release notes.",
+            html_url: "https://github.com/hanityx/threadlens/releases/tag/v0.1.1",
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        ),
+      );
+
+    const first = await checkForUpdates({
+      currentVersion: "0.1.0",
+      now: () => 1_000,
+      fetchImpl: fetchMock,
+      cacheFilePath,
+      failureTtlMs: 100,
+      timeoutMs: 0,
+    });
+    const second = await checkForUpdates({
+      currentVersion: "0.1.0",
+      now: () => 1_200,
+      fetchImpl: fetchMock,
+      cacheFilePath,
+      failureTtlMs: 100,
+      timeoutMs: 0,
+    });
+
+    expect(first.status).toBe("unavailable");
+    expect(second.status).toBe("available");
+    expect(second.latest_version).toBe("0.1.1");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("reuses the persisted cache within the ttl without refetching GitHub", async () => {

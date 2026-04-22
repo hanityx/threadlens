@@ -11,6 +11,7 @@
 import Fastify, {
   FastifyInstance,
 } from "fastify";
+import { performance } from "node:perf_hooks";
 import cors from "@fastify/cors";
 import { AgentRuntimeState } from "@threadlens/shared-contracts";
 
@@ -29,7 +30,9 @@ import type { ProviderId } from "../domains/providers/types.js";
 import { parseProviderId } from "../domains/providers/path-safety.js";
 import { getDataSourceInventoryTs } from "../domains/recovery/inventory.js";
 import { invalidateOverviewTsCache } from "../domains/threads/overview.js";
-import { invalidateProviderSearchCaches } from "../domains/providers/search.js";
+import {
+  invalidateProviderSearchCaches,
+} from "../domains/providers/search.js";
 import {
   registerPlatformRoutes,
   type ProxyRequest,
@@ -84,15 +87,17 @@ async function getAgentRuntimeState(): Promise<AgentRuntimeState> {
   if (runtimeStateInflight) return runtimeStateInflight;
 
   runtimeStateInflight = (async () => {
+    const startedAt = performance.now();
     const now = new Date().toISOString();
     const sessions = getTmuxSessions();
+    const latencyMs = Math.max(1, Math.round(performance.now() - startedAt));
 
     return {
       ts: now,
       runtime_backend: {
         url: "ts-native",
         reachable: true,
-        latency_ms: 0,
+        latency_ms: latencyMs,
       },
       process: {
         pid: process.pid,
