@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { getMessages } from "@/i18n";
+import { getMessages } from "@/i18n/catalog";
 import { TranscriptLog } from "@/shared/ui/components/TranscriptLog";
 
 const messages = getMessages("en");
@@ -74,5 +74,33 @@ describe("TranscriptLog", () => {
     expect(html).toContain("Open transcript focus view");
     expect(html).toContain("transcript-focus-modal");
     expect(html).toContain("Close transcript focus view");
+  });
+
+  it("hides source expansion buttons once the transcript reached the max source window", () => {
+    const html = renderToStaticMarkup(
+      <TranscriptLog
+        messages={messages}
+        transcript={[
+          {
+            idx: 1,
+            role: "user",
+            text: "hello",
+            ts: "2026-03-28T00:00:00.000Z",
+            source_type: "jsonl",
+          },
+        ]}
+        loading={false}
+        truncated={true}
+        messageCount={7}
+        limit={10_000}
+        maxLimit={10_000}
+        onLoadMore={vi.fn()}
+        onLoadFullSource={vi.fn()}
+      />,
+    );
+
+    expect(html).not.toContain("Load max source window");
+    expect(html).not.toContain("Load more from source");
+    expect(html).toContain("Show more loaded");
   });
 });

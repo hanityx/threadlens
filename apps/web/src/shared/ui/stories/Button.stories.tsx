@@ -98,7 +98,7 @@ function ThreadsActionSurface() {
 function TopControlsSurface() {
   return (
     <div className="top-controls">
-      <Button variant="outline">Sync now</Button>
+      <Button variant="outline">Sync</Button>
     </div>
   );
 }

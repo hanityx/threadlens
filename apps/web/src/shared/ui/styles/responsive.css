@@ -90,6 +90,8 @@
   .top-actions {
     grid-template-columns: 1fr;
     display: grid;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .overview-header-actions,
@@ -101,6 +103,7 @@
 
   .top-actions-tools {
     width: 100%;
+    min-width: 0;
     justify-content: space-between;
   }
 
@@ -111,7 +114,9 @@
   }
 
   .top-search-shell {
-    flex: 1 1 280px;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .top-surface-nav {
@@ -170,11 +175,25 @@
   .top-actions-main,
   .top-actions-tools {
     width: 100%;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .top-search-shell {
     min-width: 0;
     width: 100%;
+  }
+
+  .top-actions-tools {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: stretch;
+  }
+
+  .top-controls {
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
   }
 
   .overview-stage-header,
