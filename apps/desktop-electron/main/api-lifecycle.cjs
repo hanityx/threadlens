@@ -35,7 +35,18 @@ function logDesktopApi(stream, chunk, logger = console) {
     .map((line) => line.trim())
     .filter(Boolean);
   for (const line of lines) {
-    logger[stream](`[desktop-api] ${line}`);
+    // Guard against EPIPE (and any other write failure) when the main process's
+    // stdout/stderr pipe has been closed — e.g. when launched from Finder on
+    // macOS. Throwing from a log forwarder would take down the whole app.
+    try {
+      logger[stream](`[desktop-api] ${line}`);
+    } catch (err) {
+      if (err && err.code === "EPIPE") continue;
+      // Unknown logging failure: last-ditch attempt on stderr, then give up.
+      try {
+        if (stream !== "error") logger.error(`[desktop-api] log-failed: ${err && err.message}`);
+      } catch (_) { /* swallow */ }
+    }
   }
 }
 

@@ -1,6 +1,27 @@
 const path = require("node:path");
 const fs = require("node:fs");
 const { app, BrowserWindow, Menu, ipcMain, nativeImage, shell } = require("electron");
+
+// Swallow EPIPE on the main process's stdout/stderr. When ThreadLens is
+// launched from Finder on macOS, the inherited stdout/stderr pipes can close
+// asynchronously; without this, the next console.* call throws an uncaught
+// EPIPE and the app dies before the window is shown.
+for (const stream of [process.stdout, process.stderr]) {
+  if (stream && typeof stream.on === "function") {
+    stream.on("error", (err) => {
+      if (err && err.code === "EPIPE") return;
+    });
+  }
+}
+process.on("uncaughtException", (err) => {
+  if (err && err.code === "EPIPE") return;
+  try {
+    // eslint-disable-next-line no-console
+    console.error("[desktop] uncaughtException", err);
+  } catch (_) {
+    // already broken — nothing useful to do
+  }
+});
 const {
   buildMenuTemplate,
   getDefaultIconCandidates,
