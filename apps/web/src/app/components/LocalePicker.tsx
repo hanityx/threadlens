@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Locale } from "@/i18n";
 import { LOCALE_LABELS, LOCALE_SHORT_LABELS } from "@/i18n/locales";
 
@@ -18,6 +19,7 @@ export function LocalePicker({
   id,
   className,
 }: LocalePickerProps) {
+  const [open, setOpen] = useState(false);
   const pickerClassName = [
     "locale-picker",
     compact ? "is-compact" : "",
@@ -27,7 +29,11 @@ export function LocalePicker({
     .join(" ");
 
   return (
-    <details className={pickerClassName}>
+    <details
+      className={pickerClassName}
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
       <summary
         id={id}
         className="locale-picker-trigger"
@@ -40,29 +46,31 @@ export function LocalePicker({
           ▾
         </span>
       </summary>
-      <div className="locale-picker-menu" role="listbox" aria-label={label}>
-        {Object.entries(LOCALE_LABELS).map(([value, localeLabel]) => {
-          const isActive = value === locale;
-          return (
-            <button
-              key={value}
-              type="button"
-              role="option"
-              className={`locale-picker-option ${isActive ? "is-active" : ""}`}
-              aria-selected={isActive}
-              onClick={(event) => {
-                setLocale(value as Locale);
-                event.currentTarget.closest("details")?.removeAttribute("open");
-              }}
-            >
-              <span className="locale-picker-option-code">
-                {LOCALE_SHORT_LABELS[value as Locale]}
-              </span>
-              <span className="locale-picker-option-label">{localeLabel}</span>
-            </button>
-          );
-        })}
-      </div>
+      {open ? (
+        <div className="locale-picker-menu" role="listbox" aria-label={label}>
+          {Object.entries(LOCALE_LABELS).map(([value, localeLabel]) => {
+            const isActive = value === locale;
+            return (
+              <button
+                key={value}
+                type="button"
+                role="option"
+                className={`locale-picker-option ${isActive ? "is-active" : ""}`}
+                aria-selected={isActive}
+                onClick={() => {
+                  setLocale(value as Locale);
+                  setOpen(false);
+                }}
+              >
+                <span className="locale-picker-option-code">
+                  {LOCALE_SHORT_LABELS[value as Locale]}
+                </span>
+                <span className="locale-picker-option-label">{localeLabel}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </details>
   );
 }

@@ -1,7 +1,10 @@
-import { memo } from "react";
+import { memo, useEffect } from "react";
 import type { Messages } from "@/i18n";
 
 type ErrorStateLike = { isError?: boolean };
+
+const THREADLENS_ISSUE_URL = "https://github.com/hanityx/threadlens/issues/new/choose";
+let hasLoggedIssueHint = false;
 
 export type RuntimeFeedbackStackProps = {
   messages: Messages;
@@ -46,6 +49,11 @@ export const RuntimeFeedbackStack = memo(function RuntimeFeedbackStack(
     busy,
   }: RuntimeFeedbackStackProps,
 ) {
+  useEffect(() => {
+    if (!hasGlobalErrorStack || hasLoggedIssueHint) return;
+    hasLoggedIssueHint = true;
+    console.info(`ThreadLens: runtime issue visible. Open an issue if this looks wrong: ${THREADLENS_ISSUE_URL}`);
+  }, [hasGlobalErrorStack]);
 
   return (
     <>
@@ -54,6 +62,12 @@ export const RuntimeFeedbackStack = memo(function RuntimeFeedbackStack(
           <div className="error-stack-head">
             <span className="overview-note-label">{messages.alerts.runtimeIssuesTitle}</span>
             <strong>{messages.alerts.runtimeIssuesBody}</strong>
+            <div className="error-stack-actions">
+              <a href={THREADLENS_ISSUE_URL} target="_blank" rel="noreferrer">
+                {messages.alerts.reportIssue}
+              </a>
+              <span>{messages.alerts.reportIssuePrivacy}</span>
+            </div>
           </div>
           <div className="error-stack-list">
             {runtime.isError ? <div className="error-box">{messages.errors.runtime}</div> : null}
