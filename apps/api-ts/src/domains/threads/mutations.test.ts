@@ -7,6 +7,7 @@ import {
   getThreadResumeCommandsTs,
   renameThreadTitleTs,
   setThreadPinnedTs,
+  unarchiveThreadsLocalTs,
 } from "./state.js";
 
 describe("thread mutations", () => {
@@ -89,6 +90,22 @@ describe("thread mutations", () => {
     expect(saved["thread-titles"].order).toEqual(["thread-2"]);
     expect(saved["pinned-thread-ids"]).toEqual([]);
     expect(saved["archived-thread-ids"]).toEqual(["thread-1"]);
+  });
+
+  it("unarchiveThreadsLocalTs removes ids from the local archive list", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "po-thread-unarchive-"));
+    const stateFilePath = path.join(root, ".codex", ".codex-global-state.json");
+    await mkdir(path.dirname(stateFilePath), { recursive: true });
+    await writeFile(
+      stateFilePath,
+      JSON.stringify({ "archived-thread-ids": ["thread-1", "thread-2"] }, null, 2),
+      "utf-8",
+    );
+
+    const result = await unarchiveThreadsLocalTs(["thread-1"], { stateFilePath });
+    expect(result.ok).toBe(true);
+    const saved = JSON.parse(await readFile(stateFilePath, "utf-8"));
+    expect(saved["archived-thread-ids"]).toEqual(["thread-2"]);
   });
 
   it("getThreadResumeCommandsTs returns codex resume commands", async () => {
