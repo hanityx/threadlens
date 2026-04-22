@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { QueryClient } from "@tanstack/react-query";
 import {
   assertRuntimeBackendReachable,
+  buildRecoveryCenterPath,
   formatMutationHookError,
   performProviderHardDeleteFlow,
   resolveBulkActionErrorState,
@@ -12,6 +14,7 @@ import {
   shouldReturnProviderActionPreview,
   updateProviderActionTokenState,
 } from "@/app/hooks/useMutations";
+import { removeBackupCleanupTargetsFromThreadsCache } from "@/app/hooks/useThreadMutationActions";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -122,7 +125,10 @@ describe("performProviderHardDeleteFlow", () => {
 describe("startRecoveryBackupDownload", () => {
   it("no-ops when document is unavailable", async () => {
     await expect(
-      startRecoveryBackupDownload("/tmp/threadlens/backups/export-20260330.zip"),
+      startRecoveryBackupDownload({
+        archivePath: "/tmp/threadlens/backups/export-20260330.zip",
+        downloadToken: "dl-token-123",
+      }),
     ).resolves.toBeUndefined();
   });
 
@@ -130,12 +136,27 @@ describe("startRecoveryBackupDownload", () => {
     const createElement = vi.fn();
     vi.stubGlobal("document", { createElement });
 
-    await startRecoveryBackupDownload("   ");
+    await startRecoveryBackupDownload({
+      archivePath: "   ",
+      downloadToken: "dl-token-123",
+    });
 
     expect(createElement).not.toHaveBeenCalled();
   });
 
-  it("creates and clicks a download link for exported archives", async () => {
+  it("no-ops when the download token is blank", async () => {
+    const createElement = vi.fn();
+    vi.stubGlobal("document", { createElement });
+
+    await startRecoveryBackupDownload({
+      archivePath: "/tmp/threadlens/backups/export-20260330.zip",
+      downloadToken: "   ",
+    });
+
+    expect(createElement).not.toHaveBeenCalled();
+  });
+
+  it("creates and clicks a tokenized download link for exported archives", async () => {
     const click = vi.fn();
     const anchor = { href: "", download: "", click } as unknown as HTMLAnchorElement;
     const createElement = vi.fn().mockReturnValue(anchor);
@@ -144,12 +165,13 @@ describe("startRecoveryBackupDownload", () => {
       createElement,
     });
 
-    await startRecoveryBackupDownload("/tmp/threadlens/backups/export-20260330.zip");
+    await startRecoveryBackupDownload({
+      archivePath: "/tmp/threadlens/backups/export-20260330.zip",
+      downloadToken: "dl-token-123",
+    });
 
     expect(createElement).toHaveBeenCalledWith("a");
-    expect(anchor.href).toBe(
-      "/api/recovery-backup-export/download?archive_path=%2Ftmp%2Fthreadlens%2Fbackups%2Fexport-20260330.zip",
-    );
+    expect(anchor.href).toBe("/api/recovery-backup-export/download?token=dl-token-123");
     expect(anchor.download).toBe("export-20260330.zip");
     expect(click).toHaveBeenCalledTimes(1);
   });
@@ -168,17 +190,49 @@ describe("startRecoveryBackupDownload", () => {
       },
     });
 
-    await startRecoveryBackupDownload("/tmp/threadlens/backups/export-20260330.zip");
+    await startRecoveryBackupDownload({
+      archivePath: "/tmp/threadlens/backups/export-20260330.zip",
+      downloadToken: "dl-token-123",
+    });
 
-    expect(anchor.href).toBe(
-      "http://127.0.0.1:8788/api/recovery-backup-export/download?archive_path=%2Ftmp%2Fthreadlens%2Fbackups%2Fexport-20260330.zip",
-    );
+    expect(anchor.href).toBe("http://127.0.0.1:8788/api/recovery-backup-export/download?token=dl-token-123");
     expect(anchor.download).toBe("export-20260330.zip");
     expect(click).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("useMutations helpers", () => {
+  it("removes deleted backup cleanup rows from cached thread queries", () => {
+    const queryClient = new QueryClient();
+    const cacheKey = ["threads", "backup", 2000, "updated_desc"];
+    const keepSession = { thread_id: "live", source: "sessions", local_cache_paths: ["/tmp/live.jsonl"] };
+    const deleteBackup = {
+      thread_id: "backup-delete",
+      source: "cleanup_backups",
+      local_cache_paths: ["/tmp/backups/delete.jsonl"],
+    };
+    const keepBackup = {
+      thread_id: "backup-keep",
+      source: "cleanup_backups",
+      local_cache_paths: ["/tmp/backups/keep.jsonl"],
+    };
+    queryClient.setQueryData(cacheKey, {
+      rows: [keepSession, deleteBackup, keepBackup],
+      total: 3,
+    });
+
+    removeBackupCleanupTargetsFromThreadsCache(queryClient, {
+      ok: true,
+      mode: "execute",
+      targets: [{ thread_id: "backup-delete", path: "/tmp/backups/delete.jsonl" }],
+    });
+
+    expect(queryClient.getQueryData(cacheKey)).toEqual({
+      rows: [keepSession, keepBackup],
+      total: 2,
+    });
+  });
+
   it("derives query gate settings from the current layout", () => {
     expect(resolveSmokeStatusQueryState("overview")).toEqual({
       enabled: true,
@@ -193,9 +247,17 @@ describe("useMutations helpers", () => {
       refetchInterval: 15000,
     });
     expect(resolveRecoveryQueryState("providers")).toEqual({
+      enabled: true,
+      refetchInterval: 15000,
+    });
+    expect(resolveRecoveryQueryState("threads")).toEqual({
       enabled: false,
       refetchInterval: false,
     });
+    expect(buildRecoveryCenterPath("")).toBe("/api/recovery-center");
+    expect(buildRecoveryCenterPath(" /tmp/threadlens-backups ")).toBe(
+      "/api/recovery-center?backup_root=%2Ftmp%2Fthreadlens-backups",
+    );
   });
 
   it("throws only when the cached runtime backend is known down", () => {
