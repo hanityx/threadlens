@@ -10,11 +10,19 @@ import {
   persistDismissedUpdateVersion,
   postWithTransientRetry,
   providerActionSelectionKey,
-  pruneProviderSelectionForView,
-  readDismissedUpdateVersion,
-  readStorageValue,
-  THREAD_CLEANUP_DEFAULT_OPTIONS,
-  UPDATE_BANNER_DISMISS_STORAGE_KEY,
+    pruneProviderSelectionForView,
+    readCommittedSetupState,
+    readPersistedSetupState,
+    readDismissedUpdateVersion,
+    readStorageValue,
+    PROVIDER_VIEW_STORAGE_KEY,
+    SEARCH_PROVIDER_STORAGE_KEY,
+    SETUP_COMMITTED_STORAGE_KEY,
+    SETUP_PREFERRED_PROVIDER_STORAGE_KEY,
+    SETUP_SELECTION_STORAGE_KEY,
+    THREAD_CLEANUP_DEFAULT_OPTIONS,
+    UPDATE_BANNER_DISMISS_STORAGE_KEY,
+    writeCommittedSetupState,
   writeStorageValue,
 } from "@/shared/lib/appState";
 
@@ -83,11 +91,11 @@ describe("providerActionSelectionKey", () => {
       "codex",
       "delete_local",
       ["/tmp/a.jsonl", "/tmp/b.jsonl"],
-      { backup_before_delete: true },
+      { backup_before_delete: true, backup_root: "/tmp/backups" },
     );
 
-    expect(direct).toBe("codex|delete_local|direct|/tmp/a.jsonl||/tmp/b.jsonl");
-    expect(backupFirst).toBe("codex|delete_local|backup-first|/tmp/a.jsonl||/tmp/b.jsonl");
+    expect(direct).toBe("codex|delete_local|direct|-|/tmp/a.jsonl||/tmp/b.jsonl");
+    expect(backupFirst).toBe("codex|delete_local|backup-first|/tmp/backups|/tmp/a.jsonl||/tmp/b.jsonl");
   });
 });
 
@@ -168,6 +176,97 @@ describe("storage helpers", () => {
     vi.stubGlobal("window", { localStorage });
 
     expect(readStorageValue(["alpha", "beta", "gamma"])).toBe("found");
+  });
+
+  it("round-trips committed setup state from the canonical payload key", () => {
+    const localStorage = createLocalStorageMock();
+    vi.stubGlobal("window", { localStorage });
+
+    writeCommittedSetupState({
+      selectedProviderIds: ["claude", "codex"],
+      preferredProviderId: "claude",
+      providerView: "claude",
+      searchProvider: "claude",
+    });
+
+    expect(localStorage.getItem(SETUP_COMMITTED_STORAGE_KEY)).toContain("\"preferredProviderId\":\"claude\"");
+    expect(readCommittedSetupState()).toEqual({
+      selectedProviderIds: ["claude", "codex"],
+      preferredProviderId: "claude",
+      providerView: "claude",
+      searchProvider: "claude",
+    });
+  });
+
+  it("reorders committed selection so the preferred provider is first", () => {
+    const localStorage = createLocalStorageMock();
+    vi.stubGlobal("window", { localStorage });
+
+    localStorage.setItem(SETUP_COMMITTED_STORAGE_KEY, JSON.stringify({
+      selectedProviderIds: ["codex", "claude"],
+      preferredProviderId: "claude",
+      providerView: "claude",
+      searchProvider: "claude",
+    }));
+
+    expect(readCommittedSetupState()).toEqual({
+      selectedProviderIds: ["claude", "codex"],
+      preferredProviderId: "claude",
+      providerView: "claude",
+      searchProvider: "claude",
+    });
+  });
+
+  it("prefers the canonical committed setup payload over stale dedicated keys", () => {
+    const localStorage = createLocalStorageMock();
+    vi.stubGlobal("window", { localStorage });
+
+    localStorage.setItem(SETUP_COMMITTED_STORAGE_KEY, JSON.stringify({
+      selectedProviderIds: ["claude"],
+      preferredProviderId: "claude",
+      providerView: "claude",
+      searchProvider: "claude",
+    }));
+    localStorage.setItem(SETUP_PREFERRED_PROVIDER_STORAGE_KEY, "codex");
+    localStorage.setItem(PROVIDER_VIEW_STORAGE_KEY, "codex");
+    localStorage.setItem(SEARCH_PROVIDER_STORAGE_KEY, "codex");
+    localStorage.setItem(SETUP_SELECTION_STORAGE_KEY, JSON.stringify(["codex"]));
+
+    expect(readPersistedSetupState()).toEqual({
+      selectedProviderIds: ["claude"],
+      preferredProviderId: "claude",
+      providerView: "claude",
+      searchProvider: "claude",
+    });
+  });
+
+  it("ignores stale legacy setup selection when no saved preferred provider exists", () => {
+    const localStorage = createLocalStorageMock();
+    vi.stubGlobal("window", { localStorage });
+
+    localStorage.setItem(SETUP_SELECTION_STORAGE_KEY, JSON.stringify(["claude"]));
+
+    expect(readPersistedSetupState()).toEqual({
+      selectedProviderIds: [],
+      preferredProviderId: "all",
+      providerView: "all",
+      searchProvider: "all",
+    });
+  });
+
+  it("drops stale provider and search keys when no preferred setup provider exists", () => {
+    const localStorage = createLocalStorageMock();
+    vi.stubGlobal("window", { localStorage });
+
+    localStorage.setItem(PROVIDER_VIEW_STORAGE_KEY, "codex");
+    localStorage.setItem(SEARCH_PROVIDER_STORAGE_KEY, "codex");
+
+    expect(readPersistedSetupState()).toEqual({
+      selectedProviderIds: [],
+      preferredProviderId: "all",
+      providerView: "all",
+      searchProvider: "all",
+    });
   });
 });
 
@@ -278,5 +377,11 @@ describe("formatMutationErrorMessage", () => {
       "custom failure",
     );
     expect(formatMutationErrorMessage("   ")).toBe("");
+  });
+
+  it("maps backup-root guard errors to a friendly message", () => {
+    expect(formatMutationErrorMessage("backup_root_outside_home")).toContain(
+      "backup folder must stay inside your home directory",
+    );
   });
 });

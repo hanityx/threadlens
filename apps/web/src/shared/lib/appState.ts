@@ -8,7 +8,7 @@ export const THREADS_BOOTSTRAP_CACHE_KEY = "po-threads-cache-v1";
 export const LEGACY_THREADS_BOOTSTRAP_CACHE_KEY = "cmc-threads-cache-v1";
 export const THREADS_FAST_BOOT_LIMIT = 80;
 export const SLOW_PROVIDER_SCAN_MS_DEFAULT = 1200;
-export const SLOW_PROVIDER_SCAN_MS_MIN = 400;
+export const SLOW_PROVIDER_SCAN_MS_MIN = 800;
 export const SLOW_PROVIDER_SCAN_MS_MAX = 6000;
 export const SLOW_PROVIDER_SCAN_MS_STORAGE_KEY = "po-slow-provider-threshold-ms";
 export const LEGACY_SLOW_PROVIDER_SCAN_MS_STORAGE_KEY = "cmc-slow-provider-threshold-ms";
@@ -24,10 +24,18 @@ export const PROVIDER_VIEW_STORAGE_KEY = "po-provider-view";
 export const LEGACY_PROVIDER_VIEW_STORAGE_KEY = "cmc-provider-view";
 export const SETUP_PREFERRED_PROVIDER_STORAGE_KEY = "po-setup-preferred-provider";
 export const SETUP_SELECTION_STORAGE_KEY = "po-setup-wizard-selection";
+export const SETUP_COMMITTED_STORAGE_KEY = "po-setup-committed";
 export const PROVIDER_DEPTH_STORAGE_KEY = "po-provider-depth";
 export const LEGACY_PROVIDER_DEPTH_STORAGE_KEY = "cmc-provider-depth";
 export const SEARCH_DRAFT_STORAGE_KEY = "po-search-draft";
 export const SEARCH_PROVIDER_STORAGE_KEY = "po-search-provider";
+export const BACKUP_ROOT_STORAGE_KEY = "po-backup-root";
+export const LEGACY_BACKUP_ROOT_STORAGE_KEY = "cmc-backup-root";
+export const EXPORT_ROOT_STORAGE_KEY = "po-export-root";
+export const LEGACY_EXPORT_ROOT_STORAGE_KEY = "cmc-export-root";
+export const PROVIDER_DELETE_BACKUP_ENABLED_STORAGE_KEY = "po-provider-delete-backup-enabled";
+export const LAST_EXPORT_ARCHIVE_PATH_STORAGE_KEY = "po-last-export-archive-path";
+export const LEGACY_LAST_EXPORT_ARCHIVE_PATH_STORAGE_KEY = "cmc-last-export-archive-path";
 export const UPDATE_BANNER_DISMISS_STORAGE_KEY = "po-update-banner-dismissed-version";
 export const LEGACY_UPDATE_BANNER_DISMISS_STORAGE_KEY = "cmc-update-banner-dismissed-version";
 export const FORENSICS_RETRY_DELAY_MS = 450;
@@ -45,21 +53,55 @@ export type ProviderFetchMetrics = {
   parser: number | null;
 };
 
+export type SetupCommittedState = {
+  selectedProviderIds: string[];
+  preferredProviderId: string;
+  providerView: string;
+  searchProvider: string;
+};
+
+function normalizeSetupSelectionIds(items: unknown): string[] {
+  return Array.isArray(items)
+    ? Array.from(
+        new Set(
+          items
+            .map((item) => String(item || "").trim())
+            .filter(Boolean),
+        ),
+      )
+    : [];
+}
+
+function alignSetupSelectionWithPreferred(
+  selectedProviderIds: string[],
+  preferredProviderId: string,
+): string[] {
+  if (!preferredProviderId || preferredProviderId === "all") return selectedProviderIds;
+  if (!selectedProviderIds.includes(preferredProviderId)) {
+    return [preferredProviderId, ...selectedProviderIds];
+  }
+  return [
+    preferredProviderId,
+    ...selectedProviderIds.filter((providerId) => providerId !== preferredProviderId),
+  ];
+}
+
 /* ------------------------------------------------------------------ */
 /*  Pure helpers                                                       */
 /* ------------------------------------------------------------------ */
 
 export function providerActionSelectionKey(
   provider: string,
-  action: "backup_local" | "archive_local" | "delete_local",
+  action: "backup_local" | "archive_local" | "unarchive_local" | "delete_local",
   filePaths: string[],
-  options?: { backup_before_delete?: boolean },
+  options?: { backup_before_delete?: boolean; backup_root?: string },
 ): string {
   const normalized = Array.from(
     new Set(filePaths.map((item) => String(item || "").trim()).filter(Boolean)),
   ).sort();
   const backupBeforeDelete = options?.backup_before_delete ? "backup-first" : "direct";
-  return `${provider}|${action}|${backupBeforeDelete}|${normalized.join("||")}`;
+  const backupRoot = String(options?.backup_root || "").trim() || "-";
+  return `${provider}|${action}|${backupBeforeDelete}|${backupRoot}|${normalized.join("||")}`;
 }
 
 export function pruneProviderSelectionForView(
@@ -137,6 +179,93 @@ export function writeStorageValue(key: string, value: string): void {
   } catch {
     // ignore storage persistence failures
   }
+}
+
+export function readCommittedSetupState(): SetupCommittedState | null {
+  const raw = readStorageValue([SETUP_COMMITTED_STORAGE_KEY]);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<SetupCommittedState> | null;
+    if (!parsed || typeof parsed !== "object") return null;
+    const preferredProviderId = String(parsed.preferredProviderId || "").trim() || "all";
+    const selectedProviderIds = alignSetupSelectionWithPreferred(
+      normalizeSetupSelectionIds(parsed.selectedProviderIds),
+      preferredProviderId,
+    );
+    return {
+      selectedProviderIds,
+      preferredProviderId,
+      providerView: String(parsed.providerView || "").trim() || "all",
+      searchProvider: String(parsed.searchProvider || "").trim() || "all",
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function writeCommittedSetupState(state: SetupCommittedState): void {
+  const preferredProviderId = String(state.preferredProviderId || "").trim() || "all";
+  const payload: SetupCommittedState = {
+    selectedProviderIds: alignSetupSelectionWithPreferred(
+      normalizeSetupSelectionIds(state.selectedProviderIds),
+      preferredProviderId,
+    ),
+    preferredProviderId,
+    providerView: String(state.providerView || "").trim() || "all",
+    searchProvider: String(state.searchProvider || "").trim() || "all",
+  };
+  writeStorageValue(SETUP_COMMITTED_STORAGE_KEY, JSON.stringify(payload));
+}
+
+export function readPersistedSetupState(): SetupCommittedState | null {
+  const committed = readCommittedSetupState();
+  if (committed) return committed;
+
+  const preferredProviderId =
+    String(readStorageValue([SETUP_PREFERRED_PROVIDER_STORAGE_KEY]) || "").trim() || "all";
+  const providerView =
+    String(
+      readStorageValue([PROVIDER_VIEW_STORAGE_KEY, LEGACY_PROVIDER_VIEW_STORAGE_KEY]) || "",
+    ).trim() || (preferredProviderId !== "all" ? preferredProviderId : "all");
+  const searchProvider =
+    String(readStorageValue([SEARCH_PROVIDER_STORAGE_KEY]) || "").trim() ||
+    (preferredProviderId !== "all" ? preferredProviderId : "all");
+
+  if (preferredProviderId === "all") {
+    return {
+      selectedProviderIds: [],
+      preferredProviderId: "all",
+      providerView: "all",
+      searchProvider: "all",
+    };
+  }
+
+  const rawSelection = readStorageValue([SETUP_SELECTION_STORAGE_KEY]);
+  let selectedProviderIds: string[] = [];
+  if (rawSelection) {
+    try {
+      selectedProviderIds = normalizeSetupSelectionIds(JSON.parse(rawSelection));
+    } catch {
+      selectedProviderIds = [];
+    }
+  }
+  if (!selectedProviderIds.includes(preferredProviderId)) {
+    selectedProviderIds = [preferredProviderId, ...selectedProviderIds];
+  }
+
+  return {
+    selectedProviderIds,
+    preferredProviderId,
+    providerView,
+    searchProvider,
+  };
+}
+
+export function readPersistedSearchProviderPreference(): string {
+  const dedicated =
+    String(readStorageValue([SEARCH_PROVIDER_STORAGE_KEY]) || "").trim();
+  if (dedicated) return dedicated;
+  return String(readPersistedSetupState()?.searchProvider || "").trim() || "all";
 }
 
 export function readDismissedUpdateVersion(): string {
@@ -232,6 +361,10 @@ export function formatMutationErrorMessage(raw: string): string {
 
   if (normalized.includes("cleanup-preview-required")) {
     return "Run cleanup dry-run first so the current selection gets a fresh token.";
+  }
+
+  if (normalized.includes("backup_root_outside_home")) {
+    return "The backup folder must stay inside your home directory. Choose a folder under your user home and try again.";
   }
 
   return normalized || trimmed;

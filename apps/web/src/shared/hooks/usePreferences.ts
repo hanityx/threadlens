@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { LayoutView, ProviderView, ProviderDataDepth, UiDensity } from "@/shared/types";
 import {
+  readPersistedSetupState,
   readStorageValue,
   writeStorageValue,
   THEME_STORAGE_KEY,
@@ -10,7 +11,6 @@ import {
   LAYOUT_VIEW_STORAGE_KEY,
   LEGACY_LAYOUT_VIEW_STORAGE_KEY,
   PROVIDER_VIEW_STORAGE_KEY,
-  LEGACY_PROVIDER_VIEW_STORAGE_KEY,
   PROVIDER_DEPTH_STORAGE_KEY,
   LEGACY_PROVIDER_DEPTH_STORAGE_KEY,
   SLOW_PROVIDER_SCAN_MS_STORAGE_KEY,
@@ -19,6 +19,48 @@ import {
   SLOW_PROVIDER_SCAN_MS_MIN,
   SLOW_PROVIDER_SCAN_MS_MAX,
 } from "@/shared/lib/appState";
+
+const VALID_LAYOUT_VIEWS = new Set<LayoutView>(["overview", "search", "threads", "providers"]);
+const VALID_PROVIDER_VIEWS = new Set<ProviderView>(["all", "codex", "claude", "gemini", "copilot"]);
+
+export function clampSlowProviderThresholdMs(raw: number): number {
+  return Math.min(SLOW_PROVIDER_SCAN_MS_MAX, Math.max(SLOW_PROVIDER_SCAN_MS_MIN, Math.round(raw)));
+}
+
+export function resolveInitialLayoutView(
+  storedLayoutView: string | null | undefined,
+  routeSearch: string | null | undefined,
+): LayoutView {
+  const params = new URLSearchParams(String(routeSearch || "").replace(/^\?/, ""));
+  const routedView = String(params.get("view") || "").trim();
+  if (VALID_LAYOUT_VIEWS.has(routedView as LayoutView)) {
+    return routedView as LayoutView;
+  }
+  const stored = String(storedLayoutView || "").trim();
+  if (VALID_LAYOUT_VIEWS.has(stored as LayoutView)) {
+    return stored as LayoutView;
+  }
+  return "overview";
+}
+
+export function resolveInitialProviderView(
+  storedProviderView: string | null | undefined,
+  routeSearch: string | null | undefined,
+): ProviderView {
+  const params = new URLSearchParams(String(routeSearch || "").replace(/^\?/, ""));
+  const routedView = String(params.get("view") || "").trim();
+  const routedProvider = String(params.get("provider") || "").trim();
+  if (
+    routedView === "providers" &&
+    routedProvider &&
+    VALID_PROVIDER_VIEWS.has(routedProvider as ProviderView)
+  ) {
+    return routedProvider as ProviderView;
+  }
+  const stored = String(storedProviderView || "").trim();
+  if (!stored || stored === "all") return "all";
+  return VALID_PROVIDER_VIEWS.has(stored as ProviderView) ? (stored as ProviderView) : "all";
+}
 
 export function usePreferences() {
   const [theme, setTheme] = useState<"dark" | "light">(() => {
@@ -33,17 +75,17 @@ export function usePreferences() {
   });
   const [layoutView, setLayoutView] = useState<LayoutView>(() => {
     if (typeof window === "undefined") return "overview";
-    const saved = readStorageValue([LAYOUT_VIEW_STORAGE_KEY, LEGACY_LAYOUT_VIEW_STORAGE_KEY]);
-    if (saved === "overview" || saved === "search" || saved === "threads" || saved === "providers") {
-      return saved;
-    }
-    return "overview";
+    return resolveInitialLayoutView(
+      readStorageValue([LAYOUT_VIEW_STORAGE_KEY, LEGACY_LAYOUT_VIEW_STORAGE_KEY]),
+      window.location.search,
+    );
   });
   const [providerView, setProviderView] = useState<ProviderView>(() => {
     if (typeof window === "undefined") return "all";
-    const saved = readStorageValue([PROVIDER_VIEW_STORAGE_KEY, LEGACY_PROVIDER_VIEW_STORAGE_KEY]);
-    if (!saved || saved === "all") return "all";
-    return saved;
+    return resolveInitialProviderView(
+      readPersistedSetupState()?.providerView ?? null,
+      window.location.search,
+    );
   });
   const [providerDataDepth, setProviderDataDepth] = useState<ProviderDataDepth>(() => {
     if (typeof window === "undefined") return "balanced";
@@ -61,7 +103,7 @@ export function usePreferences() {
         ]),
       );
       if (Number.isFinite(raw)) {
-        return Math.min(SLOW_PROVIDER_SCAN_MS_MAX, Math.max(SLOW_PROVIDER_SCAN_MS_MIN, Math.round(raw)));
+        return clampSlowProviderThresholdMs(raw);
       }
     } catch {
       // ignore parse failures and use default
@@ -96,7 +138,7 @@ export function usePreferences() {
     if (typeof window === "undefined") return;
     writeStorageValue(
       SLOW_PROVIDER_SCAN_MS_STORAGE_KEY,
-      String(Math.min(SLOW_PROVIDER_SCAN_MS_MAX, Math.max(SLOW_PROVIDER_SCAN_MS_MIN, Math.round(slowProviderThresholdMs)))),
+      String(clampSlowProviderThresholdMs(slowProviderThresholdMs)),
     );
   }, [slowProviderThresholdMs]);
 
