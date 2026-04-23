@@ -1,11 +1,12 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Box, Text, useInput } from "ink";
+import { useEffect, useMemo, useState } from "react";
+import { Box, Text, useInput, useStdout } from "ink";
 import { analyzeDelete, cleanupApply, cleanupDryRun, listThreads } from "../api.js";
 import { getMessages } from "../i18n/index.js";
 import type { Locale, TuiMessages } from "../i18n/types.js";
 import type { ThreadRow } from "../types.js";
 import { getWindowedItems, truncate } from "../lib/format.js";
-import { filterCleanupRows } from "../lib/cleanupFilter.js";
+import { isReservedGlobalShortcut } from "../lib/globalShortcut.js";
+import { canonicalizeCleanupRows, filterCleanupRows } from "../lib/cleanupFilter.js";
 import { statusToneColor, type StatusTone } from "../lib/statusTone.js";
 
 const RISK_COLOR: Record<string, string> = {
@@ -14,6 +15,40 @@ const RISK_COLOR: Record<string, string> = {
   low: "green",
 };
 
+function haveSameSelectedIds(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false;
+  return left.every((id, index) => id === right[index]);
+}
+
+export function shouldKeepPendingCleanup(pendingIds: string[], selectedIds: string[]): boolean {
+  return haveSameSelectedIds(pendingIds, selectedIds);
+}
+
+export function shouldRenderCleanupStatus(
+  statusMessage: { tone: StatusTone; text: string } | null,
+  pendingCleanupText: string | null,
+): boolean {
+  if (!statusMessage) return false;
+  if (!pendingCleanupText) return true;
+  return statusMessage.text !== pendingCleanupText;
+}
+
+export function shouldClearCleanupSelectionStatus(
+  statusText: string | null,
+  selectedCount: number,
+  selectThreadText: string,
+): boolean {
+  return selectedCount > 0 && statusText === selectThreadText;
+}
+
+export function shouldRenderCleanupSelectionDetails(
+  targetIds: string[],
+  selectedThreadId: string | null,
+): boolean {
+  if (!selectedThreadId) return false;
+  return targetIds.includes(selectedThreadId);
+}
+
 export function CleanupView(props: {
   active: boolean;
   locale?: Locale;
@@ -21,6 +56,7 @@ export function CleanupView(props: {
   inputEnabled?: boolean;
   initialThreadId: string | null;
   initialFilter?: string;
+  reserveUpdateShortcuts?: boolean;
   onInitialThreadIdHandled: () => void;
   onTextEntryChange?: (locked: boolean) => void;
   onFilterChange?: (filter: string) => void;
@@ -32,6 +68,7 @@ export function CleanupView(props: {
     inputEnabled = true,
     initialThreadId,
     initialFilter,
+    reserveUpdateShortcuts = false,
     onInitialThreadIdHandled,
     onTextEntryChange,
     onFilterChange,
@@ -49,12 +86,14 @@ export function CleanupView(props: {
   const [pendingInitialThreadId, setPendingInitialThreadId] = useState<string | null>(initialThreadId);
   const [pendingCleanup, setPendingCleanup] = useState<{ token: string; ids: string[] } | null>(null);
   const [lastAnalysis, setLastAnalysis] = useState<{
+    ids: string[];
     count: number;
     summary: string;
     impacts: string[];
     parents: string[];
   } | null>(null);
   const [lastCleanup, setLastCleanup] = useState<{
+    ids: string[];
     mode: string;
     token: string;
     fileCount: number;
@@ -62,6 +101,8 @@ export function CleanupView(props: {
     backupCount: number;
     help: string;
   } | null>(null);
+  const { stdout } = useStdout();
+  const stackedLayout = (stdout?.columns ?? process.stdout.columns ?? 120) < 108;
 
   useEffect(() => {
     setPendingInitialThreadId(initialThreadId);
@@ -80,9 +121,9 @@ export function CleanupView(props: {
     setError(null);
     void listThreads()
       .then((data) => {
-        const nextRows: ThreadRow[] = data.rows ?? [];
+        const nextRows = canonicalizeCleanupRows(data.rows ?? []);
         setRows(nextRows);
-        setTotalCount(data.total ?? data.rows?.length ?? 0);
+        setTotalCount(nextRows.length);
         if (pendingInitialThreadId) {
           const nextIndex = nextRows.findIndex((row) => row.thread_id === pendingInitialThreadId);
           setSelectedIndex(nextIndex >= 0 ? nextIndex : 0);
@@ -120,6 +161,7 @@ export function CleanupView(props: {
     [filteredRows, selectedIndex],
   );
   const normalizedSelectedIds = useMemo(() => [...selectedIds].sort(), [selectedIds]);
+  const pendingCleanupText = pendingCleanup ? messages.cleanup.executePrompt(pendingCleanup.token) : null;
   const renderSimpleEmptyState =
     !loading &&
     !error &&
@@ -129,9 +171,28 @@ export function CleanupView(props: {
     !statusMessage &&
     !selected;
 
+  const requireSelection = (): boolean => {
+    if (selectedIds.length > 0) return true;
+    setStatusMessage({ tone: "pending", text: messages.cleanup.selectThread });
+    return false;
+  };
+
+  useEffect(() => {
+    if (!shouldClearCleanupSelectionStatus(statusMessage?.text ?? null, selectedIds.length, messages.cleanup.selectThread)) return;
+    setStatusMessage(null);
+  }, [messages.cleanup.selectThread, selectedIds.length, statusMessage]);
+
+  useEffect(() => {
+    if (!pendingCleanup) return;
+    if (shouldKeepPendingCleanup(pendingCleanup.ids, normalizedSelectedIds)) return;
+    setPendingCleanup(null);
+    setStatusMessage((current) => (current?.text === pendingCleanupText ? null : current));
+  }, [normalizedSelectedIds, pendingCleanup, pendingCleanupText]);
+
   const handleInput: Parameters<typeof useInput>[0] = (input, key) => {
     if (!active) return;
     if (focusMode === "filter") {
+      if (isReservedGlobalShortcut(input, { includeUpdateShortcuts: reserveUpdateShortcuts })) return;
       if (key.escape || key.return || key.tab || (key.ctrl && input.toLowerCase() === "p")) {
         setFocusMode("list");
         return;
@@ -174,13 +235,15 @@ export function CleanupView(props: {
       fetchRows();
       return;
     }
-    if (input === "a" && selectedIds.length > 0) {
+    if (input === "a") {
+      if (!requireSelection()) return;
       setStatusMessage({ tone: "running", text: messages.cleanup.analyzingImpact });
       void analyzeDelete(selectedIds)
         .then((data) => {
           const report = data.reports?.[0];
           const summary = String(report?.summary ?? "").trim();
           setLastAnalysis({
+            ids: [...normalizedSelectedIds],
             count: data.count ?? 0,
             summary,
             impacts: report?.impacts ?? [],
@@ -193,13 +256,15 @@ export function CleanupView(props: {
         });
       return;
     }
-    if (input === "d" && selectedIds.length > 0) {
+    if (input === "d") {
+      if (!requireSelection()) return;
       setStatusMessage({ tone: "running", text: messages.cleanup.dryRunRunning });
       void cleanupDryRun(selectedIds)
         .then((data) => {
           const token = String(data.confirm_token_expected ?? "").trim();
           setPendingCleanup(token ? { token, ids: [...normalizedSelectedIds] } : null);
           setLastCleanup({
+            ids: [...normalizedSelectedIds],
             mode: String(data.mode ?? "dry-run"),
             token,
             fileCount: data.target_file_count ?? 0,
@@ -217,7 +282,8 @@ export function CleanupView(props: {
         });
       return;
     }
-    if (input === "D" && normalizedSelectedIds.length > 0) {
+    if (input === "D") {
+      if (!requireSelection()) return;
       if (
         !pendingCleanup ||
         pendingCleanup.ids.length !== normalizedSelectedIds.length ||
@@ -232,6 +298,7 @@ export function CleanupView(props: {
           setPendingCleanup(null);
           setSelectedIds([]);
           setLastCleanup({
+            ids: [...normalizedSelectedIds],
             mode: String(data.mode ?? "execute"),
             token: String(data.confirm_token_expected ?? "").trim(),
             fileCount: data.target_file_count ?? 0,
@@ -266,12 +333,12 @@ export function CleanupView(props: {
             </Text>
           </Box>
         </Box>
-        <Box gap={1}>
-          <Box width="55%" borderStyle="round" borderColor={focusMode === "list" ? "cyan" : "gray"} paddingX={1} flexDirection="column">
+        <Box gap={1} flexDirection={stackedLayout ? "column" : "row"}>
+          <Box width={stackedLayout ? undefined : "55%"} borderStyle="round" borderColor={focusMode === "list" ? "cyan" : "gray"} paddingX={1} flexDirection="column">
             <Text color="cyan">Threads</Text>
             <Text color="gray" dimColor>{messages.cleanup.noThreadsFound}</Text>
           </Box>
-          <Box width="45%" borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
+          <Box width={stackedLayout ? undefined : "45%"} borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
             <Text color="cyan">{messages.common.detail}</Text>
             <Text color="gray" dimColor>{messages.cleanup.selectThread}</Text>
           </Box>
@@ -284,58 +351,58 @@ export function CleanupView(props: {
     <Box flexDirection="column" gap={1}>
       {inputEnabled ? <CleanupInputHandler onInput={handleInput} /> : null}
       <Box borderStyle="round" borderColor="cyan" paddingX={2} flexDirection="column" gap={0}>
-        <Box justifyContent="space-between" alignItems="center">
+        <Box key="cleanup-header" justifyContent="space-between" alignItems="center">
           <Text color="cyan" bold>Cleanup</Text>
           <Box gap={2}>
-            {loading ? <Text key="cleanup-loading" color="yellow">{messages.cleanup.loading}</Text> : null}
-            <Text key="cleanup-total" color="gray" dimColor>{totalCount || rows.length} {messages.common.threadsUnit}</Text>
+            {loading ? <Text color="yellow">{messages.cleanup.loading}</Text> : null}
+            <Text color="gray" dimColor>{totalCount || rows.length} {messages.common.threadsUnit}</Text>
             {selectedIds.length > 0 ? (
-              <Text key="cleanup-selected" color="yellow" bold>{messages.cleanup.selectedCount(selectedIds.length)}</Text>
+              <Text color="yellow" bold>{messages.cleanup.selectedCount(selectedIds.length)}</Text>
             ) : null}
           </Box>
         </Box>
 
-        <Box borderStyle="single" borderColor={focusMode === "filter" ? "green" : "gray"} paddingX={1}>
-          <Text key="cleanup-filter-label" color="gray" dimColor>{messages.common.filterLabel}  </Text>
+        <Box key="cleanup-filter" borderStyle="single" borderColor={focusMode === "filter" ? "green" : "gray"} paddingX={1}>
+          <Text color="gray" dimColor>{messages.common.filterLabel}  </Text>
           {filterQuery.length > 0 ? (
-            <Text key="cleanup-filter-value" color={focusMode === "filter" ? "white" : "gray"}>
+            <Text color={focusMode === "filter" ? "white" : "gray"}>
               {filterQuery}{focusMode === "filter" ? "▌" : ""}
             </Text>
           ) : (
-            <Text key="cleanup-filter-placeholder" color="gray" dimColor>
+            <Text color="gray" dimColor>
               {focusMode === "filter" ? messages.common.filterEditingPlaceholder : messages.common.filterIdlePlaceholder}
             </Text>
           )}
           {filterQuery && focusMode !== "filter" ? (
-            <Text key="cleanup-filter-count" color="gray" dimColor>  ({filteredRows.length}/{rows.length})</Text>
+            <Text color="gray" dimColor>  ({filteredRows.length}/{rows.length})</Text>
           ) : null}
         </Box>
 
         {pendingCleanup ? (
-          <Box gap={2} alignItems="center">
-            <Text key="cleanup-pending-label" color="red" bold>{messages.cleanup.pendingDeleteLabel}</Text>
-            <Text key="cleanup-pending-token" color="gray" dimColor>token {pendingCleanup.token}</Text>
-            <Text key="cleanup-pending-count" color="white">{pendingCleanup.ids.length} {messages.common.threadsUnit}</Text>
-            <Text key="cleanup-pending-execute" color="white">→ D execute</Text>
-            <Text key="cleanup-pending-clear" color="gray" dimColor>{messages.cleanup.clearHint}</Text>
+          <Box key="cleanup-pending" gap={2} alignItems="center">
+            <Text color="red" bold>{messages.cleanup.pendingDeleteLabel}</Text>
+            <Text color="gray" dimColor>token {pendingCleanup.token}</Text>
+            <Text color="white">{pendingCleanup.ids.length} {messages.common.threadsUnit}</Text>
+            <Text color="white">→ D execute</Text>
+            <Text color="gray" dimColor>{messages.cleanup.clearHint}</Text>
           </Box>
         ) : null}
 
-        {statusMessage ? (
-          <Text color={statusToneColor(statusMessage.tone)}>
+        {statusMessage && shouldRenderCleanupStatus(statusMessage, pendingCleanupText) ? (
+          <Text key="cleanup-status" color={statusToneColor(statusMessage.tone)}>
             {statusMessage.text}
           </Text>
         ) : null}
 
-        {error ? <Text color="red">{error}</Text> : null}
+        {error ? <Text key="cleanup-error" color="red">{error}</Text> : null}
       </Box>
 
-      <Box gap={1}>
-        <Box width="55%" borderStyle="round" borderColor={focusMode === "list" ? "cyan" : "gray"} paddingX={1} flexDirection="column">
+      <Box key="cleanup-panels" gap={1} flexDirection={stackedLayout ? "column" : "row"}>
+        <Box key="cleanup-list-panel" width={stackedLayout ? undefined : "55%"} borderStyle="round" borderColor={focusMode === "list" ? "cyan" : "gray"} paddingX={1} flexDirection="column">
           <Box justifyContent="space-between">
-            <Text key="cleanup-list-title" color="cyan">Threads</Text>
+            <Text color="cyan">Threads</Text>
             {filteredRows.length > 0 ? (
-              <Text key="cleanup-list-range" color="gray" dimColor>{visibleThreads.start + 1}–{visibleThreads.end}/{filteredRows.length}</Text>
+              <Text color="gray" dimColor>{visibleThreads.start + 1}–{visibleThreads.end}/{filteredRows.length}</Text>
             ) : null}
           </Box>
           {filteredRows.length === 0 ? (
@@ -366,7 +433,7 @@ export function CleanupView(props: {
           })}
         </Box>
 
-        <Box width="45%" borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
+        <Box key="cleanup-detail-panel" width={stackedLayout ? undefined : "45%"} borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
           <Text color="cyan">{messages.common.detail}</Text>
           {selected ? (
             <>
@@ -388,7 +455,7 @@ export function CleanupView(props: {
                 ) : null}
               </Box>
 
-              {lastAnalysis ? (
+              {lastAnalysis && shouldRenderCleanupSelectionDetails(lastAnalysis.ids, selected.thread_id) ? (
                 <Box flexDirection="column" borderStyle="single" borderColor="yellow" paddingX={1} marginTop={1}>
                   <Text color="yellow" dimColor>{messages.cleanup.impactAnalysis}</Text>
                   <Text color="gray" dimColor>{messages.cleanup.itemsCount(lastAnalysis.count)}</Text>
@@ -401,7 +468,7 @@ export function CleanupView(props: {
                 </Box>
               ) : null}
 
-              {lastCleanup ? (
+              {lastCleanup && shouldRenderCleanupSelectionDetails(lastCleanup.ids, selected.thread_id) ? (
                 <Box flexDirection="column" borderStyle="single" borderColor={lastCleanup.deletedCount > 0 ? "red" : "gray"} paddingX={1} marginTop={1}>
                   <Box justifyContent="space-between">
                     <Text color={lastCleanup.deletedCount > 0 ? "red" : "gray"} dimColor>
@@ -422,11 +489,11 @@ export function CleanupView(props: {
               ) : null}
 
               <Box gap={2} marginTop={1} flexWrap="wrap">
-                <Text key="cleanup-action-select" color="gray" dimColor>{messages.cleanup.actionSelect}</Text>
-                <Text key="cleanup-action-analysis" color="cyan" dimColor>{messages.cleanup.actionAnalysis}</Text>
-                <Text key="cleanup-action-dry-run" color="yellow" dimColor>{messages.cleanup.actionDryRun}</Text>
-                <Text key="cleanup-action-execute" color="red" dimColor>{messages.cleanup.actionExecute}</Text>
-                <Text key="cleanup-action-clear" color="gray" dimColor>{messages.cleanup.actionClear}</Text>
+                <Text color="gray" dimColor>{messages.cleanup.actionSelect}</Text>
+                <Text color="cyan" dimColor>{messages.cleanup.actionAnalysis}</Text>
+                <Text color="yellow" dimColor>{messages.cleanup.actionDryRun}</Text>
+                <Text color="red" dimColor>{messages.cleanup.actionExecute}</Text>
+                <Text color="gray" dimColor>{messages.cleanup.actionClear}</Text>
               </Box>
             </>
           ) : (

@@ -1,11 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Box, Text, useInput } from "ink";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Box, Text, useInput, useStdout } from "ink";
 import { backupSession, listProviderSessions, loadSessionTranscript, runProviderAction } from "../api.js";
 import { PROVIDERS, type ProviderScope } from "../config.js";
 import { getMessages } from "../i18n/index.js";
 import type { Locale, TuiMessages } from "../i18n/types.js";
 import type { ProviderScanEntry, ProviderSessionRow, TranscriptMessage } from "../types.js";
 import { formatBytes, formatDateLabel, getWindowedItems, truncate } from "../lib/format.js";
+import { isReservedGlobalShortcut } from "../lib/globalShortcut.js";
 import { getSessionsFetchLimit, shouldRefetchSessions } from "../lib/sessionFetchWindow.js";
 import { statusToneColor, type StatusTone } from "../lib/statusTone.js";
 
@@ -25,6 +26,14 @@ function providerBadge(provider: string): string {
     copilot: "CPT",
   };
   return badges[provider] ?? provider.slice(0, 3).toUpperCase();
+}
+
+export function shouldShowSessionRow(row: ProviderSessionRow): boolean {
+  return row.source !== "cleanup_backups";
+}
+
+export function filterVisibleSessionRows(rows: ProviderSessionRow[]): ProviderSessionRow[] {
+  return rows.filter(shouldShowSessionRow);
 }
 
 function ActionBadge({ kind, mode }: { kind: string; mode: string }) {
@@ -47,6 +56,20 @@ export function shouldRenderSessionActionStatus(
   return actionStatus.text !== pendingActionText;
 }
 
+export function shouldKeepPendingSessionAction(
+  pendingActionFilePath: string,
+  selectedFilePath: string | null,
+): boolean {
+  return pendingActionFilePath === selectedFilePath;
+}
+
+export function shouldRenderSessionLastAction(
+  actionFilePath: string,
+  selectedFilePath: string | null,
+): boolean {
+  return actionFilePath === selectedFilePath;
+}
+
 export function buildSessionActionHints(messages: TuiMessages): string[] {
   return [
     messages.sessions.actionBackup,
@@ -66,6 +89,7 @@ export function SessionsView(props: {
   inputEnabled?: boolean;
   initialFilePath: string | null;
   initialFilter?: string;
+  reserveUpdateShortcuts?: boolean;
   onInitialFilePathHandled: () => void;
   onTextEntryChange?: (locked: boolean) => void;
   onFilterChange?: (filter: string) => void;
@@ -79,6 +103,7 @@ export function SessionsView(props: {
     inputEnabled = true,
     initialFilePath,
     initialFilter,
+    reserveUpdateShortcuts = false,
     onInitialFilePathHandled,
     onTextEntryChange,
     onFilterChange,
@@ -112,7 +137,10 @@ export function SessionsView(props: {
     validCount: number;
     path: string;
     backupCount: number;
+    filePath: string;
   } | null>(null);
+  const { stdout } = useStdout();
+  const stackedLayout = (stdout?.columns ?? process.stdout.columns ?? 120) < 108;
 
   useEffect(() => {
     setPendingInitialPath(initialFilePath);
@@ -131,16 +159,17 @@ export function SessionsView(props: {
     setError(null);
     void listProviderSessions(provider, refresh, limit)
       .then((data) => {
-        const nextRows: ProviderSessionRow[] = data.rows ?? [];
+        const nextRows = filterVisibleSessionRows(data.rows ?? []);
         const nextProviders: ProviderScanEntry[] = data.providers ?? [];
         setRows(nextRows);
         setFetchedLimit(limit);
+        const parseFail = nextRows.filter((row) => !row.probe.ok).length;
         setSummary(
-          data.summary
+          nextRows.length > 0 || data.summary
             ? {
-                rows: data.summary.rows ?? nextRows.length,
-                parse_ok: data.summary.parse_ok ?? 0,
-                parse_fail: data.summary.parse_fail ?? 0,
+                rows: nextRows.length,
+                parse_ok: nextRows.length - parseFail,
+                parse_fail: parseFail,
               }
             : null,
         );
@@ -203,6 +232,7 @@ export function SessionsView(props: {
       ? messages.sessions.archiveExecutePrompt(pendingAction.token)
       : messages.sessions.deleteExecutePrompt(pendingAction.token)
     : null;
+  const selectedFilePath = filteredRows[selectedIndex]?.file_path ?? null;
   const renderSimpleEmptyState =
     !loading &&
     !error &&
@@ -217,6 +247,13 @@ export function SessionsView(props: {
     () => getWindowedItems(filteredRows, selectedIndex, 12),
     [filteredRows, selectedIndex],
   );
+
+  useEffect(() => {
+    if (!pendingAction) return;
+    if (shouldKeepPendingSessionAction(pendingAction.filePath, selectedFilePath)) return;
+    setPendingAction(null);
+    setActionStatus((current) => (current?.text === pendingActionText ? null : current));
+  }, [pendingAction, pendingActionText, selectedFilePath]);
 
   useEffect(() => {
     if (!selected) {
@@ -242,6 +279,7 @@ export function SessionsView(props: {
   const handleInput: Parameters<typeof useInput>[0] = (input, key) => {
     if (!active) return;
     if (focusMode === "filter") {
+      if (isReservedGlobalShortcut(input, { includeUpdateShortcuts: reserveUpdateShortcuts })) return;
       if (key.escape || key.return || key.tab || (key.ctrl && input.toLowerCase() === "p")) {
         setFocusMode("list");
         return;
@@ -298,6 +336,7 @@ export function SessionsView(props: {
             validCount: data.valid_count,
             path: String(data.backup_to ?? data.backup_manifest_path ?? ""),
             backupCount: data.backed_up_count ?? 0,
+            filePath: selected.file_path,
           });
           setActionStatus({ tone: "success", text: messages.sessions.backupDone(data.applied_count, data.valid_count) });
         })
@@ -321,6 +360,7 @@ export function SessionsView(props: {
             validCount: data.valid_count,
             path: String(data.archived_to ?? ""),
             backupCount: data.backed_up_count ?? 0,
+            filePath: selected.file_path,
           });
           setActionStatus({
             tone: token ? "pending" : "success",
@@ -347,6 +387,7 @@ export function SessionsView(props: {
             validCount: data.valid_count,
             path: String(data.backup_to ?? data.backup_manifest_path ?? ""),
             backupCount: data.backed_up_count ?? 0,
+            filePath: selected.file_path,
           });
           setActionStatus({
             tone: token ? "pending" : "success",
@@ -381,6 +422,7 @@ export function SessionsView(props: {
             validCount: data.valid_count,
             path: String(data.archived_to ?? ""),
             backupCount: data.backed_up_count ?? 0,
+            filePath: selected.file_path,
           });
           setActionStatus({ tone: "success", text: messages.sessions.archiveDone(data.applied_count, data.valid_count) });
           fetchRows(true);
@@ -408,6 +450,7 @@ export function SessionsView(props: {
             validCount: data.valid_count,
             path: String(data.backup_to ?? data.backup_manifest_path ?? ""),
             backupCount: data.backed_up_count ?? 0,
+            filePath: selected.file_path,
           });
           setActionStatus({
             tone: "success",
@@ -436,12 +479,12 @@ export function SessionsView(props: {
             </Text>
           </Box>
         </Box>
-        <Box gap={1}>
-          <Box width="55%" borderStyle="round" borderColor={focusMode === "list" ? "cyan" : "gray"} paddingX={1} flexDirection="column">
+        <Box gap={1} flexDirection={stackedLayout ? "column" : "row"}>
+          <Box width={stackedLayout ? undefined : "55%"} borderStyle="round" borderColor={focusMode === "list" ? "cyan" : "gray"} paddingX={1} flexDirection="column">
             <Text color="cyan">Sessions</Text>
             <Text color="gray" dimColor>{messages.sessions.noSessionsFound}</Text>
           </Box>
-          <Box width="45%" borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
+          <Box width={stackedLayout ? undefined : "45%"} borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
             <Text color="cyan">{messages.common.detail}</Text>
             <Text color="gray" dimColor>{messages.sessions.selectSession}</Text>
           </Box>
@@ -512,8 +555,8 @@ export function SessionsView(props: {
         {error ? <Text color="red">{error}</Text> : null}
       </Box>
 
-      <Box gap={1}>
-        <Box width="55%" borderStyle="round" borderColor={focusMode === "list" ? "cyan" : "gray"} paddingX={1} flexDirection="column">
+      <Box gap={1} flexDirection={stackedLayout ? "column" : "row"}>
+        <Box width={stackedLayout ? undefined : "55%"} borderStyle="round" borderColor={focusMode === "list" ? "cyan" : "gray"} paddingX={1} flexDirection="column">
           <Box justifyContent="space-between">
             <Text key="sessions-list-title" color="cyan">Sessions</Text>
             {filteredRows.length > 0 ? (
@@ -547,7 +590,7 @@ export function SessionsView(props: {
           })}
         </Box>
 
-        <Box width="45%" borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
+        <Box width={stackedLayout ? undefined : "45%"} borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
           <Text color="cyan">{messages.common.detail}</Text>
           {selected ? (
             <>
@@ -565,7 +608,7 @@ export function SessionsView(props: {
                 </Text>
               </Box>
 
-              {lastAction ? (
+              {lastAction && shouldRenderSessionLastAction(lastAction.filePath, selected.file_path) ? (
                 <Box flexDirection="column" borderStyle="single" borderColor="gray" paddingX={1} marginTop={1}>
                   <Box justifyContent="space-between">
                     <ActionBadge kind={lastAction.kind} mode={lastAction.mode} />

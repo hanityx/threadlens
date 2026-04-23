@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Box, Text, useInput } from "ink";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Box, Text, useInput, useStdout } from "ink";
 import { searchConversations } from "../api.js";
 import { PROVIDERS, type ProviderScope } from "../config.js";
 import type { Locale, TuiMessages } from "../i18n/types.js";
-import type { SearchHit } from "../types.js";
+import type { SearchSession } from "../types.js";
 import { formatDateLabel, getWindowedItems, truncate } from "../lib/format.js";
+import { isReservedGlobalShortcut } from "../lib/globalShortcut.js";
 import { shouldLeaveSearchQueryMode } from "../lib/searchFocus.js";
 
 type SearchSessionGroup = {
@@ -17,7 +18,55 @@ type SearchSessionGroup = {
   mtime: string;
   matchCount: number;
   snippets: string[];
+  hasMoreHits: boolean;
 };
+
+function formatApproximateCountLabel(text: string, count: number, approximate = false): string {
+  if (!approximate) return text;
+  const token = String(count);
+  const tokenIndex = text.indexOf(token);
+  if (tokenIndex < 0) return `${text}+`;
+  return `${text.slice(0, tokenIndex)}${token}+${text.slice(tokenIndex + token.length)}`;
+}
+
+export function groupSearchSessions(sessions: SearchSession[]): SearchSessionGroup[] {
+  return sessions
+    .map((session) => ({
+      key: `${session.provider}::${session.session_id || session.file_path}`,
+      provider: session.provider as ProviderScope,
+      title: session.display_title || session.title || session.session_id,
+      filePath: session.file_path,
+      threadId: session.thread_id,
+      source: session.source || "-",
+      mtime: session.mtime,
+      matchCount: session.match_count,
+      snippets: Array.from(
+        new Set(
+          (session.preview_matches ?? [])
+            .map((match) => match.snippet)
+            .filter((snippet): snippet is string => snippet.trim().length > 0),
+        ),
+      ),
+      hasMoreHits: session.has_more_hits,
+    }))
+    .sort((a, b) => {
+      if (b.matchCount !== a.matchCount) return b.matchCount - a.matchCount;
+      return b.mtime.localeCompare(a.mtime);
+    });
+}
+
+export function resolveSearchSelectionIndex(
+  groupedResults: SearchSessionGroup[],
+  currentIndex: number,
+  currentSelectedKey: string | null,
+): number {
+  if (groupedResults.length === 0) return 0;
+  if (currentSelectedKey) {
+    const preservedIndex = groupedResults.findIndex((group) => group.key === currentSelectedKey);
+    if (preservedIndex >= 0) return preservedIndex;
+  }
+  return Math.max(0, Math.min(groupedResults.length - 1, currentIndex));
+}
 
 type SearchMeta = {
   searched: number;
@@ -25,12 +74,30 @@ type SearchMeta = {
   truncated: boolean;
 };
 
+export function buildSearchMeta(data: {
+  searched_sessions?: number;
+  available_sessions?: number;
+  truncated?: boolean;
+}): SearchMeta {
+  const searched = Number(data.searched_sessions ?? 0);
+  const available = Number(data.available_sessions ?? searched);
+  return {
+    searched,
+    available,
+    truncated: Boolean(data.truncated),
+  };
+}
+
 export function formatSearchMeta(messages: TuiMessages, meta: SearchMeta): string {
   return messages.search.sessionsSummary(meta.searched, meta.available, meta.truncated);
 }
 
 export function formatSearchResultSummary(messages: TuiMessages, groupedCount: number, hitCount: number): string {
   return messages.search.groupedSummary(groupedCount, hitCount);
+}
+
+export function formatSearchHitCount(messages: TuiMessages, count: number, approximate = false): string {
+  return formatApproximateCountLabel(messages.search.hitCount(count), count, approximate);
 }
 
 export function formatSearchEmptyState(messages: TuiMessages, query: string): string {
@@ -70,6 +137,7 @@ export function SearchView(props: {
   initialQuery?: string;
   initialProvider?: ProviderScope;
   initialFocusMode?: "query" | "results";
+  reserveUpdateShortcuts?: boolean;
   onTextEntryChange?: (locked: boolean) => void;
   onQueryChange?: (query: string) => void;
   onProviderChange?: (provider: ProviderScope) => void;
@@ -84,6 +152,7 @@ export function SearchView(props: {
     initialQuery,
     initialProvider,
     initialFocusMode,
+    reserveUpdateShortcuts = false,
     onTextEntryChange,
     onQueryChange,
     onProviderChange,
@@ -94,14 +163,20 @@ export function SearchView(props: {
     Math.max(0, PROVIDERS.indexOf(initialProvider ?? "all")),
   );
   const provider = PROVIDERS[providerIndex]!;
-  const [results, setResults] = useState<SearchHit[]>([]);
+  const [results, setResults] = useState<SearchSession[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [meta, setMeta] = useState<SearchMeta>({ searched: 0, available: 0, truncated: false });
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMorePages, setHasMorePages] = useState(false);
   const [focusMode, setFocusMode] = useState<"query" | "results">(initialFocusMode ?? "query");
   const [refreshTick, setRefreshTick] = useState(0);
   const [snippetIndex, setSnippetIndex] = useState(0);
+  const selectedKeyRef = useRef<string | null>(null);
+  const { stdout } = useStdout();
+  const stackedLayout = (stdout?.columns ?? process.stdout.columns ?? 120) < 108;
 
   useEffect(() => {
     onTextEntryChange?.(focusMode === "query");
@@ -111,26 +186,38 @@ export function SearchView(props: {
   useEffect(() => { onQueryChange?.(query); }, [onQueryChange, query]);
   useEffect(() => { onProviderChange?.(provider); }, [onProviderChange, provider]);
 
+  const applySearchPage = useCallback((
+    data: NonNullable<Awaited<ReturnType<typeof searchConversations>>>,
+    append: boolean,
+  ) => {
+    const incoming = data.sessions ?? [];
+    setResults((prev) => (append ? [...prev, ...incoming] : incoming));
+    setMeta(buildSearchMeta(data));
+    setNextCursor(data.next_cursor ?? null);
+    setHasMorePages(Boolean(data.has_more));
+  }, []);
+
   useEffect(() => {
     if (query.trim().length < 2) {
       setResults([]);
+      setSelectedIndex(0);
+      selectedKeyRef.current = null;
       setMeta({ searched: 0, available: 0, truncated: false });
+      setNextCursor(null);
+      setHasMorePages(false);
       setError(null);
       return;
     }
     let cancelled = false;
     const timer = setTimeout(() => {
+      selectedKeyRef.current = null;
       setLoading(true);
+      setLoadingMore(false);
       setError(null);
-      void searchConversations(query.trim(), provider)
+      void searchConversations(query.trim(), provider, null)
         .then((data) => {
           if (cancelled) return;
-          setResults(data.results ?? []);
-          setMeta({
-            searched: data.searched_sessions ?? 0,
-            available: data.available_sessions ?? 0,
-            truncated: Boolean(data.truncated),
-          });
+          applySearchPage(data, false);
           setSelectedIndex(0);
           setSnippetIndex(0);
           if ((initialFocusMode ?? "query") === "results") setFocusMode("results");
@@ -144,41 +231,54 @@ export function SearchView(props: {
         .finally(() => { if (!cancelled) setLoading(false); });
     }, 180);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [provider, query, refreshTick]);
+  }, [applySearchPage, initialFocusMode, provider, query, refreshTick]);
 
   const groupedResults = useMemo<SearchSessionGroup[]>(() => {
-    const groups = new Map<string, SearchSessionGroup>();
-    for (const hit of results) {
-      const key = `${hit.provider}::${hit.session_id || hit.file_path}`;
-      const existing = groups.get(key);
-      if (existing) {
-        existing.matchCount += 1;
-        if (hit.snippet && !existing.snippets.includes(hit.snippet)) existing.snippets.push(hit.snippet);
-        continue;
-      }
-      groups.set(key, {
-        key,
-        provider: hit.provider as ProviderScope,
-        title: hit.display_title || hit.title || hit.session_id,
-        filePath: hit.file_path,
-        threadId: hit.thread_id,
-        source: hit.source || "-",
-        mtime: hit.mtime,
-        matchCount: 1,
-        snippets: hit.snippet ? [hit.snippet] : [],
-      });
-    }
-    return Array.from(groups.values()).sort((a, b) => {
-      if (b.matchCount !== a.matchCount) return b.matchCount - a.matchCount;
-      return b.mtime.localeCompare(a.mtime);
-    });
+    return groupSearchSessions(results);
   }, [results]);
+
+  const loadNextPage = useCallback(() => {
+    if (loading || loadingMore) return;
+    if (!hasMorePages || !nextCursor) return;
+    if (query.trim().length < 2) return;
+    selectedKeyRef.current = groupedResults[selectedIndex]?.key ?? null;
+    setLoadingMore(true);
+    setError(null);
+    void searchConversations(query.trim(), provider, nextCursor)
+      .then((data) => {
+        applySearchPage(data, true);
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        setLoadingMore(false);
+      });
+  }, [applySearchPage, groupedResults, hasMorePages, loading, loadingMore, nextCursor, provider, query, selectedIndex]);
+
+  const visibleHitCount = useMemo(
+    () => groupedResults.reduce((sum, group) => sum + group.matchCount, 0),
+    [groupedResults],
+  );
+  const visibleHitCountIsApproximate = useMemo(
+    () => hasMorePages || groupedResults.some((group) => group.hasMoreHits),
+    [groupedResults, hasMorePages],
+  );
 
   const providerSummary = useMemo(() => {
     const counts = new Map<string, number>();
     for (const g of groupedResults) counts.set(g.provider, (counts.get(g.provider) ?? 0) + 1);
     return Array.from(counts.entries()).map(([n, c]) => `${n} ${c}`).join(" · ");
   }, [groupedResults]);
+
+  useEffect(() => {
+    const nextIndex = resolveSearchSelectionIndex(groupedResults, selectedIndex, selectedKeyRef.current);
+    if (nextIndex !== selectedIndex) {
+      setSelectedIndex(nextIndex);
+      return;
+    }
+    selectedKeyRef.current = groupedResults[nextIndex]?.key ?? null;
+  }, [groupedResults, selectedIndex]);
 
   useEffect(() => { setSnippetIndex(0); }, [selectedIndex, groupedResults]);
 
@@ -190,6 +290,7 @@ export function SearchView(props: {
     if (key.ctrl && input.toLowerCase() === "n") { if (groupedResults.length > 0) setFocusMode("results"); return; }
     if (key.ctrl && input.toLowerCase() === "p") { setFocusMode("query"); return; }
     if (focusMode === "query") {
+      if (isReservedGlobalShortcut(input, { includeUpdateShortcuts: reserveUpdateShortcuts })) return;
       if (shouldLeaveSearchQueryMode(key)) { setFocusMode("results"); return; }
       if (key.backspace || key.delete) { setQuery((p) => p.slice(0, -1)); return; }
       if (!key.ctrl && !key.meta && !key.escape && !key.return && !key.tab && !key.upArrow && !key.downArrow && !key.leftArrow && !key.rightArrow && input.length > 0) {
@@ -199,11 +300,19 @@ export function SearchView(props: {
     }
     if (key.tab || key.escape || input === "/" || input.toLowerCase() === "i") { setFocusMode("query"); return; }
     if (key.upArrow || input === "k") { setSelectedIndex((p) => Math.max(0, p - 1)); return; }
-    if (key.downArrow || input === "j") { setSelectedIndex((p) => Math.min(Math.max(groupedResults.length - 1, 0), p + 1)); return; }
+    if (key.downArrow || input === "j") {
+      if (selectedIndex >= groupedResults.length - 1 && hasMorePages) { loadNextPage(); return; }
+      setSelectedIndex((p) => Math.min(Math.max(groupedResults.length - 1, 0), p + 1));
+      return;
+    }
     if (input === "g") { setSelectedIndex(0); return; }
     if (input === "G") { setSelectedIndex(Math.max(groupedResults.length - 1, 0)); return; }
     if (input === "K") { setSelectedIndex((p) => Math.max(0, p - 10)); return; }
-    if (input === "J") { setSelectedIndex((p) => Math.min(Math.max(groupedResults.length - 1, 0), p + 10)); return; }
+    if (input === "J") {
+      if (selectedIndex >= groupedResults.length - 1 && hasMorePages) { loadNextPage(); return; }
+      setSelectedIndex((p) => Math.min(Math.max(groupedResults.length - 1, 0), p + 10));
+      return;
+    }
     if (input.toLowerCase() === "n" || key.rightArrow) {
       const sel = groupedResults[selectedIndex];
       if (sel && sel.snippets.length > 1) setSnippetIndex((p) => Math.min(sel.snippets.length - 1, p + 1));
@@ -228,7 +337,7 @@ export function SearchView(props: {
         <Box justifyContent="space-between" alignItems="center">
           <Text color="cyan" bold>Search</Text>
           <Box gap={2}>
-            {loading ? <Text color="yellow">{messages.search.searching}</Text> : null}
+            {loading || loadingMore ? <Text color="yellow">{messages.search.searching}</Text> : null}
             {meta.searched > 0 ? (
               <Text color="gray" dimColor>{formatSearchMeta(messages, meta)}</Text>
             ) : null}
@@ -254,15 +363,21 @@ export function SearchView(props: {
         </Box>
         {groupedResults.length > 0 ? (
           <Box gap={3}>
-            <Text color="white">{formatSearchResultSummary(messages, groupedResults.length, results.length)}</Text>
+            <Text color="white">
+              {formatApproximateCountLabel(
+                formatSearchResultSummary(messages, groupedResults.length, visibleHitCount),
+                visibleHitCount,
+                visibleHitCountIsApproximate,
+              )}
+            </Text>
             {providerSummary ? <Text color="gray" dimColor>{providerSummary}</Text> : null}
           </Box>
         ) : null}
       </Box>
 
       {/* Results + detail */}
-      <Box gap={1}>
-        <Box width="55%" borderStyle="round" borderColor={focusMode === "results" ? "cyan" : "gray"} paddingX={1} flexDirection="column">
+      <Box gap={1} flexDirection={stackedLayout ? "column" : "row"}>
+        <Box width={stackedLayout ? undefined : "55%"} borderStyle="round" borderColor={focusMode === "results" ? "cyan" : "gray"} paddingX={1} flexDirection="column">
           <Box justifyContent="space-between">
             <Text color="cyan">{messages.common.results}</Text>
             {groupedResults.length > 0 ? (
@@ -285,7 +400,7 @@ export function SearchView(props: {
                   <Text color={focused ? "white" : "gray"} bold={focused}>{truncate(group.title, 54)}</Text>
                 </Box>
                 <Box gap={3} paddingLeft={2}>
-                  <Text color="gray" dimColor>{messages.search.hitCount(group.matchCount)}</Text>
+                  <Text color="gray" dimColor>{formatSearchHitCount(messages, group.matchCount, group.hasMoreHits)}</Text>
                   <Text color="gray" dimColor>{formatDateLabel(group.mtime, locale)}</Text>
                   {group.threadId ? <Text color="green" dimColor>{messages.search.cleanupAction}</Text> : null}
                 </Box>
@@ -304,7 +419,7 @@ export function SearchView(props: {
           })}
         </Box>
 
-        <Box width="45%" borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
+        <Box width={stackedLayout ? undefined : "45%"} borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
           <Text color="cyan">{messages.common.detail}</Text>
           {selected ? (
             <>
