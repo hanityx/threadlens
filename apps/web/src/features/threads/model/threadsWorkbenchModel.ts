@@ -2,6 +2,23 @@ import type { Messages } from "@/i18n";
 
 export const THREAD_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY = "po-thread-hard-delete-skip-confirm";
 export const LEGACY_THREAD_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY = "cmc-thread-hard-delete-skip-confirm";
+const THREAD_PANEL_ACTIVE_MIN_HEIGHT = 640;
+
+export function resolveThreadWorkbenchPanelHeight(options: {
+  stackHeight?: number | null;
+  detailHeight?: number | null;
+  baselineHeight?: number | null;
+  minHeight?: number;
+}) {
+  const {
+    stackHeight = null,
+    detailHeight = null,
+    baselineHeight = null,
+    minHeight = THREAD_PANEL_ACTIVE_MIN_HEIGHT,
+  } = options;
+  const measured = Math.max(Number(stackHeight || 0), Number(detailHeight || 0));
+  return Math.max(minHeight, Number(baselineHeight || 0), Math.ceil(measured));
+}
 
 export function formatThreadSourceLabel(messages: Messages, source?: string | null) {
   if (source === "sessions") return messages.threadDetail.sourceSessions;

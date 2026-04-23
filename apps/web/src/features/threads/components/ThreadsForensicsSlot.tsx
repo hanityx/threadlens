@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { PanelHeader } from "@/shared/ui/components/PanelHeader";
+import { SurfaceSlotSkeleton } from "@/app/components/SurfaceSlotSkeleton";
 import type { ForensicsPanelProps } from "@/features/threads/components/ForensicsPanel";
 import type { Messages } from "@/i18n";
 
@@ -13,18 +13,5 @@ type ThreadsForensicsSlotProps = ForensicsPanelProps & {
 };
 
 export function ThreadsForensicsSlot(props: ThreadsForensicsSlotProps) {
-  return (
-    <Suspense
-      fallback={
-        <section className="panel">
-          <PanelHeader title={props.messages.nav.forensics} subtitle={props.messages.common.loading} />
-          <div className="sub-toolbar">
-            <div className="skeleton-line" />
-          </div>
-        </section>
-      }
-    >
-      <ForensicsPanel {...props} />
-    </Suspense>
-  );
+  return <Suspense fallback={<SurfaceSlotSkeleton />}><ForensicsPanel {...props} /></Suspense>;
 }

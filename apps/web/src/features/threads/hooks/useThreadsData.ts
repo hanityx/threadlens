@@ -10,8 +10,10 @@ import {
   writeStorageValue,
   THREADS_BOOTSTRAP_CACHE_KEY,
   LEGACY_THREADS_BOOTSTRAP_CACHE_KEY,
-  THREADS_FAST_BOOT_LIMIT,
 } from "@/shared/lib/appState";
+import { isArchivedThreadSource } from "@/features/threads/model/threadsTableModel";
+
+export const THREAD_SOURCE_VIEW_QUERY_LIMIT = 2000;
 
 export function restoreThreadsBootstrapRows(raw: string | null) {
   if (!raw) return [] as ThreadRow[];
@@ -24,11 +26,31 @@ export function restoreThreadsBootstrapRows(raw: string | null) {
   }
 }
 
-export function resolveThreadsQueryLimit(layoutView: LayoutView, threadsFastBoot: boolean) {
+export function hasDirectThreadRoute(runtimeWindow: Window | undefined) {
+  if (!runtimeWindow) return false;
+  const params = new URLSearchParams(runtimeWindow.location.search);
+  return params.get("view") === "threads" && Boolean(String(params.get("threadId") || "").trim());
+}
+
+export function resolveThreadsQueryLimit(
+  layoutView: LayoutView,
+  _threadsFastBoot: boolean,
+  _directThreadRoute = false,
+) {
   if (layoutView === "threads") {
-    return threadsFastBoot ? THREADS_FAST_BOOT_LIMIT : PAGE_SIZE;
+    return INITIAL_CHUNK;
   }
   return 60;
+}
+
+export function resolveThreadSourceViewQueryLimit(
+  baseLimit: number,
+  showBackupRows: boolean,
+  showArchivedRows: boolean,
+) {
+  return showBackupRows || showArchivedRows
+    ? Math.max(baseLimit, THREAD_SOURCE_VIEW_QUERY_LIMIT)
+    : baseLimit;
 }
 
 export function filterThreadRows(rows: ThreadRow[], query: string, filterMode: FilterMode) {
@@ -43,12 +65,7 @@ export function filterThreadRows(rows: ThreadRow[], query: string, filterMode: F
   });
 }
 
-function isArchivedThreadSource(source?: string | null): boolean {
-  const lowered = String(source ?? "").trim().toLowerCase();
-  return /^archived[_-]/i.test(lowered) || lowered.includes("archived") || lowered === "archive";
-}
-
-function filterThreadRowsBySourceView(
+export function filterThreadRowsBySourceView(
   rows: ThreadRow[],
   showBackupRows: boolean,
   showArchivedRows: boolean,
@@ -104,6 +121,22 @@ export function resolveThreadsLoadingState(
   };
 }
 
+export function shouldClearSelectedThreadId(options: {
+  selectedThreadId: string;
+  availableThreadIds: Set<string>;
+  hasApiRows: boolean;
+  threadsQueryPending: boolean;
+  threadsFastBoot: boolean;
+  keepSelectedThreadFallback: boolean;
+}) {
+  if (!options.selectedThreadId) return false;
+  if (options.availableThreadIds.has(options.selectedThreadId)) return false;
+  if (options.threadsFastBoot) return false;
+  if (!options.hasApiRows && options.threadsQueryPending) return false;
+  if (options.keepSelectedThreadFallback) return false;
+  return true;
+}
+
 export function useThreadsData(layoutView: LayoutView) {
   const [query, setQuery] = useState("");
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
@@ -127,7 +160,19 @@ export function useThreadsData(layoutView: LayoutView) {
 
   const deferredQuery = useDeferredValue(query);
   const isThreadsFocused = layoutView === "threads";
-  const threadsQueryLimit = resolveThreadsQueryLimit(layoutView, threadsFastBoot);
+  const directThreadRoute = hasDirectThreadRoute(typeof window !== "undefined" ? window : undefined);
+  const baseThreadsQueryLimit = resolveThreadsQueryLimit(layoutView, threadsFastBoot, directThreadRoute);
+  const sourceAwareThreadsQueryLimit = resolveThreadSourceViewQueryLimit(
+    baseThreadsQueryLimit,
+    showBackupRows,
+    showArchivedRows,
+  );
+  const [threadsQueryLimit, setThreadsQueryLimit] = useState(sourceAwareThreadsQueryLimit);
+
+  useEffect(() => {
+    setRenderLimit(INITIAL_CHUNK);
+    setThreadsQueryLimit(sourceAwareThreadsQueryLimit);
+  }, [sourceAwareThreadsQueryLimit, deferredQuery, filterMode, threadSort, showBackupRows, showArchivedRows]);
 
   const threads = useQuery({
     queryKey: ["threads", deferredQuery, threadsQueryLimit, threadSort],
@@ -190,59 +235,60 @@ export function useThreadsData(layoutView: LayoutView) {
     return filterThreadRows(scopedRows, deferredQuery, filterMode);
   }, [scopedRows, deferredQuery, filterMode]);
 
-  useEffect(() => {
-    setRenderLimit(INITIAL_CHUNK);
-  }, [deferredQuery, filterMode, threadSort, showBackupRows, showArchivedRows]);
-
-  /* progressive rendering */
-  useEffect(() => {
-    setRenderLimit(INITIAL_CHUNK);
-    if (filteredRows.length <= INITIAL_CHUNK) return;
-    let raf = 0;
-    let cancelled = false;
-    const step = () => {
-      if (cancelled) return;
-      setRenderLimit((prev) => {
-        const next = Math.min(prev + CHUNK_SIZE, filteredRows.length);
-        if (next < filteredRows.length) {
-          raf = requestAnimationFrame(step);
-        }
-        return next;
-      });
-    };
-    raf = requestAnimationFrame(step);
-    return () => {
-      cancelled = true;
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, [filteredRows.length]);
-
   const visibleRows = filteredRows.slice(0, renderLimit);
-  const hasMoreThreadRows = filteredRows.length > visibleRows.length;
+  const totalRowsFromApi = Number(threads.data?.total ?? rows.length);
+  const hasMoreThreadRows = filteredRows.length > visibleRows.length || rows.length < totalRowsFromApi;
   const loadMoreThreadRows = () => {
-    setRenderLimit((prev) => Math.min(prev + CHUNK_SIZE, filteredRows.length));
+    setRenderLimit((prev) => prev + CHUNK_SIZE);
+    setThreadsQueryLimit((prev) => prev + CHUNK_SIZE);
   };
   const availableThreadIds = useMemo(
     () => new Set(scopedRows.map((row) => row.thread_id).filter(Boolean)),
     [scopedRows],
   );
+  const filteredThreadIds = useMemo(
+    () => new Set(filteredRows.map((row) => row.thread_id).filter(Boolean)),
+    [filteredRows],
+  );
   const selectedIds = Object.entries(selected)
     .filter(([, on]) => on)
     .map(([id]) => id);
   useEffect(() => {
-    if (!selectedThreadId) return;
-    if (availableThreadIds.has(selectedThreadId)) return;
+    if (
+      !shouldClearSelectedThreadId({
+        selectedThreadId,
+        availableThreadIds,
+        hasApiRows,
+        threadsQueryPending: threads.isLoading || threads.isFetching,
+        threadsFastBoot,
+        keepSelectedThreadFallback: directThreadRoute && !showBackupRows,
+      })
+    ) {
+      return;
+    }
     setSelectedThreadId("");
-  }, [availableThreadIds, selectedThreadId]);
+  }, [
+    availableThreadIds,
+    directThreadRoute,
+    hasApiRows,
+    selectedThreadId,
+    threads.isFetching,
+    threads.isLoading,
+    threadsFastBoot,
+    showBackupRows,
+  ]);
   useEffect(() => {
     setSelected((prev) => {
-      return pruneSelectedThreads(prev, availableThreadIds);
+      return pruneSelectedThreads(prev, filteredThreadIds);
     });
-  }, [availableThreadIds]);
+  }, [filteredThreadIds]);
 
   const allFilteredSelected = resolveAllFilteredSelected(filteredRows, selectedIds);
   const pinnedCount = useMemo(() => scopedRows.filter((r) => r.is_pinned).length, [scopedRows]);
-  const highRiskCount = useMemo(() => scopedRows.filter((r) => Number(r.risk_score || 0) >= 70).length, [scopedRows]);
+  const highRiskCount = useMemo(
+    () => scopedRows.filter((r) => Number(r.risk_score || 0) >= 70).length,
+    [scopedRows],
+  );
   const hasBackupRows = useMemo(
     () => rows.some((row) => row.source === "cleanup_backups"),
     [rows],
