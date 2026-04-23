@@ -12,97 +12,27 @@ import {
   LOCALE_STORAGE_KEY,
 } from "@/shared/lib/appState";
 import { en, type Messages } from "@/i18n/en";
-import { de } from "@/i18n/de";
-import { es } from "@/i18n/es";
-import { hi } from "@/i18n/hi";
-import { id } from "@/i18n/id";
-import { ja } from "@/i18n/ja";
-import { ko } from "@/i18n/ko";
-import { ptBR } from "@/i18n/pt-BR";
-import { ru } from "@/i18n/ru";
-import { zhCN } from "@/i18n/zh-CN";
+import { withCanonicalEnglish } from "@/i18n/canonicalEnglish";
 import { resolveSupportedLocale } from "@/i18n/locales";
 import type { Locale } from "@/i18n/types";
 export type { Messages } from "@/i18n/en";
 const ENGLISH_MESSAGES = en;
-export const CANONICAL_ENGLISH_PATHS = [
-  "nav.overview",
-  "nav.search",
-  "nav.threads",
-  "nav.providers",
-  "nav.forensics",
-  "nav.routing",
-  "nav.light",
-  "nav.dark",
-  "hero.title",
-  "setup.title",
-  "overview.openSetup",
-  "overview.closeSetup",
-  "overview.openThreads",
-  "overview.openSessions",
-  "common.allAi",
-  "common.ok",
-  "common.fail",
-  "search.allProviders",
-  "overview.readyLabel",
-  "overview.failLabel",
-  "overview.commandPathSessions",
-  "overview.commandPathActive",
-  "providers.hubTitle",
-  "providers.backupHubTitle",
-  "providers.advancedTitle",
-  "threadsTable.title",
-  "threadsTable.heroTitle",
-  "threadsTable.workflowSelectedTitle",
-  "threadsTable.workflowImpactTitle",
-  "threadsTable.workflowDryRunTitle",
-  "forensics.title",
-  "forensics.stageReady",
-  "forensics.stagePending",
-  "threadDetail.title",
-  "sessionDetail.title",
-] as const;
 
-function getByPath(value: Record<string, unknown>, path: string): string {
-  return path.split(".").reduce<unknown>((acc, segment) => {
-    if (!acc || typeof acc !== "object") return undefined;
-    return (acc as Record<string, unknown>)[segment];
-  }, value) as string;
-}
+export { CANONICAL_ENGLISH_PATHS } from "@/i18n/canonicalEnglish";
 
-function setByPath(value: Record<string, unknown>, path: string, nextValue: string) {
-  const parts = path.split(".");
-  const last = parts.pop();
-  if (!last) return;
-  const parent = parts.reduce<Record<string, unknown> | null>((acc, segment) => {
-    if (!acc) return null;
-    const next = acc[segment];
-    return next && typeof next === "object" ? (next as Record<string, unknown>) : null;
-  }, value);
-  if (!parent) return;
-  parent[last] = nextValue;
-}
+const runtimeMessagesCache = new Map<Locale, Messages>([["en", ENGLISH_MESSAGES]]);
 
-function withCanonicalEnglish(messages: Messages): Messages {
-  if (messages === ENGLISH_MESSAGES) return ENGLISH_MESSAGES;
-  const next = JSON.parse(JSON.stringify(messages)) as Messages;
-  for (const path of CANONICAL_ENGLISH_PATHS) {
-    setByPath(next, path, getByPath(ENGLISH_MESSAGES, path));
-  }
-  return next;
-}
-
-const MESSAGES_BY_LOCALE: Record<Locale, Messages> = {
-  en: ENGLISH_MESSAGES,
-  ko: withCanonicalEnglish(ko),
-  ja: withCanonicalEnglish(ja),
-  "zh-CN": withCanonicalEnglish(zhCN),
-  "pt-BR": withCanonicalEnglish(ptBR),
-  es: withCanonicalEnglish(es),
-  hi: withCanonicalEnglish(hi),
-  de: withCanonicalEnglish(de),
-  id: withCanonicalEnglish(id),
-  ru: withCanonicalEnglish(ru),
+const RUNTIME_MESSAGE_LOADERS: Record<Locale, () => Promise<Messages>> = {
+  en: async () => ENGLISH_MESSAGES,
+  ko: async () => withCanonicalEnglish((await import("@/i18n/ko")).ko),
+  ja: async () => withCanonicalEnglish((await import("@/i18n/ja")).ja),
+  "zh-CN": async () => withCanonicalEnglish((await import("@/i18n/zh-CN")).zhCN),
+  "pt-BR": async () => withCanonicalEnglish((await import("@/i18n/pt-BR")).ptBR),
+  es: async () => withCanonicalEnglish((await import("@/i18n/es")).es),
+  hi: async () => withCanonicalEnglish((await import("@/i18n/hi")).hi),
+  de: async () => withCanonicalEnglish((await import("@/i18n/de")).de),
+  id: async () => withCanonicalEnglish((await import("@/i18n/id")).id),
+  ru: async () => withCanonicalEnglish((await import("@/i18n/ru")).ru),
 };
 
 type LocaleContextValue = {
@@ -125,11 +55,6 @@ function readSavedLocale(): Locale | null {
   }
 }
 
-export function getMessages(rawLocale: string | null | undefined): Messages {
-  const locale = resolveSupportedLocale(rawLocale) ?? "en";
-  return MESSAGES_BY_LOCALE[locale] ?? ENGLISH_MESSAGES;
-}
-
 export function detectPreferredLocale(options?: {
   savedLocale?: string | null;
   browserLanguage?: string | null;
@@ -141,23 +66,53 @@ export function detectPreferredLocale(options?: {
   );
 }
 
-export function LocaleProvider({ children }: { children: ReactNode }) {
+export async function loadMessages(rawLocale: string | null | undefined): Promise<Messages> {
+  const locale = resolveSupportedLocale(rawLocale) ?? "en";
+  const cached = runtimeMessagesCache.get(locale);
+  if (cached) return cached;
+  const next = await RUNTIME_MESSAGE_LOADERS[locale]();
+  runtimeMessagesCache.set(locale, next);
+  return next;
+}
+
+export function LocaleProvider({
+  children,
+  initialLocale,
+  initialMessages,
+}: {
+  children: ReactNode;
+  initialLocale?: Locale;
+  initialMessages?: Messages;
+}) {
   const [locale, setLocale] = useState<Locale>(() => {
+    if (initialLocale) return initialLocale;
     if (typeof window === "undefined") return "en";
     return detectPreferredLocale({
       savedLocale: readSavedLocale(),
       browserLanguage: window.navigator?.language ?? null,
     });
   });
-  const messages = useMemo(() => getMessages(locale), [locale]);
+  const [messages, setMessages] = useState<Messages>(() => initialMessages ?? ENGLISH_MESSAGES);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    document.documentElement.lang = locale;
     try {
       window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
     } catch {
       // ignore persistence failures
     }
+  }, [locale]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadMessages(locale).then((nextMessages) => {
+      if (cancelled) return;
+      setMessages((current) => (current === nextMessages ? current : nextMessages));
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [locale]);
 
   const value = useMemo(
