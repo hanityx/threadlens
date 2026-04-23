@@ -1,6 +1,6 @@
 const path = require("node:path");
 const fs = require("node:fs");
-const { app, BrowserWindow, Menu, ipcMain, nativeImage, shell } = require("electron");
+const { app, BrowserWindow, Menu, ipcMain, nativeImage, shell, dialog } = require("electron");
 const {
   buildMenuTemplate,
   getDefaultIconCandidates,
@@ -37,6 +37,9 @@ const DESKTOP_API_HOST = "127.0.0.1";
 const DESKTOP_API_READY_TIMEOUT_MS = 12000;
 const DESKTOP_SMOKE_TIMEOUT_MS = Number(process.env.THREADLENS_SMOKE_TIMEOUT_MS || 15000);
 const DESKTOP_RENDERER_SANDBOX = false;
+const THREADLENS_AUTHOR_URL = "https://github.com/hanityx";
+const THREADLENS_HOMEPAGE_URL = "https://github.com/hanityx/threadlens";
+const THREADLENS_ISSUE_URL = "https://github.com/hanityx/threadlens/issues/new/choose";
 const WINDOW_TITLE_SUFFIX = typeof process.env.THREADLENS_WINDOW_TITLE_SUFFIX === "string"
   ? process.env.THREADLENS_WINDOW_TITLE_SUFFIX.trim()
   : "";
@@ -95,8 +98,11 @@ function createMenu() {
       onShowAbout: () => {
         app.showAboutPanel();
       },
+      onReportIssue: () => {
+        void shell.openExternal(THREADLENS_ISSUE_URL);
+      },
       onOpenHomepage: () => {
-        void shell.openExternal("https://github.com/hanityx/threadlens");
+        void shell.openExternal(THREADLENS_HOMEPAGE_URL);
       },
     }),
   );
@@ -138,6 +144,8 @@ registerDesktopIpcHandlers({
   parseOpenWindowPayload,
   resolveExistingPath,
   shell,
+  dialog,
+  browserWindowFromWebContents: (webContents) => BrowserWindow.fromWebContents(webContents),
   createMainWindow: createWindow,
   getDesktopApiBaseUrl: () => desktopApiBaseUrl,
 });
@@ -148,7 +156,8 @@ app.whenReady().then(() => {
     applicationName: "ThreadLens",
     applicationVersion: app.getVersion(),
     version: app.getVersion(),
-    credits: "Local-first AI thread and session workbench",
+    copyright: "(c) 2026 ThreadLens Contributors",
+    credits: `GitHub: ${THREADLENS_AUTHOR_URL}`,
   });
   Menu.setApplicationMenu(createMenu());
   Promise.resolve()

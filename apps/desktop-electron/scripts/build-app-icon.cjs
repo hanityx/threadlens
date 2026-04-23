@@ -3,8 +3,6 @@ const fsp = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
-const pngToIcoModule = require("png-to-ico");
-const pngToIco = pngToIcoModule.default || pngToIcoModule;
 
 const DESKTOP_ROOT = path.resolve(__dirname, "..");
 const SOURCE_SVG = process.env.THREADLENS_ICON_SOURCE || path.join(DESKTOP_ROOT, "..", "web", "public", "favicon.svg");
@@ -57,6 +55,7 @@ async function ensurePngSource(tmpDir) {
 }
 
 async function writeIco(inputPng) {
+  const { default: pngToIco } = await import("png-to-ico");
   const icoBuffer = await pngToIco(inputPng);
   await fsp.writeFile(OUTPUT_ICO, icoBuffer);
 }

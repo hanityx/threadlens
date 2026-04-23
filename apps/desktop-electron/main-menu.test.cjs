@@ -34,6 +34,13 @@ test("buildMenuTemplate exposes native app menus for ThreadLens", () => {
   assert.ok(actionsMenu.submenu.some((item) => item.label === "Refresh Current Window"));
   assert.ok(actionsMenu.submenu.some((item) => item.label === "Open App Data Folder"));
   assert.ok(actionsMenu.submenu.some((item) => item.label === "Open Logs Folder"));
+
+  const helpMenu = template.find((item) => item.label === "Help");
+  assert.ok(helpMenu);
+  assert.deepEqual(
+    helpMenu.submenu.map((item) => item.label),
+    ["About ThreadLens", "Report Issue", "Open Project Homepage"],
+  );
 });
 
 test("resolveAppIconPath prefers generated icons and falls back to staged assets", () => {

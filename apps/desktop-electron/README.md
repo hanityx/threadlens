@@ -43,7 +43,7 @@ pnpm package:desktop:linux
 ```
 
 - Directory build output: `apps/desktop-electron/dist/mac-arm64/ThreadLens.app`
-- macOS zip output: `apps/desktop-electron/dist/*.zip`
+- macOS DMG output: `apps/desktop-electron/dist/*.dmg`
 - Windows portable output: `apps/desktop-electron/dist/*.exe`
 - Linux AppImage output: `apps/desktop-electron/dist/*.AppImage`
 - The packaged app bundles the built web UI and the embedded TS API runner.
@@ -68,6 +68,7 @@ pnpm package:desktop:linux
 ## Notes
 
 - Electron packaging is unsigned on macOS and Windows by default unless the release workflow receives signing credentials.
-- macOS can require `Open` from the context menu once, or approval in `System Settings > Privacy & Security`.
+- macOS DMG opens with a drag-to-Applications install window.
+- If first launch is blocked, use `Right-click -> Open` once, or approve it in `System Settings > Privacy & Security -> Open Anyway`.
 - Windows can require `More info` -> `Run anyway` on the first launch when the release trust notes report an unsigned artifact.
 - Linux AppImage launches can require `chmod +x`.

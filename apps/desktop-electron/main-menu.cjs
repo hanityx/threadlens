@@ -12,6 +12,7 @@ function buildMenuTemplate(options) {
     onOpenAppData = () => {},
     onOpenLogs = () => {},
     onShowAbout = () => {},
+    onReportIssue = () => {},
     onOpenHomepage = () => {},
   } = options ?? {};
 
@@ -72,6 +73,10 @@ function buildMenuTemplate(options) {
     {
       label: `About ${appName}`,
       click: () => onShowAbout(),
+    },
+    {
+      label: "Report Issue",
+      click: () => onReportIssue(),
     },
     {
       label: "Open Project Homepage",
