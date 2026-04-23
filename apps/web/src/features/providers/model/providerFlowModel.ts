@@ -6,7 +6,7 @@ import type {
   ProviderView,
 } from "@/shared/types";
 import type { ProviderFlowCard, SlowHotspotCard } from "@/features/providers/components/AiManagementMatrix";
-import { CORE_PROVIDER_IDS, providerFromDataSource } from "@/features/providers/lib/helpers";
+import { providerFromDataSource } from "@/features/providers/lib/helpers";
 
 type ProviderFlowState = "done" | "pending" | "blocked";
 
@@ -86,6 +86,7 @@ export function buildProviderFlowModel(options: {
       (transcriptReadyCountByProvider.get(row.provider) ?? 0) + 1,
     );
   });
+  const slowProviderIdSet = new Set(options.slowProviderIds);
 
   const providerFlowCards: ProviderFlowCard[] = options.providerTabs
     .filter((tab) => tab.id !== "all")
@@ -136,6 +137,7 @@ export function buildProviderFlowModel(options: {
         name: tab.name,
         status: tab.status,
         scanMs: tab.scan_ms,
+        isSlow: slowProviderIdSet.has(providerId),
         parseFail,
         parseScore,
         canRead,
@@ -175,6 +177,24 @@ export function buildProviderFlowModel(options: {
         ],
       };
     });
+  const rankVisibleFlowCards = (cards: ProviderFlowCard[]) =>
+    [...cards].sort((a, b) => {
+      const aAttention =
+        (a.parseFail > 0 ? 4 : 0) +
+        (a.status !== "active" ? 2 : 0) +
+        (slowProviderIdSet.has(a.providerId) ? 1 : 0);
+      const bAttention =
+        (b.parseFail > 0 ? 4 : 0) +
+        (b.status !== "active" ? 2 : 0) +
+        (slowProviderIdSet.has(b.providerId) ? 1 : 0);
+      if (aAttention !== bAttention) return bAttention - aAttention;
+      if (a.parseFail !== b.parseFail) return b.parseFail - a.parseFail;
+      const aMs = a.scanMs ?? -1;
+      const bMs = b.scanMs ?? -1;
+      if (aMs !== bMs) return bMs - aMs;
+      if (a.sessionCount !== b.sessionCount) return b.sessionCount - a.sessionCount;
+      return a.name.localeCompare(b.name);
+    });
 
   const providerFlowCardById = new Map(providerFlowCards.map((card) => [card.providerId, card]));
   const slowHotspotCards: SlowHotspotCard[] = options.slowProviderIds
@@ -211,10 +231,10 @@ export function buildProviderFlowModel(options: {
     options.providerView === "all" ? 0 : providerSessionCountById.get(options.providerView) ?? 0;
   const visibleFlowCards =
     options.providerView === "all"
-      ? providerFlowCards.filter((card) =>
-          CORE_PROVIDER_IDS.includes(card.providerId as (typeof CORE_PROVIDER_IDS)[number]),
-        )
+      ? rankVisibleFlowCards(providerFlowCards)
       : providerFlowCards.filter((card) => card.providerId === options.providerView);
+  const allViewHiddenCount =
+    options.providerView === "all" ? Math.max(providerFlowCards.length - visibleFlowCards.length, 0) : 0;
 
   return {
     parseFailByProvider,
@@ -226,5 +246,6 @@ export function buildProviderFlowModel(options: {
     selectedProviderPresentSources,
     selectedProviderSessionCount,
     visibleFlowCards,
+    allViewHiddenCount,
   };
 }

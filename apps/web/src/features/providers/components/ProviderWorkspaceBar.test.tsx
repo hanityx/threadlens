@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { getMessages, type Messages } from "@/i18n";
+import type { Messages } from "@/i18n";
+import { getMessages } from "@/i18n/catalog";
 import { ProviderWorkspaceBar } from "@/features/providers/components/ProviderWorkspaceBar";
 
 const messages = getMessages("en");
@@ -48,7 +49,7 @@ describe("ProviderWorkspaceBar", () => {
     );
 
     expect(html).toContain("Parse fail");
-    expect(html).toContain(messages.providers.hubBody);
+    expect(html).toContain("Open transcripts and prepare file actions.");
     expect(html).toContain('class="provider-workspace-title"');
   });
 
@@ -106,7 +107,7 @@ describe("ProviderWorkspaceBar", () => {
     );
 
     expect(html).toContain("모든 프로바이더");
-    expect(html).toContain(koMessages.providers.hubBody);
+    expect(html).toContain("트랜스크립트와 파일 작업을 확인합니다.");
     expect(html).toContain("트랜스크립트 준비");
     expect(html).toContain("파싱 실패");
   });

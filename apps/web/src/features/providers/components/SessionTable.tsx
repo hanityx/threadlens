@@ -4,14 +4,16 @@ import { Button } from "@/shared/ui/components/Button";
 import { PanelHeader } from "@/shared/ui/components/PanelHeader";
 import { StatusPill, type StatusPillVariant } from "@/shared/ui/components/StatusPill";
 import type { Messages } from "@/i18n";
-import type { ProviderSessionActionResult, ProviderSessionRow } from "@/shared/types";
+import type { ProviderSessionRow } from "@/shared/types";
 import { SKELETON_ROWS } from "@/shared/types";
-import { formatDateTime, formatProviderDisplayName, normalizeDisplayValue } from "@/shared/lib/format";
+import { formatDateYmd, formatProviderDisplayName } from "@/shared/lib/format";
 import { compactSessionId, compactSessionTitle, suppressMouseFocus } from "@/features/providers/lib/helpers";
+import { type ProviderWorkflowStage } from "@/features/providers/model/providerPanelPresentationModel";
 import {
-  buildProviderSessionActionSummary,
-  type ProviderWorkflowStage,
-} from "@/features/providers/model/providerPanelPresentationModel";
+  resolveProviderSessionRowClickChecked,
+  resolveVisibleSelectionCount,
+} from "@/features/providers/model/sessionTableModel";
+import "./sessionTable.css";
 
 function formatProviderMessage(template: string, values: Record<string, string | number>) {
   return Object.entries(values).reduce(
@@ -27,137 +29,191 @@ function statusPillVariantFromClassName(className: string): StatusPillVariant {
   return "preview";
 }
 
+function formatWorkflowStageLabel(messages: Messages, title: string, stage: ProviderWorkflowStage): string {
+  const isKorean = messages.providers.workflowDeleteTitle === "삭제 준비";
+  if (isKorean && (stage.label === messages.forensics.stagePending || stage.label === "Pending")) {
+    return title;
+  }
+  if (isKorean && (stage.label === messages.forensics.stageReady || stage.label === "Ready")) {
+    return `${title} 완료`;
+  }
+  return `${title} ${stage.label}`;
+}
+
 export interface SessionTableProps {
   messages: Messages;
-  providerSessionSummary: { rows: number; parse_ok: number };
-  providerSessionRows: ProviderSessionRow[];
-  providerSessionsLimit: number;
-  providerRowsSampled: boolean;
-  showProviderSessionsZeroState: boolean;
-  selectedProviderHasPresentSource: boolean;
-  onPromoteDepthRefresh: () => void;
-  sortedProviderSessionRows: ProviderSessionRow[];
-  renderedProviderSessionRows: ProviderSessionRow[];
-  canRunProviderAction: boolean;
-  busy: boolean;
-  onRunArchiveDryRun: () => void;
-  onRunArchive: () => void;
-  onRunDeleteDryRun: () => void;
-  onRunDelete: () => void;
-  onRequestHardDeleteConfirm: () => void;
-  hardDeleteConfirmOpen: boolean;
-  hardDeleteSkipConfirmChecked: boolean;
-  onToggleHardDeleteSkipConfirmChecked: (checked: boolean) => void;
-  onConfirmHardDelete: () => void;
-  onCancelHardDeleteConfirm: () => void;
-  selectedSessionProvider: string;
-  selectedSessionParseFailCount?: number;
-  onJumpToParserProvider: (providerId: string) => void;
-  sourceFilter: string;
-  onSourceFilterChange: (value: string) => void;
-  sourceFilterOptions: Array<{ source: string; count: number }>;
-  sessionSort: string;
-  onSessionSortChange: (value: string) => void;
-  staleOnlyActive: boolean;
-  canSelectStaleOnly: boolean;
-  onToggleSelectStaleOnly: () => void;
-  enabledCsvColumnsCount: number;
-  totalCsvColumns: number;
-  onExportCsv: () => void;
-  onSetCsvColumnsPreset: (preset: "all" | "compact" | "forensics") => void;
-  csvColumnItems: Array<{ key: string; label: string; checked: boolean }>;
-  onCsvColumnChange: (key: string, checked: boolean) => void;
-  showReadOnlyHint: boolean;
-  showProviderColumn: boolean;
-  selectedSessionPath: string;
-  slowProviderSet: ReadonlySet<string>;
-  onSelectSessionPath: (path: string) => void;
-  onSetParserDetailProvider: (providerId: string) => void;
-  selectedProviderFiles: Record<string, boolean>;
-  allProviderRowsSelected: boolean;
-  allFilteredProviderRowsSelected: boolean;
-  toggleSelectAllProviderRows: (checked: boolean) => void;
-  onSelectedProviderFileChange: (filePath: string, checked: boolean) => void;
-  providerSessionsLoading: boolean;
-  onLoadMoreRows: () => void;
-  hasMoreRows: boolean;
-  archiveStage: ProviderWorkflowStage;
-  deleteStage: ProviderWorkflowStage;
-  sessionFileActionResult: ProviderSessionActionResult | null;
-  sessionFileActionCanExecute: boolean;
-  actionLabel: (action: ProviderSessionActionResult["action"]) => string;
-  csvExportedRows: number | null;
+  data: {
+    providerSessionSummary: { rows: number; parse_ok: number };
+    providerSessionRows: ProviderSessionRow[];
+    providerSessionsLimit: number;
+    providerRowsSampled: boolean;
+    showProviderSessionsZeroState: boolean;
+    selectedProviderHasPresentSource: boolean;
+    sortedRows: ProviderSessionRow[];
+    renderedRows: ProviderSessionRow[];
+    providerSessionsLoading: boolean;
+    hasMoreRows: boolean;
+    csvExportedRows: number | null;
+    selectedSessionProvider: string;
+    selectedSessionParseFailCount?: number;
+    slowProviderSet: ReadonlySet<string>;
+  };
+  selection: {
+    selectedSessionPath: string;
+    selectedProviderFiles: Record<string, boolean>;
+    allProviderRowsSelected: boolean;
+    allFilteredProviderRowsSelected: boolean;
+    staleOnlyActive: boolean;
+    canSelectStaleOnly: boolean;
+    showBackupRows: boolean;
+    canShowBackupRows: boolean;
+    showArchivedRows: boolean;
+    canShowArchivedRows: boolean;
+  };
+  filters: {
+    sourceFilter: string;
+    sourceFilterOptions: Array<{ source: string; count: number }>;
+    sessionSort: string;
+    enabledCsvColumnsCount: number;
+    totalCsvColumns: number;
+    csvColumnItems: Array<{ key: string; label: string; checked: boolean }>;
+  };
+  actions: {
+    onPromoteDepthRefresh: () => void;
+    onRunArchiveDryRun: () => void;
+    onRunArchiveExecute: () => void;
+    onRunDeleteDryRun: () => void;
+    onRequestHardDeleteConfirm: () => void;
+    onToggleHardDeleteSkipConfirmChecked: (checked: boolean) => void;
+    onConfirmHardDelete: () => void;
+    onCancelHardDeleteConfirm: () => void;
+    onJumpToParserProvider: (providerId: string) => void;
+    onSourceFilterChange: (value: string) => void;
+    onSessionSortChange: (value: string) => void;
+    onToggleSelectStaleOnly: () => void;
+    onToggleShowBackupRows?: () => void;
+    onToggleShowArchivedRows?: () => void;
+    onRunBackupSelected: () => void;
+    onExportCsv: () => void;
+    onSetCsvColumnsPreset: (preset: "all" | "compact" | "forensics") => void;
+    onCsvColumnChange: (key: string, checked: boolean) => void;
+    onProviderDeleteBackupEnabledChange?: (checked: boolean) => void;
+    onSelectSessionPath: (path: string) => void;
+    onSetParserDetailProvider: (providerId: string) => void;
+    toggleSelectAllProviderRows: (checked: boolean) => void;
+    onSelectedProviderFileChange: (filePath: string, checked: boolean) => void;
+    onLoadMoreRows: () => void;
+  };
+  workflow: {
+    canRunProviderAction: boolean;
+    busy: boolean;
+    hardDeleteConfirmOpen: boolean;
+    hardDeleteSkipConfirmChecked: boolean;
+    canRunProviderBackup: boolean;
+    actionSelectionHint: string;
+    providerDeleteBackupEnabled: boolean;
+    showReadOnlyHint: boolean;
+    archiveStage: ProviderWorkflowStage;
+    archiveCanExecute: boolean;
+    deleteStage: ProviderWorkflowStage;
+  };
+  display: {
+    showProviderColumn: boolean;
+  };
   sectionRef?: Ref<HTMLElement>;
   panelStyle?: CSSProperties;
 }
 
 export function SessionTable(props: SessionTableProps) {
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const { messages, sectionRef, panelStyle } = props;
   const {
-    messages,
     providerSessionSummary,
     providerSessionRows,
     providerSessionsLimit,
     providerRowsSampled,
     showProviderSessionsZeroState,
     selectedProviderHasPresentSource,
-    onPromoteDepthRefresh,
-    sortedProviderSessionRows,
-    renderedProviderSessionRows,
-    canRunProviderAction,
-    busy,
-    onRunArchiveDryRun,
-    onRunArchive,
-    onRunDeleteDryRun,
-    onRunDelete,
-    onRequestHardDeleteConfirm,
-    hardDeleteConfirmOpen,
-    hardDeleteSkipConfirmChecked,
-    onToggleHardDeleteSkipConfirmChecked,
-    onConfirmHardDelete,
-    onCancelHardDeleteConfirm,
+    sortedRows: sortedProviderSessionRows,
+    renderedRows: renderedProviderSessionRows,
+    providerSessionsLoading,
+    hasMoreRows,
+    csvExportedRows,
     selectedSessionProvider,
     selectedSessionParseFailCount,
-    onJumpToParserProvider,
-    sourceFilter,
-    onSourceFilterChange,
-    sourceFilterOptions,
-    sessionSort,
-    onSessionSortChange,
-    staleOnlyActive,
-    canSelectStaleOnly,
-    onToggleSelectStaleOnly,
-    enabledCsvColumnsCount,
-    totalCsvColumns,
-    onExportCsv,
-    onSetCsvColumnsPreset,
-    csvColumnItems,
-    onCsvColumnChange,
-    showReadOnlyHint,
-    showProviderColumn,
-    selectedSessionPath,
     slowProviderSet,
-    onSelectSessionPath,
-    onSetParserDetailProvider,
+  } = props.data;
+  const {
+    selectedSessionPath,
     selectedProviderFiles,
     allProviderRowsSelected,
     allFilteredProviderRowsSelected,
+    staleOnlyActive,
+    canSelectStaleOnly,
+    showBackupRows,
+    canShowBackupRows,
+    showArchivedRows,
+    canShowArchivedRows,
+  } = props.selection;
+  const {
+    sourceFilter,
+    sourceFilterOptions,
+    sessionSort,
+    enabledCsvColumnsCount,
+    totalCsvColumns,
+    csvColumnItems,
+  } = props.filters;
+  const {
+    onPromoteDepthRefresh,
+    onRunArchiveDryRun,
+    onRunArchiveExecute,
+    onRunDeleteDryRun,
+    onRequestHardDeleteConfirm,
+    onToggleHardDeleteSkipConfirmChecked,
+    onConfirmHardDelete,
+    onCancelHardDeleteConfirm,
+    onJumpToParserProvider,
+    onSourceFilterChange,
+    onSessionSortChange,
+    onToggleSelectStaleOnly,
+    onToggleShowBackupRows,
+    onToggleShowArchivedRows,
+    onExportCsv,
+    onSetCsvColumnsPreset,
+    onCsvColumnChange,
+    onProviderDeleteBackupEnabledChange,
+    onSelectSessionPath,
+    onSetParserDetailProvider,
     toggleSelectAllProviderRows,
     onSelectedProviderFileChange,
-    providerSessionsLoading,
     onLoadMoreRows,
-    hasMoreRows,
+  } = props.actions;
+  const {
+    canRunProviderAction,
+    busy,
+    hardDeleteConfirmOpen,
+    hardDeleteSkipConfirmChecked,
+    actionSelectionHint,
+    providerDeleteBackupEnabled,
+    showReadOnlyHint,
     archiveStage,
+    archiveCanExecute,
     deleteStage,
-    sessionFileActionResult,
-    sessionFileActionCanExecute,
-    actionLabel,
-    csvExportedRows,
-    sectionRef,
-    panelStyle,
-  } = props;
-  const sessionActionSummary = buildProviderSessionActionSummary(messages, sessionFileActionResult);
+  } = props.workflow;
+  const { showProviderColumn } = props.display;
   const filteredCount = sortedProviderSessionRows.length;
+  const archiveActionLabel = showArchivedRows
+    ? archiveCanExecute
+      ? messages.providers.unarchive
+      : messages.providers.unarchiveDryRun
+    : archiveCanExecute
+      ? messages.providers.archive
+      : messages.providers.archiveDryRun;
+  const archiveWorkflowTitle = showArchivedRows
+    ? messages.providers.unarchiveDryRun
+    : messages.providers.workflowArchiveTitle;
+  const canRunArchiveAction = canRunProviderAction && !showBackupRows;
+  const canRunDeletePrepAction = canRunProviderAction && !showBackupRows && !showArchivedRows;
 
   const sortKeyFromCol = (col: "title" | "mtime" | "size") => {
     const [key, dir] = sessionSort.split("_");
@@ -171,19 +227,11 @@ export function SessionTable(props: SessionTableProps) {
       <span className="col-sort-indicator">{activeSortDir === "asc" ? "▲" : "▼"}</span>
     ) : null;
   const totalCount = providerSessionRows.length;
-  const selectedCount = Object.values(selectedProviderFiles).filter(Boolean).length;
-  const sessionExecuteLabel =
-    sessionFileActionResult ? `${messages.providers.executeActionPrefix} ${actionLabel(sessionFileActionResult.action)}` : "";
-  const sessionExecuteVariant = sessionFileActionResult?.action === "delete_local" ? "danger" : "base";
-  const handleExecuteSessionAction = () => {
-    if (!sessionFileActionResult) return;
-    if (sessionFileActionResult.action === "archive_local") {
-      onRunArchive();
-      return;
-    }
-    onRunDelete();
-  };
-
+  const selectedCount = resolveVisibleSelectionCount({
+    sortedProviderSessionRows,
+    selectedProviderFiles,
+    selectedSessionPath,
+  });
   return (
     <section className="panel provider-session-stage threads-table-panel" ref={sectionRef} style={panelStyle}>
       <PanelHeader
@@ -210,33 +258,56 @@ export function SessionTable(props: SessionTableProps) {
               {messages.providers.workflowSelectedTitle} {selectedCount}
             </StatusPill>
             <StatusPill variant={statusPillVariantFromClassName(archiveStage.className)}>
-              {messages.providers.workflowArchiveTitle} {archiveStage.label}
+              {formatWorkflowStageLabel(messages, archiveWorkflowTitle, archiveStage)}
             </StatusPill>
             <StatusPill variant={statusPillVariantFromClassName(deleteStage.className)}>
-              {messages.providers.workflowDeleteTitle} {deleteStage.label}
+              {formatWorkflowStageLabel(messages, messages.providers.workflowDeleteTitle, deleteStage)}
             </StatusPill>
           </div>
         </div>
         <div className="sub-toolbar sessions-action-strip">
         <div className="sessions-action-main">
-          <Button variant="outline" disabled={!canRunProviderAction || busy} onClick={onRunArchiveDryRun}>
-            {messages.providers.archiveDryRun}
-          </Button>
-          <Button variant="outline" disabled={!canRunProviderAction || busy} onClick={onRunDeleteDryRun}>
-            {messages.providers.deleteDryRun}
-          </Button>
           <Button
-            variant={staleOnlyActive ? "base" : "outline"}
-            disabled={!canSelectStaleOnly}
-            onClick={onToggleSelectStaleOnly}
+            variant="outline"
+            disabled={!canRunArchiveAction || busy}
+            onClick={archiveCanExecute ? onRunArchiveExecute : onRunArchiveDryRun}
           >
-            {messages.providers.selectStaleOnly}
+            {archiveActionLabel}
+          </Button>
+          <Button variant="outline" disabled={!canRunDeletePrepAction || busy} onClick={onRunDeleteDryRun}>
+            {messages.providers.deleteDryRun}
           </Button>
           <Button variant="danger" disabled={!canRunProviderAction || busy} onClick={onRequestHardDeleteConfirm}>
             {messages.providers.delete}
           </Button>
         </div>
         <div className="sessions-action-tools">
+          <Button
+            variant="outline"
+            className={`sessions-action-tool-btn${staleOnlyActive ? " is-active" : ""}`}
+            disabled={!canSelectStaleOnly}
+            onClick={onToggleSelectStaleOnly}
+          >
+            {messages.providers.selectStaleOnly}
+          </Button>
+          {canShowBackupRows ? (
+            <Button
+              variant="outline"
+              className={`sessions-action-tool-btn${showBackupRows ? " is-active" : ""}`}
+              onClick={() => onToggleShowBackupRows?.()}
+            >
+              {messages.providers.showBackupRows}
+            </Button>
+          ) : null}
+          {canShowArchivedRows ? (
+            <Button
+              variant="outline"
+              className={`sessions-action-tool-btn${showArchivedRows ? " is-active" : ""}`}
+              onClick={() => onToggleShowArchivedRows?.()}
+            >
+              {messages.providers.showArchivedRows}
+            </Button>
+          ) : null}
           <Button
             variant="outline"
             className={`sessions-action-tool-btn${filtersOpen ? " is-active" : ""}`}
@@ -299,6 +370,7 @@ export function SessionTable(props: SessionTableProps) {
               </div>
             </div>
             <div className="sub-toolbar inline-tools-disclosure-body">
+              <span className="overview-note-label">{messages.providers.csvColumns}</span>
               {csvColumnItems.map((item) => (
                 <label key={`csv-col-${item.key}`} className="check-inline">
                   <input
@@ -315,27 +387,44 @@ export function SessionTable(props: SessionTableProps) {
             </div>
           </div>
         ) : null}
-        <div className="sessions-action-support">
-          {selectedSessionProvider ? (
-            <StatusPill
-              variant={Number(selectedSessionParseFailCount ?? 0) > 0 ? "detected" : "active"}
-              interactive
-              onClick={() => onJumpToParserProvider(selectedSessionProvider)}
-              action={messages.providers.parserLinkedOpen}
-            >
-              {messages.providers.parserLinkedBadge} {selectedSessionProvider} · {messages.providers.parserLinkedFails}{" "}
-              {selectedSessionParseFailCount ?? messages.common.unknown}
-            </StatusPill>
-          ) : null}
-          {showReadOnlyHint ? (
-            <span className="sub-hint">{messages.providers.readOnlyHint}</span>
-          ) : null}
-          {csvExportedRows !== null ? (
-            <span className="sub-hint">
-              {messages.providers.csvExported} {csvExportedRows}
-            </span>
-          ) : null}
-        </div>
+        {actionSelectionHint || showReadOnlyHint || csvExportedRows !== null ? (
+          <div className="sessions-action-support">
+            {actionSelectionHint ? (
+              <span className="sub-hint">{actionSelectionHint}</span>
+            ) : null}
+            {showReadOnlyHint ? (
+              <span className="sub-hint">{messages.providers.readOnlyHint}</span>
+            ) : null}
+            {csvExportedRows !== null ? (
+              <span className="sub-hint">
+                {messages.providers.csvExported} {csvExportedRows}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+        {typeof onProviderDeleteBackupEnabledChange === "function" ? (
+          <div className="sessions-action-secondary">
+            <label className="check-inline sessions-delete-backup-toggle">
+              <input
+                type="checkbox"
+                checked={providerDeleteBackupEnabled}
+                onChange={(event) => onProviderDeleteBackupEnabledChange(event.target.checked)}
+              />
+              {messages.providers.deleteWithBackup}
+            </label>
+            {selectedSessionProvider ? (
+              <StatusPill
+                variant={Number(selectedSessionParseFailCount ?? 0) > 0 ? "detected" : "active"}
+                interactive
+                onClick={() => onJumpToParserProvider(selectedSessionProvider)}
+                action={messages.providers.parserLinkedOpen}
+              >
+                {messages.providers.parserLinkedBadge} {selectedSessionProvider} · {messages.providers.parserLinkedFails}{" "}
+                {selectedSessionParseFailCount ?? messages.common.unknown}
+              </StatusPill>
+            ) : null}
+          </div>
+        ) : null}
         {hardDeleteConfirmOpen ? (
           <div className="provider-hard-delete-confirm" role="dialog" aria-modal="true">
             <div className="provider-hard-delete-confirm-card">
@@ -426,6 +515,10 @@ export function SessionTable(props: SessionTableProps) {
                 onClick={() => {
                   onSelectSessionPath(row.file_path);
                   onSetParserDetailProvider(row.provider);
+                  onSelectedProviderFileChange(
+                    row.file_path,
+                    resolveProviderSessionRowClickChecked(isChecked),
+                  );
                 }}
               >
                 <td className="table-select-cell">
@@ -455,6 +548,10 @@ export function SessionTable(props: SessionTableProps) {
                       event.stopPropagation();
                       onSelectSessionPath(row.file_path);
                       onSetParserDetailProvider(row.provider);
+                      onSelectedProviderFileChange(
+                        row.file_path,
+                        resolveProviderSessionRowClickChecked(isChecked),
+                      );
                     }}
                   >
                     <div
@@ -470,7 +567,7 @@ export function SessionTable(props: SessionTableProps) {
                 </td>
                 <td className="col-source">{row.source}</td>
                 <td className="col-format">{row.probe.format}</td>
-                <td className="col-modified">{formatDateTime(row.mtime)}</td>
+                <td className="col-modified">{formatDateYmd(row.mtime)}</td>
                 <td className="col-size">{formatBytesCompact(row.size_bytes)}</td>
               </tr>
             )})}
@@ -494,54 +591,14 @@ export function SessionTable(props: SessionTableProps) {
             ) : null}
           </tbody>
         </table>
+        {hasMoreRows ? (
+          <div className="sub-toolbar table-load-more-bar">
+            <Button variant="outline" onClick={onLoadMoreRows}>
+              {messages.providers.loadMoreRows} {renderedProviderSessionRows.length}/{sortedProviderSessionRows.length}
+            </Button>
+          </div>
+        ) : null}
       </div>
-      {hasMoreRows ? (
-        <div className="sub-toolbar">
-          <Button variant="outline" onClick={onLoadMoreRows}>
-            {messages.providers.loadMoreRows} {renderedProviderSessionRows.length}/{sortedProviderSessionRows.length}
-          </Button>
-        </div>
-      ) : null}
-      {sessionFileActionResult ? (
-        <section className="provider-result-grid">
-          <article className="provider-result-card">
-            <span className="overview-note-label">{messages.providers.actionResultTitle}</span>
-            <strong>{sessionActionSummary?.headline ?? actionLabel(sessionFileActionResult.action)}</strong>
-            <p>{sessionActionSummary?.countSummary}</p>
-            <p>{sessionActionSummary?.detail}</p>
-            {sessionActionSummary?.token ? <code>{sessionActionSummary.token}</code> : null}
-            {sessionActionSummary?.previewReady ? (
-              sessionFileActionCanExecute ? (
-                <div className="sub-toolbar provider-result-actions">
-                  <Button variant={sessionExecuteVariant} disabled={busy} onClick={handleExecuteSessionAction}>
-                    {sessionExecuteLabel}
-                  </Button>
-                </div>
-              ) : (
-                <p className="sub-hint">{messages.providers.resultSelectionChangedHint}</p>
-              )
-            ) : null}
-          </article>
-          {sessionFileActionResult.backup_to ? (
-            <article className="provider-result-card">
-              <span className="overview-note-label">{messages.providers.backupLocation}</span>
-              <strong className="mono-sub">{sessionFileActionResult.backup_to}</strong>
-              <p>
-                {sessionFileActionResult.backup_manifest_path
-                  ? `${messages.providers.backupManifest}: ${sessionFileActionResult.backup_manifest_path}`
-                  : messages.providers.backupReadyHint}
-              </p>
-            </article>
-          ) : null}
-          {sessionFileActionResult.archived_to ? (
-            <article className="provider-result-card">
-              <span className="overview-note-label">{messages.providers.archiveLocation}</span>
-              <strong className="mono-sub">{sessionFileActionResult.archived_to}</strong>
-              <p>{messages.providers.archiveReadyHint}</p>
-            </article>
-          ) : null}
-        </section>
-      ) : null}
     </section>
   );
 }

@@ -33,7 +33,10 @@ export function useProvidersPanelState(options: {
   setProviderProbeFilterIntent: (value: ProviderProbeFilter | null) => void;
   canRunProviderAction: boolean;
   busy: boolean;
-  runProviderHardDelete: () => Promise<unknown>;
+  runProviderHardDelete: (view: {
+    showBackupRows: boolean;
+    showArchivedRows: boolean;
+  }) => Promise<unknown>;
 }) {
   const {
     providerView,
@@ -54,6 +57,8 @@ export function useProvidersPanelState(options: {
   const [localSessionSort, setLocalSessionSort] = useState<ProviderSessionSort>(sessionSort);
   const [localProbeFilter, setLocalProbeFilter] = useState<ProviderProbeFilter>(probeFilter);
   const [localSourceFilter, setLocalSourceFilter] = useState<ProviderSourceFilter>(sourceFilter);
+  const [showBackupRows, setShowBackupRows] = useState(false);
+  const [showArchivedRows, setShowArchivedRows] = useState(false);
   const [renderLimit, setRenderLimit] = useState(80);
   const [csvExportedRows, setCsvExportedRows] = useState<number | null>(null);
   const [parserWorkspace, dispatchParserWorkspace] = useReducer(
@@ -88,7 +93,7 @@ export function useProvidersPanelState(options: {
 
   useEffect(() => {
     setRenderLimit(80);
-  }, [providerView, localSessionFilter, localSessionSort, localProbeFilter, localSourceFilter]);
+  }, [providerView, localSessionFilter, localSessionSort, localProbeFilter, localSourceFilter, showBackupRows, showArchivedRows]);
 
   useEffect(() => {
     if (providerProbeFilterIntent === null) return;
@@ -112,7 +117,7 @@ export function useProvidersPanelState(options: {
       skipConfirmPref: hardDeleteSkipConfirmPref,
     });
     if (next.shouldRunImmediately) {
-      void runProviderHardDelete();
+      void runProviderHardDelete({ showBackupRows, showArchivedRows });
       return;
     }
     setHardDeleteSkipConfirmChecked(next.skipConfirmChecked);
@@ -125,7 +130,7 @@ export function useProvidersPanelState(options: {
     const next = buildHardDeleteConfirmResolvedState(hardDeleteSkipConfirmChecked);
     setHardDeleteSkipConfirmPref(next.skipConfirmPref);
     setHardDeleteConfirmOpen(next.confirmOpen);
-    void runProviderHardDelete().finally(() => {
+    void runProviderHardDelete({ showBackupRows, showArchivedRows }).finally(() => {
       setHardDeleteSkipConfirmChecked(next.skipConfirmChecked);
     });
   };
@@ -140,6 +145,10 @@ export function useProvidersPanelState(options: {
     setProbeFilter: setLocalProbeFilter,
     sourceFilter: localSourceFilter,
     setSourceFilter: setLocalSourceFilter,
+    showBackupRows,
+    setShowBackupRows,
+    showArchivedRows,
+    setShowArchivedRows,
     renderLimit,
     setRenderLimit,
     csvExportedRows,

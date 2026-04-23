@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { getMessages, type Messages } from "@/i18n";
+import type { Messages } from "@/i18n";
+import { getMessages } from "@/i18n/catalog";
 import type { ProviderSessionRow } from "@/shared/types";
 import type { CsvColumnKey } from "@/features/providers/lib/helpers";
 import {

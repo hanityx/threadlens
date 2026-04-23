@@ -2,6 +2,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { AiManagementMatrix } from "@/features/providers/components/AiManagementMatrix";
 import { DataSourcesList } from "@/features/providers/components/DataSourcesList";
 import { ProviderAdvancedShell } from "@/features/providers/components/ProviderAdvancedShell";
+import "./providerAdvanced.css";
 
 export function ProviderAdvancedTools(props: {
   advancedShellProps: Omit<ComponentProps<typeof ProviderAdvancedShell>, "matrixSlot">;
