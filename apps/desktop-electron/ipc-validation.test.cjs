@@ -31,11 +31,13 @@ test("parseOpenWindowPayload normalizes only string fields", () => {
   assert.deepEqual(parseOpenWindowPayload({
     view: " providers ",
     provider: 1,
+    sessionId: " session-1 ",
     filePath: " /tmp/a.jsonl ",
     threadId: null,
   }), {
     view: "providers",
     provider: "",
+    sessionId: "session-1",
     filePath: " /tmp/a.jsonl ",
     threadId: "",
   });
