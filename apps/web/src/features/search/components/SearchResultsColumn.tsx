@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, MouseEvent, RefObject, SetStateAction } from "react";
 import type { ConversationSearchHit } from "@/shared/types";
 import type { Messages } from "@/i18n";
 import {
@@ -7,19 +7,25 @@ import {
   formatSearchMessage,
   formatSourceLabel,
   getSearchRoleLabel,
-  shouldIgnoreSearchCardKeyboardActivation,
   type SearchProviderGroup,
+  type SearchSessionGroup,
 } from "@/features/search/model/searchPanelModel";
+
+type SessionHitsState = {
+  hits: ConversationSearchHit[];
+  loading: boolean;
+  hasMore: boolean;
+};
 
 type SearchResultsColumnProps = {
   messages: Messages;
   searchEnabled: boolean;
-  resultCount: number;
+  summarySessionCount: number;
+  summaryHitCount: number;
+  summaryHitCountIsApproximate?: boolean;
+  loadedSessionCount: number;
   searchedSessions: number;
   availableSessions: number;
-  providerHitCount: number;
-  messageMatches: number;
-  collapsedDuplicateCount: number;
   statusText: string | null;
   showLiveLoading: boolean;
   showLoadingSkeleton: boolean;
@@ -28,21 +34,40 @@ type SearchResultsColumnProps = {
   expandedSessions: Set<string>;
   activeSessionKey: string | null;
   sessionOpenProviderIds: string[];
+  sessionHitsBySession?: Record<string, SessionHitsState | undefined>;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
+  loadMoreRef?: RefObject<HTMLButtonElement | null>;
+  onLoadMoreResults?: () => void;
+  onLoadSessionHits?: (session: SearchSessionGroup) => void;
   setActiveSessionKey: Dispatch<SetStateAction<string | null>>;
   setExpandedSessions: Dispatch<SetStateAction<Set<string>>>;
   onOpenSession: (hit: ConversationSearchHit) => void;
   onOpenThread: (hit: ConversationSearchHit) => void;
 };
 
+function formatApproximateCountLabel(
+  template: string,
+  count: number,
+  approximate = false,
+): string {
+  const formatted = formatSearchMessage(template, { count });
+  if (!approximate) return formatted;
+  const token = String(count);
+  const tokenIndex = formatted.indexOf(token);
+  if (tokenIndex < 0) return `${formatted}+`;
+  return `${formatted.slice(0, tokenIndex)}${token}+${formatted.slice(tokenIndex + token.length)}`;
+}
+
 export function SearchResultsColumn({
   messages,
   searchEnabled,
-  resultCount,
+  summarySessionCount,
+  summaryHitCount,
+  summaryHitCountIsApproximate = false,
+  loadedSessionCount,
   searchedSessions,
   availableSessions,
-  providerHitCount,
-  messageMatches,
-  collapsedDuplicateCount,
   statusText,
   showLiveLoading,
   showLoadingSkeleton,
@@ -51,37 +76,46 @@ export function SearchResultsColumn({
   expandedSessions,
   activeSessionKey,
   sessionOpenProviderIds,
+  sessionHitsBySession = {},
+  hasNextPage = false,
+  isFetchingNextPage = false,
+  loadMoreRef,
+  onLoadMoreResults,
+  onLoadSessionHits,
   setActiveSessionKey,
   setExpandedSessions,
   onOpenSession,
   onOpenThread,
 }: SearchResultsColumnProps) {
+  const remainingSessionCount = Math.max(summarySessionCount - loadedSessionCount, 0);
+
   return (
     <div className="search-results-column">
       {searchEnabled ? (
         <div className="search-summary-strip" role="status" aria-live="polite">
-          <span className="search-summary-item">
-            <strong className="search-summary-value">{resultCount}</strong>
-            <span className="search-summary-label">{messages.search.summaryMatchesLabel}</span>
-          </span>
-          <span className="search-summary-item">
-            <strong className="search-summary-value">
-              {searchedSessions}/{availableSessions}
-            </strong>
-            <span className="search-summary-label">{messages.search.summaryScannedLabel}</span>
-          </span>
-          <span className="search-summary-item">
-            <strong className="search-summary-value">{providerHitCount}</strong>
-            <span className="search-summary-label">{messages.search.providerHits}</span>
-            <span className="search-summary-divider" aria-hidden="true">·</span>
-            <strong className="search-summary-value">{messageMatches}</strong>
-            <span className="search-summary-label">{messages.search.summaryMessagesLabel}</span>
-          </span>
-          {collapsedDuplicateCount > 0 ? (
-            <span className="search-summary-item">
-              <strong className="search-summary-value">{collapsedDuplicateCount}</strong>
-              <span className="search-summary-label">{messages.search.summaryDedupedLabel}</span>
-            </span>
+          {!showLiveLoading ? (
+            <>
+              <span className="search-summary-item">
+                <strong className="search-summary-value">
+                  {formatSearchMessage(messages.search.groupRows, { count: summarySessionCount })}
+                </strong>
+              </span>
+              <span className="search-summary-item">
+                <strong className="search-summary-value">
+                  {searchedSessions}/{availableSessions}
+                </strong>
+                <span className="search-summary-label">{messages.search.summaryScannedLabel}</span>
+              </span>
+              <span className="search-summary-item">
+                <strong className="search-summary-value">
+                  {formatApproximateCountLabel(
+                    messages.search.groupHits,
+                    summaryHitCount,
+                    summaryHitCountIsApproximate,
+                  )}
+                </strong>
+              </span>
+            </>
           ) : null}
           {statusText ? (
             <span className={`status-pill ${showLiveLoading ? "status-preview" : "status-missing"}`.trim()}>
@@ -122,25 +156,86 @@ export function SearchResultsColumn({
                     {formatSearchMessage(messages.search.groupRows, { count: group.sessions.length })}
                   </span>
                   <span className="status-pill status-active">
-                    {formatSearchMessage(messages.search.groupHits, { count: group.matchCount })}
+                    {formatApproximateCountLabel(
+                      messages.search.groupHits,
+                      group.matchCount,
+                      group.hasApproximateHits,
+                    )}
                   </span>
                 </div>
               </div>
               <div className="search-group-list">
                 {group.sessions.map((session) => {
-                  const cardProviderName = providerLabelById.get(session.openHit.provider) ?? session.openHit.provider;
+                  const cardProviderName =
+                    providerLabelById.get(session.openHit.provider) ?? session.openHit.provider;
                   const isExpanded = expandedSessions.has(session.key);
                   const isActive = activeSessionKey === session.key;
                   const canOpenSession = sessionOpenProviderIds.includes(session.openHit.provider);
-                  const previewMatches = isExpanded ? session.matches : session.matches.slice(0, 1);
-                  const remainingMatches = session.matches.length - 1;
-                  const cardKey = `${group.id}:${session.key}`;
+                  const sessionHitsState = sessionHitsBySession[session.key];
+                  const expandedMatches = sessionHitsState?.hits?.length ? sessionHitsState.hits : session.matches;
+                  const visibleMatches = isExpanded ? expandedMatches : session.matches;
+                  const showsIdentifierTitle =
+                    Boolean(session.openHit.session_id) && session.title === session.openHit.session_id;
+                  const canLoadMoreHits =
+                    Boolean(sessionHitsState?.hasMore) ||
+                    (!sessionHitsState && session.result.has_more_hits);
+                  const hasLoadedSourceHits = Boolean(sessionHitsState?.hits?.length);
+                  const showSessionToggle = Boolean(session.result.has_more_hits || sessionHitsState);
+                  const showSessionLoadMore =
+                    isExpanded &&
+                    Boolean(
+                      session.result.has_more_hits || sessionHitsState?.loading || canLoadMoreHits,
+                    );
+                  const loadMoreDisabled = Boolean(sessionHitsState?.loading || !canLoadMoreHits);
+
+                  const expandSession = () => {
+                    setExpandedSessions((prev) => {
+                      const next = new Set(prev);
+                      next.add(session.key);
+                      return next;
+                    });
+                  };
+
+                  const collapseSession = () => {
+                    setExpandedSessions((prev) => {
+                      const next = new Set(prev);
+                      next.delete(session.key);
+                      return next;
+                    });
+                  };
+
+                  const handleLoadMoreHits = (event: MouseEvent<HTMLButtonElement>) => {
+                    event.stopPropagation();
+                    if (sessionHitsState?.loading) return;
+                    if (!isExpanded) {
+                      expandSession();
+                    }
+                    if (canLoadMoreHits) {
+                      onLoadSessionHits?.(session);
+                    }
+                  };
+
+                  const handleCollapseSession = (event: MouseEvent<HTMLButtonElement>) => {
+                    event.stopPropagation();
+                    collapseSession();
+                  };
+
+                  const handleToggleSession = (event: MouseEvent<HTMLButtonElement>) => {
+                    event.stopPropagation();
+                    if (isExpanded) {
+                      collapseSession();
+                      return;
+                    }
+                    expandSession();
+                    if (!hasLoadedSourceHits) {
+                      onLoadSessionHits?.(session);
+                    }
+                  };
+
                   return (
                     <article
-                      key={cardKey}
+                      key={`${group.id}:${session.key}`}
                       className={`search-result-card search-result-card-stage${isActive ? " is-active" : ""}${canOpenSession ? "" : " is-disabled"}`}
-                      tabIndex={canOpenSession ? 0 : undefined}
-                      role={canOpenSession ? "button" : undefined}
                       aria-disabled={canOpenSession ? undefined : true}
                       onClick={canOpenSession
                         ? () => {
@@ -148,41 +243,48 @@ export function SearchResultsColumn({
                             onOpenSession(session.openHit);
                           }
                         : undefined}
-                      onKeyDown={canOpenSession
-                        ? (event) => {
-                            if (
-                              shouldIgnoreSearchCardKeyboardActivation({
-                                currentTarget: event.currentTarget,
-                                target: event.target,
-                              })
-                            ) {
-                              return;
-                            }
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              setActiveSessionKey(session.key);
-                              onOpenSession(session.openHit);
-                            }
-                          }
-                        : undefined}
                       title={canOpenSession ? undefined : messages.search.disabledSessionTitle}
                     >
                       <div className="search-result-main">
                         <div className="search-result-title-stack">
-                          <strong className="search-result-title-link" title={session.openHit.session_id}>
-                            {session.title}
-                          </strong>
+                          <button
+                            type="button"
+                            className="search-result-title-button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setActiveSessionKey(session.key);
+                              onOpenSession(session.openHit);
+                            }}
+                            aria-label={`Open: ${session.title}`}
+                            disabled={!canOpenSession}
+                          >
+                            <strong
+                              className={`search-result-title-link${showsIdentifierTitle ? " is-identifier" : ""}`}
+                              title={session.openHit.session_id}
+                            >
+                              {session.title}
+                            </strong>
+                          </button>
+                          {session.openHit.session_id && !showsIdentifierTitle ? (
+                            <div className="search-result-session-id-row">
+                              <span className="search-result-kind search-result-session-id">
+                                {session.openHit.session_id}
+                              </span>
+                            </div>
+                          ) : null}
                         </div>
                         <div className="search-result-top">
-                          {session.openHit.session_id ? (
-                            <span className="search-result-kind search-result-session-id">
-                              {session.openHit.session_id}
+                          {!session.openHit.session_id ? (
+                            <span className="search-result-kind">
+                              {compactProviderName(cardProviderName)}
                             </span>
-                          ) : (
-                            <span className="search-result-kind">{compactProviderName(cardProviderName)}</span>
-                          )}
+                          ) : null}
                           <span className="search-result-kind">
-                            {formatSearchMessage(messages.search.groupHits, { count: session.matches.length })}
+                            {formatApproximateCountLabel(
+                              messages.search.groupHits,
+                              session.result.match_count,
+                              session.result.has_more_hits,
+                            )}
                           </span>
                         </div>
                       </div>
@@ -206,53 +308,103 @@ export function SearchResultsColumn({
                           ) : null}
                         </div>
                       </div>
-                      <div className="search-match-list">
-                        {previewMatches.map((match, index) => (
+                      <div
+                        className={`search-match-list${isExpanded ? " is-expanded" : ""}${isExpanded && hasLoadedSourceHits ? " is-scrollable" : ""}`}
+                      >
+                        {visibleMatches.map((match, index) => (
                           <div
                             key={`${session.key}:${match.match_kind}:${match.role ?? "na"}:${index}`}
                             className="search-match-item"
                           >
-                            <span className="search-match-role">
-                              {match.match_kind === "title"
-                                ? messages.search.matchTitle
-                                : getSearchRoleLabel(match.role, messages)}
-                            </span>
+                            <div
+                              className={`search-match-head${
+                                index === 0 && showSessionToggle ? " is-toggle-anchor" : ""
+                              }${
+                                index === 0 && isExpanded && hasLoadedSourceHits ? " is-sticky-anchor" : ""
+                              }`}
+                            >
+                              {index === 0 && showSessionToggle ? (
+                                <button
+                                  type="button"
+                                  className="search-match-role search-match-role-toggle"
+                                  aria-expanded={isExpanded}
+                                  onClick={handleToggleSession}
+                                >
+                                  {match.match_kind === "title"
+                                    ? messages.search.matchTitle
+                                    : getSearchRoleLabel(match.role, messages)}
+                                </button>
+                              ) : (
+                                <span className="search-match-role">
+                                  {match.match_kind === "title"
+                                    ? messages.search.matchTitle
+                                    : getSearchRoleLabel(match.role, messages)}
+                                </span>
+                              )}
+                              {index === 0 && showSessionToggle ? (
+                                <button
+                                  type="button"
+                                  className="search-match-toggle-icon"
+                                  aria-label={isExpanded ? messages.search.collapseMatches : messages.transcript.loadMoreFromSource}
+                                  aria-expanded={isExpanded}
+                                  onClick={handleToggleSession}
+                                >
+                                  <svg
+                                    viewBox="0 0 16 16"
+                                    className={`search-match-toggle-glyph${isExpanded ? " is-expanded" : ""}`}
+                                    aria-hidden="true"
+                                  >
+                                    <path d="M3.5 6.25 8 10.75l4.5-4.5" />
+                                  </svg>
+                                </button>
+                              ) : null}
+                            </div>
                             <p className="search-result-snippet search-result-snippet-compact">
                               {compactSearchSnippet(match)}
                             </p>
                           </div>
                         ))}
-                        {remainingMatches > 0 ? (
-                          <button
-                            type="button"
-                            className="search-match-more"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setExpandedSessions((prev) => {
-                                const next = new Set(prev);
-                                if (next.has(session.key)) {
-                                  next.delete(session.key);
-                                } else {
-                                  next.add(session.key);
-                                }
-                                return next;
-                              });
-                            }}
-                          >
-                            {isExpanded
-                              ? messages.search.collapseMatches
-                              : formatSearchMessage(messages.search.moreMatches, {
-                                  count: remainingMatches,
-                                })}
-                          </button>
-                        ) : null}
                       </div>
+                      {!isExpanded && showSessionToggle || showSessionLoadMore ? (
+                        <div className="search-match-footer">
+                          {showSessionLoadMore ? (
+                            <button
+                              type="button"
+                              className={`search-match-more${loadMoreDisabled ? " is-disabled" : ""}`}
+                              onClick={handleLoadMoreHits}
+                              disabled={loadMoreDisabled}
+                              aria-disabled={loadMoreDisabled}
+                            >
+                              {sessionHitsState?.loading
+                                ? messages.common.loading
+                                : messages.transcript.loadMoreFromSource}
+                            </button>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </article>
                   );
                 })}
               </div>
             </section>
           ))}
+          {hasNextPage || isFetchingNextPage ? (
+            <div className="search-result-list-footer">
+              <button
+                ref={loadMoreRef}
+                type="button"
+                className="search-match-more"
+                onClick={onLoadMoreResults}
+                disabled={isFetchingNextPage}
+              >
+                {isFetchingNextPage
+                  ? messages.search.loading
+                  : remainingSessionCount > 0
+                    ? formatSearchMessage(messages.search.moreMatches, { count: remainingSessionCount })
+                    : messages.search.moreMatches.replace("{count}", "0")}
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

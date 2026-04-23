@@ -12,15 +12,16 @@ describe("search token migration", () => {
 
   it("uses typography tokens for search stage labels and support copy", () => {
     expect(searchStyles).toMatch(/\.search-stage-title h2\s*{[^}]*font-size:\s*var\(--text-display-search-stage\);/s);
+    expect(searchStyles).toMatch(/\.search-stage-title\s*{[^}]*padding:\s*8px 0 10px;/s);
     expect(searchStyles).toMatch(/\.search-stage-title p\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
     expect(searchStyles).toMatch(/\.search-stage-badge\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
-    expect(searchStyles).toMatch(/\.search-command-path,\s*\.search-command-runtime\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
+    expect(searchStyles).not.toMatch(/\.search-command-path,\s*\.search-command-runtime\s*{/s);
     expect(searchStyles).toMatch(/\.search-scope-label\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
     expect(searchStyles).toMatch(/\.search-guide-grid article p\s*{[^}]*font-size:\s*var\(--text-base\);/s);
     expect(searchStyles).toMatch(/\.search-result-title-stack strong\s*{[^}]*font-size:\s*var\(--text-base\);/s);
     expect(searchStyles).toMatch(/\.search-summary-value\s*{[^}]*font-size:\s*var\(--text-base\);/s);
     expect(searchStyles).toMatch(/\.search-dedupe-strip p,\s*\.search-empty-strip p\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
-    expect(searchStyles).toMatch(/\.search-command-slash\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
+    expect(searchStyles).not.toMatch(/\.search-command-slash\s*{/s);
     expect(searchStyles).toMatch(/\.search-command-prompt\s*{[^}]*font-size:\s*var\(--text-md\);/s);
     expect(searchStyles).toMatch(/\.search-input-stage\s*{[^}]*font-size:\s*var\(--text-md\);/s);
     expect(searchStyles).toMatch(/\.search-command-shortcut kbd\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
@@ -38,7 +39,7 @@ describe("search token migration", () => {
 
   it("uses semantic surface tokens for shared card and stage fills", () => {
     expect(searchStyles).toMatch(/\.search-command-shell\s*{[^}]*background:\s*var\(--surface-search-command-shell\);/s);
-    expect(searchStyles).toMatch(/\.search-command-path\.is-active\s*{[^}]*background:\s*var\(--surface-search-breadcrumb-active\);/s);
+    expect(searchStyles).not.toMatch(/\.search-command-path\.is-active\s*{/s);
     expect(searchStyles).toMatch(/\.search-command-bar\s*{[^}]*background:\s*var\(--surface-search-command-bar\);/s);
     expect(searchStyles).toMatch(/\.search-input-stage::placeholder\s*{[^}]*color:\s*var\(--text-search-muted\);/s);
     expect(searchStyles).toMatch(/\.search-command-shortcut\s*{[^}]*color:\s*var\(--text-search-muted\);/s);
