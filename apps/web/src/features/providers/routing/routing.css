@@ -137,8 +137,21 @@
   padding: 9px 10px;
   background: var(--surface-card-strong-subtle);
   display: grid;
+  justify-items: stretch;
+  align-items: start;
   gap: 4px;
   box-shadow: var(--surface-card-shadow);
+}
+
+button.routing-node-card {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  text-align: left;
+  justify-items: stretch;
+  align-items: start;
+  font: inherit;
+  color: inherit;
 }
 
 .routing-node-top {
@@ -151,6 +164,9 @@
 .routing-node-top strong {
   font-size: var(--text-sm);
   line-height: 1.25;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .routing-kind-chip {
@@ -184,6 +200,25 @@
 
 .routing-node-card.kind-provider {
   border-color: var(--state-success-border-soft-strong);
+}
+
+.routing-node-card.kind-provider.is-clickable {
+  cursor: pointer;
+}
+
+.routing-node-card.kind-provider.is-clickable:hover {
+  border-color: var(--state-success-border-soft-strong);
+  background: var(--surface-card-strong-subtle);
+  transform: none;
+  box-shadow: var(--surface-card-shadow);
+}
+
+.routing-node-card.kind-provider.is-clickable:focus-visible {
+  outline: none;
+  border-color: var(--state-success-border);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--state-success-border) 22%, transparent),
+    var(--surface-card-shadow);
 }
 
 .routing-node-card.kind-runtime {
@@ -294,6 +329,25 @@
   font-size: var(--text-base);
 }
 
+.routing-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.routing-section-head h3 {
+  margin-bottom: 0;
+}
+
+.routing-provider-scope-return {
+  flex-shrink: 0;
+  min-height: 28px;
+  padding-inline: 10px;
+  border-radius: 999px;
+}
+
 .routing-workbench-panel .impact-list ul {
   gap: 8px;
 }
@@ -368,6 +422,8 @@
 .routing-workbench-panel .routing-node-grid-flow .sub-hint {
   font-size: var(--text-xs);
   line-height: 1.3;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .routing-workbench-panel .routing-node-card.kind-provider .routing-source-summary {

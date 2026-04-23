@@ -36,4 +36,13 @@ describe("routing layout polish", () => {
       /\.routing-stage-summary-card span\s*{[^}]*font-size:\s*var\(--text-xs\);[^}]*text-transform:\s*none;/s,
     );
   });
+
+  it("keeps long diagnostics node labels and paths inside their cards", () => {
+    expect(routingStyles).toMatch(
+      /\.routing-node-top strong\s*{[^}]*min-width:\s*0;[^}]*overflow-wrap:\s*anywhere;/s,
+    );
+    expect(routingStyles).toMatch(
+      /\.routing-workbench-panel \.routing-node-grid-flow \.sub-hint\s*{[^}]*overflow-wrap:\s*anywhere;[^}]*word-break:\s*break-word;/s,
+    );
+  });
 });

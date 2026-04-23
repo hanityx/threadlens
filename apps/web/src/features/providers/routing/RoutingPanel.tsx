@@ -1,7 +1,9 @@
 import { useMemo } from "react";
 import { PanelHeader } from "@/shared/ui/components/PanelHeader";
+import { Button } from "@/shared/ui/components/Button";
 import type { ExecutionGraphData } from "@threadlens/shared-contracts";
 import type { Messages } from "@/i18n";
+import "@/features/providers/routing/routing.css";
 import { compactPath, formatDateTime } from "@/shared/lib/format";
 import type {
   ProviderParserHealthReport,
@@ -14,6 +16,7 @@ type Props = {
   data: ExecutionGraphData | null | undefined;
   loading: boolean;
   providerView: ProviderView;
+  onSelectProviderView?: (view: ProviderView) => void;
   providerSessionRows: ProviderSessionRow[];
   parserReports: ProviderParserHealthReport[];
   visibleProviderIds?: string[];
@@ -229,11 +232,28 @@ function flowReasonLabel(messages: Messages, reason: string): string {
   if (reason === "active-workspace-roots") return messages.routing.reasonActiveRoots;
   if (reason === "Active workspace roots.") return messages.routing.reasonActiveRoots;
   if (reason === "Apply execution constraints") return messages.routing.reasonRuntime;
-  if (reason.includes("Read-first cache model")) return providerWorkbenchNote(messages, "chatgpt");
-  if (reason.includes("Managed around session_id")) return providerWorkbenchNote(messages, "claude");
-  if (reason.includes("operations-grade model built around thread_id")) return providerWorkbenchNote(messages, "codex");
-  if (reason.includes("Auxiliary diagnostics only")) return providerWorkbenchNote(messages, "copilot");
-  if (reason.includes("Managed across history, tmp")) return providerWorkbenchNote(messages, "gemini");
+  if (reason.includes("Read-first cache model") || reason.includes("Desktop cache and conversation files")) {
+    return providerWorkbenchNote(messages, "chatgpt");
+  }
+  if (reason.includes("Managed around session_id") || reason.includes("Session and transcript files")) {
+    return providerWorkbenchNote(messages, "claude");
+  }
+  if (
+    reason.includes("operations-grade model built around thread_id") ||
+    reason.includes("Thread logs, pinned state, and global state")
+  ) {
+    return providerWorkbenchNote(messages, "codex");
+  }
+  if (
+    reason.includes("Auxiliary diagnostics only") ||
+    reason.includes("workspace chat sessions and editor traces") ||
+    reason.includes("Workspace chat files and editor traces")
+  ) {
+    return providerWorkbenchNote(messages, "copilot");
+  }
+  if (reason.includes("Managed across history, tmp") || reason.includes("History, tmp, and checkpoint files")) {
+    return providerWorkbenchNote(messages, "gemini");
+  }
   if (reason.includes("Collect candidate session files")) return messages.routing.reasonCandidateScan;
   if (reason.includes("User focused the view")) return messages.routing.reasonScopeFocus;
   if (reason.includes("Start scanning from this provider")) return messages.routing.reasonProviderScan;
@@ -244,7 +264,9 @@ function flowReasonLabel(messages: Messages, reason: string): string {
   if (reason.includes("Flow into session detail")) return messages.routing.reasonDetailRail;
   if (reason.includes("Read Codex-specific global state")) return messages.routing.reasonGlobalState;
   if (reason.includes("Recent workspace and global state")) return messages.routing.reasonWorkspaceState;
-  if (reason.includes("Decide whether dry-run")) return messages.routing.reasonDryRun;
+  if (reason.includes("Decide whether prep")) {
+    return messages.routing.reasonDryRun;
+  }
   if (reason.includes("limited to reading and analysis")) return messages.routing.reasonReadOnly;
   return reason;
 }
@@ -268,6 +290,7 @@ export function RoutingPanel({
   data,
   loading,
   providerView,
+  onSelectProviderView,
   providerSessionRows,
   parserReports,
   visibleProviderIds = [],
@@ -609,7 +632,7 @@ export function RoutingPanel({
         from: reviewNodeId,
         to: cleanupNodeId,
         reason: focusedProvider.capabilities.safe_cleanup
-          ? "Decide whether dry-run and real cleanup are available at the final step"
+          ? "Decide whether prep and real cleanup are available at the final step"
           : "This path is currently limited to reading and analysis",
       },
     ];
@@ -967,27 +990,31 @@ export function RoutingPanel({
         </section>
         {loading ? <div className="skeleton-line" /> : null}
 
-        {!focusedProvider ? (
-          <div className="info-box compact info-box-utility info-box-inline">
-            <strong>{messages.routing.pickProviderTitle}</strong>
-            <p>
-              {visibleProviders.length > 0
-                ? visibleProviders.map((provider) => provider.name).join(" · ")
-                : messages.routing.pickProviderFallback}
-            </p>
-          </div>
-        ) : null}
-
         <div className="impact-list">
-          <h3>{messages.routing.providersTitle}</h3>
+          <div className="routing-section-head">
+            <h3>{messages.routing.providersTitle}</h3>
+            {focusedProvider ? (
+              <Button
+                variant="outline"
+                className="routing-provider-scope-return"
+                onClick={() => onSelectProviderView?.("all")}
+              >
+                {messages.routing.returnToAllProviders}
+              </Button>
+            ) : null}
+          </div>
           {visibleProviders.length === 0 ? (
             <p className="sub-hint">{messages.routing.noProviders}</p>
           ) : (
             <div className="routing-node-grid routing-node-grid-provider">
               {visibleProviders.map((provider) => (
-                <article
+                <button
+                  type="button"
                   key={provider.provider}
-                  className={`routing-node-card kind-provider status-${provider.status}`}
+                  className={`routing-node-card kind-provider status-${provider.status} ${!focusedProvider ? "is-clickable" : ""}`.trim()}
+                  onClick={() => {
+                    if (!focusedProvider) onSelectProviderView?.(provider.provider as ProviderView);
+                  }}
                 >
                   <div className="routing-node-top">
                     <strong>{provider.name}</strong>
@@ -1025,7 +1052,7 @@ export function RoutingPanel({
                       ? messages.providers.rootsNone
                       : summarizeRoots(messages, provider.roots)}
                   </div>
-                </article>
+                </button>
               ))}
             </div>
           )}
@@ -1165,11 +1192,9 @@ export function RoutingPanel({
         <div className="routing-signal-grid">
           <section className="routing-list-card is-primary">
             <div className="routing-list-card-head">
-              <span>{messages.routing.storageMapEyebrow}</span>
               <strong>{messages.routing.storageMapTitle}</strong>
             </div>
             <div className="impact-list impact-list-grid compact-list">
-              <h3>{messages.routing.pathsTitle}</h3>
               {scopedDataSources.length === 0 ? (
                 <p className="sub-hint">{messages.routing.noSources}</p>
               ) : (
@@ -1196,11 +1221,9 @@ export function RoutingPanel({
 
           <section className="routing-list-card is-primary">
             <div className="routing-list-card-head">
-              <span>{messages.routing.findingsEyebrow}</span>
               <strong>{messages.routing.findingsTitle}</strong>
             </div>
             <div className="impact-list impact-list-grid compact-list plain-note-list">
-              <h3>{messages.routing.findingsListTitle}</h3>
               {(scopedFindings ?? []).length === 0 ? (
                 <p className="sub-hint">{messages.routing.noFindings}</p>
               ) : (
@@ -1247,11 +1270,9 @@ export function RoutingPanel({
         <div className="routing-signal-grid">
           <section className="routing-list-card">
             <div className="routing-list-card-head">
-              <span>{messages.routing.executionPathEyebrow}</span>
               <strong>{messages.routing.executionPathTitle}</strong>
             </div>
             <div className="impact-list compact-list">
-              <h3>{messages.routing.flowTitle}</h3>
               {(scopedNodes ?? []).length === 0 ? (
                 <p className="sub-hint">{messages.routing.noNodes}</p>
               ) : (
@@ -1274,11 +1295,9 @@ export function RoutingPanel({
 
           <section className="routing-list-card">
             <div className="routing-list-card-head">
-              <span>{messages.routing.transitionsEyebrow}</span>
               <strong>{messages.routing.transitionsTitle}</strong>
             </div>
             <div className="impact-list impact-list-grid compact-list plain-note-list">
-              <h3>{messages.routing.flowEdges}</h3>
               {(scopedEdges ?? []).length === 0 ? (
                 <p className="sub-hint">{messages.routing.noEdges}</p>
               ) : (

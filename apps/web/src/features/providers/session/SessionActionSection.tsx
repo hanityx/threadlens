@@ -1,6 +1,6 @@
 import { Button } from "@/shared/ui/components/Button";
 import type { Messages } from "@/i18n";
-import type { ProviderSessionActionResult, ProviderSessionRow } from "@/shared/types";
+import type { ProviderSessionRow } from "@/shared/types";
 
 export function SessionActionSection(props: {
   messages: Messages;
@@ -26,8 +26,6 @@ export function SessionActionSection(props: {
   onOpenFile: () => void;
   onPreviewFile: () => void;
   onOpenNewWindow: () => void;
-  providerDeleteBackupEnabled: boolean;
-  setProviderDeleteBackupEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   onRunArchiveDryRun: () => void;
   onRunDeleteDryRun: () => void;
   onRequestHardDeleteConfirm: () => void;
@@ -57,8 +55,6 @@ export function SessionActionSection(props: {
     onOpenFile,
     onPreviewFile,
     onOpenNewWindow,
-    providerDeleteBackupEnabled,
-    setProviderDeleteBackupEnabled,
     onRunArchiveDryRun,
     onRunDeleteDryRun,
     onRequestHardDeleteConfirm,
@@ -70,6 +66,10 @@ export function SessionActionSection(props: {
     onCancelHardDeleteConfirm,
     onConfirmHardDelete,
   } = props;
+  const archiveActionLabel =
+    selectedSession.source === "archived_sessions"
+      ? messages.providers.unarchiveDryRun
+      : messages.sessionDetail.archiveDryRun;
 
   return (
     <>
@@ -80,7 +80,6 @@ export function SessionActionSection(props: {
             <strong>{sessionActionSummary.headline}</strong>
             <p>{sessionActionSummary.countSummary}</p>
             <p>{sessionActionSummary.detail}</p>
-            {sessionActionSummary.token ? <code>{sessionActionSummary.token}</code> : null}
             {sessionActionSummary.previewReady ? (
               sessionActionCanExecute ? (
                 <div className="sub-toolbar provider-result-actions">
@@ -132,21 +131,13 @@ export function SessionActionSection(props: {
             ) : null}
             {copyNotice ? <p className="sub-hint">{copyNotice}</p> : null}
             <div className="detail-actions-primary session-detail-actions-primary">
-              <label className="check-inline">
-                <input
-                  type="checkbox"
-                  checked={providerDeleteBackupEnabled}
-                  onChange={(event) => setProviderDeleteBackupEnabled(event.target.checked)}
-                />
-                {messages.sessionDetail.deleteWithBackup}
-              </label>
               <div className="chat-toolbar detail-action-bar session-manage-actions">
                 <Button
                   variant="outline"
                   onClick={onRunArchiveDryRun}
                   disabled={busy || !canRunSessionAction}
                 >
-                  {messages.sessionDetail.archiveDryRun}
+                  {archiveActionLabel}
                 </Button>
                 <Button
                   variant="outline"

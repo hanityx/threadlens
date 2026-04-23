@@ -23,13 +23,6 @@ export function ParserHealthOverview(props: ParserHealthOverviewProps) {
   const {
     messages,
     selectedSessionProvider,
-    selectedSessionProviderVisibleInParser,
-    parserFailOnly,
-    onParserFailOnlyChange,
-    filteredParserReportsCount,
-    totalParserReportsCount,
-    parserSort,
-    onParserSortChange,
     sortedParserReports,
     parserLoading,
     slowProviderSet,
@@ -39,43 +32,6 @@ export function ParserHealthOverview(props: ParserHealthOverviewProps) {
 
   return (
     <>
-      <div className="sub-toolbar">
-        <span className="sub-hint">{messages.providers.parserJumpHint}</span>
-        {selectedSessionProvider ? (
-          <span className="sub-hint">
-            {messages.providers.parserLinkedProvider} {selectedSessionProvider}
-            {!selectedSessionProviderVisibleInParser ? ` · ${messages.providers.parserLinkedHidden}` : ""}
-          </span>
-        ) : null}
-      </div>
-      <div className="sub-toolbar">
-        <label className="check-inline">
-          <input
-            type="checkbox"
-            checked={parserFailOnly}
-            onChange={(e) => onParserFailOnlyChange(e.target.checked)}
-          />
-          {messages.providers.parserFailOnly}
-        </label>
-        <span className="sub-hint">
-          {messages.providers.filteredRows} {filteredParserReportsCount}/{totalParserReportsCount}
-        </span>
-        <select
-          className="filter-select"
-          aria-label={messages.providers.parserSortLabel}
-          value={parserSort}
-          onChange={(e) => onParserSortChange(e.target.value)}
-        >
-          <option value="fail_desc">{messages.providers.parserSortFailDesc}</option>
-          <option value="fail_asc">{messages.providers.parserSortFailAsc}</option>
-          <option value="score_desc">{messages.providers.parserSortScoreDesc}</option>
-          <option value="score_asc">{messages.providers.parserSortScoreAsc}</option>
-          <option value="scan_ms_desc">{messages.providers.parserSortScanDesc}</option>
-          <option value="scan_ms_asc">{messages.providers.parserSortScanAsc}</option>
-          <option value="name_asc">{messages.providers.parserSortNameAsc}</option>
-          <option value="name_desc">{messages.providers.parserSortNameDesc}</option>
-        </select>
-      </div>
       <div className="provider-table-wrap">
         <table>
           <thead>
@@ -132,7 +88,7 @@ export function ParserHealthOverview(props: ParserHealthOverviewProps) {
             {sortedParserReports.length === 0 && !parserLoading ? (
               <tr>
                 <td colSpan={7} className="sub-hint">
-                  {messages.providers.parserLoading}
+                  {messages.providers.parserEmpty}
                 </td>
               </tr>
             ) : null}

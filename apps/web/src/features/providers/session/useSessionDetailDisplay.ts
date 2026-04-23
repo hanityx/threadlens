@@ -10,9 +10,11 @@ export function useSessionDetailDisplay(props: SessionDetailProps) {
     selectedSession,
     selectedCount = 0,
     sessionActionResult = null,
+    sessionActionSelection = null,
     emptyScopeLabel,
     sessionTranscriptData,
     canRunSessionAction,
+    canRunPreparedSessionAction = false,
     providerDeleteBackupEnabled,
   } = props;
   const resolvedEmptyScopeLabel = emptyScopeLabel || messages.common.allAi;
@@ -55,27 +57,32 @@ export function useSessionDetailDisplay(props: SessionDetailProps) {
   const sessionCompactMeta = selectedSession
     ? `${sourceLabel || selectedSession.provider} · ${formatDateTime(selectedSession.mtime)}`
     : "";
-  const sessionScopedActionResult =
-    sessionActionResult && sessionActionResult.target_count === 1
-      ? sessionActionResult
-      : null;
+  const sessionScopedActionResult = sessionActionResult;
   const sessionActionSummary = buildProviderSessionActionSummary(messages, sessionScopedActionResult);
+  const sessionActionSelectionMatches =
+    Boolean(sessionScopedActionResult) &&
+    Boolean(sessionActionSelection) &&
+    sessionActionSelection?.action === sessionScopedActionResult?.action &&
+    sessionActionSelection?.provider === sessionScopedActionResult?.provider;
+  const canRunActionSelection =
+    sessionScopedActionResult?.target_count === 1
+      ? canRunSessionAction
+      : canRunPreparedSessionAction && sessionActionSelectionMatches;
   const sessionActionCanExecute = Boolean(
-    selectedSession &&
-      sessionActionSummary?.previewReady &&
-      canRunSessionAction &&
+    sessionActionSummary?.previewReady &&
+      canRunActionSelection &&
       (sessionScopedActionResult?.action !== "delete_local" ||
         providerDeleteBackupEnabled === Boolean(sessionScopedActionResult.backup_before_delete)),
   );
   const executeSessionActionLabel =
     sessionScopedActionResult
-      ? `${messages.providers.executeActionPrefix} ${
-          sessionScopedActionResult.action === "backup_local"
-            ? messages.providers.actionBackupLocal
-            : sessionScopedActionResult.action === "archive_local"
-              ? messages.providers.actionArchiveLocal
-              : messages.providers.actionDeleteLocal
-        }`
+      ? sessionScopedActionResult.action === "delete_local"
+        ? messages.sessionDetail.delete
+        : sessionScopedActionResult.action === "archive_local"
+          ? messages.providers.archive
+          : sessionScopedActionResult.action === "unarchive_local"
+            ? messages.providers.unarchive
+          : messages.providers.actionBackupLocal
       : "";
   const sessionActionCardClass = [
     "provider-result-card",
