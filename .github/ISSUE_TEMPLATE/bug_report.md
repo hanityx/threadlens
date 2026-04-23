@@ -21,8 +21,8 @@ A clear and concise description of what you expected to happen.
 
 **Environment**
 - OS: [e.g., macOS 15.3]
-- Node.js: [e.g., 20.x]
-- pnpm: [e.g., 10.4]
+- Node.js: [e.g., 22.12+]
+- pnpm: [e.g., 10.33.2]
 - Browser: [e.g., Chrome 130]
 
 **Relevant paths / artifacts**
