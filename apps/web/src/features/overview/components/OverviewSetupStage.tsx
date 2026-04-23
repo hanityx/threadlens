@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { SurfaceSlotSkeleton } from "@/app/components/SurfaceSlotSkeleton";
 import { useLocale } from "@/i18n";
 import type { SetupWizardProps } from "@/features/overview/components/SetupWizard";
 
@@ -8,16 +9,6 @@ const SetupWizard = lazy(async () => {
 });
 
 export function OverviewSetupStage(props: SetupWizardProps) {
-  const { messages } = useLocale();
-  return (
-    <Suspense
-      fallback={
-        <div className="info-box compact">
-          <strong>{messages.common.loading}</strong>
-        </div>
-      }
-    >
-      <SetupWizard {...props} />
-    </Suspense>
-  );
+  useLocale();
+  return <Suspense fallback={<SurfaceSlotSkeleton />}><SetupWizard {...props} /></Suspense>;
 }

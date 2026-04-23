@@ -4,19 +4,21 @@ import type { ProviderView } from "@/shared/types";
 import type { ProviderSessionRow, ProviderSessionsEnvelope } from "@/shared/types";
 import { useAppContext } from "@/app/AppContext";
 import { apiGet } from "@/api";
+import "@/features/overview/overview.css";
 import { OverviewActivityRail } from "@/features/overview/components/OverviewActivityRail";
 import { OverviewMainCanvas } from "@/features/overview/components/OverviewMainCanvas";
 import { OverviewSetupStage } from "@/features/overview/components/OverviewSetupStage";
 import {
+  buildProviderBytesById,
   buildInterleavedSessionPreview,
   formatOverviewMessage,
   providerFromDataSource,
   readStoredSetupSelectionIds,
+  resolveOverviewProvidersEntry,
 } from "@/features/overview/model/overviewWorkbenchModel";
 import { extractEnvelopeData, formatProviderDisplayName, parseNum } from "@/shared/lib/format";
 import {
-  readStorageValue,
-  SETUP_PREFERRED_PROVIDER_STORAGE_KEY,
+  readPersistedSetupState,
 } from "@/shared/lib/appState";
 
 export function OverviewWorkbench() {
@@ -48,6 +50,7 @@ export function OverviewWorkbench() {
     activeSummaryText,
     activeProviderSummaryLine,
     parserScoreText,
+    runtimeStatusText,
     backupSetsCount,
     messages,
     recentThreadGroups,
@@ -59,6 +62,7 @@ export function OverviewWorkbench() {
     dataSourceRows: allDataSourceRows,
     visibleProviderSessionRows,
     allProviderSessionRows: allProviderSessionRowsRaw,
+    allProviderSessionProviders: allProviderSessionProvidersRaw,
     visibleParserReports,
     allParserReports: allProviderParserReportsRaw,
     providersRefreshing,
@@ -77,8 +81,17 @@ export function OverviewWorkbench() {
   const onOpenThreads = () => changeLayoutView("threads");
   const onOpenProviders = () => openProvidersHome();
   const onOpenProvidersWithProbeFilter = (probeFilter: "all" | "fail") => {
+    handleProvidersIntent();
     setProviderProbeFilterIntent(probeFilter);
-    openProvidersHome();
+    setSelectedSessionPath("");
+    changeProviderView(
+      resolveOverviewProvidersEntry({
+        selectedProviderIds: overviewSelectedProviderIds,
+        primaryProviderId: overviewPrimaryProviderId,
+        currentProviderView: providerView,
+      }),
+    );
+    changeLayoutView("providers");
   };
   const onProvidersIntent = handleProvidersIntent;
   const onOpenRecentSession = (row: ProviderSessionRow) => {
@@ -95,14 +108,19 @@ export function OverviewWorkbench() {
     0,
   );
   const allProviderIdSet = new Set(allProviders.map((provider) => provider.provider));
-  const storedSetupSelectionIds = readStoredSetupSelectionIds(allProviderIdSet);
+  const persistedSetupState = readPersistedSetupState();
+  const storedPreferredProviderId = persistedSetupState?.preferredProviderId ?? "";
+  const storedSetupSelectionIds = persistedSetupState?.selectedProviderIds ?? (
+    storedPreferredProviderId
+      ? readStoredSetupSelectionIds(allProviderIdSet)
+      : []
+  );
   const overviewSelectedProviderIds = storedSetupSelectionIds.length
     ? storedSetupSelectionIds
     : providerView !== "all" && allProviderIdSet.has(providerView)
       ? [providerView]
       : [];
   const overviewSelectedProviderIdSet = new Set(overviewSelectedProviderIds);
-  const storedPreferredProviderId = readStorageValue([SETUP_PREFERRED_PROVIDER_STORAGE_KEY]) ?? "";
   const overviewPrimaryProviderId =
     storedPreferredProviderId && overviewSelectedProviderIdSet.has(storedPreferredProviderId)
       ? storedPreferredProviderId
@@ -180,18 +198,33 @@ export function OverviewWorkbench() {
     overviewSessionRows.length,
     visibleProviderSessionSummary.rows,
   ]);
+  const overviewBytesByProvider = useMemo(
+    () =>
+      buildProviderBytesById({
+        dataSourceRows: allDataSourceRows,
+        providerSessionProviders: allProviderSessionProvidersRaw,
+        providerSessionRows: overviewSelectedProviderIds.length > 1 ? overviewQueriedSessionRows : allProviderSessionRowsRaw,
+        providers: allProviders,
+      }),
+    [
+      allDataSourceRows,
+      allProviderSessionProvidersRaw,
+      allProviderSessionRowsRaw,
+      allProviders,
+      overviewQueriedSessionRows,
+      overviewSelectedProviderIds.length,
+    ],
+  );
   const overviewSessionBytes = useMemo(() => {
     if (!overviewSelectedProviderIds.length) return totalVisibleSessionBytes;
-    const total = allDataSourceRows.reduce((sum, row) => {
-      if (!row.present) return sum;
-      const providerId = providerFromDataSource(row.source_key);
-      if (!providerId || !overviewSelectedProviderIdSet.has(providerId)) return sum;
-      return sum + Number(row.total_bytes || 0);
-    }, 0);
+    const total = overviewSelectedProviderIds.reduce(
+      (sum, providerId) => sum + (overviewBytesByProvider.get(providerId) ?? 0),
+      0,
+    );
     return total || overviewSessionRows.reduce((sum, row) => sum + Number(row.size_bytes || 0), 0);
   }, [
-    allDataSourceRows,
-    overviewSelectedProviderIdSet,
+    overviewBytesByProvider,
+    overviewSelectedProviderIds,
     overviewSelectedProviderIds.length,
     overviewSessionRows,
     totalVisibleSessionBytes,
@@ -256,6 +289,7 @@ export function OverviewWorkbench() {
     <OverviewSetupStage
       providers={allProviders}
       dataSourceRows={allDataSourceRows}
+      providerSessionProviders={allProviderSessionProvidersRaw}
       providerSessionRows={allProviderSessionRowsRaw}
       parserReports={allProviderParserReportsRaw}
       providersRefreshing={providersRefreshing}
@@ -291,6 +325,7 @@ export function OverviewWorkbench() {
             setupGuideOpen={setupGuideOpen}
             overviewBooting={overviewBooting}
             runtimeLatencyText={runtimeLatencyText}
+            runtimeStatusText={runtimeStatusText}
             syncStatusText={syncStatusText}
             backupSetsCount={backupSetsCount}
             reviewRowsText={reviewRowsText}

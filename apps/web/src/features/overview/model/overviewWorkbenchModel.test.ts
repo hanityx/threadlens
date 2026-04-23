@@ -14,6 +14,7 @@ vi.mock("@/shared/lib/appState", async () => {
 });
 
 import {
+  buildProviderBytesById,
   buildInterleavedSessionPreview,
   describeOverviewSessionSource,
   describeSessionFreshnessDot,
@@ -24,6 +25,7 @@ import {
   formatOverviewReviewSource,
   providerFromDataSource,
   readStoredSetupSelectionIds,
+  resolveOverviewProvidersEntry,
 } from "@/features/overview/model/overviewWorkbenchModel";
 
 const overviewMessages = {
@@ -134,6 +136,79 @@ describe("overviewWorkbenchModel helpers", () => {
 
     mockReadStorageValue.mockReturnValue(null);
     expect(readStoredSetupSelectionIds(new Set(["codex"]))).toEqual([]);
+  });
+
+  it("opens provider home honestly from overview selection scope", () => {
+    expect(
+      resolveOverviewProvidersEntry({
+        selectedProviderIds: ["claude"],
+        primaryProviderId: "claude",
+        currentProviderView: "all",
+      }),
+    ).toBe("claude");
+
+    expect(
+      resolveOverviewProvidersEntry({
+        selectedProviderIds: ["codex", "claude"],
+        primaryProviderId: "codex",
+        currentProviderView: "all",
+      }),
+    ).toBe("all");
+
+    expect(
+      resolveOverviewProvidersEntry({
+        selectedProviderIds: [],
+        primaryProviderId: "gemini",
+        currentProviderView: "all",
+      }),
+    ).toBe("gemini");
+
+    expect(
+      resolveOverviewProvidersEntry({
+        selectedProviderIds: [],
+        primaryProviderId: "gemini",
+        currentProviderView: "claude",
+      }),
+    ).toBe("claude");
+  });
+
+  it("builds provider bytes from the max of inventory, provider summary, and session rows", () => {
+    const providerBytes = buildProviderBytesById({
+      dataSourceRows: [
+        {
+          source_key: "claude_projects",
+          path: "/tmp/claude-projects",
+          present: true,
+          file_count: 1,
+          dir_count: 1,
+          total_bytes: Math.round(0.7 * 1024 * 1024),
+          latest_mtime: "",
+        },
+        {
+          source_key: "claude_transcript_store",
+          path: "/tmp/claude-transcripts",
+          present: true,
+          file_count: 1,
+          dir_count: 1,
+          total_bytes: Math.round(0.3 * 1024 * 1024),
+          latest_mtime: "",
+        },
+      ],
+      providerSessionProviders: [
+        { provider: "claude", total_bytes: Math.round(1.7 * 1024 * 1024) },
+      ],
+      providerSessionRows: [
+        makeRow({
+          provider: "claude",
+          session_id: "claude-1",
+          file_path: "/tmp/claude-1.jsonl",
+          size_bytes: Math.round(1.2 * 1024 * 1024),
+        }),
+      ],
+      providers: [{ provider: "claude" } as never],
+    });
+
+    expect(providerBytes.get("claude")).toBe(Math.round(1.7 * 1024 * 1024));
   });
 
   it("describes session dots across health, freshness, and weight branches", () => {
