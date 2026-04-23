@@ -54,7 +54,6 @@ export function DetailShell() {
     setSessionTranscriptLimit,
     canRunSelectedSessionAction,
     providerDeleteBackupEnabled,
-    setProviderDeleteBackupEnabled,
     runSingleProviderAction,
     runSingleProviderHardDelete,
     rows,
@@ -127,7 +126,6 @@ export function DetailShell() {
             busy={busy}
             canRunSessionAction={canRunSelectedSessionAction}
             providerDeleteBackupEnabled={providerDeleteBackupEnabled}
-            setProviderDeleteBackupEnabled={setProviderDeleteBackupEnabled}
             runSingleProviderAction={runSingleProviderAction}
             runSingleProviderHardDelete={runSingleProviderHardDelete}
           />

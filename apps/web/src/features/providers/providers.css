@@ -1100,9 +1100,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-||||||| constructed merge base
-  opacity: 0.7;
-  font-size: 0.65em;
 }
 
 .provider-session-table tbody tr {
