@@ -6,12 +6,12 @@ const providersTabLabel = /^(Providers|Sessions|Source Sessions|Session Vault)$/
 const selectAllInTabLabel = /^(Select all in tab|Select all in current tab|Select tab)$/i;
 const selectAllFilteredLabel = /^(Select all filtered|Select all in current filter|Select filtered)$/i;
 const deleteDryRunLabel = /^(Prepare deletion|Delete dry-run|Delete source files \(dry-run\))$/i;
-const bulkArchiveLabel = /^(Archive selected locally|Archive locally|Archive)$/i;
+const bulkArchiveLabel = /^(Archive selected|Archive selected locally|Archive locally|Archive)$/i;
 const threadDetailTitle = /^(Thread Detail|Selected Thread Detail)$/i;
 const impactAnalysisLabel = /^(Run impact analysis|Impact Analysis|Impact)$/i;
 const cleanupDryRunLabel = /^(Prepare deletion|Cleanup Dry-Run|Dry-run|Run cleanup dry-run)$/i;
-const backupSelectedLabel = /^(Save|Backup Selected Sessions|Back up selected sessions|Back up selected)$/i;
-const bundleAllBackupsLabel = /^(Bundle All Backups|Export all|Export backup bundle|Export full backup bundle|Export bundle)$/i;
+const backupSelectedLabel = /^(Backup|Save|Backup Selected Sessions|Back up selected sessions|Back up selected)$/i;
+const bundleAllBackupsLabel = /^(Export saved backups|Bundle All Backups|Export all|Export backup bundle|Export full backup bundle|Export bundle)$/i;
 const searchTabLabel = /^(Search|Conversation Search)$/i;
 const searchPlaceholder = /^(Search your own words, filenames, or keywords|Search conversations)$/i;
 const codexSearchResultLabel = /Fix token flow/i;
@@ -56,7 +56,10 @@ async function openPrimaryView(page: Page, label: "Threads" | "Providers") {
 
 async function openProviderBackupHub(page: Page) {
   const hub = page.getByTestId("provider-backup-hub-section").first();
-  await hub.locator(":scope > summary").click();
+  if (!(await hub.evaluate((node) => node instanceof HTMLDetailsElement && node.open))) {
+    await hub.locator(":scope > summary").click();
+  }
+  await expect(hub).toHaveAttribute("open", "");
 }
 
 async function selectProviderChip(page: Page, label: RegExp) {
@@ -229,6 +232,7 @@ async function setupMockApi(page: Page, options: MockApiOptions = {}) {
             available_sessions: sessions.length,
             total_matching_sessions: sessions.length,
             total_matching_hits: sessions.length,
+            results: searchResults,
             sessions,
           }),
         ),
@@ -465,6 +469,7 @@ test("providers workspace surfaces backup-first controls", async ({ page }, test
   await openPrimaryView(page, "Providers");
   const sessionsPanel = page.locator(".provider-session-stage").first();
   await expect(sessionsPanel).toBeVisible();
+  await page.locator("tbody input[type='checkbox']").first().check();
   await openProviderBackupHub(page);
   await expect(page.getByRole("button", { name: backupSelectedLabel }).first()).toBeVisible();
   await expect(page.getByText(bundleAllBackupsLabel).first()).toBeVisible();
@@ -497,7 +502,7 @@ test("all providers view allows bulk archive dry-run when selected rows share on
   await expect(page.getByRole("button", { name: /^CSV$/i }).first()).toBeVisible();
   await page.locator("tbody input[type='checkbox']").first().check();
 
-  const archiveDryRunButton = page.getByRole("button", { name: /^Prepare archive$/i }).first();
+  const archiveDryRunButton = page.getByRole("button", { name: bulkArchiveLabel }).first();
   await expect(archiveDryRunButton).toBeEnabled();
   await archiveDryRunButton.click();
 
@@ -600,7 +605,7 @@ test("thread detail forensics actions send selected ids", async ({ page }) => {
   await page.goto("/");
   await openPrimaryView(page, "Threads");
   await expect(page.getByText("Forensics action test").first()).toBeVisible();
-  await page.locator("tbody tr").filter({ hasText: "Forensics action test" }).first().click();
+  await page.getByRole("checkbox", { name: /Select thread Forensics action test/i }).check();
   await expect(page.getByText(/Current selection 1/i).first()).toBeVisible();
 
   await page.getByRole("button", { name: impactAnalysisLabel }).first().click();
