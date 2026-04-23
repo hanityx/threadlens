@@ -92,7 +92,7 @@ describe("performProviderHardDeleteFlow", () => {
         provider: "codex",
         file_paths: ["/tmp/a.jsonl"],
       }),
-    ).rejects.toThrow("provider-hard-delete-preview-required");
+    ).rejects.toThrow("provider-action-preview-required");
   });
 
   it("surfaces the real delete failure after a valid preview token", async () => {

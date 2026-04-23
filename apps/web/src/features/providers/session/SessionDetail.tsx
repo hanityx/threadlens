@@ -33,7 +33,7 @@ export interface SessionDetailProps {
   runSingleProviderAction: (
     provider: string,
     filePath: string,
-    action: "backup_local" | "archive_local" | "delete_local",
+    action: ProviderSessionActionResult["action"],
     dryRun: boolean,
     options?: { backup_before_delete?: boolean },
   ) => void;

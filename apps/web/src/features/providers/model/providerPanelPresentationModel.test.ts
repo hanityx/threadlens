@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getMessages, type Messages } from "@/i18n";
 import type { ProviderSessionActionResult } from "@/shared/types";
+import { providerActionSelectionKey } from "@/shared/lib/appState";
 import {
   buildProviderSessionActionSummary,
   buildProviderPanelPresentationModel,
@@ -105,7 +106,7 @@ describe("providerPanelPresentationModel", () => {
         file_paths: ["/tmp/session-1.jsonl"],
         dry_run: true,
       },
-      currentSelectionKey: "codex|archive_local|direct|/tmp/session-1.jsonl",
+      currentSelectionKey: providerActionSelectionKey("codex", "archive_local", ["/tmp/session-1.jsonl"]),
     });
 
     expect(stage).toEqual({
