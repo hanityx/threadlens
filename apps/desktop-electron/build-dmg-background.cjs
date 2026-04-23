@@ -46,8 +46,17 @@ async function renderPng(svgPath, targetPath) {
   }
 }
 
-async function main() {
+function shouldRenderDmgBackground(platform = process.platform) {
+  return platform === "darwin";
+}
+
+async function main({ platform = process.platform } = {}) {
   await fsp.mkdir(OUTPUT_DIR, { recursive: true });
+  if (!shouldRenderDmgBackground(platform)) {
+    console.log(`[build-dmg-background] skipped on ${platform}; DMG background is macOS-only`);
+    return;
+  }
+
   const tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), "threadlens-dmg-bg-"));
   const svgPath = path.join(tmpDir, "background.svg");
   const svgPath2x = path.join(tmpDir, "background@2x.svg");
@@ -64,7 +73,14 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error("[build-dmg-background]", error.message || error);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error("[build-dmg-background]", error.message || error);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = {
+  createSvg,
+  shouldRenderDmgBackground,
+};
