@@ -8,14 +8,15 @@
   "scripts": {
     "dev": "node scripts/prepare-dev.cjs && electron .",
     "icon:build": "node scripts/build-app-icon.cjs",
+    "background:build": "node build-dmg-background.cjs",
     "stage": "node scripts/stage-desktop-assets.cjs",
-    "build": "pnpm run icon:build && pnpm run stage && node --check main.cjs && node --check main-menu.cjs && node --check preload.cjs && node --check main/api-lifecycle.cjs && node --check main/ipc-handlers.cjs && node --check main/smoke-runtime.cjs && node --check main/window-runtime.cjs",
+    "build": "pnpm run icon:build && pnpm run background:build && pnpm run stage && node --check main.cjs && node --check main-menu.cjs && node --check preload.cjs && node --check main/api-lifecycle.cjs && node --check main/ipc-handlers.cjs && node --check main/smoke-runtime.cjs && node --check main/window-runtime.cjs",
     "dist:dir": "pnpm run build && electron-builder --dir",
-    "dist:mac": "pnpm run build && electron-builder --mac zip",
+    "dist:mac": "pnpm run build && electron-builder --mac dmg",
     "dist:win": "pnpm run build && electron-builder --win portable",
     "dist:linux": "pnpm run build && electron-builder --linux AppImage",
     "smoke:packaged": "node scripts/smoke-packaged.cjs",
-    "test": "node --test main-menu.test.cjs ipc-validation.test.cjs package-config.test.cjs main/api-lifecycle.test.cjs main/window-runtime.test.cjs main/smoke-runtime.test.cjs",
+    "test": "node --test main-menu.test.cjs ipc-validation.test.cjs package-config.test.cjs main/api-lifecycle.test.cjs main/ipc-handlers.test.cjs main/window-runtime.test.cjs main/smoke-runtime.test.cjs",
     "lint": "node --check main.cjs && node --check main-menu.cjs && node --check preload.cjs && node --check main/api-lifecycle.cjs && node --check main/ipc-handlers.cjs && node --check main/smoke-runtime.cjs && node --check main/window-runtime.cjs"
   },
   "devDependencies": {
@@ -45,7 +46,31 @@
       "category": "public.app-category.developer-tools",
       "icon": "build/icon.icns",
       "target": [
-        "zip"
+        "dmg"
+      ]
+    },
+    "dmg": {
+      "background": "build/background.png",
+      "icon": "build/icon.icns",
+      "title": "Install ThreadLens",
+      "iconSize": 84,
+      "iconTextSize": 12,
+      "window": {
+        "width": 660,
+        "height": 440
+      },
+      "contents": [
+        {
+          "x": 180,
+          "y": 148,
+          "type": "file"
+        },
+        {
+          "x": 480,
+          "y": 148,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     },
     "win": {
