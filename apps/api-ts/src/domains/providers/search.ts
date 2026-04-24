@@ -63,6 +63,7 @@ const SEARCH_TRANSCRIPT_CACHE_MAX_ENTRIES = 2_000;
 const DEFAULT_CONVERSATION_SEARCH_SCAN_MULTIPLIER = 4;
 const DEFAULT_CONVERSATION_SEARCH_SCAN_FLOOR = 160;
 const PROVIDER_SCAN_FILE_STAT_CONCURRENCY = 32;
+const PROVIDER_SESSION_MANIFEST_FILE_LIMIT = 8_000;
 const RAW_CONVERSATION_FILE_MAX_MATCHES = 10_000;
 const PROVIDER_SCAN_BUDGET_WEIGHTS: Record<ProviderId, number> = {
   codex: 1.35,
@@ -642,7 +643,7 @@ async function buildProviderSessionManifest(
   const rootFiles = await Promise.all(
     roots.map((spec) => {
       throwIfAborted(options?.signal);
-      return walkFilesByExt(spec.root, spec.exts, Number.MAX_SAFE_INTEGER);
+      return walkFilesByExt(spec.root, spec.exts, PROVIDER_SESSION_MANIFEST_FILE_LIMIT);
     }),
   );
 
@@ -1130,6 +1131,7 @@ async function searchConversationFilesWithRipgrep(
             "-m",
             String(maxPerFile),
             pattern,
+            "--",
             ...chunk,
           ],
           {
@@ -1815,10 +1817,10 @@ export async function searchLocalConversationsTs(
           provider,
           limit: explicitPerProviderLimit,
         }))
-      : providers.map((provider) => ({
-          provider,
-          limit: MAX_CONVERSATION_SEARCH_SCAN_LIMIT,
-        }));
+      : buildConversationSearchProviderBudgets(
+          providers,
+          resolveConversationSearchLimits({ limit: safePageSize }).scanLimit,
+        );
   const scans = await Promise.all(
     providerBudgets.map(async ({ provider, limit }) => {
       throwIfAborted(options?.signal);

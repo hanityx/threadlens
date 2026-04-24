@@ -171,6 +171,11 @@ function resolveArchivedSessionStoreTarget(
   return path.join(archivedSpec.root, archiveRelativePath);
 }
 
+function resolveArchivedSessionRoot(provider: ProviderId): string | null {
+  return providerRootSpecs(provider).find((spec) => spec.source === "archived_sessions")
+    ?.root ?? null;
+}
+
 function pruneProviderActionTokens(now = Date.now()) {
   for (const [token, entry] of providerActionTokenCache.entries()) {
     if (entry.expires_at <= now) providerActionTokenCache.delete(token);
@@ -561,6 +566,7 @@ export async function runProviderSessionAction(
   if (action === "backup_local") {
     applied = backupStage?.items.length ?? 0;
   } else if (action === "archive_local") {
+    archivedTo = resolveArchivedSessionRoot(provider);
     for (const sourcePath of valid) {
       const targetPath = resolveArchivedSessionStoreTarget(provider, sourcePath);
       if (!targetPath) {
@@ -587,7 +593,6 @@ export async function runProviderSessionAction(
         await copyFile(sourcePath, targetPath);
         await unlink(sourcePath);
         applied += 1;
-        archivedTo = path.dirname(targetPath);
       } catch (error) {
         failed.push({
           file_path: sourcePath,

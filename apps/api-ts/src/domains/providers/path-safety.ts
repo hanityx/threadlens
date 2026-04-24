@@ -392,6 +392,7 @@ export async function resolveAllowedProviderFilePath(
   provider: ProviderId,
   filePath: string,
 ): Promise<string | null> {
+  if (!isAllowedProviderFilePath(provider, filePath)) return null;
   const specs = await providerScanRootSpecs(provider);
   const ext = path.extname(filePath).toLowerCase();
   const matchingRoots = specs

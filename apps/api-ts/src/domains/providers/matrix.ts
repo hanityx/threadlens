@@ -41,6 +41,7 @@ type ProviderMatrixCacheEntry = {
 };
 
 const PROVIDER_MATRIX_CACHE_TTL_MS = 30_000;
+const COPILOT_MATRIX_SESSION_SCAN_LIMIT = 5_000;
 let providerMatrixCache: ProviderMatrixCacheEntry | null = null;
 let providerMatrixInflight: Promise<ProviderMatrixData> | null = null;
 
@@ -91,7 +92,11 @@ async function countCopilotMatrixSessionFiles() {
   const roots = providerRootSpecs("copilot");
   const counts = await Promise.all(
     roots.map(async (spec) => {
-      const files = await walkFilesByExt(spec.root, spec.exts, Number.MAX_SAFE_INTEGER);
+      const files = await walkFilesByExt(
+        spec.root,
+        spec.exts,
+        COPILOT_MATRIX_SESSION_SCAN_LIMIT,
+      );
       return files.filter((filePath) =>
         shouldIncludeCopilotMatrixSessionFile(spec.source, filePath),
       ).length;

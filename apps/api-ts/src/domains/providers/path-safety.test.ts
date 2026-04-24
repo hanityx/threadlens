@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, realpath, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -9,6 +9,7 @@ import {
   listProviderIds,
   parseProviderId,
   providerRootSpecs,
+  resolveAllowedProviderFilePath,
   resolveSafePathWithinRoots,
 } from "./path-safety.js";
 
@@ -97,6 +98,19 @@ describe("provider path safety", () => {
       "rollout-2026-04-21T00-00-00-019d0000-1111-7222-8333-444444444444.jsonl",
     );
     expect(isAllowedProviderFilePath("codex", backupFilePath)).toBe(true);
+  });
+
+  it("rejects loose ChatGPT data files outside conversations-v3 roots", async () => {
+    const testDir = path.join(CHAT_DIR, "__threadlens-vitest__");
+    const looseFile = path.join(testDir, "loose.data");
+    try {
+      await mkdir(testDir, { recursive: true });
+      await writeFile(looseFile, "{}", "utf-8");
+
+      await expect(resolveAllowedProviderFilePath("chatgpt", looseFile)).resolves.toBeNull();
+    } finally {
+      await rm(testDir, { recursive: true, force: true });
+    }
   });
 });
 
