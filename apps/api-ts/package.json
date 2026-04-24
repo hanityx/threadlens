@@ -5,24 +5,24 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/cli.ts",
+    "dev": "tsx watch --exclude dist --exclude dist-electron --exclude ../../packages/shared-contracts/dist src/cli.ts",
     "build": "pnpm --filter @threadlens/shared-contracts build && tsc -p tsconfig.json",
-    "bundle:desktop": "pnpm --filter @threadlens/shared-contracts build && rm -rf dist-electron && esbuild src/cli.ts --bundle --platform=node --format=cjs --target=node20 --define:import.meta.url='\"file:///threadlens/api-cli.mjs\"' --outfile=dist-electron/server.cjs",
+    "bundle:desktop": "pnpm --filter @threadlens/shared-contracts build && rm -rf dist-electron && esbuild src/cli.ts --bundle --platform=node --format=cjs --target=node22 --define:import.meta.url='\"file:///threadlens/api-cli.mjs\"' --outfile=dist-electron/server.cjs",
     "start": "node dist/cli.js",
-    "test": "pnpm --filter @threadlens/shared-contracts build && vitest run",
+    "test": "pnpm --filter @threadlens/shared-contracts build && vitest run --fileParallelism=false",
     "lint": "pnpm --filter @threadlens/shared-contracts build && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@fastify/cors": "^11.2.0",
     "@threadlens/shared-contracts": "workspace:*",
-    "@fastify/cors": "^10.1.0",
-    "fastify": "^5.8.2",
-    "zod": "^3.24.1"
+    "fastify": "^5.8.5",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "esbuild": "^0.27.4",
-    "@types/node": "^22.10.2",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.3",
-    "vitest": "^2.1.8"
+    "@types/node": "^22.19.17",
+    "esbuild": "0.28.0",
+    "tsx": "4.21.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.5"
   }
 }
