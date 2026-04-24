@@ -66,6 +66,18 @@ function resolveInitialLocale(initialLocale?: Locale): Locale {
   });
 }
 
+function resolveInitialLocaleState(
+  initialLocale?: Locale,
+  initialMessages?: Messages,
+): { locale: Locale; messages: Messages } {
+  const locale = resolveInitialLocale(initialLocale);
+  const messages = initialMessages ?? getCatalogMessages(locale);
+  if (!runtimeMessagesCache.has(locale)) {
+    runtimeMessagesCache.set(locale, messages);
+  }
+  return { locale, messages };
+}
+
 export function detectPreferredLocale(options?: {
   savedLocale?: string | null;
   browserLanguage?: string | null;
@@ -95,10 +107,11 @@ export function LocaleProvider({
   initialLocale?: Locale;
   initialMessages?: Messages;
 }) {
-  const [locale, setLocale] = useState<Locale>(() => resolveInitialLocale(initialLocale));
-  const [messages, setMessages] = useState<Messages>(
-    () => initialMessages ?? getCatalogMessages(resolveInitialLocale(initialLocale)),
+  const [initialState] = useState(() =>
+    resolveInitialLocaleState(initialLocale, initialMessages),
   );
+  const [locale, setLocale] = useState<Locale>(initialState.locale);
+  const [messages, setMessages] = useState<Messages>(initialState.messages);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -112,10 +125,17 @@ export function LocaleProvider({
 
   useEffect(() => {
     let cancelled = false;
-    void loadMessages(locale).then((nextMessages) => {
-      if (cancelled) return;
-      setMessages((current) => (current === nextMessages ? current : nextMessages));
-    });
+    void loadMessages(locale)
+      .then((nextMessages) => {
+        if (cancelled) return;
+        setMessages((current) => (current === nextMessages ? current : nextMessages));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setMessages((current) =>
+          current === ENGLISH_MESSAGES ? current : ENGLISH_MESSAGES,
+        );
+      });
     return () => {
       cancelled = true;
     };

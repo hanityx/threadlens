@@ -69,7 +69,7 @@ export const zhCN = {
     "runtimeBackendDownHint": "检查后端 URL：",
     "updateAvailableTitle": "有更新",
     "updateAvailableBody": "更新的 ThreadLens 版本现已推出。",
-    "updateAvailableCurrentLabel": "电流",
+    "updateAvailableCurrentLabel": "当前版本",
     "updateAvailableOpen": "公开发布",
     "updateAvailableDismiss": "关闭",
     "runtimeIssuesTitle": "运行时问题",

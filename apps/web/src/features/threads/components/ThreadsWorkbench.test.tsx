@@ -239,7 +239,7 @@ describe("ThreadsWorkbench", () => {
     expect(html).toContain(messages.threadsTable.heroEyebrow);
     expect(html).toContain("Review &amp; Archive");
     expect(html).toContain(messages.threadsTable.heroBody);
-    expect(html).toContain(messages.forensics.cleanupToken.toLowerCase());
+    expect(html).toContain(messages.threadsTable.heroStatDryRun);
     expect(html).toContain(messages.toolbar.searchThreads);
     expect(html).toContain(`>${messages.toolbar.all}<`);
     expect(html).toContain(`>${messages.toolbar.highRisk}<`);
