@@ -329,7 +329,6 @@ export function SetupWizard({
           <div className="setup-wizard-copy">
             <strong>{messages.setup.preferredAiTitle}</strong>
             <p>{messages.setup.preferredAiBody}</p>
-            <p>{messages.nav.locale}: {LOCALE_LABELS[locale]}</p>
           </div>
           <div className="setup-wizard-choice-grid">
             {providerCards.map((card) => {

@@ -1451,7 +1451,8 @@
 }
 
 .overview-setup-stage {
-  min-height: clamp(560px, 72vh, 860px);
+  min-height: clamp(380px, 52vh, 560px);
+  align-content: start;
 }
 
 .overview-secondary-head {
