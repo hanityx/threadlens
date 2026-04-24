@@ -41,6 +41,17 @@ describe("vite manual chunking", () => {
     );
   });
 
+  it("splits locale modules when rollup receives Windows-style paths", () => {
+    const manualChunks = getManualChunks();
+
+    expect(
+      manualChunks("C:\\repo\\apps\\web\\src\\i18n\\canonicalEnglish.ts", manualChunkMeta),
+    ).toBe("locale-core");
+    expect(manualChunks("C:\\repo\\apps\\web\\src\\i18n\\pt-BR.ts", manualChunkMeta)).toBe(
+      "locale-pt-BR",
+    );
+  });
+
   it("keeps runtime i18n helpers in the shared locale core chunk", () => {
     const manualChunks = getManualChunks();
 

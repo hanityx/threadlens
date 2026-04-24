@@ -27,21 +27,22 @@ export default defineConfig(({ command }) => ({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          const normalizedId = id.replace(/\\/g, "/");
           if (
-            id.endsWith("/src/i18n/en.ts") ||
-            id.endsWith("/src/i18n/canonicalEnglish.ts")
+            normalizedId.endsWith("/src/i18n/en.ts") ||
+            normalizedId.endsWith("/src/i18n/canonicalEnglish.ts")
           ) {
             return "locale-core";
           }
-          const localeMatch = id.match(
+          const localeMatch = normalizedId.match(
             /\/src\/i18n\/(ko|ja|zh-CN|pt-BR|es|hi|de|id|ru)\.ts$/,
           );
           if (localeMatch) {
             return `locale-${localeMatch[1]}`;
           }
-          if (!id.includes("node_modules")) return undefined;
-          if (id.includes("@tanstack/react-query")) return "react-query";
-          if (id.includes("react") || id.includes("scheduler")) {
+          if (!normalizedId.includes("node_modules")) return undefined;
+          if (normalizedId.includes("@tanstack/react-query")) return "react-query";
+          if (normalizedId.includes("react") || normalizedId.includes("scheduler")) {
             return "react-vendor";
           }
           return "vendor";
