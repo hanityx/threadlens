@@ -69,8 +69,8 @@ describe("providerPanelPresentationModel", () => {
     if (!summary) {
       throw new Error("expected preview summary");
     }
-    expect(summary.headline).toBe("Delete locally · Preview ready");
-    expect(summary.detail).toBe("Preview ready. Execute from this card when it looks right.");
+    expect(summary.headline).toBe(`Delete locally · ${messages.providers.resultPreviewReady}`);
+    expect(summary.detail).toBe(messages.providers.resultExecuteFromCardHint);
     expect(summary.token).toBe("tok-1");
     expect(summary.previewReady).toBe(true);
   });
@@ -133,9 +133,7 @@ describe("providerPanelPresentationModel", () => {
     expect(model.latestBackupCount).toBe(2);
     expect(model.latestBackupPath).toBe("/tmp/backups/latest");
     expect(model.latestExportCount).toBe(4);
-    expect(model.backupFlowHint).toBe(
-      "Back up 2 selected sessions first, then run archive or delete dry-runs below.",
-    );
+    expect(model.backupFlowHint).toBe("Save 2 first, then prep archive/delete.");
     expect(model.deleteBackupModeLabel).toBe("On");
     expect(model.canRunProviderBackup).toBe(true);
     expect(model.canReturnHotspotScope).toBe(true);
@@ -160,9 +158,9 @@ describe("providerPanelPresentationModel", () => {
 
     expect(model.providerLabel).toBe("All Providers");
     expect(model.latestBackupCount).toBe(0);
-    expect(model.latestBackupPath).toBe("No selected backup created in this session yet.");
+    expect(model.latestBackupPath).toBe(messages.providers.backupNoneYet);
     expect(model.latestExportCount).toBe(0);
-    expect(model.backupFlowHint).toBe("Pick sessions first, then start with backup.");
+    expect(model.backupFlowHint).toBe(messages.providers.backupFlowHintEmpty);
     expect(model.deleteBackupModeLabel).toBe("Off");
     expect(model.canRunProviderBackup).toBe(false);
     expect(model.canReturnHotspotScope).toBe(false);
@@ -206,10 +204,8 @@ describe("providerPanelPresentationModel", () => {
     });
 
     expect(model.providerLabel).toBe("All Providers");
-    expect(model.latestBackupPath).toBe("이 세션에서 선택한 백업이 아직 없습니다.");
-    expect(model.backupFlowHint).toBe(
-      "선택한 세션 2개를 먼저 백업한 뒤, 아래에서 아카이브나 삭제 미리 실행을 진행합니다.",
-    );
+    expect(model.latestBackupPath).toBe(koMessages.providers.backupNoneYet);
+    expect(model.backupFlowHint).toBe("먼저 2개 저장, 그다음 보관/삭제 준비.");
     expect(model.deleteBackupModeLabel).toBe("켜짐");
   });
 });

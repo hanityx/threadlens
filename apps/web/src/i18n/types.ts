@@ -1,5 +1,6 @@
 export const SUPPORTED_LOCALES = [
   "en",
+  "ko",
   "zh-CN",
   "hi",
   "es",
@@ -8,7 +9,6 @@ export const SUPPORTED_LOCALES = [
   "id",
   "de",
   "ja",
-  "ko",
 ] as const;
 
 export type Locale = (typeof SUPPORTED_LOCALES)[number];

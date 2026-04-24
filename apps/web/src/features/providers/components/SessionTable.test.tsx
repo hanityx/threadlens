@@ -128,13 +128,13 @@ describe("SessionTable", () => {
     expect(html).toContain("table-select-target is-checked");
     expect(html).toContain("aria-label=\"Select all in tab\"");
     expect(html).toContain("aria-label=\"Select session Open Codex Cleanup\"");
-    expect(html).toContain("Delete locally · Preview ready");
-    expect(html).toContain("Preview ready. Execute from this card when it looks right.");
+    expect(html).toContain(`Delete locally · ${messages.providers.resultPreviewReady}`);
+    expect(html).toContain(messages.providers.resultExecuteFromCardHint);
     expect(html).toContain("tok-1");
     expect(html).toContain("Execute delete_local");
     expect(html).toContain("Rows exported to CSV: 1");
     expect(html).toContain("Filter");
-    expect(html).toContain("Stale only");
+    expect(html).toContain(messages.providers.selectStaleOnly);
     expect(html).toContain("Hard delete");
     expect(html).toContain("Delete selected session files now?");
     expect(html).toContain("This removes the selected session files immediately without creating a backup copy.");
@@ -143,8 +143,8 @@ describe("SessionTable", () => {
     expect(html).toContain("Sessions");
     expect(html).toContain("1 Filtered / 1 Total");
     expect(html).toContain("Current selection 1");
-    expect(html).toContain("Archive dry-run Pending");
-    expect(html).toContain("Delete dry-run Ready");
+    expect(html).toContain(`${messages.providers.workflowArchiveTitle} Pending`);
+    expect(html).toContain(`${messages.providers.workflowDeleteTitle} Ready`);
     expect(html).toContain("status-pill status-detected status-pill-button");
     expect(html).toContain("Provider");
     expect(html).toContain("Source");
@@ -358,10 +358,10 @@ describe("SessionTable", () => {
       />,
     );
 
-    expect(html).toContain("Hard delete");
-    expect(html).toContain("선택한 세션 파일을 지금 하드 삭제할까요?");
-    expect(html).toContain("앞으로 하드 삭제 확인을 다시 묻지 않기");
-    expect(html).toContain("Hard delete now");
+    expect(html).toContain(koMessages.providers.delete);
+    expect(html).toContain(koMessages.providers.hardDeleteConfirmTitle);
+    expect(html).toContain(koMessages.providers.hardDeleteConfirmSkipFuture);
+    expect(html).toContain(koMessages.providers.hardDeleteConfirmExecute);
     expect(html).not.toContain("Do not ask again for hard delete.");
   });
 });

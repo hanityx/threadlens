@@ -18,7 +18,7 @@ describe("ProviderSideStack", () => {
 
     expect(html).toContain("provider-side-stack");
     expect(html).toContain("Session detail slot");
-    expect(html).toContain("Backup vault");
+    expect(html).toContain(messages.providers.backupHubTitle);
     expect(html).toContain("Backup slot");
     expect(html).toContain("Parser slot");
   });
