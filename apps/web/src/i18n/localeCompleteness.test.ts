@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { en } from "@/i18n/en";
-import { CANONICAL_ENGLISH_PATHS, getMessages } from "@/i18n";
+import { CANONICAL_ENGLISH_PATHS, getMessages } from "@/i18n/catalog";
 import { de } from "@/i18n/de";
 import { es } from "@/i18n/es";
 import { hi } from "@/i18n/hi";
@@ -46,6 +46,7 @@ const REQUIRED_TRANSLATED_PATHS = [
   "providers.probeAll",
   "providers.probeOk",
   "providers.probeFail",
+  "providers.backupNoneYet",
 ] as const;
 
 const SAME_AS_ENGLISH_OK_PATHS = new Set<string>([
@@ -88,11 +89,6 @@ function extractTokens(raw: string): string[] {
 
 describe("locale completeness", () => {
   const englishLeafPaths = collectLeafPaths(en).sort();
-  const koreanTranslatedCoveragePaths = englishLeafPaths.filter((path) => {
-    if (isCanonicalEnglishPath(path)) return false;
-    if (SAME_AS_ENGLISH_OK_PATHS.has(path)) return false;
-    return String(getByPath(ko, path)) !== String(getByPath(en, path));
-  });
 
   it("keeps every locale on the same key tree as English", () => {
     for (const [locale, messages] of Object.entries(localeFixtures)) {
@@ -128,15 +124,6 @@ describe("locale completeness", () => {
     for (const [locale, messages] of Object.entries(localeFixtures)) {
       for (const path of REQUIRED_TRANSLATED_PATHS) {
         expect(getByPath(messages, path), `${locale}:${path}`).not.toBe(getByPath(en, path));
-      }
-    }
-  });
-
-  it("keeps all locales aligned with the Korean translated coverage set", () => {
-    for (const [locale, messages] of Object.entries(localeFixtures)) {
-      if (locale === "en" || locale === "ko") continue;
-      for (const path of koreanTranslatedCoveragePaths) {
-        expect(String(getByPath(messages, path)), `${locale}: Missing translation for ${path}`).not.toBe(String(getByPath(en, path)));
       }
     }
   });

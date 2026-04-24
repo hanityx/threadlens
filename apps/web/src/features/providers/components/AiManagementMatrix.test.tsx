@@ -78,12 +78,12 @@ describe("AiManagementMatrix", () => {
       />,
     );
 
-    expect(html).toContain("AI matrix");
+    expect(html).toContain(messages.providers.matrixDisclosure);
     expect(html).toContain("Codex");
     expect(html).toContain("Open sessions");
-    expect(html).toContain("Slow AI hotspots");
+    expect(html).toContain(messages.providers.hotspotDisclosure);
     expect(html).toContain("Slow 125ms");
-    expect(html).toContain("AI flow board");
+    expect(html).toContain(messages.providers.flowBoardTitle);
     expect(html).toContain("Investigate parser failures.");
     expect(html).toContain("Codex root");
     expect(onJumpToProviderSessions).not.toHaveBeenCalled();

@@ -65,10 +65,10 @@ describe("BackupHub", () => {
     );
 
     expect(html).toContain("Selected sessions 2");
-    expect(html).toContain("Full backup export");
+    expect(html).toContain(messages.providers.exportAllBackups);
     expect(html).toContain("Open Codex Cleanup");
     expect(html).toContain("sess-12345678 · codex · jsonl");
-    expect(html).toContain("Latest backup run");
+    expect(html).toContain(messages.providers.latestBackupRunTitle);
     expect(html).toContain("Valid 2 · Applied 2 · Backed up 2");
     expect(onProviderDeleteBackupEnabledChange).not.toHaveBeenCalled();
     expect(onRunBackupSelected).not.toHaveBeenCalled();
@@ -96,7 +96,7 @@ describe("BackupHub", () => {
       />,
     );
 
-    expect(html).toContain("Back up before delete");
+    expect(html).toContain(messages.providers.deleteWithBackup);
     expect(html).toContain("Pick sessions first.");
   });
 

@@ -5,13 +5,13 @@ const threadsTabLabel = /^(Thread|Threads|Review|Cleanup|Codex Cleanup)$/i;
 const providersTabLabel = /^(Providers|Sessions|Source Sessions|Session Vault)$/i;
 const selectAllInTabLabel = /^(Select all in tab|Select all in current tab|Select tab)$/i;
 const selectAllFilteredLabel = /^(Select all filtered|Select all in current filter|Select filtered)$/i;
-const deleteDryRunLabel = /^(Delete dry-run|Delete source files \(dry-run\))$/i;
-const bulkArchiveLabel = /^(Archive selected locally|Archive locally|Archive)$/i;
+const deleteDryRunLabel = /^(Prepare deletion|Delete dry-run|Delete source files \(dry-run\))$/i;
+const bulkArchiveLabel = /^(Archive selected|Archive selected locally|Archive locally|Archive)$/i;
 const threadDetailTitle = /^(Thread Detail|Selected Thread Detail)$/i;
 const impactAnalysisLabel = /^(Run impact analysis|Impact Analysis|Impact)$/i;
-const cleanupDryRunLabel = /^(Cleanup Dry-Run|Dry-run|Run cleanup dry-run)$/i;
-const backupSelectedLabel = /^(Backup Selected Sessions|Back up selected sessions|Back up selected)$/i;
-const bundleAllBackupsLabel = /^(Bundle All Backups|Export backup bundle|Export full backup bundle|Export bundle)$/i;
+const cleanupDryRunLabel = /^(Prepare deletion|Cleanup Dry-Run|Dry-run|Run cleanup dry-run)$/i;
+const backupSelectedLabel = /^(Backup|Backup Selected Sessions|Back up selected sessions|Back up selected)$/i;
+const bundleAllBackupsLabel = /^(Export backup ZIP|Bundle All Backups|Export backup bundle|Export full backup bundle|Export bundle)$/i;
 const searchTabLabel = /^(Search|Conversation Search)$/i;
 const searchPlaceholder = /^(Search your own words, filenames, or keywords|Search conversations)$/i;
 const codexSearchResultLabel = /Fix token flow/i;
@@ -472,7 +472,7 @@ test("all providers view allows bulk archive dry-run when selected rows share on
   await expect(page.getByRole("button", { name: /^CSV$/i }).first()).toBeVisible();
   await page.locator("tbody input[type='checkbox']").first().check();
 
-  const archiveDryRunButton = page.getByRole("button", { name: /Archive dry-run/i }).first();
+  const archiveDryRunButton = page.getByRole("button", { name: bulkArchiveLabel }).first();
   await expect(archiveDryRunButton).toBeEnabled();
   await archiveDryRunButton.click();
 
