@@ -6,6 +6,7 @@ import {
   type ProviderId,
 } from "@threadlens/shared-contracts";
 import {
+  BACKUP_ROOT,
   CHAT_DIR,
   CODEX_HOME,
   CLAUDE_HOME,
@@ -29,8 +30,15 @@ type ChatGptRootsCacheEntry = {
   roots: ProviderRootSpec[];
 };
 
+type CodexCwdBackupRootsCacheEntry = {
+  expires_at: number;
+  roots: ProviderRootSpec[];
+};
+
 const CHATGPT_ROOT_DISCOVERY_TTL_MS = 45_000;
+const CODEX_CWD_BACKUP_ROOT_DISCOVERY_TTL_MS = 60_000;
 let chatGptRootsCache: ChatGptRootsCacheEntry | null = null;
+let codexCwdBackupRootsCache: CodexCwdBackupRootsCacheEntry | null = null;
 
 export function providerName(provider: ProviderId): string {
   return PROVIDER_LABELS[provider] ?? provider;
@@ -58,6 +66,19 @@ export function isPathInsideRoot(
   const fullRoot = path.resolve(rootPath);
   return (
     fullTarget === fullRoot || fullTarget.startsWith(`${fullRoot}${path.sep}`)
+  );
+}
+
+function isCodexCwdBackupPath(filePath: string): boolean {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext !== ".jsonl") return false;
+  if (!isPathInsideRoot(filePath, CODEX_HOME)) return false;
+  const relativePath = path.relative(CODEX_HOME, path.resolve(filePath));
+  const [firstSegment = ""] = relativePath.split(path.sep);
+  return (
+    firstSegment.startsWith("jsonl-cwd-backups-") &&
+    !relativePath.startsWith(`..${path.sep}`) &&
+    relativePath !== ".."
   );
 }
 
@@ -101,7 +122,78 @@ async function discoverChatGptConversationRoots(): Promise<ProviderRootSpec[]> {
   return roots;
 }
 
+function providerActionBackupRoots(provider: ProviderId): string[] {
+  return Array.from(
+    new Set([
+      path.join(BACKUP_ROOT, "provider_actions", provider),
+      path.join(CODEX_HOME, "local_cleanup_backups", "provider_actions", provider),
+    ]),
+  );
+}
+
+function providerBackupRootSpecs(provider: ProviderId): ProviderRootSpec[] {
+  const cleanupRoots = () =>
+    providerActionBackupRoots(provider).map((root) => ({
+      source: "cleanup_backups",
+      root,
+      exts: [".jsonl", ".json"],
+    }));
+  if (provider === "codex") {
+    return [
+      {
+        source: "recovered_sessions",
+        root: path.join(CODEX_HOME, "recovered-sessions"),
+        exts: [".jsonl"],
+      },
+      ...cleanupRoots().map((spec) => ({ ...spec, exts: [".jsonl"] })),
+    ];
+  }
+  if (provider === "claude") {
+    return cleanupRoots();
+  }
+  if (provider === "gemini") {
+    return cleanupRoots().map((spec) => ({ ...spec, exts: [".jsonl", ".json", ".pb"] }));
+  }
+  if (provider === "copilot") {
+    return cleanupRoots();
+  }
+  return [];
+}
+
+function providerArchivedRootSpec(provider: ProviderId): ProviderRootSpec | null {
+  if (provider === "codex") {
+    return {
+      source: "archived_sessions",
+      root: path.join(CODEX_HOME, "archived_sessions"),
+      exts: [".jsonl"],
+    };
+  }
+  if (provider === "claude") {
+    return {
+      source: "archived_sessions",
+      root: path.join(CODEX_HOME, "archived_sessions", "claude"),
+      exts: [".jsonl", ".json"],
+    };
+  }
+  if (provider === "gemini") {
+    return {
+      source: "archived_sessions",
+      root: path.join(CODEX_HOME, "archived_sessions", "gemini"),
+      exts: [".jsonl", ".json", ".pb"],
+    };
+  }
+  if (provider === "copilot") {
+    return {
+      source: "archived_sessions",
+      root: path.join(CODEX_HOME, "archived_sessions", "copilot"),
+      exts: [".jsonl", ".json"],
+    };
+  }
+  return null;
+}
+
 export function providerRootSpecs(provider: ProviderId): ProviderRootSpec[] {
+  const archivedSpec = providerArchivedRootSpec(provider);
   if (provider === "codex") {
     return [
       {
@@ -109,11 +201,8 @@ export function providerRootSpecs(provider: ProviderId): ProviderRootSpec[] {
         root: path.join(CODEX_HOME, "sessions"),
         exts: [".jsonl"],
       },
-      {
-        source: "archived_sessions",
-        root: path.join(CODEX_HOME, "archived_sessions"),
-        exts: [".jsonl"],
-      },
+      ...(archivedSpec ? [archivedSpec] : []),
+      ...providerBackupRootSpecs(provider),
     ];
   }
   if (provider === "chatgpt") {
@@ -127,6 +216,8 @@ export function providerRootSpecs(provider: ProviderId): ProviderRootSpec[] {
         root: CLAUDE_TRANSCRIPTS_DIR,
         exts: [".jsonl", ".json"],
       },
+      ...(archivedSpec ? [archivedSpec] : []),
+      ...providerBackupRootSpecs(provider),
     ];
   }
   if (provider === "gemini") {
@@ -138,6 +229,8 @@ export function providerRootSpecs(provider: ProviderId): ProviderRootSpec[] {
         root: GEMINI_ANTIGRAVITY_CONVERSATIONS_DIR,
         exts: [".pb"],
       },
+      ...(archivedSpec ? [archivedSpec] : []),
+      ...providerBackupRootSpecs(provider),
     ];
   }
   return [
@@ -161,6 +254,8 @@ export function providerRootSpecs(provider: ProviderId): ProviderRootSpec[] {
       root: COPILOT_CURSOR_WORKSPACE_STORAGE,
       exts: [".json"],
     },
+    ...(archivedSpec ? [archivedSpec] : []),
+    ...providerBackupRootSpecs(provider),
   ];
 }
 
@@ -173,6 +268,11 @@ export function codexTranscriptSearchRoots(): ProviderRootSpec[] {
     ].filter(Boolean)),
   );
   const roots: ProviderRootSpec[] = [];
+  roots.push({
+    source: "cleanup_backups",
+    root: path.join(BACKUP_ROOT, "provider_actions", "codex"),
+    exts: [".jsonl"],
+  });
   for (const home of homes) {
     roots.push({
       source: "sessions",
@@ -184,23 +284,59 @@ export function codexTranscriptSearchRoots(): ProviderRootSpec[] {
       root: path.join(home, "archived_sessions"),
       exts: [".jsonl"],
     });
+    roots.push({
+      source: "recovered_sessions",
+      root: path.join(home, "recovered-sessions"),
+      exts: [".jsonl"],
+    });
+    roots.push({
+      source: "cleanup_backups",
+      root: path.join(home, "local_cleanup_backups", "provider_actions", "codex"),
+      exts: [".jsonl"],
+    });
   }
+  return roots;
+}
+
+async function discoverCodexCwdBackupRoots(): Promise<ProviderRootSpec[]> {
+  if (codexCwdBackupRootsCache && codexCwdBackupRootsCache.expires_at > Date.now()) {
+    return codexCwdBackupRootsCache.roots;
+  }
+  const entries = await readdir(CODEX_HOME, { withFileTypes: true }).catch(() => []);
+  const roots = entries
+    .filter((entry) => entry.isDirectory() && entry.name.startsWith("jsonl-cwd-backups-"))
+    .map((entry) => ({
+      source: "cwd_backups",
+      root: path.join(CODEX_HOME, entry.name),
+      exts: [".jsonl"],
+    }));
+  codexCwdBackupRootsCache = {
+    expires_at: Date.now() + CODEX_CWD_BACKUP_ROOT_DISCOVERY_TTL_MS,
+    roots,
+  };
   return roots;
 }
 
 export async function providerScanRootSpecs(
   provider: ProviderId,
 ): Promise<ProviderRootSpec[]> {
-  if (provider !== "chatgpt") return providerRootSpecs(provider);
-  const discovered = await discoverChatGptConversationRoots();
-  if (discovered.length > 0) return discovered;
-  return providerRootSpecs(provider);
+  if (provider === "chatgpt") {
+    const discovered = await discoverChatGptConversationRoots();
+    if (discovered.length > 0) return discovered;
+    return providerRootSpecs(provider);
+  }
+  if (provider !== "codex") return providerRootSpecs(provider);
+  const extraRoots = await discoverCodexCwdBackupRoots();
+  return [...providerRootSpecs(provider), ...extraRoots];
 }
 
 export function isAllowedProviderFilePath(
   provider: ProviderId,
   filePath: string,
 ): boolean {
+  if (provider === "codex" && isCodexCwdBackupPath(filePath)) {
+    return true;
+  }
   if (provider === "chatgpt") {
     const ext = path.extname(filePath).toLowerCase();
     if (ext !== ".data") return false;
@@ -257,13 +393,9 @@ export async function resolveAllowedProviderFilePath(
   filePath: string,
 ): Promise<string | null> {
   if (!isAllowedProviderFilePath(provider, filePath)) return null;
-
-  if (provider === "chatgpt") {
-    return resolveSafePathWithinRoots(filePath, [CHAT_DIR]);
-  }
-
+  const specs = await providerScanRootSpecs(provider);
   const ext = path.extname(filePath).toLowerCase();
-  const matchingRoots = providerRootSpecs(provider)
+  const matchingRoots = specs
     .filter(
       (spec) => spec.exts.includes(ext) && isPathInsideRoot(filePath, spec.root),
     )

@@ -2,7 +2,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { FastifyInstance } from "fastify";
-import { PROJECT_ROOT, UPDATE_CHECK_CACHE_FILE } from "./lib/constants";
+import { RECOVERY_EXPORT_ROOT, UPDATE_CHECK_CACHE_FILE } from "./lib/constants";
 import { resetUpdateCheckCacheForTests } from "./lib/update-check";
 import { createServer } from "./server";
 
@@ -227,7 +227,7 @@ describe("api-ts direct endpoints", () => {
   });
 
   it("GET /api/recovery-backup-export/download streams an exported archive", async () => {
-    const exportRoot = path.join(PROJECT_ROOT, ".run", "recovery-exports");
+    const exportRoot = RECOVERY_EXPORT_ROOT;
     const archivePath = path.join(exportRoot, `vitest-export-${Date.now()}.zip`);
     await mkdir(exportRoot, { recursive: true });
     await writeFile(archivePath, "fake-zip", "utf-8");

@@ -1,3 +1,6 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { inferSessionId, probeSessionFile } from "./probe.js";
 
@@ -29,5 +32,27 @@ describe("provider probe helpers", () => {
       format: "unknown",
       error: "unsupported extension",
     });
+  });
+
+  it("does not fail long multibyte jsonl first lines that exceed the head byte limit", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "threadlens-probe-"));
+    const filePath = path.join(dir, "long-first-line.jsonl");
+    const longKoreanText = "문장".repeat(4500);
+
+    try {
+      await writeFile(
+        filePath,
+        `${JSON.stringify({ type: "event_msg", message: longKoreanText })}\n${JSON.stringify({ type: "done" })}\n`,
+        "utf8",
+      );
+
+      await expect(probeSessionFile(filePath)).resolves.toMatchObject({
+        ok: true,
+        format: "jsonl",
+        error: null,
+      });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });

@@ -27,6 +27,7 @@ describe("provider parser fixtures", () => {
       HOME_DIR: tempHome,
       APP_DATA_DIR: appDataDir,
       CODEX_HOME: path.join(tempHome, ".codex"),
+      BACKUP_ROOT: path.join(tempHome, ".codex", "local_cleanup_backups"),
       CHAT_DIR: path.join(appDataDir, "com.openai.chat"),
       CLAUDE_HOME: path.join(tempHome, ".claude"),
       CLAUDE_PROJECTS_DIR: path.join(tempHome, ".claude", "projects"),

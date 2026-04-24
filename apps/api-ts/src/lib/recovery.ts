@@ -20,6 +20,7 @@ import {
   START_TS,
   CODEX_HOME,
   BACKUP_ROOT,
+  RECOVERY_EXPORT_ROOT,
   RECOVERY_CHECKLIST_FILE,
   RECOVERY_PLAN_DIR,
   CHAT_DIR,
@@ -120,6 +121,8 @@ type RecoveryBackupSet = {
   latest_mtime: string;
   sample_files: string[];
 };
+
+const LEGACY_BACKUP_ROOT = path.join(CODEX_HOME, "local_cleanup_backups");
 
 type RecoveryBackupCandidate = {
   backup_id: string;
@@ -357,7 +360,11 @@ type RecoveryBackupExportOptions = {
 };
 
 function recoveryExportRoot(override?: string): string {
-  return override ?? path.join(PROJECT_ROOT, ".run", "recovery-exports");
+  return override ?? RECOVERY_EXPORT_ROOT;
+}
+
+function hasHiddenPathSegment(filePath: string): boolean {
+  return path.resolve(filePath).split(path.sep).some((segment) => segment.startsWith("."));
 }
 
 export function resolveRecoveryBackupArchivePath(
@@ -466,15 +473,27 @@ async function buildRestorePlan(
  *  Recovery center / drill                                            *
  * ─────────────────────────────────────────────────────────────────── */
 
-export async function getRecoveryCenterDataTs() {
-  const backupSets = await scanBackupSets(20);
+export async function getRecoveryCenterDataTs(options?: {
+  backupRoot?: string;
+  legacyBackupRoot?: string;
+}) {
+  const backupRoot = options?.backupRoot ?? BACKUP_ROOT;
+  const legacyBackupRoot = options?.legacyBackupRoot ?? LEGACY_BACKUP_ROOT;
+  const backupSets = await scanBackupSets(20, { backupRoot });
+  const legacyBackupSets =
+    path.resolve(backupRoot) === path.resolve(legacyBackupRoot)
+      ? []
+      : await scanBackupSets(20, { backupRoot: legacyBackupRoot });
   const checklist = await loadRecoveryChecklist();
   const checklistDone = checklist.filter((item) => item.done).length;
   return {
     generated_at: nowIsoUtc(),
-    backup_root: BACKUP_ROOT,
+    default_backup_root: BACKUP_ROOT,
+    default_export_root: RECOVERY_EXPORT_ROOT,
+    backup_root: backupRoot,
     plan_root: RECOVERY_PLAN_DIR,
     backup_sets: backupSets,
+    legacy_backup_sets: legacyBackupSets,
     backup_total: backupSets.length,
     checklist,
     checklist_done: checklistDone,
@@ -541,6 +560,26 @@ export async function exportRecoveryBackupsTs(
   );
   const backupRoot = options.roots?.backup_root ?? BACKUP_ROOT;
   const exportRoot = recoveryExportRoot(options.roots?.export_root);
+  if (hasHiddenPathSegment(backupRoot)) {
+    return {
+      ok: false,
+      error: "backup_root_hidden",
+      selected_backup_ids: requestedIds,
+      missing_backup_ids: [],
+      backup_root: backupRoot,
+      export_root: exportRoot,
+    };
+  }
+  if (hasHiddenPathSegment(exportRoot)) {
+    return {
+      ok: false,
+      error: "export_root_hidden",
+      selected_backup_ids: requestedIds,
+      missing_backup_ids: [],
+      backup_root: backupRoot,
+      export_root: exportRoot,
+    };
+  }
   const allSets = await scanBackupSets(200, { backupRoot });
   const selectedSets = requestedIds.length
     ? allSets.filter((set) => requestedIds.includes(set.backup_id))
