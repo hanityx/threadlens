@@ -19,7 +19,9 @@
 
 .setup-wizard-shell {
   display: grid;
-  gap: 8px;
+  gap: 12px;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  align-items: start;
 }
 
 .setup-wizard-stage {

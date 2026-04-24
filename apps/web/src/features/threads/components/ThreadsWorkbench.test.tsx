@@ -1,7 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getMessages } from "@/i18n";
-import { ThreadsWorkbench } from "@/features/threads/components/ThreadsWorkbench";
+import {
+  resolveThreadWorkbenchPanelHeight,
+  ThreadsWorkbench,
+} from "@/features/threads/components/ThreadsWorkbench";
 
 const mockUseAppContext = vi.fn();
 const mockThreadsTable = vi.fn((props: Record<string, unknown>) => (
@@ -333,5 +336,29 @@ describe("ThreadsWorkbench", () => {
 
     expect(setSelectedThreadId).toHaveBeenCalledWith("thread-2");
     expect(cleanupExecute).toHaveBeenCalledWith(["thread-2"]);
+  });
+
+  it("uses the stack height when it exceeds the minimum", () => {
+    expect(
+      resolveThreadWorkbenchPanelHeight({ stackHeight: 800 }),
+    ).toBe(800);
+  });
+
+  it("uses the minimum height when the stack is shorter", () => {
+    expect(
+      resolveThreadWorkbenchPanelHeight({ stackHeight: 400 }),
+    ).toBe(640);
+  });
+
+  it("uses the baseline height when it exceeds the current stack", () => {
+    expect(
+      resolveThreadWorkbenchPanelHeight({ stackHeight: 700, baselineHeight: 900 }),
+    ).toBe(900);
+  });
+
+  it("uses the detail height when it is taller than the stack", () => {
+    expect(
+      resolveThreadWorkbenchPanelHeight({ stackHeight: 700, detailHeight: 850 }),
+    ).toBe(850);
   });
 });

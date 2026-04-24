@@ -158,6 +158,18 @@ export function SessionTable(props: SessionTableProps) {
   } = props;
   const sessionActionSummary = buildProviderSessionActionSummary(messages, sessionFileActionResult);
   const filteredCount = sortedProviderSessionRows.length;
+
+  const sortKeyFromCol = (col: "title" | "mtime" | "size") => {
+    const [key, dir] = sessionSort.split("_");
+    if (key === col) return dir === "asc" ? `${col}_desc` : `${col}_asc`;
+    return `${col}_asc`;
+  };
+  const activeSortKey = sessionSort.split("_")[0];
+  const activeSortDir = sessionSort.split("_")[1];
+  const sortIndicator = (col: string) =>
+    activeSortKey === col ? (
+      <span className="col-sort-indicator">{activeSortDir === "asc" ? "▲" : "▼"}</span>
+    ) : null;
   const totalCount = providerSessionRows.length;
   const selectedCount = Object.values(selectedProviderFiles).filter(Boolean).length;
   const sessionExecuteLabel =
@@ -370,11 +382,26 @@ export function SessionTable(props: SessionTableProps) {
                 </label>
               </th>
               {showProviderColumn ? <th className="col-provider">{messages.providers.colProvider}</th> : null}
-              <th className="title-col col-session">{messages.providers.colSession}</th>
+              <th
+                className={`title-col col-session is-sortable${activeSortKey === "title" ? " is-sort-active" : ""}`}
+                onClick={() => onSessionSortChange(sortKeyFromCol("title"))}
+              >
+                {messages.providers.colSession}{sortIndicator("title")}
+              </th>
               <th className="col-source">{messages.threadDetail.fieldSource}</th>
               <th className="col-format">{messages.providers.colFormat}</th>
-              <th className="col-modified">{messages.sessionDetail.fieldModified}</th>
-              <th className="col-size">{messages.providers.colSize}</th>
+              <th
+                className={`col-modified is-sortable${activeSortKey === "mtime" ? " is-sort-active" : ""}`}
+                onClick={() => onSessionSortChange(sortKeyFromCol("mtime"))}
+              >
+                {messages.sessionDetail.fieldModified}{sortIndicator("mtime")}
+              </th>
+              <th
+                className={`col-size is-sortable${activeSortKey === "size" ? " is-sort-active" : ""}`}
+                onClick={() => onSessionSortChange(sortKeyFromCol("size"))}
+              >
+                {messages.providers.colSize}{sortIndicator("size")}
+              </th>
             </tr>
           </thead>
           <tbody>

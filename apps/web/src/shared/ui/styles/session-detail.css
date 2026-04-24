@@ -633,7 +633,13 @@
 .thread-side-stack {
   display: grid;
   gap: 12px;
+  grid-template-rows: auto auto;
   align-content: start;
+}
+
+.thread-side-stack > .thread-review-panel:first-child,
+.thread-side-stack > .impact-panel:last-child {
+  min-height: 0;
 }
 
 .thread-detail-empty-state {
@@ -872,6 +878,8 @@
   flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
   scroll-behavior: smooth;
 }
 
@@ -1076,6 +1084,9 @@
 }
 
 .thread-review-panel .chat-log {
+  min-height: clamp(220px, 30vh, 360px);
+  height: auto;
+  max-height: none;
   padding: 8px;
   gap: 6px;
   border-color: var(--surface-detail-empty-border);
