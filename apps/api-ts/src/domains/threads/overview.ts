@@ -33,6 +33,7 @@ type OverviewThreadRow = {
   session_line_count: number;
   session_tool_calls: number;
   session_bytes: number;
+  session_format_ok: boolean;
   last_activity: string;
   activity_status: string;
   activity_age_min: number | null;
@@ -49,6 +50,16 @@ type OverviewThreadRow = {
 };
 
 const OVERVIEW_CACHE_TTL_MS = 20_000;
+const RISK_WEIGHTS = {
+  internal: 12,
+  ctxCritical: 40,
+  ctxHigh: 28,
+  ctxMedium: 12,
+  staleInternal: 8,
+  staleExternal: 4,
+  orphanCandidate: 14,
+  noWorkspace: 14,
+} as const;
 let overviewCache:
   | {
       full?: { expires_at: number; payload: Record<string, unknown> };
@@ -123,21 +134,21 @@ function calcRisk(
   const isInternal = row.title_source !== "global-state";
   if (isInternal) {
     tags.push("internal");
-    risk += 18;
+    risk += RISK_WEIGHTS.internal;
   }
   if (contextScore >= 85) {
     tags.push("ctx-critical");
-    risk += 40;
+    risk += RISK_WEIGHTS.ctxCritical;
   } else if (contextScore >= 70) {
     tags.push("ctx-high");
-    risk += 28;
+    risk += RISK_WEIGHTS.ctxHigh;
   } else if (contextScore >= 50) {
     tags.push("ctx-medium");
-    risk += 12;
+    risk += RISK_WEIGHTS.ctxMedium;
   }
   if (activityAgeDays !== null && activityAgeDays >= 30) {
     tags.push("stale");
-    risk += isInternal ? 10 : 4;
+    risk += isInternal ? RISK_WEIGHTS.staleInternal : RISK_WEIGHTS.staleExternal;
   }
   if (
     isInternal &&
@@ -147,11 +158,11 @@ function calcRisk(
     row.session_source !== "archived_sessions"
   ) {
     tags.push("orphan-candidate");
-    risk += 24;
+    risk += RISK_WEIGHTS.orphanCandidate;
   }
   if (!row.cwd.trim()) {
     tags.push("no-cwd");
-    risk += 8;
+    risk += RISK_WEIGHTS.noWorkspace;
   }
   const riskScore = Math.max(0, Math.min(100, Math.round(risk)));
   const riskLevel =
@@ -198,7 +209,7 @@ async function buildOverview(includeThreads: boolean, forceRefresh: boolean) {
   const pinned = new Set(state.pinned);
   const archived = new Set(state.archived);
   const activeRoots = state.active;
-  const visibleScanRows = scan.rows.filter((row) => !archived.has(row.session_id));
+  const visibleScanRows = scan.rows;
   const { refs } = await collectCodexLocalRefs(
     visibleScanRows.map((row) => row.session_id),
     CHAT_DIR,
@@ -209,10 +220,9 @@ async function buildOverview(includeThreads: boolean, forceRefresh: boolean) {
     ),
   );
 
-  const rows: OverviewThreadRow[] = scan.rows
-    .filter((row) => !archived.has(row.session_id))
-    .map((row) => {
+  const rows: OverviewThreadRow[] = scan.rows.map((row) => {
     const threadId = row.session_id;
+    const isArchived = archived.has(threadId);
     const stateTitle = state.titles[threadId] || "";
     const title = stateTitle || row.display_title || row.probe.detected_title || threadId;
     const titleSource = stateTitle ? "global-state" : row.probe.title_source || "provider-scan";
@@ -233,52 +243,54 @@ async function buildOverview(includeThreads: boolean, forceRefresh: boolean) {
         })
       : false;
     const contextScore = calcContextScore(row.size_bytes, row.probe.ok);
+    const sessionSource = isArchived && row.source !== "cleanup_backups" ? "archived_sessions" : row.source;
     const risk = calcRisk(contextScore, age.age_days, {
       pinned: pinned.has(threadId),
       in_order: orderIndex.has(threadId),
       has_local_data: hasLocalData,
-      session_source: row.source,
+      session_source: sessionSource,
       cwd,
       title_source: titleSource,
     });
-      return {
-        id: threadId,
-        thread_id: threadId,
-        title,
-        title_source: titleSource,
-        pinned: pinned.has(threadId),
-        in_order: orderIndex.has(threadId),
-        order_index: orderIndex.get(threadId) ?? 999999,
-        has_local_data: hasLocalData,
-        project_buckets: projectBuckets,
-        cwd,
-        timestamp: row.mtime,
-        has_session_log: sessionMeta.has_session_log,
-        session_source: row.source,
-        history_text: "",
-        local_cache_paths: [row.file_path],
-        inferred_time: inferredTime,
-        session_line_count: Math.min(5000, Math.max(1, Math.floor(row.size_bytes / 180))),
-        session_tool_calls: Math.min(1200, Math.max(0, Math.floor(row.size_bytes / 12000))),
-        session_bytes: row.size_bytes,
-        last_activity: row.mtime,
-        activity_status: age.activity_status,
-        activity_age_min: age.activity_age_min,
-        cache_bytes: 0,
-        context_score: contextScore,
-        age_days: age.age_days,
-        risk_score: risk.risk_score,
-        risk_level: risk.risk_level,
-        risk_tags: risk.risk_tags,
-        is_gui_thread: titleSource === "global-state",
-        gui_has_runtime_link: true,
-        matches_active_workspace: matchesActiveWorkspace,
-        gui_hidden_candidate:
-          titleSource === "global-state" &&
-          !matchesActiveWorkspace &&
-          activeRoots.length > 0,
-      };
-    });
+    return {
+      id: threadId,
+      thread_id: threadId,
+      title,
+      title_source: titleSource,
+      pinned: pinned.has(threadId),
+      in_order: orderIndex.has(threadId),
+      order_index: orderIndex.get(threadId) ?? 999999,
+      has_local_data: hasLocalData,
+      project_buckets: projectBuckets,
+      cwd,
+      timestamp: row.mtime,
+      has_session_log: sessionMeta.has_session_log,
+      session_source: sessionSource,
+      history_text: "",
+      local_cache_paths: [row.file_path],
+      inferred_time: inferredTime,
+      session_line_count: Math.min(5000, Math.max(1, Math.floor(row.size_bytes / 180))),
+      session_tool_calls: Math.min(1200, Math.max(0, Math.floor(row.size_bytes / 12000))),
+      session_bytes: row.size_bytes,
+      session_format_ok: row.probe.ok,
+      last_activity: row.mtime,
+      activity_status: age.activity_status,
+      activity_age_min: age.activity_age_min,
+      cache_bytes: 0,
+      context_score: contextScore,
+      age_days: age.age_days,
+      risk_score: risk.risk_score,
+      risk_level: risk.risk_level,
+      risk_tags: risk.risk_tags,
+      is_gui_thread: titleSource === "global-state",
+      gui_has_runtime_link: true,
+      matches_active_workspace: matchesActiveWorkspace,
+      gui_hidden_candidate:
+        titleSource === "global-state" &&
+        !matchesActiveWorkspace &&
+        activeRoots.length > 0,
+    };
+  });
 
   rows.sort((a, b) => {
     if (a.order_index !== b.order_index) return a.order_index - b.order_index;
