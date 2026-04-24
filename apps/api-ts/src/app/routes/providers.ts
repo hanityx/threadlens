@@ -14,6 +14,7 @@ import { runProviderSessionAction } from "../../lib/providers.js";
 import {
   getProviderParserHealthTs,
   getProviderSessionsTs,
+  searchConversationSessionHitsTs,
   searchLocalConversationsTs,
 } from "../../domains/providers/search.js";
 import {
@@ -37,11 +38,12 @@ export async function registerProviderRoutes(
 
   const providerSessionActionSchema = z.object({
     provider: z.enum(providerIdTuple),
-    action: z.enum(["backup_local", "archive_local", "delete_local"]),
+    action: z.enum(["backup_local", "archive_local", "unarchive_local", "delete_local"]),
     file_paths: z.array(z.string().min(1)).min(1).max(500),
     dry_run: z.boolean().optional().default(true),
     confirm_token: z.string().optional().default(""),
     backup_before_delete: z.boolean().optional().default(false),
+    backup_root: z.string().optional().default(""),
   });
   const providerOpenFolderSchema = z.object({
     provider: z.enum(providerIdTuple),
@@ -81,7 +83,10 @@ export async function registerProviderRoutes(
           parsed.data.file_paths,
           parsed.data.dry_run,
           parsed.data.confirm_token,
-          { backup_before_delete: parsed.data.backup_before_delete },
+          {
+            backup_before_delete: parsed.data.backup_before_delete,
+            backup_root: parsed.data.backup_root,
+          },
         );
         const status = result.ok ? 200 : 400;
         return reply.code(status).send(withSchemaVersion(result));
@@ -222,6 +227,9 @@ export async function registerProviderRoutes(
   app.get<{ Querystring: QueryMap }>(
     "/api/conversation-search",
     async (req, reply) => {
+      const abortController = new AbortController();
+      const abort = () => abortController.abort();
+      req.raw.once("close", abort);
       try {
         const q = String(
           Array.isArray(req.query.q) ? req.query.q[0] : req.query.q ?? "",
@@ -238,20 +246,107 @@ export async function registerProviderRoutes(
         }
 
         const limit = Math.max(1, Math.min(200, parseQueryNumber(req.query.limit, 40)));
+        const pageSize = Math.max(
+          1,
+          Math.min(200, parseQueryNumber(req.query.page_size, limit)),
+        );
+        const cursor = String(
+          Array.isArray(req.query.cursor) ? req.query.cursor[0] : req.query.cursor ?? "",
+        ).trim();
+        const previewHitsPerSession = Math.max(
+          1,
+          Math.min(20, parseQueryNumber(req.query.preview_hits_per_session, 3)),
+        );
         const refreshRaw = Array.isArray(req.query.refresh)
           ? req.query.refresh[0]
           : req.query.refresh;
         const forceRefresh = Number(refreshRaw) > 0;
         const data = await searchLocalConversationsTs(q, {
           providers,
-          limit,
+          limit: pageSize,
+          pageSize,
+          ...(cursor ? { cursor } : {}),
           forceRefresh,
+          previewHitsPerSession,
+          signal: abortController.signal,
         });
         return reply.code(200).send(withSchemaVersion(data));
       } catch (error) {
+        if (abortController.signal.aborted) return;
         return reply
           .code(500)
           .send(envelope(null, `conversation-search-error: ${String(error)}`));
+      } finally {
+        req.raw.off("close", abort);
+      }
+    },
+  );
+
+  app.get<{ Querystring: QueryMap }>(
+    "/api/conversation-search/session-hits",
+    async (req, reply) => {
+      const abortController = new AbortController();
+      const abort = () => abortController.abort();
+      req.raw.once("close", abort);
+      try {
+        const q = String(
+          Array.isArray(req.query.q) ? req.query.q[0] : req.query.q ?? "",
+        ).trim();
+        if (!q) return reply.code(400).send(envelope(null, "q required"));
+
+        const providerRaw = Array.isArray(req.query.provider)
+          ? req.query.provider[0]
+          : req.query.provider;
+        const provider = parseProviderId(providerRaw);
+        if (!provider) {
+          return reply.code(400).send(envelope(null, "invalid provider"));
+        }
+        const sessionId = String(
+          Array.isArray(req.query.session_id)
+            ? req.query.session_id[0]
+            : req.query.session_id ?? "",
+        ).trim();
+        if (!sessionId) {
+          return reply.code(400).send(envelope(null, "session_id required"));
+        }
+        const pageSize = Math.max(
+          1,
+          Math.min(200, parseQueryNumber(req.query.page_size, 40)),
+        );
+        const filePath = String(
+          Array.isArray(req.query.file_path)
+            ? req.query.file_path[0]
+            : req.query.file_path ?? "",
+        ).trim();
+        const cursor = String(
+          Array.isArray(req.query.cursor) ? req.query.cursor[0] : req.query.cursor ?? "",
+        ).trim();
+        const refreshRaw = Array.isArray(req.query.refresh)
+          ? req.query.refresh[0]
+          : req.query.refresh;
+        const forceRefresh = Number(refreshRaw) > 0;
+        const data = await searchConversationSessionHitsTs(q, {
+          provider,
+          sessionId,
+          ...(filePath ? { filePath } : {}),
+          pageSize,
+          ...(cursor ? { cursor } : {}),
+          forceRefresh,
+          signal: abortController.signal,
+        });
+        if (!data) {
+          return reply.code(404).send(envelope(null, "session not found"));
+        }
+        return reply.code(200).send(withSchemaVersion(data));
+      } catch (error) {
+        if (abortController.signal.aborted) return;
+        return reply
+          .code(500)
+          .send(
+            envelope(null, `conversation-search-session-hits-error: ${String(error)}`),
+          );
+      } finally {
+        req.raw.off("close", abort);
       }
     },
   );

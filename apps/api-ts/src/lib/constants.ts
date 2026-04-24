@@ -113,6 +113,20 @@ export function resolvePlatformAppDataDir(
   return env.XDG_CONFIG_HOME ?? path.join(homeDir, ".config");
 }
 
+export function resolvePlatformDocumentsDir(
+  platform = process.platform,
+  env: Record<string, string | undefined> = process.env,
+) {
+  return path.join(resolvePlatformHomeDir(platform, env), "Documents");
+}
+
+export function resolvePlatformDownloadsDir(
+  platform = process.platform,
+  env: Record<string, string | undefined> = process.env,
+) {
+  return path.join(resolvePlatformHomeDir(platform, env), "Downloads");
+}
+
 export function resolvePlatformChatDir(
   platform = process.platform,
   env: Record<string, string | undefined> = process.env,
@@ -136,7 +150,14 @@ export const CODEX_GLOBAL_STATE_FILE = path.join(
   CODEX_HOME,
   ".codex-global-state.json",
 );
-export const BACKUP_ROOT = path.join(CODEX_HOME, "local_cleanup_backups");
+export const DOCUMENTS_DIR = resolvePlatformDocumentsDir();
+export const DOWNLOADS_DIR = resolvePlatformDownloadsDir();
+export const BACKUP_ROOT = path.join(DOCUMENTS_DIR, "ThreadLens", "backups");
+export const RECOVERY_EXPORT_ROOT = path.join(
+  DOWNLOADS_DIR,
+  "ThreadLens",
+  "recovery-exports",
+);
 export const THREADS_BOOT_CACHE_FILE = path.join(
   PROJECT_ROOT,
   ".run",

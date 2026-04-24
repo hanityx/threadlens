@@ -187,7 +187,7 @@ export type AgentRuntimeState = {
   };
 };
 
-export type BulkThreadAction = "pin" | "unpin" | "archive_local" | "resume_command";
+export type BulkThreadAction = "pin" | "unpin" | "archive_local" | "unarchive_local" | "resume_command";
 
 export type BulkThreadActionRequest = {
   action: BulkThreadAction;

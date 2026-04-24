@@ -6,10 +6,12 @@ export type ProviderStatus = "active" | "detected" | "missing";
 export type ProviderSessionAction =
   | "backup_local"
   | "archive_local"
+  | "unarchive_local"
   | "delete_local";
 
 export type ProviderSessionActionOptions = {
   backup_before_delete?: boolean;
+  backup_root?: string;
 };
 
 export type ProviderSessionProbe = {
@@ -39,6 +41,7 @@ export type ProviderSessionScan = {
   scanned: number;
   truncated: boolean;
   scan_ms: number;
+  total_bytes: number;
 };
 
 export type TranscriptMessage = {
@@ -66,11 +69,29 @@ export type ConversationSearchResult = {
   session_id: string;
   thread_id?: string | null;
   title: string;
+  display_title?: string;
   file_path: string;
   mtime: string;
   match_kind: ConversationSearchMatchKind;
   snippet: string;
   role?: TranscriptMessage["role"];
+  source?: string;
+};
+
+export type ConversationSearchSessionResult = {
+  provider: ProviderId;
+  session_id: string;
+  thread_id?: string | null;
+  title: string;
+  display_title?: string;
+  file_path: string;
+  source?: string;
+  mtime: string;
+  match_count: number;
+  title_match_count: number;
+  best_match_kind: ConversationSearchMatchKind;
+  preview_matches: ConversationSearchResult[];
+  has_more_hits: boolean;
 };
 
 export type ConversationSearchPayload = {
@@ -78,10 +99,30 @@ export type ConversationSearchPayload = {
   q: string;
   providers: ProviderId[];
   limit: number;
+  page_size: number;
   searched_sessions: number;
   available_sessions: number;
   truncated: boolean;
+  total_matching_sessions: number | null;
+  total_matching_hits: number | null;
+  has_more: boolean;
+  next_cursor: string | null;
+  preview_hits_per_session: number;
+  sessions: ConversationSearchSessionResult[];
   results: ConversationSearchResult[];
+};
+
+export type ConversationSearchSessionHitsPayload = {
+  generated_at: string;
+  q: string;
+  provider: ProviderId;
+  session_id: string;
+  file_path?: string;
+  page_size: number;
+  total_hits: number;
+  has_more: boolean;
+  next_cursor: string | null;
+  hits: ConversationSearchResult[];
 };
 
 export type ProviderRootSpec = {

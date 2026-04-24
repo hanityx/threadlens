@@ -12,7 +12,7 @@ describe("claude rename reflection", () => {
     tempRoot = await mkdtemp(
       path.join(os.tmpdir(), "threadlens-claude-rename-"),
     );
-    const claudeProjectsDir = path.join(tempRoot, ".claude", "projects", "-Users-hwan");
+    const claudeProjectsDir = path.join(tempRoot, ".claude", "projects", "-Users-example");
     await mkdir(claudeProjectsDir, { recursive: true });
     await writeFile(
       path.join(claudeProjectsDir, "test-session.jsonl"),

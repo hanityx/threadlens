@@ -102,8 +102,10 @@ describe("provider registry", () => {
 
     expect(codexRoots.every((spec) => !spec.root.includes(APP_DATA_DIR))).toBe(true);
     expect(codexTranscriptSearchRoots().some((spec) => spec.root.includes(".codex"))).toBe(true);
-    expect(claudeRoots.every((spec) => spec.root.includes(".claude"))).toBe(true);
-    expect(geminiRoots.every((spec) => spec.root.includes(".gemini"))).toBe(true);
+    expect(claudeRoots.some((spec) => spec.root.includes(".claude"))).toBe(true);
+    expect(claudeRoots.some((spec) => spec.source === "cleanup_backups")).toBe(true);
+    expect(geminiRoots.some((spec) => spec.root.includes(".gemini"))).toBe(true);
+    expect(geminiRoots.some((spec) => spec.source === "cleanup_backups")).toBe(true);
     expect(chatGptRoots.some((spec) => spec.root === CHAT_DIR)).toBe(true);
     expect(copilotRoots.some((spec) => spec.root.endsWith(path.join("Code", "User", "globalStorage", "github.copilot-chat")))).toBe(true);
     expect(copilotRoots.some((spec) => spec.root.endsWith(path.join("Cursor", "User", "globalStorage", "github.copilot-chat")))).toBe(true);

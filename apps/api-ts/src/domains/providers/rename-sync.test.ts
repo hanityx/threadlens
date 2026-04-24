@@ -9,6 +9,7 @@ describe("codex rename reflection on forced provider refresh", () => {
   const originalHome = process.env.HOME;
   const originalCodexHome = process.env.CODEX_HOME;
   const originalProjectRoot = process.env.THREADLENS_PROJECT_ROOT;
+  const originalSearchCacheDir = process.env.THREADLENS_SEARCH_CACHE_DIR;
   let tempRoot = "";
 
   beforeEach(async () => {
@@ -43,6 +44,7 @@ describe("codex rename reflection on forced provider refresh", () => {
     process.env.HOME = tempRoot;
     process.env.CODEX_HOME = codexHome;
     process.env.THREADLENS_PROJECT_ROOT = path.join(tempRoot, "project-root");
+    process.env.THREADLENS_SEARCH_CACHE_DIR = path.join(tempRoot, "search-cache");
     vi.resetModules();
   });
 
@@ -61,6 +63,11 @@ describe("codex rename reflection on forced provider refresh", () => {
       delete process.env.THREADLENS_PROJECT_ROOT;
     } else {
       process.env.THREADLENS_PROJECT_ROOT = originalProjectRoot;
+    }
+    if (originalSearchCacheDir === undefined) {
+      delete process.env.THREADLENS_SEARCH_CACHE_DIR;
+    } else {
+      process.env.THREADLENS_SEARCH_CACHE_DIR = originalSearchCacheDir;
     }
     vi.resetModules();
     if (tempRoot) {
