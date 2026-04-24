@@ -292,6 +292,40 @@ export async function archiveThreadsLocalTs(
   };
 }
 
+export async function unarchiveThreadsLocalTs(
+  threadIds: string[],
+  options?: { stateFilePath?: string },
+): Promise<{
+  ok: boolean;
+  mode?: string;
+  requested_ids?: string[];
+  total_archived?: number;
+  error?: string;
+}> {
+  const ids = Array.from(
+    new Set(threadIds.map((item) => String(item || "").trim()).filter(Boolean)),
+  );
+  if (ids.length === 0) {
+    return { ok: false, error: "no thread ids provided" };
+  }
+  const stateFilePath = options?.stateFilePath ?? CODEX_GLOBAL_STATE_FILE;
+  const state = await readRawCodexUiState(stateFilePath);
+  const archivedBefore = Array.isArray(state["archived-thread-ids"])
+    ? state["archived-thread-ids"].map((item) => String(item ?? "").trim()).filter(Boolean)
+    : [];
+  const removeSet = new Set(ids);
+  const archivedAfter = archivedBefore.filter((item) => !removeSet.has(item));
+  state["archived-thread-ids"] = archivedAfter;
+  await mkdir(path.dirname(stateFilePath), { recursive: true });
+  await writeFile(stateFilePath, JSON.stringify(state, null, 2), "utf-8");
+  return {
+    ok: true,
+    mode: "local-unhide",
+    requested_ids: ids,
+    total_archived: archivedAfter.length,
+  };
+}
+
 export function getThreadResumeCommandsTs(threadIds: string[]): {
   ok: boolean;
   count?: number;

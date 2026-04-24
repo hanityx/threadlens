@@ -9,6 +9,8 @@ import {
 } from "./constants.js";
 
 const UPDATE_CHECK_TTL_MS = 24 * 60 * 60 * 1000;
+const UPDATE_CHECK_FAILURE_TTL_MS = 15 * 60 * 1000;
+const UPDATE_CHECK_TIMEOUT_MS = 5_000;
 
 let cachedResult: UpdateCheckStatus | null = null;
 let cachedUntil = 0;
@@ -80,10 +82,10 @@ function normalizeCachedUpdateResult(
   };
 }
 
-function resolveCachedUntil(result: UpdateCheckStatus, ttlMs: number): number {
+function resolveCachedUntil(result: UpdateCheckStatus, ttlMs: number, failureTtlMs: number): number {
   const checkedAtMs = Date.parse(result.checked_at);
   if (!Number.isFinite(checkedAtMs)) return 0;
-  return checkedAtMs + ttlMs;
+  return checkedAtMs + (result.status === "unavailable" || result.error ? failureTtlMs : ttlMs);
 }
 
 async function readPersistedUpdateCheck(
@@ -119,6 +121,8 @@ export async function checkForUpdates(options?: {
   now?: () => number;
   cacheFilePath?: string;
   ttlMs?: number;
+  failureTtlMs?: number;
+  timeoutMs?: number;
 }): Promise<UpdateCheckStatus> {
   const now = options?.now ?? Date.now;
   const nowMs = now();
@@ -127,13 +131,15 @@ export async function checkForUpdates(options?: {
   const checkedAt = new Date(nowMs).toISOString();
   const cacheFilePath = options?.cacheFilePath ?? UPDATE_CHECK_CACHE_FILE;
   const ttlMs = options?.ttlMs ?? UPDATE_CHECK_TTL_MS;
+  const failureTtlMs = options?.failureTtlMs ?? UPDATE_CHECK_FAILURE_TTL_MS;
+  const timeoutMs = options?.timeoutMs ?? UPDATE_CHECK_TIMEOUT_MS;
 
   if (cachedResult && nowMs < cachedUntil) {
     return normalizeCachedUpdateResult(cachedResult, currentVersion);
   }
 
   const persisted = await readPersistedUpdateCheck(cacheFilePath);
-  const persistedUntil = persisted ? resolveCachedUntil(persisted, ttlMs) : 0;
+  const persistedUntil = persisted ? resolveCachedUntil(persisted, ttlMs, failureTtlMs) : 0;
   if (persisted && nowMs < persistedUntil) {
     cachedResult = persisted;
     cachedUntil = persistedUntil;
@@ -146,6 +152,7 @@ export async function checkForUpdates(options?: {
         accept: "application/vnd.github+json",
         "user-agent": "ThreadLens",
       },
+      signal: timeoutMs > 0 ? AbortSignal.timeout(timeoutMs) : undefined,
     });
     if (!response.ok) {
       throw new Error(`github-release-status-${response.status}`);
@@ -196,7 +203,7 @@ export async function checkForUpdates(options?: {
       error: error instanceof Error ? error.message : String(error),
     };
     cachedResult = result;
-    cachedUntil = nowMs + ttlMs;
+    cachedUntil = nowMs + failureTtlMs;
     await writePersistedUpdateCheck(cacheFilePath, result);
     return result;
   }
