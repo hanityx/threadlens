@@ -12,6 +12,7 @@ import {
   LOCALE_STORAGE_KEY,
 } from "@/shared/lib/appState";
 import { en, type Messages } from "@/i18n/en";
+import { getMessages as getCatalogMessages } from "@/i18n/catalog";
 import { withCanonicalEnglish } from "@/i18n/canonicalEnglish";
 import { resolveSupportedLocale } from "@/i18n/locales";
 import type { Locale } from "@/i18n/types";
@@ -19,6 +20,7 @@ export type { Messages } from "@/i18n/en";
 const ENGLISH_MESSAGES = en;
 
 export { CANONICAL_ENGLISH_PATHS } from "@/i18n/canonicalEnglish";
+export { getCatalogMessages as getMessages };
 
 const runtimeMessagesCache = new Map<Locale, Messages>([["en", ENGLISH_MESSAGES]]);
 
@@ -55,6 +57,15 @@ function readSavedLocale(): Locale | null {
   }
 }
 
+function resolveInitialLocale(initialLocale?: Locale): Locale {
+  if (initialLocale) return initialLocale;
+  if (typeof window === "undefined") return "en";
+  return detectPreferredLocale({
+    savedLocale: readSavedLocale(),
+    browserLanguage: window.navigator?.language ?? null,
+  });
+}
+
 export function detectPreferredLocale(options?: {
   savedLocale?: string | null;
   browserLanguage?: string | null;
@@ -84,15 +95,10 @@ export function LocaleProvider({
   initialLocale?: Locale;
   initialMessages?: Messages;
 }) {
-  const [locale, setLocale] = useState<Locale>(() => {
-    if (initialLocale) return initialLocale;
-    if (typeof window === "undefined") return "en";
-    return detectPreferredLocale({
-      savedLocale: readSavedLocale(),
-      browserLanguage: window.navigator?.language ?? null,
-    });
-  });
-  const [messages, setMessages] = useState<Messages>(() => initialMessages ?? ENGLISH_MESSAGES);
+  const [locale, setLocale] = useState<Locale>(() => resolveInitialLocale(initialLocale));
+  const [messages, setMessages] = useState<Messages>(
+    () => initialMessages ?? getCatalogMessages(resolveInitialLocale(initialLocale)),
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;

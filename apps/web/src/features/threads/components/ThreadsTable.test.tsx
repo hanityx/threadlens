@@ -264,8 +264,8 @@ describe("ThreadsTable", () => {
       />,
     );
 
-    expect(html).toContain("Current selection 0");
-    expect(html).toContain("Impact analysis Pending");
+    expect(html).toContain(`${zhMessages.threadsTable.workflowSelectedTitle} 0`);
+    expect(html).toContain(`${zhMessages.threadsTable.workflowImpactTitle} ${zhMessages.forensics.stagePending}`);
     expect(html).not.toContain("Cleanup dry-run Pending");
     expect(html).not.toContain("清理dry-runun");
     expect(html).not.toContain("气氛");
@@ -306,10 +306,10 @@ describe("ThreadsTable", () => {
       />,
     );
 
-    expect(html).toContain("Hard delete");
-    expect(html).toContain("선택한 스레드 파일을 지금 하드 삭제할까요?");
-    expect(html).toContain("앞으로 하드 삭제 확인을 다시 묻지 않기");
-    expect(html).toContain("Hard delete now");
+    expect(html).toContain(koMessages.threadsTable.bulkCleanupExecute);
+    expect(html).toContain(koMessages.threadsTable.hardDeleteConfirmTitle);
+    expect(html).toContain(koMessages.threadsTable.hardDeleteConfirmSkipFuture);
+    expect(html).toContain(koMessages.threadsTable.hardDeleteConfirmExecute);
     expect(html).not.toContain("Do not ask again for hard delete.");
   });
 });

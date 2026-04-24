@@ -111,7 +111,7 @@ describe("RoutingPanel", () => {
     expect(html).toContain(ruMessages.routing.findingsTitle);
     expect(html).toContain(ruMessages.routing.executionPathTitle);
     expect(html).toContain(ruMessages.routing.detailSessionLogsLabel);
-    expect(html).toContain("поток/состояние");
+    expect(html).toContain("threads / state");
     expect(html).toContain(ruMessages.routing.providerSpecificFlow);
     expect(html).toContain(ruMessages.routing.sourceBreakdownTitle);
     expect(html).toContain(ruMessages.routing.formatBreakdownTitle);

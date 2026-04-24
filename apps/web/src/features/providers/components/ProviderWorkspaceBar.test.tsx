@@ -48,7 +48,7 @@ describe("ProviderWorkspaceBar", () => {
     );
 
     expect(html).toContain("Parse fail");
-    expect(html).toContain("Open transcripts, back up selected sessions, and dry-run file actions only when needed.");
+    expect(html).toContain(messages.providers.hubBody);
     expect(html).toContain('class="provider-workspace-title"');
   });
 
@@ -106,7 +106,7 @@ describe("ProviderWorkspaceBar", () => {
     );
 
     expect(html).toContain("모든 프로바이더");
-    expect(html).toContain("트랜스크립트를 열고, 선택한 세션을 백업하고, 필요할 때만 파일 작업을 미리 확인합니다.");
+    expect(html).toContain(koMessages.providers.hubBody);
     expect(html).toContain("트랜스크립트 준비");
     expect(html).toContain("파싱 실패");
   });

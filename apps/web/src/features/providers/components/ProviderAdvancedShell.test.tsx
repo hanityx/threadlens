@@ -47,7 +47,7 @@ describe("ProviderAdvancedShell", () => {
     expect(html).toContain("Refresh scan now");
     expect(html).toContain("Last refresh");
     expect(html).toContain("Refresh / scan");
-    expect(html).toContain("Scan settings / slow checks");
+    expect(html).toContain(messages.providers.advancedSettingsSummary);
     expect(html).toContain("Back Codex");
     expect(html).toContain("Last fetch DS 120ms");
     expect(html).toContain("Slow providers 1/4");

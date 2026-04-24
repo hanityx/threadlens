@@ -63,7 +63,7 @@ describe("SearchPanel", () => {
       />,
     );
 
-    expect(html).toContain("Search");
+    expect(html).toContain(jaMessages.search.commandPathLabel);
     expect(html).toContain(jaMessages.search.stageBody);
     expect(html).toContain(jaMessages.search.providerFilter);
     expect(html).toContain(jaMessages.search.allProviders);

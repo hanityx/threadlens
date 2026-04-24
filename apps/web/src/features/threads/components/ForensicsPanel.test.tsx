@@ -61,10 +61,10 @@ describe("ForensicsPanel", () => {
       />,
     );
 
-    expect(html).toContain("Execute cleanup");
-    expect(html).toContain("Backups stay local before delete.");
+    expect(html).toContain(messages.forensics.executeCleanup);
+    expect(html).toContain(messages.forensics.cleanupExecuteReadyBody);
     expect(html).toContain("2 targets");
-    expect(html).toContain("Dry-run · Preview ready");
+    expect(html).toContain(`${messages.forensics.stageDryRun} · ${messages.providers.resultPreviewReady}`);
     expect(html).toContain("DEL-123");
     expect(html).not.toContain("run impact next");
     expect(html).not.toContain("thread-review-card-metric");
@@ -129,10 +129,10 @@ describe("ForensicsPanel", () => {
       />,
     );
 
-    expect(html).toContain("Cleanup Check / Next Steps");
-    expect(html).toContain("선택");
-    expect(html).toContain("행 선택");
-    expect(html).toContain("영향도 분석 실행");
-    expect(html).toContain("cleanup dry-run 실행");
+    expect(html).toContain(koMessages.forensics.title);
+    expect(html).toContain(koMessages.forensics.emptyGuidePickLabel);
+    expect(html).toContain(koMessages.forensics.emptyGuidePickTitle);
+    expect(html).toContain(koMessages.forensics.emptyGuideInspectTitle);
+    expect(html).toContain(koMessages.forensics.emptyGuidePreviewTitle);
   });
 });

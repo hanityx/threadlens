@@ -72,13 +72,13 @@ describe("SessionDetail", () => {
       />,
     );
 
-    expect(html).toContain("Delete locally · Preview ready");
-    expect(html).toContain("Preview ready. Execute from this card when it looks right.");
+    expect(html).toContain(`Delete locally · ${messages.providers.resultPreviewReady}`);
+    expect(html).toContain(messages.providers.resultExecuteFromCardHint);
     expect(html).toContain("tok-1");
     expect(html).toContain("Execute Delete locally");
     expect(html).toContain("2 Rows Selected");
-    expect(html).toContain("Archive dry-run");
-    expect(html).toContain("Delete dry-run");
+    expect(html).toContain(messages.providers.archiveDryRun);
+    expect(html).toContain(messages.providers.deleteDryRun);
     expect(html).toContain("Hard delete");
     expect(html).toContain("Open folder");
     expect(html).toContain("/tmp/rollout-2026-03-29T03-15-34-session-notes.jsonl");
