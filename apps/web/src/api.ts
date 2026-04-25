@@ -17,6 +17,21 @@ export async function resolveApiBaseUrlFromRuntime(options: {
   return options.isDev ? "" : "http://127.0.0.1:8788";
 }
 
+export async function resolveApiAuthTokenFromRuntime(options: {
+  envToken?: string;
+  runtimeWindow?: Window;
+}): Promise<string> {
+  if (options.envToken) return options.envToken;
+  if (options.runtimeWindow?.threadLensDesktop?.getApiAuthToken) {
+    try {
+      return (await options.runtimeWindow.threadLensDesktop.getApiAuthToken()) || "";
+    } catch {
+      // Desktop packaged APIs enforce tokens; browser/dev mode keeps working without one.
+    }
+  }
+  return "";
+}
+
 async function resolveApiBaseUrl(): Promise<string> {
   return resolveApiBaseUrlFromRuntime({
     envBaseUrl: import.meta.env.VITE_API_BASE_URL,
@@ -25,8 +40,16 @@ async function resolveApiBaseUrl(): Promise<string> {
   });
 }
 
+async function resolveApiAuthToken(): Promise<string> {
+  return resolveApiAuthTokenFromRuntime({
+    envToken: import.meta.env.VITE_API_AUTH_TOKEN,
+    runtimeWindow: typeof window !== "undefined" ? window : undefined,
+  });
+}
+
 const client = createApiClient({
   resolveBaseUrl: resolveApiBaseUrl,
+  resolveAuthToken: resolveApiAuthToken,
   unwrapEnvelope: false,
   errorMode: "detailed",
 });

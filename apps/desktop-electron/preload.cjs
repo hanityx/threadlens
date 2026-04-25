@@ -12,6 +12,9 @@ contextBridge.exposeInMainWorld("threadLensDesktop", {
   getApiBaseUrl() {
     return ipcRenderer.invoke("threadlens:get-api-base-url");
   },
+  getApiAuthToken() {
+    return ipcRenderer.invoke("threadlens:get-api-auth-token");
+  },
   revealPath(filePath) {
     return runFileAction("reveal", filePath);
   },

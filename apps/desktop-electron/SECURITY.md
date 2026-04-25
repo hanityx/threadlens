@@ -7,16 +7,21 @@
 - External windows are denied and opened through the OS shell instead.
 - The preload bridge only exposes:
   - `getApiBaseUrl`
+  - `getApiAuthToken`
   - `revealPath`
   - `openPath`
   - `previewPath`
+  - `pickDirectory`
   - `openWorkbenchWindow`
+- Packaged desktop launches the local API with a per-run `THREADLENS_API_TOKEN`.
+- Renderer requests include that token for local mutation endpoints.
 
 ## IPC validation
 
 - `threadlens:file-action` only accepts `reveal`, `open`, or `preview`.
 - `threadlens:file-action` requires a non-empty string `filePath` and preserves the original path bytes.
 - `threadlens:open-window` normalizes `view`, `provider`, `filePath`, and `threadId` to strings.
+- `threadlens:get-api-auth-token` returns only the per-run desktop API token.
 
 ## Sandbox status
 

@@ -16,6 +16,7 @@ test("buildDesktopApiEnv injects desktop runtime variables", () => {
   const env = buildDesktopApiEnv({
     baseEnv: { HOME: "/tmp/home" },
     apiPort: 8790,
+    apiToken: "desktop-token",
     appVersion: "0.2.2",
     stateRoot: "/tmp/threadlens-state",
   });
@@ -24,7 +25,19 @@ test("buildDesktopApiEnv injects desktop runtime variables", () => {
   assert.equal(env.API_TS_PORT, "8790");
   assert.equal(env.APP_VERSION, "0.2.2");
   assert.equal(env.THREADLENS_PROJECT_ROOT, "/tmp/threadlens-state");
+  assert.equal(env.THREADLENS_API_TOKEN, "desktop-token");
   assert.equal(env.HOME, "/tmp/home");
+});
+
+test("buildDesktopApiEnv omits the API token when no desktop token is provided", () => {
+  const env = buildDesktopApiEnv({
+    baseEnv: {},
+    apiPort: 8790,
+    appVersion: "0.2.2",
+    stateRoot: "/tmp/threadlens-state",
+  });
+
+  assert.equal(Object.prototype.hasOwnProperty.call(env, "THREADLENS_API_TOKEN"), false);
 });
 
 test("resolveDesktopApiEntry picks packaged and dev entries separately", () => {

@@ -17,16 +17,21 @@ function resolveDesktopApiEntry({ appDir, isPackaged, resourcesPath }) {
 function buildDesktopApiEnv({
   baseEnv,
   apiPort,
+  apiToken,
   appVersion,
   stateRoot,
 }) {
-  return {
+  const env = {
     ...baseEnv,
     ELECTRON_RUN_AS_NODE: "1",
     API_TS_PORT: String(apiPort),
     APP_VERSION: appVersion,
     THREADLENS_PROJECT_ROOT: stateRoot,
   };
+  if (apiToken) {
+    env.THREADLENS_API_TOKEN = apiToken;
+  }
+  return env;
 }
 
 function logDesktopApi(stream, chunk, logger = console) {
@@ -103,6 +108,7 @@ async function startDesktopApi({
   host,
   userDataPath,
   appVersion,
+  apiToken,
   baseEnv,
   execPath,
   mkdirSync,
@@ -128,6 +134,7 @@ async function startDesktopApi({
     env: buildDesktopApiEnv({
       baseEnv,
       apiPort,
+      apiToken,
       appVersion,
       stateRoot,
     }),

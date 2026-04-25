@@ -24,6 +24,7 @@ interface Window {
   threadLensDesktop?: {
     runtime: "electron";
     getApiBaseUrl?: () => Promise<string>;
+    getApiAuthToken?: () => Promise<string>;
     revealPath?: (filePath: string) => Promise<ThreadLensDesktopActionResult>;
     openPath?: (filePath: string) => Promise<ThreadLensDesktopActionResult>;
     previewPath?: (filePath: string) => Promise<ThreadLensDesktopActionResult>;

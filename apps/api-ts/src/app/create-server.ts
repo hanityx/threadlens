@@ -11,6 +11,8 @@
 import Fastify, {
   FastifyInstance,
 } from "fastify";
+import type { FastifyReply, FastifyRequest } from "fastify";
+import { timingSafeEqual } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import cors from "@fastify/cors";
 import { AgentRuntimeState } from "@threadlens/shared-contracts";
@@ -49,6 +51,79 @@ type DataSourcesCacheEntry = {
   expires_at: number;
   payload: unknown;
 };
+
+const protectedLocalApiPaths = new Set([
+  "/api/agent-loops/action",
+  "/api/alert-hooks/config",
+  "/api/alert-hooks/evaluate",
+  "/api/alert-hooks/rule",
+  "/api/bulk-thread-action",
+  "/api/local-cleanup",
+  "/api/local-cleanup-backups",
+  "/api/provider-open-folder",
+  "/api/provider-session-action",
+  "/api/recovery-backup-export",
+  "/api/recovery-checklist",
+  "/api/recovery-drill",
+  "/api/recovery-open-folder",
+  "/api/rename-thread",
+  "/api/roadmap-checkin",
+  "/api/thread-archive-local",
+  "/api/thread-open-folder",
+  "/api/thread-pin",
+]);
+
+function readHeaderValue(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? "";
+  return value ?? "";
+}
+
+function isValidApiToken(actual: string, expected: string): boolean {
+  const actualBuffer = Buffer.from(actual);
+  const expectedBuffer = Buffer.from(expected);
+  return (
+    actualBuffer.length === expectedBuffer.length &&
+    timingSafeEqual(actualBuffer, expectedBuffer)
+  );
+}
+
+export function isProtectedLocalApiRequest(method: string, pathname: string): boolean {
+  const normalizedMethod = method.toUpperCase();
+  if (normalizedMethod === "GET" || normalizedMethod === "HEAD" || normalizedMethod === "OPTIONS") {
+    return false;
+  }
+  return protectedLocalApiPaths.has(pathname);
+}
+
+function getRequestPathname(req: FastifyRequest): string {
+  return new URL(req.url, "http://threadlens.local").pathname;
+}
+
+function extractRequestApiToken(req: FastifyRequest): string {
+  const directToken = readHeaderValue(req.headers["x-threadlens-api-token"]);
+  if (directToken) return directToken;
+  const authorization = readHeaderValue(req.headers.authorization);
+  const bearerPrefix = "Bearer ";
+  if (authorization.startsWith(bearerPrefix)) {
+    return authorization.slice(bearerPrefix.length).trim();
+  }
+  return "";
+}
+
+async function requireApiTokenForProtectedLocalActions(
+  req: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const expectedToken = process.env.THREADLENS_API_TOKEN?.trim();
+  if (!expectedToken) return;
+  const pathname = getRequestPathname(req);
+  if (!isProtectedLocalApiRequest(req.method, pathname)) return;
+
+  const actualToken = extractRequestApiToken(req);
+  if (!actualToken || !isValidApiToken(actualToken, expectedToken)) {
+    reply.code(401).send(envelope(null, "api-auth-required"));
+  }
+}
 
 export function parseConversationSearchProviders(
   raw: string | string[] | undefined,
@@ -161,6 +236,8 @@ export async function createServer(): Promise<FastifyInstance> {
     logger: process.env.VITEST ? false : process.env.API_TS_LOGGER !== "0",
   });
   await app.register(cors, {
+    allowedHeaders: ["authorization", "content-type", "x-threadlens-api-token"],
+    methods: ["GET", "HEAD", "OPTIONS", "POST"],
     origin: (origin, cb) => {
       if (!origin) {
         cb(null, true);
@@ -182,6 +259,7 @@ export async function createServer(): Promise<FastifyInstance> {
       }
     },
   });
+  app.addHook("preHandler", requireApiTokenForProtectedLocalActions);
 
   await registerPlatformRoutes(app, {
     getAgentRuntimeState,
