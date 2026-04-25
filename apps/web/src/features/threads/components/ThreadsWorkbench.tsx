@@ -1,5 +1,7 @@
 import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
+import { apiPost } from "@/api";
 import { useAppContext } from "@/app/AppContext";
+import "@/features/threads/threads.css";
 import {
   buildThreadCleanupSelectionKey,
   THREAD_CLEANUP_DEFAULT_OPTIONS,
@@ -10,26 +12,9 @@ import { ThreadsTable } from "@/features/threads/components/ThreadsTable";
 import {
   formatThreadSourceSummary,
   LEGACY_THREAD_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY,
+  resolveThreadWorkbenchPanelHeight,
   THREAD_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY,
 } from "@/features/threads/model/threadsWorkbenchModel";
-
-const THREAD_PANEL_ACTIVE_MIN_HEIGHT = 640;
-
-export function resolveThreadWorkbenchPanelHeight(options: {
-  stackHeight?: number | null;
-  detailHeight?: number | null;
-  baselineHeight?: number | null;
-  minHeight?: number;
-}) {
-  const {
-    stackHeight = null,
-    detailHeight = null,
-    baselineHeight = null,
-    minHeight = THREAD_PANEL_ACTIVE_MIN_HEIGHT,
-  } = options;
-  const measured = Math.max(Number(stackHeight || 0), Number(detailHeight || 0));
-  return Math.max(minHeight, Number(baselineHeight || 0), Math.ceil(measured));
-}
 
 export function ThreadsWorkbench() {
   const {
@@ -39,8 +24,17 @@ export function ThreadsWorkbench() {
     setQuery,
     filterMode,
     setFilterMode,
+    threadSort,
+    setThreadSort,
+    showThreadBackupRows,
+    setShowThreadBackupRows,
+    hasThreadBackupRows,
+    showThreadArchivedRows,
+    setShowThreadArchivedRows,
     visibleRows,
     filteredRows,
+    hasMoreThreadRows,
+    loadMoreThreadRows,
     selectedIds,
     cleanupData,
     pendingCleanup,
@@ -61,9 +55,11 @@ export function ThreadsWorkbench() {
     bulkPin,
     bulkUnpin,
     bulkArchive,
+    bulkUnarchive,
     analyzeDelete,
     cleanupDryRun,
     cleanupExecute,
+    cleanupBackupsExecute,
     analyzeDeleteError,
     cleanupDryRunError,
     cleanupExecuteError,
@@ -82,7 +78,15 @@ export function ThreadsWorkbench() {
     rows,
   } = useAppContext();
 
-  const reviewTargetIds = selectedIds.length > 0 ? selectedIds : selectedThreadId ? [selectedThreadId] : [];
+  const filteredThreadIdSet = useMemo(
+    () => new Set(filteredRows.map((row) => row.thread_id)),
+    [filteredRows],
+  );
+  const reviewTargetIds = selectedIds.length > 0
+    ? selectedIds
+    : selectedThreadId && filteredThreadIdSet.has(selectedThreadId)
+      ? [selectedThreadId]
+      : [];
   const reviewTargetSet = new Set(reviewTargetIds);
   const reviewImpactRows = (analysisData?.reports ?? []).filter((row) => reviewTargetSet.has(row.id));
   const tableSelectionKey = buildThreadCleanupSelectionKey(selectedIds, THREAD_CLEANUP_DEFAULT_OPTIONS);
@@ -113,11 +117,11 @@ export function ThreadsWorkbench() {
     [visibleRows],
   );
   const threadSideStackRef = useRef<HTMLDivElement | null>(null);
-  const threadForensicsPanelRef = useRef<HTMLDivElement | null>(null);
   const lastReadyCleanupTokenRef = useRef("");
   const panelHeightBaselineRef = useRef<number | null>(null);
   const [activePanelHeight, setActivePanelHeight] = useState<number | null>(null);
   const [hardDeleteConfirmOpen, setHardDeleteConfirmOpen] = useState(false);
+  const [folderOpenNotice, setFolderOpenNotice] = useState("");
   const [hardDeleteSkipConfirmChecked, setHardDeleteSkipConfirmChecked] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     try {
@@ -155,11 +159,12 @@ export function ThreadsWorkbench() {
   };
 
   const handleBulkArchive = (ids: string[]) => {
-    runThreadAction(bulkArchive, ids);
+    runThreadAction(showThreadArchivedRows ? bulkUnarchive : bulkArchive, ids);
   };
 
-  const handleAnalyzeDelete = (ids: string[]) => {
-    runThreadAction(analyzeDelete, ids);
+  const handleAnalyzeDelete = (ids: string[], sessionScanLimit?: number) => {
+    focusThreadForAction(ids);
+    analyzeDelete(ids, sessionScanLimit);
   };
 
   const handleCleanupDryRun = (ids: string[]) => {
@@ -170,8 +175,28 @@ export function ThreadsWorkbench() {
     runThreadAction(cleanupExecute, ids);
   };
 
+  const handleBackupCleanupExecute = (ids: string[]) => {
+    runThreadAction(cleanupBackupsExecute, ids);
+  };
+
+  const handleOpenThreadFolder = async (id: string) => {
+    const threadId = String(id || "").trim();
+    if (!threadId) return;
+    setFolderOpenNotice("");
+    try {
+      await apiPost("/api/thread-open-folder", { thread_id: threadId });
+      setFolderOpenNotice(messages.sessionDetail.openFolderSuccess);
+    } catch (error) {
+      setFolderOpenNotice(error instanceof Error ? error.message : messages.sessionDetail.desktopUnavailable);
+    }
+  };
+
   const requestHardDeleteConfirm = () => {
     if (hardDeleteSkipConfirmChecked) {
+      if (showThreadBackupRows) {
+        handleBackupCleanupExecute(selectedIds);
+        return;
+      }
       handleCleanupExecute(selectedIds);
       return;
     }
@@ -180,6 +205,10 @@ export function ThreadsWorkbench() {
 
   const confirmHardDelete = () => {
     setHardDeleteConfirmOpen(false);
+    if (showThreadBackupRows) {
+      handleBackupCleanupExecute(selectedIds);
+      return;
+    }
     handleCleanupExecute(selectedIds);
   };
 
@@ -243,10 +272,6 @@ export function ThreadsWorkbench() {
     }
     if (lastReadyCleanupTokenRef.current === readyToken) return;
     lastReadyCleanupTokenRef.current = readyToken;
-    if (typeof window === "undefined") return;
-    window.setTimeout(() => {
-      threadForensicsPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
   }, [cleanupData?.mode, pendingCleanup?.confirmToken, pendingCleanup?.selectionKey, reviewSelectionKey]);
 
   const detailProps = {
@@ -280,6 +305,11 @@ export function ThreadsWorkbench() {
     bulkArchive: handleBulkArchive,
     analyzeDelete: handleAnalyzeDelete,
     cleanupDryRun: handleCleanupDryRun,
+    cleanupExecute: handleCleanupExecute,
+    cleanupData,
+    pendingCleanup,
+    openThreadFolder: (id: string) => void handleOpenThreadFolder(id),
+    folderOpenNotice,
     selectedIds,
   };
 
@@ -287,6 +317,7 @@ export function ThreadsWorkbench() {
     messages,
     threadActionsDisabled: showRuntimeBackendDegraded,
     selectedIds: reviewTargetIds,
+    selectedThreadId,
     rows,
     busy,
     analyzeDelete: handleAnalyzeDelete,
@@ -295,6 +326,7 @@ export function ThreadsWorkbench() {
     cleanupData,
     pendingCleanup,
     selectedImpactRows: reviewImpactRows,
+    analysisData: { session_scan_limit: analysisData?.session_scan_limit, session_scan_candidates: analysisData?.session_scan_candidates },
     analysisRaw,
     cleanupRaw,
     analyzeDeleteError,
@@ -353,9 +385,31 @@ export function ThreadsWorkbench() {
           onToggleHardDeleteSkipConfirmChecked={setHardDeleteSkipConfirmChecked}
           onConfirmHardDelete={confirmHardDelete}
           onCancelHardDeleteConfirm={cancelHardDeleteConfirm}
+          threadSort={threadSort}
+          onThreadSortChange={setThreadSort}
+          showBackupRows={showThreadBackupRows}
+          canShowBackupRows={hasThreadBackupRows}
+          onToggleShowBackupRows={() => {
+            setShowThreadBackupRows((prev) => {
+              const next = !prev;
+              if (next) setShowThreadArchivedRows(false);
+              return next;
+            });
+          }}
+          showArchivedRows={showThreadArchivedRows}
+          canShowArchivedRows={true}
+          onToggleShowArchivedRows={() => {
+            setShowThreadArchivedRows((prev) => {
+              const next = !prev;
+              if (next) setShowThreadBackupRows(false);
+              return next;
+            });
+          }}
+          hasMoreRows={hasMoreThreadRows}
+          onLoadMoreRows={loadMoreThreadRows}
           panelStyle={activePanelHeight ? { height: `${activePanelHeight}px` } : undefined}
         />
-        <div className="thread-side-stack-anchor" ref={threadForensicsPanelRef}>
+        <div className="thread-side-stack-anchor">
           <ThreadsSideStack
             showForensics={showForensics}
             threadSideStackRef={threadSideStackRef as RefObject<HTMLDivElement>}

@@ -1,10 +1,45 @@
+import { useEffect, useRef, useState } from "react";
 import type { Messages } from "@/i18n";
 import { Button } from "@/shared/ui/components/Button";
 import { PanelHeader } from "@/shared/ui/components/PanelHeader";
-import type { ConversationSearchHit, ThreadRow, ThreadForensicsEnvelope } from "@/shared/types";
+import type {
+  CleanupPendingState,
+  CleanupPreviewData,
+  ConversationSearchHit,
+  ThreadForensicsEnvelope,
+  ThreadRow,
+} from "@/shared/types";
 import { TranscriptLog } from "@/shared/ui/components/TranscriptLog";
 import type { TranscriptPayload } from "@/shared/types";
 import { formatDateTime, formatWorkspaceLabel } from "@/shared/lib/format";
+import {
+  buildThreadCleanupSelectionKey,
+  THREAD_CLEANUP_DEFAULT_OPTIONS,
+} from "@/shared/lib/appState";
+
+export const APPLIED_CLEANUP_CARD_HIDE_MS = 3000;
+
+export function buildAppliedCleanupKey(options: {
+  cleanupApplied: boolean;
+  selectedThreadId: string;
+  targetCount: number;
+  deletedCount: number;
+  failedCount: number;
+  confirmToken?: string | null;
+  targetThreadIds?: string[];
+  targetPaths?: string[];
+}) {
+  if (!options.cleanupApplied) return "";
+  return [
+    options.selectedThreadId,
+    String(options.targetCount),
+    String(options.deletedCount),
+    String(options.failedCount),
+    String(options.confirmToken ?? ""),
+    [...(options.targetThreadIds ?? [])].sort().join("\n"),
+    [...(options.targetPaths ?? [])].sort().join("\n"),
+  ].join("::");
+}
 
 function localizeThreadSource(messages: Messages, value?: string | null) {
   const normalized = String(value ?? "").trim();
@@ -50,6 +85,11 @@ export interface ThreadDetailProps {
   bulkArchive: (ids: string[]) => void;
   analyzeDelete: (ids: string[]) => void;
   cleanupDryRun: (ids: string[]) => void;
+  cleanupExecute?: (ids: string[]) => void;
+  cleanupData?: CleanupPreviewData | null;
+  pendingCleanup?: CleanupPendingState | null;
+  openThreadFolder?: (id: string) => void;
+  folderOpenNotice?: string;
 }
 
 export function ThreadDetail(props: ThreadDetailProps) {
@@ -75,9 +115,12 @@ export function ThreadDetail(props: ThreadDetailProps) {
     threadActionsDisabled,
     bulkPin,
     bulkUnpin,
-    bulkArchive,
     analyzeDelete,
-    cleanupDryRun,
+    cleanupExecute,
+    cleanupData,
+    pendingCleanup,
+    openThreadFolder,
+    folderOpenNotice,
   } = props;
   const disabledReason = threadActionsDisabled
     ? messages.threadDetail.backendDownHint
@@ -117,14 +160,6 @@ export function ThreadDetail(props: ThreadDetailProps) {
     localizeThreadSource(messages, fallbackContext?.provider) ||
     localizeThreadSource(messages, threadTranscriptData?.provider) ||
     messages.threadDetail.unknownSource;
-  const resolvedRiskScore =
-    selectedThread?.risk_score ??
-    selectedThreadDetail?.impact?.risk_score ??
-    0;
-  const resolvedRiskLevel =
-    selectedThread?.risk_level ??
-    selectedThreadDetail?.impact?.risk_level ??
-    messages.common.unknown;
   const resolvedCwd =
     selectedThread?.cwd ||
     selectedThreadDetail?.cwd ||
@@ -132,10 +167,6 @@ export function ThreadDetail(props: ThreadDetailProps) {
   const displayCwd =
     resolvedCwd && resolvedCwd !== "/" ? resolvedCwd : "";
   const workspaceLabel = formatWorkspaceLabel(displayCwd);
-  const fallbackNotice =
-    hasFocusedThread && !selectedThread
-      ? messages.threadDetail.fallbackHint
-      : "";
   const transcriptTimestamps = (threadTranscriptData?.messages ?? [])
     .map((message) => String(message.ts ?? "").trim())
     .filter(Boolean)
@@ -151,6 +182,130 @@ export function ThreadDetail(props: ThreadDetailProps) {
     (transcriptTimestamps.length > 0
       ? new Date(transcriptTimestamps[transcriptTimestamps.length - 1]).toISOString()
       : "");
+  const cleanupTargetIds = selectedIds.length > 0 ? selectedIds : selectedThreadId ? [selectedThreadId] : [];
+  const cleanupSelectionKey = buildThreadCleanupSelectionKey(cleanupTargetIds, THREAD_CLEANUP_DEFAULT_OPTIONS);
+  const cleanupReady = Boolean(
+    pendingCleanup?.confirmToken &&
+    pendingCleanup.selectionKey === cleanupSelectionKey &&
+    cleanupData?.mode !== "execute",
+  );
+  const cleanupSelectionChanged = Boolean(
+    pendingCleanup?.confirmToken &&
+    pendingCleanup.selectionKey !== cleanupSelectionKey,
+  );
+  const cleanupApplied = cleanupData?.mode === "execute" && cleanupData?.ok === true;
+  const cleanupTargetCount = Number(cleanupData?.target_file_count ?? cleanupData?.targets?.length ?? 0);
+  const cleanupDeletedCount = Number(cleanupData?.deleted_file_count ?? 0);
+  const cleanupFailedCount = cleanupData?.failed?.length ?? 0;
+  const cleanupAppliedTargetThreadIds = (cleanupData?.targets ?? [])
+    .map((target) => String(target.thread_id ?? "").trim())
+    .filter(Boolean);
+  const cleanupAppliedTargetPaths = (cleanupData?.targets ?? [])
+    .map((target) => String(target.path ?? "").trim())
+    .filter(Boolean);
+  const cleanupTargetIdsKey = cleanupTargetIds.join("\n");
+  const cleanupAppliedTargetThreadIdsKey = cleanupAppliedTargetThreadIds.join("\n");
+  const cleanupAppliedTargetPathsKey = cleanupAppliedTargetPaths.join("\n");
+  const [hideAppliedCleanupCard, setHideAppliedCleanupCard] = useState(false);
+  const lastAppliedCleanupKeyRef = useRef("");
+  const lastAppliedCleanupTargetThreadIdsRef = useRef<string[]>([]);
+  const lastAppliedCleanupTargetPathsRef = useRef<string[]>([]);
+  const appliedCleanupTimerRef = useRef<ReturnType<typeof globalThis.setTimeout> | null>(null);
+  const appliedCleanupKey = buildAppliedCleanupKey({
+    cleanupApplied,
+    selectedThreadId,
+    targetCount: cleanupTargetCount,
+    deletedCount: cleanupDeletedCount,
+    failedCount: cleanupFailedCount,
+    confirmToken: cleanupData?.confirm_token_expected,
+    targetThreadIds: cleanupAppliedTargetThreadIds,
+    targetPaths: cleanupAppliedTargetPaths,
+  });
+  const currentAppliedCleanupTargetThreadIds =
+    cleanupAppliedTargetThreadIds.length > 0
+      ? cleanupAppliedTargetThreadIds
+      : lastAppliedCleanupTargetThreadIdsRef.current.length > 0
+        ? lastAppliedCleanupTargetThreadIdsRef.current
+        : cleanupApplied
+          ? cleanupTargetIds
+          : [];
+  const currentAppliedCleanupTargetPaths =
+    cleanupAppliedTargetPaths.length > 0
+      ? cleanupAppliedTargetPaths
+      : lastAppliedCleanupTargetPathsRef.current;
+  const suppressFallbackAfterCleanup =
+    cleanupApplied &&
+    hasFocusedThread &&
+    (
+      currentAppliedCleanupTargetThreadIds.includes(selectedThreadId) ||
+      (Boolean(fallbackContext?.file_path) &&
+        currentAppliedCleanupTargetPaths.includes(String(fallbackContext?.file_path ?? "").trim()))
+    );
+  const fallbackNotice =
+    hasFocusedThread && !selectedThread && !suppressFallbackAfterCleanup
+      ? messages.threadDetail.fallbackHint
+      : "";
+
+  useEffect(() => {
+    return () => {
+      if (appliedCleanupTimerRef.current) {
+        globalThis.clearTimeout(appliedCleanupTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!cleanupApplied) {
+      lastAppliedCleanupKeyRef.current = "";
+      lastAppliedCleanupTargetThreadIdsRef.current = [];
+      lastAppliedCleanupTargetPathsRef.current = [];
+      if (appliedCleanupTimerRef.current) {
+        globalThis.clearTimeout(appliedCleanupTimerRef.current);
+        appliedCleanupTimerRef.current = null;
+      }
+      setHideAppliedCleanupCard(false);
+      return;
+    }
+    if (lastAppliedCleanupKeyRef.current === appliedCleanupKey) return;
+    lastAppliedCleanupKeyRef.current = appliedCleanupKey;
+    lastAppliedCleanupTargetThreadIdsRef.current =
+      cleanupAppliedTargetThreadIds.length > 0 ? cleanupAppliedTargetThreadIds : cleanupTargetIds;
+    lastAppliedCleanupTargetPathsRef.current = cleanupAppliedTargetPaths;
+    setHideAppliedCleanupCard(false);
+    if (appliedCleanupTimerRef.current) {
+      globalThis.clearTimeout(appliedCleanupTimerRef.current);
+    }
+    appliedCleanupTimerRef.current = globalThis.setTimeout(() => {
+      setHideAppliedCleanupCard(true);
+      appliedCleanupTimerRef.current = null;
+    }, APPLIED_CLEANUP_CARD_HIDE_MS);
+  }, [
+    appliedCleanupKey,
+    cleanupApplied,
+    cleanupAppliedTargetPathsKey,
+    cleanupAppliedTargetThreadIdsKey,
+    cleanupTargetIdsKey,
+  ]);
+
+  const cleanupCardVisible = cleanupReady || cleanupSelectionChanged || (cleanupApplied && !hideAppliedCleanupCard);
+  const cleanupCardHeadline = cleanupApplied
+    ? messages.forensics.cleanupCompletedHeadline
+    : cleanupReady
+      ? messages.forensics.cleanupReadyHeadline
+      : messages.forensics.cleanupPendingHeadline;
+  const cleanupCardSummary = cleanupApplied
+    ? messages.forensics.cleanupExecutionSummary
+        .replace("{deleted}", String(cleanupDeletedCount))
+        .replace("{targets}", String(cleanupTargetCount || cleanupDeletedCount))
+        .replace("{failed}", String(cleanupFailedCount))
+    : cleanupReady
+      ? messages.forensics.cleanupPreviewTargets.replace("{count}", String(cleanupTargetCount))
+      : messages.forensics.cleanupSelectionChanged;
+  const cleanupCardDetail = cleanupApplied
+    ? messages.forensics.cleanupCompletedBody
+    : cleanupReady
+      ? messages.forensics.cleanupTokenReadyBody
+      : messages.forensics.stageDryRunBody;
   return (
     <section className="panel thread-review-panel">
       <PanelHeader title={messages.threadDetail.title} subtitle={headerSubtitle} />
@@ -209,13 +364,82 @@ export function ThreadDetail(props: ThreadDetailProps) {
                     {selectedThreadId}
                   </span>
                 ) : null}
-                <span className="detail-hero-pill">
-                  {resolvedRiskScore}
-                  {resolvedRiskLevel ? ` · ${resolvedRiskLevel}` : ""}
-                </span>
                 {resolvedSource ? <span className="detail-hero-pill">{resolvedSource}</span> : null}
               </div>
             </section>
+            <details className="detail-section">
+              <summary>{messages.threadDetail.sectionActions}</summary>
+              <div className="detail-section-body">
+                <div className="chat-toolbar detail-action-bar">
+                  <Button
+                    variant="outline"
+                    onClick={() => selectedThreadId && bulkPin([selectedThreadId])}
+                    disabled={!selectedThreadId || busy || threadActionsDisabled}
+                    title={disabledReason}
+                  >
+                    {messages.threadDetail.pin}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => selectedThreadId && bulkUnpin([selectedThreadId])}
+                    disabled={!selectedThreadId || busy || threadActionsDisabled}
+                    title={disabledReason}
+                  >
+                    {messages.threadDetail.unpin}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => selectedThreadId && analyzeDelete([selectedThreadId])}
+                    disabled={!selectedThreadId || busy || threadActionsDisabled}
+                    title={disabledReason}
+                  >
+                    {messages.threadDetail.impactAnalysis}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => selectedThreadId && openThreadFolder?.(selectedThreadId)}
+                    disabled={!selectedThreadId || busy || threadActionsDisabled || !openThreadFolder}
+                    title={disabledReason}
+                  >
+                    {messages.sessionDetail.openFolder}
+                  </Button>
+                </div>
+                {folderOpenNotice ? <p className="sub-hint">{folderOpenNotice}</p> : null}
+                {threadActionsDisabled ? <p className="sub-hint">{messages.threadDetail.backendDownHint}</p> : null}
+              </div>
+            </details>
+            {cleanupCardVisible ? (
+              <section className="thread-review-grid thread-result-stage">
+                <article className={`thread-review-card thread-review-card-preview ${cleanupReady || cleanupApplied ? "is-ready" : ""}`.trim()}>
+                  <span>{messages.forensics.cleanupToken}</span>
+                  <strong>{cleanupCardHeadline}</strong>
+                  <p>{cleanupCardSummary}</p>
+                  <p>{cleanupCardDetail}</p>
+                  {cleanupReady && cleanupExecute ? (
+                    <div className="sub-toolbar action-toolbar">
+                      {cleanupTargetIds.length > 1 ? (
+                        <Button
+                          variant="outline"
+                          disabled={busy || threadActionsDisabled}
+                          title={disabledReason}
+                          onClick={() => analyzeDelete(cleanupTargetIds)}
+                        >
+                          {messages.threadDetail.impactAnalysis}
+                        </Button>
+                      ) : null}
+                      <Button
+                        variant="base"
+                        disabled={busy || threadActionsDisabled}
+                        title={disabledReason}
+                        onClick={() => cleanupExecute(cleanupTargetIds)}
+                      >
+                        {messages.threadDetail.delete}
+                      </Button>
+                    </div>
+                  ) : null}
+                </article>
+              </section>
+            ) : null}
             <details className="detail-section">
               <summary>{messages.threadDetail.sectionOverview}</summary>
               <div className="detail-section-body">
@@ -249,48 +473,8 @@ export function ThreadDetail(props: ThreadDetailProps) {
                 ) : null}
               </div>
             </details>
-            <details className="detail-section">
-              <summary>{messages.threadDetail.sectionActions}</summary>
-              <div className="detail-section-body">
-                <div className="chat-toolbar detail-action-bar">
-                  <Button
-                    variant="outline"
-                    onClick={() => selectedThreadId && bulkPin([selectedThreadId])}
-                    disabled={!selectedThreadId || busy || threadActionsDisabled}
-                    title={disabledReason}
-                  >
-                    {messages.threadDetail.pin}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => selectedThreadId && bulkUnpin([selectedThreadId])}
-                    disabled={!selectedThreadId || busy || threadActionsDisabled}
-                    title={disabledReason}
-                  >
-                    {messages.threadDetail.unpin}
-                  </Button>
-                  <Button
-                    variant="base"
-                    onClick={() => selectedThreadId && bulkArchive([selectedThreadId])}
-                    disabled={!selectedThreadId || busy || threadActionsDisabled}
-                    title={disabledReason}
-                  >
-                    {messages.threadDetail.localArchive}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => selectedThreadId && analyzeDelete([selectedThreadId])}
-                    disabled={!selectedThreadId || busy || threadActionsDisabled}
-                    title={disabledReason}
-                  >
-                    {messages.threadDetail.impactAnalysis}
-                  </Button>
-                </div>
-                {threadActionsDisabled ? <p className="sub-hint">{messages.threadDetail.backendDownHint}</p> : null}
-              </div>
-            </details>
-            <details className="detail-section detail-section-transcript" open>
-              <summary>{messages.threadDetail.sectionTranscript}</summary>
+            <section className="detail-section detail-section-transcript">
+              <div className="detail-section-static-head">{messages.threadDetail.sectionTranscript}</div>
               <div className="detail-section-body">
                 <TranscriptLog
                   messages={messages}
@@ -304,7 +488,7 @@ export function ThreadDetail(props: ThreadDetailProps) {
                   onLoadFullSource={() => setThreadTranscriptLimit(10_000)}
                 />
               </div>
-            </details>
+            </section>
           </>
         )}
       </div>

@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
 import type { ThreadRow } from "@/shared/types";
-import { PAGE_SIZE } from "@/shared/types";
-import { THREADS_FAST_BOOT_LIMIT } from "@/shared/lib/appState";
+import { INITIAL_CHUNK } from "@/shared/types";
 import {
   filterThreadRows,
+  filterThreadRowsBySourceView,
   pruneSelectedThreads,
   resolveAllFilteredSelected,
+  resolveThreadSourceViewQueryLimit,
+  hasDirectThreadRoute,
   resolveThreadsLoadingState,
   resolveThreadsQueryLimit,
+  THREAD_SOURCE_VIEW_QUERY_LIMIT,
   restoreThreadsBootstrapRows,
+  shouldClearSelectedThreadId,
 } from "@/features/threads/hooks/useThreadsData";
 
 function buildThread(overrides: Partial<ThreadRow> = {}): ThreadRow {
@@ -39,22 +43,54 @@ describe("useThreadsData helpers", () => {
     expect(restoreThreadsBootstrapRows(null)).toEqual([]);
   });
 
-  it("uses fast boot limits only while the threads layout is warming up", () => {
-    expect(resolveThreadsQueryLimit("threads", true)).toBe(THREADS_FAST_BOOT_LIMIT);
-    expect(resolveThreadsQueryLimit("threads", false)).toBe(PAGE_SIZE);
+  it("starts the threads layout at the initial chunk size", () => {
+    expect(resolveThreadsQueryLimit("threads", true)).toBe(INITIAL_CHUNK);
+    expect(resolveThreadsQueryLimit("threads", false)).toBe(INITIAL_CHUNK);
+    expect(resolveThreadsQueryLimit("threads", true, true)).toBe(INITIAL_CHUNK);
     expect(resolveThreadsQueryLimit("overview", true)).toBe(60);
+  });
+
+  it("widens backup and archived source views beyond the first chunk", () => {
+    expect(resolveThreadSourceViewQueryLimit(INITIAL_CHUNK, false, false)).toBe(INITIAL_CHUNK);
+    expect(resolveThreadSourceViewQueryLimit(INITIAL_CHUNK, true, false)).toBe(THREAD_SOURCE_VIEW_QUERY_LIMIT);
+    expect(resolveThreadSourceViewQueryLimit(INITIAL_CHUNK, false, true)).toBe(THREAD_SOURCE_VIEW_QUERY_LIMIT);
+  });
+
+  it("detects direct thread routes from window search params", () => {
+    expect(
+      hasDirectThreadRoute({
+        location: { search: "?view=threads&threadId=thread-123" },
+      } as unknown as Window),
+    ).toBe(true);
+    expect(
+      hasDirectThreadRoute({
+        location: { search: "?view=providers&provider=codex" },
+      } as unknown as Window),
+    ).toBe(false);
   });
 
   it("filters thread rows by query, high-risk, and pinned modes", () => {
     const rows = [
       buildThread({ thread_id: "thread-1", title: "Cleanup queue", risk_score: 40, is_pinned: false }),
       buildThread({ thread_id: "thread-2", title: "Pinned archive", risk_score: 90, is_pinned: true }),
-      buildThread({ thread_id: "thread-3", title: "Low risk", risk_score: 20, is_pinned: false }),
+      buildThread({ thread_id: "thread-3", title: "Low risk", risk_score: 20, is_pinned: false, source: "archived_sessions" }),
     ];
 
     expect(filterThreadRows(rows, "cleanup", "all").map((row) => row.thread_id)).toEqual(["thread-1"]);
     expect(filterThreadRows(rows, "", "high-risk").map((row) => row.thread_id)).toEqual(["thread-2"]);
     expect(filterThreadRows(rows, "", "pinned").map((row) => row.thread_id)).toEqual(["thread-2"]);
+  });
+
+  it("switches source views between default, backups, and archived rows", () => {
+    const rows = [
+      buildThread({ thread_id: "thread-1", source: "sessions" }),
+      buildThread({ thread_id: "thread-2", source: "cleanup_backups" }),
+      buildThread({ thread_id: "thread-3", source: "archived_sessions" }),
+    ];
+
+    expect(filterThreadRowsBySourceView(rows, false, false).map((row) => row.thread_id)).toEqual(["thread-1"]);
+    expect(filterThreadRowsBySourceView(rows, true, false).map((row) => row.thread_id)).toEqual(["thread-2"]);
+    expect(filterThreadRowsBySourceView(rows, false, true).map((row) => row.thread_id)).toEqual(["thread-3"]);
   });
 
   it("prunes stale selected ids and keeps stable maps when nothing changes", () => {
@@ -92,5 +128,51 @@ describe("useThreadsData helpers", () => {
       threadsLoading: false,
       threadsFastBooting: false,
     });
+  });
+
+  it("keeps a routed thread selection until real thread data settles", () => {
+    expect(
+      shouldClearSelectedThreadId({
+        selectedThreadId: "thread-123",
+        availableThreadIds: new Set(),
+        hasApiRows: false,
+        threadsQueryPending: true,
+        threadsFastBoot: false,
+        keepSelectedThreadFallback: false,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldClearSelectedThreadId({
+        selectedThreadId: "thread-123",
+        availableThreadIds: new Set(),
+        hasApiRows: true,
+        threadsQueryPending: false,
+        threadsFastBoot: false,
+        keepSelectedThreadFallback: false,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldClearSelectedThreadId({
+        selectedThreadId: "thread-123",
+        availableThreadIds: new Set(),
+        hasApiRows: true,
+        threadsQueryPending: false,
+        threadsFastBoot: true,
+        keepSelectedThreadFallback: false,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldClearSelectedThreadId({
+        selectedThreadId: "thread-123",
+        availableThreadIds: new Set(),
+        hasApiRows: true,
+        threadsQueryPending: false,
+        threadsFastBoot: false,
+        keepSelectedThreadFallback: true,
+      }),
+    ).toBe(false);
   });
 });

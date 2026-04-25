@@ -1,13 +1,14 @@
 import type { Dispatch, Ref, SetStateAction } from "react";
 import type { Messages } from "@/i18n";
+import type { FilterMode } from "@/shared/types";
 
 type ThreadsCommandShellProps = {
   messages: Messages;
   threadSearchInputRef: Ref<HTMLInputElement>;
   query: string;
   setQuery: Dispatch<SetStateAction<string>>;
-  filterMode: "all" | "high-risk" | "pinned";
-  setFilterMode: Dispatch<SetStateAction<"all" | "high-risk" | "pinned">>;
+  filterMode: FilterMode;
+  setFilterMode: Dispatch<SetStateAction<FilterMode>>;
   filteredCount: number;
   highRiskVisibleCount: number;
   pinnedCount: number;
@@ -32,9 +33,6 @@ export function ThreadsCommandShell({
     <section className="page-section-header cleanup-command-shell">
       <div className="cleanup-command-body">
         <div className="thread-workflow-copy">
-          <div className="thread-workflow-copy-eyebrow">
-            <span className="overview-note-label">{messages.threadsTable.heroEyebrow}</span>
-          </div>
           <strong>{messages.threadsTable.heroTitle}</strong>
           <p>{messages.threadsTable.heroBody}</p>
         </div>
@@ -88,7 +86,7 @@ export function ThreadsCommandShell({
             <select
               className="filter-select toolbar-search-select"
               value={filterMode}
-              onChange={(event) => setFilterMode(event.target.value as "all" | "high-risk" | "pinned")}
+              onChange={(event) => setFilterMode(event.target.value as FilterMode)}
             >
               <option value="all">{messages.toolbar.all}</option>
               <option value="high-risk">{messages.toolbar.highRisk}</option>

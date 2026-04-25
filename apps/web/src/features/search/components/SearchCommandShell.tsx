@@ -36,14 +36,6 @@ export function SearchCommandShell({
 }: SearchCommandShellProps) {
   return (
     <div className="search-command-shell">
-      <div className="search-command-breadcrumb">
-        <span className="search-command-path is-brand">threadlens</span>
-        <span className="search-command-slash">/</span>
-        <span className="search-command-path">{messages.search.commandPathLabel}</span>
-        <span className="search-command-slash">/</span>
-        <span className="search-command-path is-active">{providerLabel}</span>
-        {!searchEnabled ? <span className="search-command-runtime">{messages.search.idle}</span> : null}
-      </div>
       <div className="search-command-body">
         <div className="search-command-left">
           <div className="search-command-bar">
@@ -128,32 +120,23 @@ export function SearchCommandShell({
                   className={`search-recent-list search-recent-list-inline${visibleRecentSearches.length === 2 ? " is-pair" : ""}`.trim()}
                 >
                   {visibleRecentSearches.map((item) => (
-                    <div
-                      key={item.ts}
-                      className="search-recent-item"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setQuery(item.q)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          setQuery(item.q);
-                        }
-                      }}
-                    >
-                      <span className="search-recent-icon" aria-hidden="true">↺</span>
-                      <span className="search-recent-query">{item.q}</span>
-                      <span className="search-recent-time">{formatRecentTime(item.ts, messages.search)}</span>
+                    <div key={item.ts} className="search-recent-item">
+                      <button
+                        type="button"
+                        className="search-recent-main"
+                        onClick={() => setQuery(item.q)}
+                      >
+                        <span className="search-recent-icon" aria-hidden="true">↺</span>
+                        <span className="search-recent-query">{item.q}</span>
+                        <span className="search-recent-time">{formatRecentTime(item.ts, messages.search)}</span>
+                      </button>
                       <button
                         type="button"
                         className="search-recent-remove"
                         aria-label={formatSearchMessage(messages.search.removeRecentAria, {
                           query: item.q,
                         })}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onRemoveRecent(item.q);
-                        }}
+                        onClick={() => onRemoveRecent(item.q)}
                       >
                         ✕
                       </button>
@@ -170,32 +153,23 @@ export function SearchCommandShell({
           <div className="search-scope-label">{messages.search.recentSearches}</div>
           <div className="search-recent-list">
             {visibleRecentSearches.map((item) => (
-              <div
-                key={item.ts}
-                className="search-recent-item"
-                role="button"
-                tabIndex={0}
-                onClick={() => setQuery(item.q)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    setQuery(item.q);
-                  }
-                }}
-              >
-                <span className="search-recent-icon" aria-hidden="true">↺</span>
-                <span className="search-recent-query">{item.q}</span>
-                <span className="search-recent-time">{formatRecentTime(item.ts, messages.search)}</span>
+              <div key={item.ts} className="search-recent-item">
+                <button
+                  type="button"
+                  className="search-recent-main"
+                  onClick={() => setQuery(item.q)}
+                >
+                  <span className="search-recent-icon" aria-hidden="true">↺</span>
+                  <span className="search-recent-query">{item.q}</span>
+                  <span className="search-recent-time">{formatRecentTime(item.ts, messages.search)}</span>
+                </button>
                 <button
                   type="button"
                   className="search-recent-remove"
                   aria-label={formatSearchMessage(messages.search.removeRecentAria, {
                     query: item.q,
                   })}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onRemoveRecent(item.q);
-                  }}
+                  onClick={() => onRemoveRecent(item.q)}
                 >
                   ✕
                 </button>

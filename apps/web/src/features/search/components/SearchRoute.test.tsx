@@ -1,8 +1,8 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import type { ConversationSearchHit } from "@/shared/types";
 import { SearchRoute } from "@/features/search/components/SearchRoute";
 import { AppContext, type AppContextValue } from "@/app/AppContext";
-import { getMessages } from "@/i18n";
+import { getMessages } from "@/i18n/catalog";
 import { renderToStaticMarkup } from "react-dom/server";
 
 const mockSearchPanel = vi.fn();
@@ -43,6 +43,7 @@ function buildContext(overrides: Partial<AppContextValue> = {}): AppContextValue
     runtimeBackend: undefined,
     threadSearchInputRef: { current: null },
     detailLayoutRef: { current: null },
+    setLayoutView: () => undefined,
     searchProviderOptions: [
       { id: "codex", name: "Codex" },
       { id: "claude", name: "Claude" },
@@ -57,6 +58,10 @@ function buildContext(overrides: Partial<AppContextValue> = {}): AppContextValue
 describe("SearchRoute", () => {
   beforeEach(() => {
     mockSearchPanel.mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("passes current search seed and provider options into SearchPanel", () => {
@@ -83,7 +88,18 @@ describe("SearchRoute", () => {
     const setSearchThreadContext = vi.fn();
     const setSelectedThreadId = vi.fn();
     const setSelectedSessionPath = vi.fn();
-    const changeLayoutView = vi.fn();
+    const setLayoutView = vi.fn();
+    const pushState = vi.fn();
+    vi.stubGlobal("window", {
+      location: {
+        search: "?view=search",
+        pathname: "/",
+        hash: "",
+      },
+      history: {
+        pushState,
+      },
+    });
     renderToStaticMarkup(
       <AppContext.Provider
         value={buildContext({
@@ -91,7 +107,7 @@ describe("SearchRoute", () => {
           setSearchThreadContext,
           setSelectedThreadId,
           setSelectedSessionPath,
-          changeLayoutView,
+          setLayoutView,
         })}
       >
         <SearchRoute />
@@ -111,21 +127,26 @@ describe("SearchRoute", () => {
     expect(setSearchThreadContext).toHaveBeenCalledWith(null);
     expect(setSelectedThreadId).toHaveBeenCalledWith("");
     expect(setSelectedSessionPath).toHaveBeenCalledWith("/tmp/session.jsonl");
-    expect(changeLayoutView).toHaveBeenCalledWith("providers");
+    expect(setLayoutView).toHaveBeenCalledWith("providers");
+    expect(pushState).toHaveBeenCalledWith(
+      null,
+      "",
+      "/?view=providers&provider=codex&filePath=%2Ftmp%2Fsession.jsonl",
+    );
   });
 
   it("routes thread hits into threads layout and ignores hits without thread ids", () => {
     const setSearchThreadContext = vi.fn();
     const setSelectedSessionPath = vi.fn();
     const setSelectedThreadId = vi.fn();
-    const changeLayoutView = vi.fn();
+    const setLayoutView = vi.fn();
     renderToStaticMarkup(
       <AppContext.Provider
         value={buildContext({
           setSearchThreadContext,
           setSelectedSessionPath,
           setSelectedThreadId,
-          changeLayoutView,
+          setLayoutView,
         })}
       >
         <SearchRoute />
@@ -136,7 +157,7 @@ describe("SearchRoute", () => {
       onOpenThread: (hit: ConversationSearchHit) => void;
     };
     props.onOpenThread({ provider: "codex" } as ConversationSearchHit);
-    expect(changeLayoutView).not.toHaveBeenCalled();
+    expect(setLayoutView).not.toHaveBeenCalled();
 
     const hit = {
       provider: "codex",
@@ -148,6 +169,6 @@ describe("SearchRoute", () => {
     expect(setSearchThreadContext).toHaveBeenCalledWith(hit);
     expect(setSelectedSessionPath).toHaveBeenCalledWith("");
     expect(setSelectedThreadId).toHaveBeenCalledWith("thread-42");
-    expect(changeLayoutView).toHaveBeenCalledWith("threads");
+    expect(setLayoutView).toHaveBeenCalledWith("threads");
   });
 });

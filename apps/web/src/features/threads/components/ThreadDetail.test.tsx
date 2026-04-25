@@ -1,11 +1,44 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { getMessages } from "@/i18n";
-import { ThreadDetail } from "@/features/threads/components/ThreadDetail";
+import { getMessages } from "@/i18n/catalog";
+import {
+  APPLIED_CLEANUP_CARD_HIDE_MS,
+  buildAppliedCleanupKey,
+  ThreadDetail,
+} from "@/features/threads/components/ThreadDetail";
+import { buildThreadCleanupSelectionKey } from "@/shared/lib/appState";
 
 const messages = getMessages("en");
 
 describe("ThreadDetail", () => {
+  it("keeps the applied cleanup card visible for three seconds", () => {
+    expect(APPLIED_CLEANUP_CARD_HIDE_MS).toBe(3000);
+  });
+
+  it("keys applied cleanup cards by deleted backup targets", () => {
+    const first = buildAppliedCleanupKey({
+      cleanupApplied: true,
+      selectedThreadId: "thread-1",
+      targetCount: 1,
+      deletedCount: 1,
+      failedCount: 0,
+      targetThreadIds: ["thread-1"],
+      targetPaths: ["/tmp/local_cleanup_backups/one.jsonl"],
+    });
+    const second = buildAppliedCleanupKey({
+      cleanupApplied: true,
+      selectedThreadId: "thread-1",
+      targetCount: 1,
+      deletedCount: 1,
+      failedCount: 0,
+      targetThreadIds: ["thread-1"],
+      targetPaths: ["/tmp/local_cleanup_backups/two.jsonl"],
+    });
+
+    expect(first).not.toBe(second);
+    expect(buildAppliedCleanupKey({ cleanupApplied: false, selectedThreadId: "thread-1", targetCount: 0, deletedCount: 0, failedCount: 0 })).toBe("");
+  });
+
   it("collapses identical visible and total counts into a single rows summary", () => {
     const html = renderToStaticMarkup(
       <ThreadDetail
@@ -140,9 +173,202 @@ describe("ThreadDetail", () => {
     expect(html).toContain("/workspace/threadlens");
     expect(html).not.toContain(">Cleanup check<");
     expect(html).not.toContain("Local files found");
-    expect(html).not.toContain(">cleanup dry-run<");
+    expect(html).toContain(">Pin in Codex<");
+    expect(html).toContain(">Unpin in Codex<");
+    expect(html).toContain(">Impact analysis<");
+    expect(html).not.toContain(">Cleanup dry-run<");
+    expect(html).not.toContain(">Hard delete<");
+    expect(html).not.toContain(">Local archive<");
     expect(html).not.toContain("<p>sessions</p>");
     expect(html).not.toContain(">Artifacts<");
+  });
+
+  it("renders grouped deletion prep actions inside the ready card", () => {
+    const analyzeDelete = vi.fn();
+    const cleanupExecute = vi.fn();
+    const html = renderToStaticMarkup(
+      <ThreadDetail
+        messages={messages}
+        selectedThread={{
+          thread_id: "thread-1",
+          title: "Cleanup candidate",
+          risk_score: 82,
+          risk_level: "high",
+          is_pinned: false,
+          source: "sessions",
+          cwd: "/workspace/threadlens",
+          timestamp: "2026-03-28T12:30:00.000Z",
+        }}
+        selectedThreadId="thread-1"
+        openThreadById={vi.fn()}
+        visibleThreadCount={3}
+        filteredThreadCount={8}
+        nextThreadId="thread-2"
+        nextThreadTitle="next"
+        nextThreadSource="sessions"
+        searchContext={null}
+        threadDetailLoading={false}
+        selectedThreadDetail={null}
+        threadTranscriptData={null}
+        threadTranscriptLoading={false}
+        threadTranscriptLimit={250}
+        setThreadTranscriptLimit={vi.fn()}
+        busy={false}
+        threadActionsDisabled={false}
+        selectedIds={["thread-2", "thread-1"]}
+        bulkPin={vi.fn()}
+        bulkUnpin={vi.fn()}
+        bulkArchive={vi.fn()}
+        analyzeDelete={analyzeDelete}
+        cleanupDryRun={vi.fn()}
+        cleanupExecute={cleanupExecute}
+        cleanupData={{
+          ok: true,
+          mode: "dry-run",
+          confirm_token_expected: "DEL-123",
+          target_file_count: 2,
+          backup: { backup_dir: "", copied_count: 0 },
+          state_result: { changed: true, removed: { titles: 1, order: 0, pinned: 0 } },
+        }}
+        pendingCleanup={{
+          ids: ["thread-2", "thread-1"],
+          confirmToken: "DEL-123",
+          selectionKey: buildThreadCleanupSelectionKey(["thread-2", "thread-1"]),
+          options: {
+            delete_cache: true,
+            delete_session_logs: true,
+            clean_state_refs: true,
+          },
+        }}
+      />,
+    );
+
+    expect(html).toContain("Deletion prep ready");
+    expect(html).toContain("2 targets");
+    expect(html).toContain(">Delete<");
+    expect(html).toContain(">Impact analysis<");
+    expect(html).toContain("Nothing has been deleted yet.");
+    expect(html).toContain("thread-review-card thread-review-card-preview is-ready");
+    expect(html).not.toContain("Backups stay local before delete.");
+    expect(html).not.toContain("provider-result-card");
+    expect(html).not.toContain("DEL-123");
+    expect(html.indexOf("Actions")).toBeLessThan(html.indexOf("Deletion prep ready"));
+    expect(html.indexOf("Deletion prep ready")).toBeLessThan(html.indexOf("Overview"));
+  });
+
+  it("renders delete-complete copy after execute without hard-delete wording in the card", () => {
+    const html = renderToStaticMarkup(
+      <ThreadDetail
+        messages={messages}
+        selectedThread={{
+          thread_id: "thread-1",
+          title: "Cleanup candidate",
+          risk_score: 82,
+          risk_level: "high",
+          is_pinned: false,
+          source: "sessions",
+          cwd: "/workspace/threadlens",
+          timestamp: "2026-03-28T12:30:00.000Z",
+        }}
+        selectedThreadId="thread-1"
+        openThreadById={vi.fn()}
+        visibleThreadCount={3}
+        filteredThreadCount={8}
+        nextThreadId="thread-2"
+        nextThreadTitle="next"
+        nextThreadSource="sessions"
+        searchContext={null}
+        threadDetailLoading={false}
+        selectedThreadDetail={null}
+        threadTranscriptData={null}
+        threadTranscriptLoading={false}
+        threadTranscriptLimit={250}
+        setThreadTranscriptLimit={vi.fn()}
+        busy={false}
+        threadActionsDisabled={false}
+        selectedIds={["thread-2", "thread-1"]}
+        bulkPin={vi.fn()}
+        bulkUnpin={vi.fn()}
+        bulkArchive={vi.fn()}
+        analyzeDelete={vi.fn()}
+        cleanupDryRun={vi.fn()}
+        cleanupExecute={vi.fn()}
+        cleanupData={{
+          ok: true,
+          mode: "execute",
+          target_file_count: 2,
+          deleted_file_count: 2,
+          failed: [],
+          backup: { backup_dir: "/tmp/backups/threadlens", copied_count: 2 },
+          state_result: { changed: true, removed: { titles: 1, order: 0, pinned: 0 } },
+        }}
+        pendingCleanup={null}
+      />,
+    );
+
+    expect(html).toContain("Delete completed");
+    expect(html).toContain("2/2 deleted · 0 failed");
+    expect(html).toContain("Selected files were deleted. Review failures or the backup path if needed.");
+    expect(html).not.toContain("Hard delete · Applied");
+  });
+
+  it("suppresses the search fallback notice after delete completion removes the focused thread from the index", () => {
+    const html = renderToStaticMarkup(
+      <ThreadDetail
+        messages={messages}
+        selectedThread={null}
+        selectedThreadId="thread-1"
+        openThreadById={vi.fn()}
+        visibleThreadCount={2}
+        filteredThreadCount={2}
+        nextThreadId="thread-2"
+        nextThreadTitle="next"
+        nextThreadSource="sessions"
+        searchContext={{
+          provider: "claude",
+          session_id: "session-1",
+          thread_id: "thread-1",
+          title: "Deleted thread",
+          display_title: "Deleted thread",
+          file_path: "/tmp/deleted-thread.jsonl",
+          mtime: "2026-03-28T12:30:00.000Z",
+          match_kind: "message",
+          snippet: "match",
+        }}
+        threadDetailLoading={false}
+        selectedThreadDetail={null}
+        threadTranscriptData={null}
+        threadTranscriptLoading={false}
+        threadTranscriptLimit={250}
+        setThreadTranscriptLimit={vi.fn()}
+        busy={false}
+        threadActionsDisabled={false}
+        selectedIds={[]}
+        bulkPin={vi.fn()}
+        bulkUnpin={vi.fn()}
+        bulkArchive={vi.fn()}
+        analyzeDelete={vi.fn()}
+        cleanupDryRun={vi.fn()}
+        cleanupExecute={vi.fn()}
+        cleanupData={{
+          ok: true,
+          mode: "execute",
+          target_file_count: 1,
+          deleted_file_count: 1,
+          failed: [],
+          targets: [{ path: "/tmp/deleted-thread.jsonl", thread_id: "thread-1" }],
+          backup: { backup_dir: "/tmp/backups/threadlens", copied_count: 1 },
+          state_result: { changed: true, removed: { titles: 1, order: 0, pinned: 0 } },
+        }}
+        pendingCleanup={null}
+      />,
+    );
+
+    expect(html).toContain("Delete completed");
+    expect(html).not.toContain("Thread opened directly from Search");
+    expect(html).not.toContain(
+      "This thread is not present in the current cleanup index, but Search found its raw transcript and ID so you can still inspect it directly.",
+    );
   });
 
   it("treats a focused thread as detail context, not as an explicit row selection", () => {
