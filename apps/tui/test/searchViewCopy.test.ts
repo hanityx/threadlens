@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { en } from "../src/i18n/en.js";
 import { es } from "../src/i18n/es.js";
 import {
+  buildSearchMeta,
   formatSearchEmptyState,
   formatSearchMeta,
   formatSearchResultSummary,
@@ -45,6 +46,21 @@ test("SearchView copy keeps canonical English nouns in English", () => {
   assert.equal(
     formatSearchEmptyState(en, "rename"),
     "No results found.",
+  );
+});
+
+test("buildSearchMeta does not treat pagination as a partial scan", () => {
+  assert.deepEqual(
+    buildSearchMeta({
+      searched_sessions: 494,
+      available_sessions: 494,
+      truncated: false,
+    }),
+    {
+      searched: 494,
+      available: 494,
+      truncated: false,
+    },
   );
 });
 

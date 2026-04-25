@@ -1,9 +1,8 @@
-import React from "react";
 import { pathToFileURL } from "node:url";
 import { render } from "ink";
 import type { AppBootstrapProps, ProviderScope, ViewKey } from "./config.js";
 import { getMessages, resolveLocale } from "./i18n/index.js";
-import { SUPPORTED_LOCALES, type Locale } from "./i18n/types.js";
+import { SUPPORTED_LOCALES } from "./i18n/types.js";
 function buildHelpText(locale: AppBootstrapProps["locale"]) {
   const messages = getMessages(locale ?? "en");
   return `${messages.cli.helpTitle}

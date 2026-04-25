@@ -14,6 +14,22 @@ export type SearchHit = {
   source?: string;
 };
 
+export type SearchSession = {
+  provider: string;
+  session_id: string;
+  thread_id?: string | null;
+  title: string;
+  display_title?: string;
+  file_path: string;
+  source?: string;
+  mtime: string;
+  match_count: number;
+  title_match_count: number;
+  best_match_kind: "title" | "message";
+  preview_matches: SearchHit[];
+  has_more_hits: boolean;
+};
+
 export type SearchResponse = ApiEnvelope<{
   generated_at?: string;
   q?: string;
@@ -21,6 +37,13 @@ export type SearchResponse = ApiEnvelope<{
   searched_sessions?: number;
   available_sessions?: number;
   truncated?: boolean;
+  total_matching_sessions?: number | null;
+  total_matching_hits?: number | null;
+  has_more?: boolean;
+  next_cursor?: string | null;
+  page_size?: number;
+  preview_hits_per_session?: number;
+  sessions?: SearchSession[];
   results?: SearchHit[];
 }>;
 

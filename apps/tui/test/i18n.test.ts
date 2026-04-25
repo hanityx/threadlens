@@ -64,6 +64,14 @@ test("locale copy polish keeps representative non-ko strings natural", () => {
   assert.equal(getMessages("es").sessions.actionDeleteExecute, "D ejecutar delete");
 });
 
+test("korean copy avoids casual imperative endings in core prompts", () => {
+  const ko = getMessages("ko");
+  assert.equal(ko.search.selectResult, "결과를 선택하세요.");
+  assert.equal(ko.sessions.selectSession, "세션을 선택하세요.");
+  assert.equal(ko.cleanup.selectThread, "스레드를 선택하세요.");
+  assert.match(ko.cli.ttyRequired, /다시 실행하세요\.$/);
+});
+
 test("formatDateLabel respects locale", () => {
   const iso = "2026-04-02T15:04:00.000Z";
   const ko = formatDateLabel(iso, "ko");
