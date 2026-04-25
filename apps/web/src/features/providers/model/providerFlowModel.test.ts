@@ -194,7 +194,7 @@ describe("providerFlowModel", () => {
     expect(model.visibleFlowCards.map((card) => card.providerId)).toEqual(["codex"]);
   });
 
-  it("hides optional providers from all-view visible cards while keeping full flow inventory", () => {
+  it("includes optional providers in all-view visible cards", () => {
     const model = buildProviderFlowModel({
       providers,
       providerTabs,
@@ -213,8 +213,10 @@ describe("providerFlowModel", () => {
       "copilot",
     ]);
     expect(model.visibleFlowCards.map((card) => card.providerId)).toEqual([
-      "codex",
       "claude",
+      "copilot",
+      "codex",
     ]);
+    expect(model.allViewHiddenCount).toBe(0);
   });
 });

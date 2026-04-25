@@ -1,8 +1,9 @@
 import type { Dispatch, SetStateAction } from "react";
 import { formatBytes, formatDateTime, normalizeDisplayValue } from "@/shared/lib/format";
 import { PanelHeader } from "@/shared/ui/components/PanelHeader";
+import { Button } from "@/shared/ui/components/Button";
 import type { Messages } from "@/i18n";
-import type { ProviderSessionActionResult, ProviderSessionRow, TranscriptPayload } from "@/shared/types";
+import type { ProviderActionSelection, ProviderSessionActionResult, ProviderSessionRow, TranscriptPayload } from "@/shared/types";
 import { SessionActionSection } from "@/features/providers/session/SessionActionSection";
 import { SessionEmptyState } from "@/features/providers/session/SessionEmptyState";
 import { SessionHero } from "@/features/providers/session/SessionHero";
@@ -15,6 +16,7 @@ export interface SessionDetailProps {
   selectedSession: ProviderSessionRow | null;
   selectedCount?: number;
   sessionActionResult?: ProviderSessionActionResult | null;
+  sessionActionSelection?: ProviderActionSelection | null;
   emptyScopeLabel?: string;
   emptyNextSessions?: Array<{
     title: string;
@@ -29,7 +31,6 @@ export interface SessionDetailProps {
   busy: boolean;
   canRunSessionAction: boolean;
   providerDeleteBackupEnabled: boolean;
-  setProviderDeleteBackupEnabled: Dispatch<SetStateAction<boolean>>;
   runSingleProviderAction: (
     provider: string,
     filePath: string,
@@ -37,6 +38,8 @@ export interface SessionDetailProps {
     dryRun: boolean,
     options?: { backup_before_delete?: boolean },
   ) => void;
+  canRunPreparedSessionAction?: boolean;
+  runPreparedProviderAction?: (selection: ProviderActionSelection) => Promise<ProviderSessionActionResult | null>;
   runSingleProviderHardDelete: (provider: string, filePath: string) => Promise<ProviderSessionActionResult | null>;
 }
 
@@ -52,23 +55,50 @@ export function SessionDetail(props: SessionDetailProps) {
     busy,
     canRunSessionAction,
     providerDeleteBackupEnabled,
-    setProviderDeleteBackupEnabled,
     runSingleProviderAction,
   } = props;
   const model = useSessionDetailModel(props);
   const activeSession = model.selectedSession;
+  const archiveAction = activeSession?.source === "archived_sessions" ? "unarchive_local" : "archive_local";
 
   return (
     <section className={`panel session-detail-panel ${!activeSession ? "is-empty" : ""}`.trim()}>
       <PanelHeader title={messages.sessionDetail.title} subtitle={model.headerSubtitle} />
       <div ref={model.bodyRef} className="impact-body">
         {!activeSession ? (
-          <SessionEmptyState
-            messages={messages}
-            emptyNextSessions={emptyNextSessions}
-            emptyScopeLabel={model.resolvedEmptyScopeLabel}
-            onOpenSessionPath={onOpenSessionPath}
-          />
+          <>
+            {model.sessionActionSummary ? (
+              <section className="provider-result-grid provider-result-grid-compact session-result-stage">
+                <article className={model.sessionActionCardClass}>
+                  <span className="overview-note-label">{messages.providers.actionResultTitle}</span>
+                  <strong>{model.sessionActionSummary.headline}</strong>
+                  <p>{model.sessionActionSummary.countSummary}</p>
+                  <p>{model.sessionActionSummary.detail}</p>
+                  {model.sessionActionSummary.previewReady ? (
+                    model.sessionActionCanExecute ? (
+                      <div className="sub-toolbar provider-result-actions">
+                        <Button
+                          variant="danger"
+                          onClick={model.executeSessionAction}
+                          disabled={busy}
+                        >
+                          {model.executeSessionActionLabel}
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="sub-hint">{messages.providers.resultSelectionChangedHint}</p>
+                    )
+                  ) : null}
+                </article>
+              </section>
+            ) : null}
+            <SessionEmptyState
+              messages={messages}
+              emptyNextSessions={emptyNextSessions}
+              emptyScopeLabel={model.resolvedEmptyScopeLabel}
+              onOpenSessionPath={onOpenSessionPath}
+            />
+          </>
         ) : (
           <>
             <SessionHero
@@ -96,13 +126,11 @@ export function SessionDetail(props: SessionDetailProps) {
               onOpenFile={model.actions.openFile}
               onPreviewFile={model.actions.previewFile}
               onOpenNewWindow={model.actions.openNewWindow}
-              providerDeleteBackupEnabled={providerDeleteBackupEnabled}
-              setProviderDeleteBackupEnabled={setProviderDeleteBackupEnabled}
               onRunArchiveDryRun={() =>
                 runSingleProviderAction(
                   activeSession.provider,
                   activeSession.file_path,
-                  "archive_local",
+                  archiveAction,
                   true,
                 )
               }

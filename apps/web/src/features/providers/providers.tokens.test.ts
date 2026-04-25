@@ -1,7 +1,16 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const providerStyles = readFileSync(new URL("./providers.css", import.meta.url), "utf8");
+const providerStyles = [
+  "./providers.css",
+  "./components/backupHub.css",
+  "./components/providerWorkspaceBar.css",
+  "./components/aiManagementMatrix.css",
+  "./components/sessionTable.css",
+  "./components/providerAdvanced.css",
+]
+  .map((relativePath) => readFileSync(new URL(relativePath, import.meta.url), "utf8"))
+  .join("\n");
 
 describe("providers token migration", () => {
   it("uses blur tokens for stage-level shells", () => {
@@ -22,6 +31,7 @@ describe("providers token migration", () => {
     expect(providerStyles).toMatch(/\.ai-section-head strong\s*{[^}]*font-size:\s*var\(--text-md\);/s);
     expect(providerStyles).toMatch(/\.ai-section-head span\s*{[^}]*font-size:\s*var\(--text-base\);/s);
     expect(providerStyles).toMatch(/\.ai-provider-metrics\s*{[^}]*font-size:\s*var\(--text-base\);/s);
+    expect(providerStyles).toMatch(/\.provider-workspace-copy\s*{[^}]*padding:\s*8px 0 10px;/s);
     expect(providerStyles).toMatch(/\.provider-workspace-copy strong\s*{[^}]*font-size:\s*var\(--text-display-search-stage\);/s);
     expect(providerStyles).toMatch(/\.provider-workspace-copy p\s*{[^}]*font-size:\s*var\(--text-xs\);/s);
     expect(providerStyles).toMatch(/\.provider-summary-cell span\s*{[^}]*font-size:\s*var\(--text-2xs\);/s);
@@ -66,7 +76,7 @@ describe("providers token migration", () => {
     expect(providerStyles).toMatch(/\.provider-roots > summary\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
     expect(providerStyles).toMatch(/\.ai-pillar strong\s*{[^}]*font-size:\s*var\(--text-md\);/s);
     expect(providerStyles).toMatch(/\.ai-pillar p\s*{[^}]*font-size:\s*var\(--text-md\);/s);
-    expect(providerStyles).toMatch(/\.hotspot-meta\s*{[^}]*font-size:\s*var\(--text-base\);/s);
+    expect(providerStyles).toMatch(/\.hotspot-summary\s*{[^}]*font-size:\s*var\(--text-base\);/s);
     expect(providerStyles).toMatch(/\.provider-flow-node-label\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
     expect(providerStyles).toMatch(/\.provider-flow-node-state\s*{[^}]*font-size:\s*var\(--text-sm\);/s);
     expect(providerStyles).toMatch(/\.provider-flow-arrow\s*{[^}]*font-size:\s*var\(--text-md\);/s);
@@ -76,6 +86,7 @@ describe("providers token migration", () => {
     expect(providerStyles).toMatch(/\.sub-toolbar summary\s*{[^}]*font-size:\s*var\(--text-md\);/s);
     expect(providerStyles).toMatch(/\.threads-table-panel thead th\s*{[^}]*font-size:\s*var\(--text-xs\);[^}]*letter-spacing:\s*0\.04em;[^}]*text-transform:\s*none;/s);
     expect(providerStyles).toMatch(/\.threads-table-panel \.table-select-column,\s*\.threads-table-panel \.table-select-cell\s*{[^}]*width:\s*42px;[^}]*min-width:\s*42px;/s);
+    expect(providerStyles).toMatch(/\.threads-table-panel \.title-col\s*{[^}]*width:\s*auto;[^}]*max-width:\s*none;/s);
     expect(providerStyles).toMatch(/th,\s*td\s*{[^}]*font-size:\s*var\(--text-md\);/s);
     expect(providerStyles).toMatch(/\.threads-table-panel \.title-main\s*{[^}]*font-size:\s*var\(--text-md\);/s);
     expect(providerStyles).toMatch(/\.data-source-meta\s*{[^}]*font-size:\s*var\(--text-base\);/s);
@@ -104,6 +115,7 @@ describe("providers token migration", () => {
     expect(providerStyles).toMatch(/\.session-routing-disclosure-summary\s*{[^}]*display:\s*grid;[^}]*gap:\s*6px;/s);
     expect(providerStyles).toMatch(/\.session-routing-disclosure-pill\s*{[^}]*background:\s*var\(--surface-pill-ghost\);/s);
     expect(providerStyles).toMatch(/\.inline-tools-disclosure\s*{[^}]*background:\s*var\(--surface-panel-subtle-soft\)\s*!important;/s);
+    expect(providerStyles).toMatch(/\.inline-tools-disclosure\s*{[^}]*border:\s*0\s*!important;/s);
     expect(providerStyles).toMatch(/\.ai-hub-card\s*{[^}]*background:\s*var\(--surface-ai-hub-card\);/s);
     expect(providerStyles).toMatch(/\.ai-hub-card\.is-warning\s*{[^}]*border-color:\s*var\(--state-warn-border\);/s);
     expect(providerStyles).toMatch(/\.ai-hub-card\.is-optional\s*{[^}]*background:\s*var\(--surface-panel-subtle-balanced\);/s);

@@ -11,6 +11,21 @@ export type ProviderSessionSort =
 export type ProviderProbeFilter = "all" | "ok" | "fail";
 export type ProviderSourceFilter = "all" | (string & {});
 
+export function resolveVisibleSelectionCount(options: {
+  sortedProviderSessionRows: ProviderSessionRow[];
+  selectedProviderFiles: Record<string, boolean>;
+  selectedSessionPath: string;
+}) {
+  void options.selectedSessionPath;
+  return options.sortedProviderSessionRows.filter((row) =>
+    Boolean(options.selectedProviderFiles[row.file_path]),
+  ).length;
+}
+
+export function resolveProviderSessionRowClickChecked(isChecked: boolean): boolean {
+  return !isChecked;
+}
+
 export function buildSourceFilterOptions(rows: ProviderSessionRow[]): Array<{ source: string; count: number }> {
   const counts = new Map<string, number>();
   rows.forEach((row) => {

@@ -19,6 +19,10 @@ export interface DataSourcesListProps {
   copy: DataSourcesListCopy;
   dataSourcesLoading: boolean;
   dataSourceRows: DataSourceInventoryRow[];
+  providerSessionProviders?: Array<{
+    provider: string;
+    total_bytes?: number;
+  }>;
   detectedDataSourceCount: number;
   canOpenProviderById: (providerId: ProviderView | null) => boolean;
   onOpenProviderSessions: (providerId: ProviderView) => void;
@@ -29,10 +33,17 @@ export function DataSourcesList(props: DataSourcesListProps) {
     copy,
     dataSourcesLoading,
     dataSourceRows,
+    providerSessionProviders = [],
     detectedDataSourceCount,
     canOpenProviderById,
     onOpenProviderSessions,
   } = props;
+  const providerBytesById = new Map(
+    providerSessionProviders.map((provider) => [
+      provider.provider,
+      Number(provider.total_bytes || 0),
+    ]),
+  );
 
   return (
     <details className="panel panel-disclosure">
@@ -48,6 +59,10 @@ export function DataSourcesList(props: DataSourcesListProps) {
             ))
           : dataSourceRows.map((row) => {
               const mappedProvider = providerFromDataSource(row.source_key);
+              const effectiveTotalBytes =
+                mappedProvider === null
+                  ? row.total_bytes
+                  : Math.max(row.total_bytes, providerBytesById.get(mappedProvider) ?? 0);
               const canJump = mappedProvider !== null && canOpenProviderById(mappedProvider);
               return (
                 <article
@@ -80,7 +95,7 @@ export function DataSourcesList(props: DataSourcesListProps) {
                       {copy.dirs} {row.dir_count}
                     </span>
                     <span>
-                      {copy.size} {formatBytes(row.total_bytes)}
+                      {copy.size} {formatBytes(effectiveTotalBytes)}
                     </span>
                     <span>
                       {copy.updated} {formatDateTime(row.latest_mtime)}

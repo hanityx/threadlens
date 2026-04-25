@@ -10,8 +10,8 @@ const bulkArchiveLabel = /^(Archive selected|Archive selected locally|Archive lo
 const threadDetailTitle = /^(Thread Detail|Selected Thread Detail)$/i;
 const impactAnalysisLabel = /^(Run impact analysis|Impact Analysis|Impact)$/i;
 const cleanupDryRunLabel = /^(Prepare deletion|Cleanup Dry-Run|Dry-run|Run cleanup dry-run)$/i;
-const backupSelectedLabel = /^(Backup|Backup Selected Sessions|Back up selected sessions|Back up selected)$/i;
-const bundleAllBackupsLabel = /^(Export backup ZIP|Bundle All Backups|Export backup bundle|Export full backup bundle|Export bundle)$/i;
+const backupSelectedLabel = /^(Backup|Save|Backup Selected Sessions|Back up selected sessions|Back up selected)$/i;
+const bundleAllBackupsLabel = /^(Export saved backups|Bundle All Backups|Export all|Export backup bundle|Export full backup bundle|Export bundle)$/i;
 const searchTabLabel = /^(Search|Conversation Search)$/i;
 const searchPlaceholder = /^(Search your own words, filenames, or keywords|Search conversations)$/i;
 const codexSearchResultLabel = /Fix token flow/i;
@@ -42,7 +42,7 @@ async function openPrimaryView(page: Page, label: "Threads" | "Providers") {
   const button = nav.getByRole("button", { name: target }).first();
   await button.click();
   if (label === "Threads") {
-    await expect(page.getByRole("button", { name: cleanupDryRunLabel }).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Thread$/i }).first()).toBeVisible();
     return;
   }
   const workspaceBar = page.locator(".provider-workspace-bar").first();
@@ -52,6 +52,14 @@ async function openPrimaryView(page: Page, label: "Threads" | "Providers") {
   ).toContainText(/All providers|Codex CLI|Claude|Gemini/i);
   await expect(page.locator(".provider-session-stage").first()).toBeVisible();
   await expect(page.getByTestId("provider-backup-hub-section").first()).toBeVisible();
+}
+
+async function openProviderBackupHub(page: Page) {
+  const hub = page.getByTestId("provider-backup-hub-section").first();
+  if (!(await hub.evaluate((node) => node instanceof HTMLDetailsElement && node.open))) {
+    await hub.locator(":scope > summary").click();
+  }
+  await expect(hub).toHaveAttribute("open", "");
 }
 
 async function selectProviderChip(page: Page, label: RegExp) {
@@ -196,15 +204,36 @@ async function setupMockApi(page: Page, options: MockApiOptions = {}) {
     }
 
     if (path === "/api/conversation-search") {
+      const sessions = searchResults.map((hit) => {
+        const matchKind = hit.match_kind === "title" ? "title" : "message";
+        return {
+          provider: String(hit.provider ?? "codex"),
+          session_id: String(hit.session_id ?? ""),
+          thread_id: hit.thread_id ?? null,
+          title: String(hit.display_title ?? hit.title ?? hit.session_id ?? "Untitled session"),
+          display_title: String(hit.display_title ?? hit.title ?? hit.session_id ?? "Untitled session"),
+          file_path: String(hit.file_path ?? ""),
+          source: String(hit.source ?? "sessions"),
+          mtime: String(hit.mtime ?? "2026-03-05T07:00:00Z"),
+          match_count: 1,
+          title_match_count: matchKind === "title" ? 1 : 0,
+          best_match_kind: matchKind,
+          preview_matches: [hit],
+          has_more_hits: false,
+        };
+      });
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify(
           envelope({
             q: url.searchParams.get("q") ?? "",
-            searched_sessions: searchResults.length,
-            available_sessions: searchResults.length,
+            searched_sessions: sessions.length,
+            available_sessions: sessions.length,
+            total_matching_sessions: sessions.length,
+            total_matching_hits: sessions.length,
             results: searchResults,
+            sessions,
           }),
         ),
       });
@@ -440,9 +469,10 @@ test("providers workspace surfaces backup-first controls", async ({ page }, test
   await openPrimaryView(page, "Providers");
   const sessionsPanel = page.locator(".provider-session-stage").first();
   await expect(sessionsPanel).toBeVisible();
-  await page.getByTestId("provider-backup-hub-section").first().locator("summary").click();
+  await page.locator("tbody input[type='checkbox']").first().check();
+  await openProviderBackupHub(page);
   await expect(page.getByRole("button", { name: backupSelectedLabel }).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: bundleAllBackupsLabel })).toBeVisible();
+  await expect(page.getByText(bundleAllBackupsLabel).first()).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("providers-flow-en.png"), fullPage: true });
 });
 
@@ -454,7 +484,7 @@ test("backup action executes in one click for selected provider sessions", async
   await openPrimaryView(page, "Providers");
   await selectProviderChip(page, /^Codex/i);
   await page.locator("tbody input[type='checkbox']").first().check();
-  await page.getByTestId("provider-backup-hub-section").first().locator("summary").click();
+  await openProviderBackupHub(page);
 
   await page.getByRole("button", { name: backupSelectedLabel }).first().click();
   await expect.poll(() => providerActionCalls.length).toBe(1);
@@ -499,7 +529,8 @@ test("delete action enforces dry-run token flow", async ({ page }) => {
   expect(providerActionCalls[0]?.dry_run).toBe(true);
   expect(providerActionCalls[0]?.confirm_token).toBe("");
 
-  await page.getByRole("button", { name: /^Execute Delete locally$/i }).click();
+  await page.getByRole("button", { name: /^Hard delete$/i }).click();
+  await page.getByRole("button", { name: /^Hard delete now$/i }).click();
   await expect
     .poll(() =>
       providerActionCalls.some(
@@ -574,10 +605,7 @@ test("thread detail forensics actions send selected ids", async ({ page }) => {
   await page.goto("/");
   await openPrimaryView(page, "Threads");
   await expect(page.getByText("Forensics action test").first()).toBeVisible();
-  await page
-    .getByRole("checkbox", { name: /Select thread Forensics action test/i })
-    .check();
-  await page.getByText("Forensics action test").first().click();
+  await page.getByRole("checkbox", { name: /Select thread Forensics action test/i }).check();
   await expect(page.getByText(/Current selection 1/i).first()).toBeVisible();
 
   await page.getByRole("button", { name: impactAnalysisLabel }).first().click();

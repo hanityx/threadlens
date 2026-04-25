@@ -8,12 +8,23 @@ export function useSessionDetailModel(props: SessionDetailProps) {
     messages,
     providerDeleteBackupEnabled,
     runSingleProviderAction,
+    runPreparedProviderAction,
+    sessionActionSelection,
   } = props;
   const actionState = useSessionDetailActions(props);
   const display = useSessionDetailDisplay(props);
 
   const executeSessionAction = () => {
-    if (!display.selectedSession || !display.sessionScopedActionResult) return;
+    if (!display.sessionScopedActionResult) return;
+    if (
+      display.sessionScopedActionResult.target_count > 1 &&
+      sessionActionSelection &&
+      runPreparedProviderAction
+    ) {
+      void runPreparedProviderAction(sessionActionSelection);
+      return;
+    }
+    if (!display.selectedSession) return;
     runSingleProviderAction(
       display.selectedSession.provider,
       display.selectedSession.file_path,

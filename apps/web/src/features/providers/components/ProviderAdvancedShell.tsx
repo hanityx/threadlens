@@ -2,7 +2,7 @@ import type { Messages } from "@/i18n";
 import { Button } from "@/shared/ui/components/Button";
 import { formatDateTime } from "@/shared/lib/format";
 import type { ProviderDataDepth } from "@/shared/types";
-import { formatFetchMs } from "@/features/providers/lib/helpers";
+import "./providerAdvanced.css";
 
 export interface ProviderAdvancedShellProps {
   messages: Messages;
@@ -41,17 +41,9 @@ export function ProviderAdvancedShell({
   providersLastRefreshAt,
   providerDataDepth,
   onProviderDataDepthChange,
-  slowProviderThresholdMs,
-  slowThresholdOptions,
-  onSlowProviderThresholdChange,
   canReturnHotspotScope,
   hotspotOriginLabel,
   onReturnHotspotScope,
-  providerFetchMetrics,
-  slowProviderIdsCount,
-  providerTabCount,
-  slowProviderSummary,
-  hasSlowProviderFetch,
   matrixSlot,
 }: ProviderAdvancedShellProps) {
   return (
@@ -100,7 +92,6 @@ export function ProviderAdvancedShell({
               </span>
               <div className="inline-tools-disclosure">
                 <div className="sub-toolbar inline-tools-disclosure-body">
-                  <strong>{messages.providers.advancedSettingsSummary}</strong>
                   <label className="provider-quick-switch">
                     <span>{messages.providers.depthLabel}</span>
                     <select
@@ -115,23 +106,6 @@ export function ProviderAdvancedShell({
                       <option value="deep">{messages.providers.depthDeep}</option>
                     </select>
                   </label>
-                  <label className="provider-quick-switch">
-                    <span>{messages.providers.slowThresholdLabel}</span>
-                    <select
-                      className="provider-quick-select"
-                      value={String(slowProviderThresholdMs)}
-                      onChange={(e) => {
-                        const nextValue = Number(e.target.value);
-                        if (Number.isFinite(nextValue)) onSlowProviderThresholdChange(nextValue);
-                      }}
-                    >
-                      {slowThresholdOptions.map((thresholdMs) => (
-                        <option key={`slow-threshold-${thresholdMs}`} value={thresholdMs}>
-                          {thresholdMs}ms
-                        </option>
-                      ))}
-                    </select>
-                  </label>
                   {canReturnHotspotScope ? (
                     <Button
                       variant="outline"
@@ -140,32 +114,13 @@ export function ProviderAdvancedShell({
                       {messages.providers.scopeReturn} {hotspotOriginLabel}
                     </Button>
                   ) : null}
-                  <span className="sub-hint">
-                    {messages.providers.parserHint}
-                    {` · ${messages.providers.fetchMsLabel} `}
-                    {`${messages.providers.fetchMsDataSources} ${formatFetchMs(providerFetchMetrics.data_sources)}`}
-                    {` · ${messages.providers.fetchMsMatrix} ${formatFetchMs(providerFetchMetrics.matrix)}`}
-                    {` · ${messages.providers.fetchMsSessions} ${formatFetchMs(providerFetchMetrics.sessions)}`}
-                    {` · ${messages.providers.fetchMsParser} ${formatFetchMs(providerFetchMetrics.parser)}`}
-                    {` · ${messages.providers.slowProvidersLabel} ${slowProviderIdsCount}/${providerTabCount}`}
-                    {` · ${messages.providers.slowThresholdLabel} ${slowProviderThresholdMs}ms`}
-                    {slowProviderIdsCount > 0
-                      ? ` · ${slowProviderSummary}`
-                      : ` · ${messages.providers.slowProvidersNone}`}
-                    {hasSlowProviderFetch ? ` · ${messages.providers.fetchMsSlow}` : ""}
-                  </span>
                 </div>
               </div>
             </section>
 
             {matrixSlot}
           </>
-        ) : (
-          <div className="info-box compact">
-            <strong>{messages.providers.advancedClosedTitle}</strong>
-            <p>{messages.providers.advancedClosedBody}</p>
-          </div>
-        )}
+        ) : null}
       </div>
     </details>
   );

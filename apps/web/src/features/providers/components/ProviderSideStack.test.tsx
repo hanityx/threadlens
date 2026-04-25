@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { getMessages } from "@/i18n";
+import { getMessages } from "@/i18n/catalog";
 import { ProviderSideStack } from "@/features/providers/components/ProviderSideStack";
 
 describe("ProviderSideStack", () => {
@@ -19,6 +19,7 @@ describe("ProviderSideStack", () => {
     expect(html).toContain("provider-side-stack");
     expect(html).toContain("Session detail slot");
     expect(html).toContain(messages.providers.backupHubTitle);
+    expect(html).toContain('data-testid="provider-backup-hub-section" open=""');
     expect(html).toContain("Backup slot");
     expect(html).toContain("Parser slot");
   });

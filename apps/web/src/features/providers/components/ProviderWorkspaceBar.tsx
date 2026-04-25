@@ -1,6 +1,7 @@
 import type { Messages } from "@/i18n";
 import { Chip } from "@/shared/ui/components/Chip";
 import type { ProviderView } from "@/shared/types";
+import "./providerWorkspaceBar.css";
 
 type ProviderChipTab = {
   id: ProviderView;
@@ -66,9 +67,6 @@ export function ProviderWorkspaceBar({
   return (
     <section className="page-section-header provider-workspace-bar">
       <div className="provider-workspace-copy">
-        <div className="thread-workflow-copy-eyebrow">
-          <span className="overview-note-label">{messages.providers.hubTitle}</span>
-        </div>
         <strong className="provider-workspace-title">
           {providerLabel}
         </strong>

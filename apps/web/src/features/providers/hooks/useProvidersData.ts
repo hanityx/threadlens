@@ -164,6 +164,26 @@ export function resolveAllProviderRowsSelected(
   );
 }
 
+export function shouldClearSelectedSessionPath(options: {
+  selectedSessionPath: string;
+  availableProviderFilePaths: Set<string>;
+  providerSessionsLoading: boolean;
+  keepSelectedSessionPathFallback: boolean;
+}) {
+  if (!options.selectedSessionPath) return false;
+  if (options.availableProviderFilePaths.has(options.selectedSessionPath)) return false;
+  if (options.providerSessionsLoading) return false;
+  if (options.keepSelectedSessionPathFallback) return false;
+  return true;
+}
+
+export function shouldKeepSelectedSessionPathFallback(options: {
+  providerView: ProviderView;
+  selectedSessionPath: string;
+}) {
+  return options.providerView !== "all" && Boolean(options.selectedSessionPath.trim());
+}
+
 export function useProvidersData(options: {
   layoutView: LayoutView;
   providerView: ProviderView;
@@ -498,10 +518,28 @@ export function useProvidersData(options: {
     setProviderView,
   ]);
   useEffect(() => {
-    if (!selectedSessionPath) return;
-    if (availableProviderFilePaths.has(selectedSessionPath)) return;
+    if (
+      !shouldClearSelectedSessionPath({
+        selectedSessionPath,
+        availableProviderFilePaths,
+        providerSessionsLoading:
+          providerSessions.isLoading || providerSessions.isFetching,
+        keepSelectedSessionPathFallback: shouldKeepSelectedSessionPathFallback({
+          providerView,
+          selectedSessionPath,
+        }),
+      })
+    ) {
+      return;
+    }
     setSelectedSessionPath("");
-  }, [availableProviderFilePaths, selectedSessionPath]);
+  }, [
+    availableProviderFilePaths,
+    providerView,
+    providerSessions.isFetching,
+    providerSessions.isLoading,
+    selectedSessionPath,
+  ]);
   useEffect(() => {
     setSelectedProviderFiles((prev) =>
       pruneProviderSelectionForView(prev, providerView, providerScopedFilePaths),

@@ -23,6 +23,14 @@ type BuildProvidersWorkspaceStateArgs = {
   providerActionSelection: ProviderActionSelection | null | undefined;
 };
 
+export function shouldShowProvidersWorkspaceSessionDetail(options: {
+  selectedSession: ProviderSessionRow | null;
+  visibleSessionRowsCount: number;
+}) {
+  if (options.selectedSession) return true;
+  return options.visibleSessionRowsCount > 0;
+}
+
 export function buildProvidersWorkspaceState({
   messages,
   providerSessionRows,
@@ -48,12 +56,19 @@ export function buildProvidersWorkspaceState({
       ? [{ title: emptySessionNextTitle, path: emptySessionNextPath, description: "" }]
       : [];
 
+  const selectedActionPaths = providerActionSelection?.file_paths ?? [];
+  const selectedActionMatchesCurrentSelection =
+    selectedActionPaths.length > 1 &&
+    selectedActionPaths.length === selectedSessionCount &&
+    selectedActionPaths.every((filePath) => Boolean(selectedProviderFiles[filePath]));
   const selectedSessionActionResult =
     selectedSession &&
     providerActionData &&
     providerActionSelection?.file_paths?.length === 1 &&
     providerActionSelection.file_paths[0] === selectedSession.file_path
       ? providerActionData
+      : providerActionData && selectedActionMatchesCurrentSelection
+        ? providerActionData
       : null;
 
   const sessionDetailKey = selectedSession?.file_path ?? "empty-session-detail";

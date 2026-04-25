@@ -197,6 +197,8 @@ export function useProvidersPanelInteractions(options: {
       return;
     }
 
+    state.activeSessionPanelBaselineRef.current = null;
+
     const stackTarget = state.providerSideStackRef.current;
     const detailTarget = stackTarget.querySelector<HTMLElement>(".session-detail-panel");
     let frameId = 0;
@@ -231,7 +233,7 @@ export function useProvidersPanelInteractions(options: {
       if (frameId) cancelAnimationFrame(frameId);
       observer.disconnect();
     };
-  }, [props.selectedSessionPath, state.providerSideStackRef, state.setActiveSessionPanelHeight, state.activeSessionPanelBaselineRef]);
+  }, [props.selectedSessionPath, state.advancedOpen, state.providerSideStackRef, state.setActiveSessionPanelHeight, state.activeSessionPanelBaselineRef]);
 
   const hotspotOriginLabel = useMemo(
     () =>
