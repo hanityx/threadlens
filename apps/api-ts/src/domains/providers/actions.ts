@@ -1,11 +1,12 @@
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
-import { copyFile, mkdir, stat, unlink, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, realpath, stat, unlink, writeFile } from "node:fs/promises";
 import { BACKUP_ROOT, HOME_DIR } from "../../lib/constants.js";
 import { nowIsoUtc } from "../../lib/utils.js";
 import { isPathInsideRoot, providerRootSpecs } from "./path-safety.js";
 import type {
   ProviderId,
+  ProviderRootSpec,
   ProviderSessionAction,
   ProviderSessionActionOptions,
 } from "./types.js";
@@ -95,27 +96,56 @@ function requiresProviderCleanupPrivilege(action: ProviderSessionAction): boolea
   return action !== "backup_local";
 }
 
-function resolveArchivedSessionRestoreTarget(
+function isSafeProviderRelativePath(relativePath: string): boolean {
+  return Boolean(relativePath) &&
+    relativePath !== "." &&
+    relativePath !== ".." &&
+    !relativePath.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relativePath);
+}
+
+async function relativePathWithinProviderRoot(
+  filePath: string,
+  spec: ProviderRootSpec,
+): Promise<string | null> {
+  const resolvedPath = path.resolve(filePath);
+  if (isPathInsideRoot(resolvedPath, spec.root)) {
+    const relativePath = path.relative(spec.root, resolvedPath);
+    return isSafeProviderRelativePath(relativePath) ? relativePath : null;
+  }
+
+  try {
+    const [realTarget, realRoot] = await Promise.all([
+      realpath(resolvedPath),
+      realpath(spec.root),
+    ]);
+    if (isPathInsideRoot(realTarget, realRoot)) {
+      const relativePath = path.relative(realRoot, realTarget);
+      return isSafeProviderRelativePath(relativePath) ? relativePath : null;
+    }
+  } catch {
+    // Fall back to the resolved path comparison above when a root cannot be realpathed.
+  }
+
+  return null;
+}
+
+async function resolveArchivedSessionRestoreTarget(
   provider: ProviderId,
   filePath: string,
-): string | null {
-  const resolvedPath = path.resolve(filePath);
+): Promise<string | null> {
   const specs = providerRootSpecs(provider);
-  const archivedSpec = specs
-    .filter((spec) => spec.source === "archived_sessions" && isPathInsideRoot(resolvedPath, spec.root))
-    .sort((left, right) => right.root.length - left.root.length)[0];
+  const archivedSpecs = specs
+    .filter((spec) => spec.source === "archived_sessions")
+    .sort((left, right) => right.root.length - left.root.length);
   const sessionsSpec = specs.find((spec) => spec.source === "sessions");
-  if (!archivedSpec) return null;
-  const relativePath = path.relative(archivedSpec.root, resolvedPath);
-  if (
-    !relativePath ||
-    relativePath === "." ||
-    relativePath === ".." ||
-    relativePath.startsWith(`..${path.sep}`) ||
-    path.isAbsolute(relativePath)
-  ) {
-    return null;
+  let relativePath: string | null = null;
+  for (const spec of archivedSpecs) {
+    relativePath = await relativePathWithinProviderRoot(filePath, spec);
+    if (relativePath) break;
   }
+  if (!relativePath) return null;
+
   if (sessionsSpec && !relativePath.includes(path.sep)) {
     return path.join(sessionsSpec.root, relativePath);
   }
@@ -136,34 +166,33 @@ function resolveArchivedSessionRestoreTarget(
   return null;
 }
 
-function resolveArchivedSessionStoreTarget(
+async function resolveArchivedSessionStoreTarget(
   provider: ProviderId,
   filePath: string,
-): string | null {
+): Promise<string | null> {
   const resolvedPath = path.resolve(filePath);
   const specs = providerRootSpecs(provider);
   const archivedSpec = specs.find((spec) => spec.source === "archived_sessions");
   if (!archivedSpec) return null;
-  const sourceSpec = specs
+  const sourceSpecs = specs
     .filter(
       (spec) =>
         spec.source !== "cleanup_backups" &&
         spec.source !== "archived_sessions" &&
-        spec.exts.includes(path.extname(resolvedPath).toLowerCase()) &&
-        isPathInsideRoot(resolvedPath, spec.root),
+        spec.exts.includes(path.extname(resolvedPath).toLowerCase()),
     )
-    .sort((left, right) => right.root.length - left.root.length)[0];
-  if (!sourceSpec) return null;
-  const relativePath = path.relative(sourceSpec.root, resolvedPath);
-  if (
-    !relativePath ||
-    relativePath === "." ||
-    relativePath === ".." ||
-    relativePath.startsWith(`..${path.sep}`) ||
-    path.isAbsolute(relativePath)
-  ) {
-    return null;
+    .sort((left, right) => right.root.length - left.root.length);
+  let sourceSpec: ProviderRootSpec | null = null;
+  let relativePath: string | null = null;
+  for (const spec of sourceSpecs) {
+    relativePath = await relativePathWithinProviderRoot(resolvedPath, spec);
+    if (relativePath) {
+      sourceSpec = spec;
+      break;
+    }
   }
+  if (!sourceSpec || !relativePath) return null;
+
   const archiveRelativePath =
     provider === "codex" && sourceSpec.source === "sessions"
       ? relativePath
@@ -568,7 +597,7 @@ export async function runProviderSessionAction(
   } else if (action === "archive_local") {
     archivedTo = resolveArchivedSessionRoot(provider);
     for (const sourcePath of valid) {
-      const targetPath = resolveArchivedSessionStoreTarget(provider, sourcePath);
+      const targetPath = await resolveArchivedSessionStoreTarget(provider, sourcePath);
       if (!targetPath) {
         failed.push({
           file_path: sourcePath,
@@ -603,7 +632,7 @@ export async function runProviderSessionAction(
     }
   } else if (action === "unarchive_local") {
     for (const sourcePath of valid) {
-      const targetPath = resolveArchivedSessionRestoreTarget(provider, sourcePath);
+      const targetPath = await resolveArchivedSessionRestoreTarget(provider, sourcePath);
       if (!targetPath) {
         failed.push({
           file_path: sourcePath,

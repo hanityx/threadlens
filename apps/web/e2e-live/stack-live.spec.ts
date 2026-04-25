@@ -4,13 +4,20 @@ const providersTabLabel = /^(Providers|Sessions|Source Sessions|Session Vault)$/
 const threadsTabLabel = /^(Thread|Threads|Cleanup|Codex Cleanup)$/i;
 const providersHubTitle = /^(Sessions|Original Sessions|Source Sessions|Session Vault)$/i;
 const routingTitle = /^(AI Diagnostics|AI Diagnostics \/ Execution Flow|Execution Routing Graph|Diagnostics map)$/i;
-const bulkImpactLabel = /^(Bulk Impact Analysis|Run impact analysis)$/i;
-const bulkCleanupDryRunLabel = /^(Bulk Cleanup Dry-Run|Run cleanup dry-run)$/i;
+const bulkImpactLabel = /^(Bulk Impact Analysis|Run impact analysis|Impact analysis)$/i;
+const bulkCleanupDryRunLabel = /^(Bulk Cleanup Dry-Run|Run cleanup dry-run|Prepare deletion)$/i;
 const selectAllFilteredLabel = /^(Select all filtered)$/i;
 const forensicsErrorLabel = /^(Analysis\/dry-run request failed)$/i;
 const threadsHeading = /^(Thread|Cleanup|Threads|Codex Cleanup)$/i;
-const forensicsTitle = /^(Cleanup Check \/ Next Steps)$/i;
-const tokenLabel = /^(Token)$/i;
+const forensicsTitle = /^(Cleanup Check|Cleanup Check \/ Next Steps)$/i;
+const prepReadyLabel = /^(Deletion prep ready|Token|Prep)$/i;
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("po-locale", "en");
+    window.localStorage.removeItem("cmc-locale");
+  });
+});
 
 test("live stack renders providers and routing views", async ({ page }, testInfo) => {
   await page.goto("/");
@@ -45,6 +52,6 @@ test("live stack executes safe forensics dry-run flow when threads exist", async
 
   await expect(page.locator(".impact-panel").first()).toBeVisible();
   await expect(page.getByRole("heading", { name: forensicsTitle }).first()).toBeVisible();
-  await expect(page.getByText(tokenLabel)).toBeVisible();
+  await expect(page.getByText(prepReadyLabel).first()).toBeVisible();
   await expect(page.getByText(forensicsErrorLabel)).toHaveCount(0);
 });

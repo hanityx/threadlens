@@ -45,11 +45,15 @@ export function removeBackupCleanupTargetsFromThreadsCache(queryClient: QueryCli
   const targetPaths = new Set(targets.map((target) => normalizeCacheString(target.path)).filter(Boolean));
   const targetIds = new Set(targets.map((target) => normalizeCacheString(target.thread_id)).filter(Boolean));
   if (targetPaths.size === 0 && targetIds.size === 0) return;
+  const removeAppliedCleanupTargets =
+    normalizeCacheString(cleanupData?.mode) === "applied" &&
+    Number(cleanupData?.deleted_file_count ?? 0) > 0;
 
   queryClient.setQueriesData<ThreadsCacheData>({ queryKey: ["threads"] }, (current) => {
     if (!current || !Array.isArray(current.rows)) return current;
     const nextRows = current.rows.filter((row) => {
-      if (normalizeCacheString(row.source) !== "cleanup_backups") return true;
+      const source = normalizeCacheString(row.source);
+      if (source !== "cleanup_backups" && !removeAppliedCleanupTargets) return true;
       const rowPaths = normalizeCachePaths(row.local_cache_paths);
       if (rowPaths.some((path) => targetPaths.has(path))) return false;
       const rowId = normalizeCacheString(row.thread_id || row.id);
@@ -248,6 +252,7 @@ export function useThreadMutationActions(options: UseThreadMutationActionsOption
     onSuccess: (data) => {
       setCleanupRaw(data);
       setPendingCleanup(null);
+      removeBackupCleanupTargetsFromThreadsCache(queryClient, data);
       queryClient.invalidateQueries({ queryKey: ["threads"] });
       invalidateProviderSurfaceQueries();
       queryClient.invalidateQueries({ queryKey: ["recovery"] });

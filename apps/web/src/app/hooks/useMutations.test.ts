@@ -120,6 +120,44 @@ describe("performProviderHardDeleteFlow", () => {
     ).rejects.toThrow("delete failed");
     expect(runAction).toHaveBeenCalledTimes(2);
   });
+
+  it("throws when the execute response resolves with ok false", async () => {
+    const runAction = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        provider: "codex",
+        action: "delete_local",
+        dry_run: true,
+        target_count: 1,
+        valid_count: 1,
+        applied_count: 0,
+        confirm_token_expected: "tok-hard-delete",
+        confirm_token_accepted: false,
+        backup_before_delete: false,
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        provider: "codex",
+        action: "delete_local",
+        dry_run: false,
+        target_count: 1,
+        valid_count: 1,
+        applied_count: 0,
+        confirm_token_expected: "",
+        confirm_token_accepted: true,
+        backup_before_delete: false,
+        error: "no-archived-session-target",
+      });
+
+    await expect(
+      performProviderHardDeleteFlow(runAction, {
+        provider: "codex",
+        file_paths: ["/tmp/a.jsonl"],
+      }),
+    ).rejects.toThrow("no-archived-session-target");
+    expect(runAction).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("startRecoveryBackupDownload", () => {
@@ -230,6 +268,29 @@ describe("useMutations helpers", () => {
     expect(queryClient.getQueryData(cacheKey)).toEqual({
       rows: [keepSession, keepBackup],
       total: 2,
+    });
+  });
+
+  it("removes applied cleanup target rows from cached thread queries", () => {
+    const queryClient = new QueryClient();
+    const cacheKey = ["threads", "all", 2000, "updated_desc"];
+    const deleteSession = { thread_id: "live-delete", source: "sessions", local_cache_paths: ["/tmp/live-delete.jsonl"] };
+    const keepSession = { thread_id: "live-keep", source: "sessions", local_cache_paths: ["/tmp/live-keep.jsonl"] };
+    queryClient.setQueryData(cacheKey, {
+      rows: [deleteSession, keepSession],
+      total: 2,
+    });
+
+    removeBackupCleanupTargetsFromThreadsCache(queryClient, {
+      ok: true,
+      mode: "applied",
+      deleted_file_count: 1,
+      targets: [{ thread_id: "live-delete", path: "/tmp/live-delete.jsonl" }],
+    });
+
+    expect(queryClient.getQueryData(cacheKey)).toEqual({
+      rows: [keepSession],
+      total: 1,
     });
   });
 

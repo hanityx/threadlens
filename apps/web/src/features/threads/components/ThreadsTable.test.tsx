@@ -339,8 +339,8 @@ describe("ThreadsTable", () => {
     });
   });
 
-  it("treats a visible focused thread as one active selection when no checkboxes are set", () => {
-    expect(resolveVisibleThreadSelectionCount(rows, [], "thread-1234567890")).toBe(1);
+  it("counts only checkbox-selected threads, not the focused detail row", () => {
+    expect(resolveVisibleThreadSelectionCount(rows, [], "thread-1234567890")).toBe(0);
     expect(resolveVisibleThreadSelectionCount(rows, [], "missing-thread")).toBe(0);
     expect(resolveVisibleThreadSelectionCount(rows, ["thread-archived-1234"], "thread-1234567890")).toBe(1);
   });
@@ -505,7 +505,7 @@ describe("ThreadsTable", () => {
 
     expect(html).toContain(`${deMessages.threadsTable.fallbackTitlePrefix} thread-1`);
     expect(html).toContain(deMessages.threadsTable.sourceSessions);
-    expect(html).toContain(`${deMessages.threadsTable.workflowSelectedTitle} 1`);
+    expect(html).toContain(`${deMessages.threadsTable.workflowSelectedTitle} 0`);
     expect(html).toContain("thread-table-title-text");
     expect(html).not.toContain(deMessages.threadsTable.currentSelection);
   });

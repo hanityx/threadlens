@@ -296,6 +296,40 @@ describe("thread cleanup", () => {
     });
   });
 
+  it("executeBackupCleanupTs reports partial when a cleanup backup delete fails", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "po-backup-cleanup-partial-"));
+    const backupRoot = path.join(root, "provider_actions");
+    const existing = path.join(backupRoot, "codex", "existing.jsonl");
+    const missing = path.join(backupRoot, "codex", "missing.jsonl");
+    await mkdir(path.dirname(existing), { recursive: true });
+    await writeFile(existing, "backup", "utf-8");
+    mockGetOverviewTs.mockResolvedValueOnce({
+      threads: [
+        {
+          thread_id: "thread-backup",
+          source: "cleanup_backups",
+          local_cache_paths: [existing, missing],
+        },
+      ],
+    });
+
+    const data = await executeBackupCleanupTs(["thread-backup"], {
+      backupRoots: [backupRoot],
+    });
+
+    expect(data.ok).toBe(false);
+    expect(data.mode).toBe("partial");
+    expect(data.target_file_count).toBe(2);
+    expect(data.deleted_file_count).toBe(1);
+    expect(data.failed).toHaveLength(1);
+    expect(data.failure_summary).toMatchObject({
+      failed_count: 1,
+      partial_failure: true,
+      delete_failed_count: 1,
+    });
+    await expect(stat(existing)).rejects.toThrow();
+  });
+
   it("executeLocalCleanupTs rejects execute with mismatched cleanup token", async () => {
     const fixture = await makeFixture();
     const result = await executeLocalCleanupTs([fixture.threadId], {
@@ -314,6 +348,51 @@ describe("thread cleanup", () => {
       mode: "failed",
       error: "confirmation token mismatch",
     });
+  });
+
+  it("executeLocalCleanupTs stops before delete when backup copy fails", async () => {
+    const fixture = await makeFixture();
+    const preview = await executeLocalCleanupTs([fixture.threadId], {
+      dryRun: true,
+      roots: {
+        chatDir: fixture.chatDir,
+        codexHome: fixture.codexHome,
+        backupRoot: fixture.backupRoot,
+        stateFilePath: fixture.stateFilePath,
+      },
+    });
+
+    const result = await executeLocalCleanupTs([fixture.threadId], {
+      dryRun: false,
+      confirmToken: String(preview.confirm_token_expected),
+      roots: {
+        chatDir: fixture.chatDir,
+        codexHome: fixture.codexHome,
+        backupRoot: fixture.backupRoot,
+        stateFilePath: fixture.stateFilePath,
+      },
+      backupPaths: async () => ({
+        backup_dir: path.join(fixture.backupRoot, "failed"),
+        copied_count: 0,
+        copied: [],
+        failed: [{ path: fixture.cacheFile, error: "copy failed" }],
+      }),
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      mode: "failed",
+      error: "backup-failed-before-delete",
+      deleted_file_count: 0,
+      failure_summary: {
+        failed_count: 1,
+        partial_failure: false,
+        backup_failed_count: 1,
+        delete_failed_count: 0,
+      },
+    });
+    await expect(stat(fixture.cacheFile)).resolves.toBeTruthy();
+    await expect(stat(fixture.sessionFile)).resolves.toBeTruthy();
   });
 
   it("executeLocalCleanupTs executes delete and state cleanup with correct token", async () => {

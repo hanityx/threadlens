@@ -27,7 +27,6 @@ import {
 import { invalidateCodexThreadTitleMapCache } from "../../domains/providers/title-detection.js";
 import { resolveCodexSessionPathByThreadId } from "../../domains/providers/search.js";
 import {
-  bulkRequestSchema,
   envelope,
   isRecord,
   pathExists,
@@ -54,6 +53,17 @@ async function openDirectoryInOs(directoryPath: string): Promise<void> {
   });
 }
 
+function firstQueryValue(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return String(value[0] ?? "");
+  return String(value ?? "");
+}
+
+function clampTranscriptLimit(value: string | string[] | undefined): number {
+  const parsed = Number(firstQueryValue(value).trim());
+  if (!Number.isFinite(parsed)) return 300;
+  return Math.max(1, Math.min(1000, Math.floor(parsed)));
+}
+
 export async function registerThreadRoutes(
   app: FastifyInstance,
   deps: {
@@ -63,6 +73,10 @@ export async function registerThreadRoutes(
 ): Promise<void> {
   const threadIdSchema = z.string().min(1).refine((value) => parseSafeThreadId(value) !== null, {
     message: "invalid thread id",
+  });
+  const bulkThreadActionPayloadSchema = z.object({
+    action: z.enum(["pin", "unpin", "archive_local", "unarchive_local", "resume_command"]),
+    thread_ids: z.array(threadIdSchema).min(1).max(500),
   });
   const idsPayloadSchema = z.object({
     ids: z.array(threadIdSchema).min(1).max(500),
@@ -108,7 +122,7 @@ export async function registerThreadRoutes(
   app.post<{ Body: BulkThreadActionRequest }>(
     "/api/bulk-thread-action",
     async (req, reply) => {
-      const parsed = bulkRequestSchema.safeParse(req.body);
+      const parsed = bulkThreadActionPayloadSchema.safeParse(req.body);
       if (!parsed.success) {
         return reply.code(400).send(envelope(null, parsed.error.message));
       }
@@ -317,7 +331,8 @@ export async function registerThreadRoutes(
       const data = await executeBackupCleanupTs(parsed.data.ids);
       deps.invalidateOverviewCache();
       deps.invalidateProviderSessionCache("codex");
-      return reply.code(data.ok ? 200 : 400).send(withSchemaVersion(data));
+      const status = data.ok ? 200 : String((data as { mode?: unknown }).mode ?? "") === "partial" ? 207 : 400;
+      return reply.code(status).send(withSchemaVersion(data));
     } catch (error) {
       return reply
         .code(500)
@@ -403,10 +418,11 @@ export async function registerThreadRoutes(
         const limitRaw = Array.isArray(req.query.limit)
           ? req.query.limit[0]
           : req.query.limit;
-        const threadId = String(threadRaw ?? "").trim();
-        if (!threadId) {
-          return reply.code(400).send(envelope(null, "thread_id required"));
+        const parsedThreadId = threadIdSchema.safeParse(String(threadRaw ?? "").trim());
+        if (!parsedThreadId.success) {
+          return reply.code(400).send(envelope(null, parsedThreadId.error.message));
         }
+        const threadId = parsedThreadId.data;
         const filePath = await resolveCodexSessionPathByThreadId(threadId);
         if (!filePath) {
           return reply
@@ -416,7 +432,7 @@ export async function registerThreadRoutes(
         const data = await buildSessionTranscript(
           "codex",
           filePath,
-          Number(limitRaw) || 300,
+          clampTranscriptLimit(limitRaw),
         );
         return reply.code(200).send(withSchemaVersion(data));
       } catch (error) {

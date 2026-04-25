@@ -71,7 +71,7 @@ export async function backupSession(
 
 export async function runProviderAction(
   provider: string,
-  action: "backup_local" | "archive_local" | "delete_local",
+  action: "backup_local" | "archive_local" | "unarchive_local" | "delete_local",
   filePaths: string[],
   options?: {
     dryRun?: boolean;

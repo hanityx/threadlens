@@ -36,9 +36,19 @@ export function filterVisibleSessionRows(rows: ProviderSessionRow[]): ProviderSe
   return rows.filter(shouldShowSessionRow);
 }
 
+type ConfirmableSessionAction = "archive_local" | "unarchive_local" | "delete_local";
+
+function isArchivedSessionRow(row: ProviderSessionRow): boolean {
+  return row.source === "archived_sessions";
+}
+
+function resolveArchiveSessionAction(row: ProviderSessionRow): Exclude<ConfirmableSessionAction, "delete_local"> {
+  return isArchivedSessionRow(row) ? "unarchive_local" : "archive_local";
+}
+
 function ActionBadge({ kind, mode }: { kind: string; mode: string }) {
-  const label = kind === "backup_local" ? "BAK" : kind === "archive_local" ? "ARC" : "DEL";
-  const color = kind === "delete_local" ? "red" : kind === "archive_local" ? "yellow" : "green";
+  const label = kind === "backup_local" ? "BAK" : kind === "unarchive_local" ? "UNA" : kind === "archive_local" ? "ARC" : "DEL";
+  const color = kind === "delete_local" ? "red" : kind === "backup_local" ? "green" : "yellow";
   return (
     <Box gap={1}>
       <Text color={color} bold>{label}</Text>
@@ -124,12 +134,12 @@ export function SessionsView(props: {
   const [actionStatus, setActionStatus] = useState<{ tone: StatusTone; text: string } | null>(null);
   const [pendingInitialPath, setPendingInitialPath] = useState<string | null>(initialFilePath);
   const [pendingAction, setPendingAction] = useState<{
-    kind: "archive_local" | "delete_local";
+    kind: ConfirmableSessionAction;
     token: string;
     filePath: string;
   } | null>(null);
   const [lastAction, setLastAction] = useState<{
-    kind: "backup_local" | "archive_local" | "delete_local";
+    kind: "backup_local" | ConfirmableSessionAction;
     mode: "execute" | "dry-run";
     token: string;
     targetCount: number;
@@ -228,9 +238,9 @@ export function SessionsView(props: {
 
   const selected = filteredRows[selectedIndex] ?? null;
   const pendingActionText = pendingAction
-    ? pendingAction.kind === "archive_local"
-      ? messages.sessions.archiveExecutePrompt(pendingAction.token)
-      : messages.sessions.deleteExecutePrompt(pendingAction.token)
+    ? pendingAction.kind === "delete_local"
+      ? messages.sessions.deleteExecutePrompt(pendingAction.token)
+      : messages.sessions.archiveExecutePrompt(pendingAction.token)
     : null;
   const selectedFilePath = filteredRows[selectedIndex]?.file_path ?? null;
   const renderSimpleEmptyState =
@@ -347,12 +357,13 @@ export function SessionsView(props: {
     }
     if (input === "a" && selected && selected.provider !== "all") {
       setActionStatus({ tone: "running", text: messages.sessions.archiveDryRun });
-      void runProviderAction(selected.provider, "archive_local", [selected.file_path], { dryRun: true })
+      const action = resolveArchiveSessionAction(selected);
+      void runProviderAction(selected.provider, action, [selected.file_path], { dryRun: true })
         .then((data) => {
           const token = String(data.confirm_token_expected || "").trim();
-          setPendingAction(token ? { kind: "archive_local", token, filePath: selected.file_path } : null);
+          setPendingAction(token ? { kind: action, token, filePath: selected.file_path } : null);
           setLastAction({
-            kind: "archive_local",
+            kind: action,
             mode: "dry-run",
             token,
             targetCount: data.target_count,
@@ -405,16 +416,17 @@ export function SessionsView(props: {
       return;
     }
     if (input === "A" && selected && selected.provider !== "all") {
-      if (!pendingAction || pendingAction.kind !== "archive_local" || pendingAction.filePath !== selected.file_path) {
+      const action = resolveArchiveSessionAction(selected);
+      if (!pendingAction || pendingAction.kind !== action || pendingAction.filePath !== selected.file_path) {
         setActionStatus({ tone: "pending", text: messages.sessions.archiveRunDryRunFirst });
         return;
       }
       setActionStatus({ tone: "running", text: messages.sessions.archiving });
-      void runProviderAction(selected.provider, "archive_local", [selected.file_path], { dryRun: false, confirmToken: pendingAction.token })
+      void runProviderAction(selected.provider, action, [selected.file_path], { dryRun: false, confirmToken: pendingAction.token })
         .then((data) => {
           setPendingAction(null);
           setLastAction({
-            kind: "archive_local",
+            kind: action,
             mode: "execute",
             token: "",
             targetCount: data.target_count,

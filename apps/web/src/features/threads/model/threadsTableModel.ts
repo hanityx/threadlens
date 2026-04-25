@@ -86,11 +86,9 @@ export function toggleSubsetSelectionState(
 }
 
 export function resolveVisibleThreadSelectionCount(
-  visibleRows: ThreadRow[],
+  _visibleRows: ThreadRow[],
   selectedIds: string[],
-  selectedThreadId: string,
+  _selectedThreadId: string,
 ): number {
-  if (selectedIds.length > 0) return selectedIds.length;
-  if (!selectedThreadId) return 0;
-  return visibleRows.some((row) => row.thread_id === selectedThreadId) ? 1 : 0;
+  return selectedIds.length;
 }

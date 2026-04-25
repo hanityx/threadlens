@@ -62,6 +62,11 @@ export async function performProviderHardDeleteFlow(
   });
 }
 
+function assertProviderActionResultOk(result: ProviderSessionActionResult | null | undefined) {
+  if (result?.ok !== false) return;
+  throw new Error(String(result.error || "provider-action-failed"));
+}
+
 export async function performProviderConfirmedActionFlow(
   runAction: (input: ProviderSessionActionInput) => Promise<ProviderSessionActionResult>,
   input: {
@@ -79,11 +84,12 @@ export async function performProviderConfirmedActionFlow(
     confirm_token: "",
     backup_before_delete: input.backup_before_delete,
   });
+  assertProviderActionResultOk(preview);
   const confirmToken = String(preview.confirm_token_expected ?? "").trim();
   if (!confirmToken) {
     throw new Error("provider-action-preview-required");
   }
-  return runAction({
+  const result = await runAction({
     provider: input.provider,
     action: input.action,
     file_paths: input.file_paths,
@@ -91,6 +97,8 @@ export async function performProviderConfirmedActionFlow(
     confirm_token: confirmToken,
     backup_before_delete: input.backup_before_delete,
   });
+  assertProviderActionResultOk(result);
+  return result;
 }
 
 export async function startRecoveryBackupDownload(options: RecoveryBackupDownloadRequest) {

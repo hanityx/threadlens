@@ -10,7 +10,7 @@ export default meta;
 type Story = StoryObj<typeof Badge>;
 
 export const Default: Story = {
-  args: { children: "v0.2.2" },
+  args: { children: "v0.3.0" },
 };
 
 export const BadgeRow: Story = {

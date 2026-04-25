@@ -1,7 +1,18 @@
 const path = require("node:path");
 
+const ALLOWED_EXTERNAL_HOSTS = new Set(["github.com", "www.github.com"]);
+
 function buildWindowTitle(windowTitleSuffix) {
   return windowTitleSuffix ? `ThreadLens ${windowTitleSuffix}` : "ThreadLens";
+}
+
+function isAllowedExternalUrl(rawUrl) {
+  try {
+    const parsed = new URL(String(rawUrl || ""));
+    return parsed.protocol === "https:" && ALLOWED_EXTERNAL_HOSTS.has(parsed.hostname);
+  } catch {
+    return false;
+  }
 }
 
 function createRouteSearch(route) {
@@ -76,7 +87,9 @@ function createMainWindow({
   });
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url);
+    if (isAllowedExternalUrl(url)) {
+      void shell.openExternal(url);
+    }
     return { action: "deny" };
   });
 
@@ -102,6 +115,7 @@ function createMainWindow({
 module.exports = {
   buildWindowTitle,
   createRouteSearch,
+  isAllowedExternalUrl,
   readInitialRoute,
   resolveRendererEntry,
   createMainWindow,

@@ -97,6 +97,17 @@ describe("api-ts direct endpoints", () => {
     expect(payload.ok).toBe(false);
   });
 
+  it("POST /api/bulk-thread-action rejects unsafe thread ids at the route boundary", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/bulk-thread-action",
+      payload: { action: "resume_command", thread_ids: ["../victim"] },
+    });
+    expect(res.statusCode).toBe(400);
+    const payload = res.json();
+    expect(payload.ok).toBe(false);
+  });
+
   it("POST /api/bulk-thread-action runs TS-native pin action", async () => {
     const res = await app.inject({
       method: "POST",
@@ -656,6 +667,16 @@ describe("api-ts direct endpoints", () => {
     const res = await app.inject({
       method: "GET",
       url: "/api/thread-transcript",
+    });
+    expect(res.statusCode).toBe(400);
+    const payload = res.json();
+    expect(payload.ok).toBe(false);
+  });
+
+  it("GET /api/thread-transcript rejects unsafe thread ids before resolving files", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/thread-transcript?thread_id=..%2Fvictim&limit=999999999",
     });
     expect(res.statusCode).toBe(400);
     const payload = res.json();
