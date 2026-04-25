@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { spawn } from "node:child_process";
 import type { UpdateCheckStatus } from "@threadlens/shared-contracts";
 import { Box, Text, useApp, useInput, useStdout } from "ink";
@@ -6,6 +6,7 @@ import { fetchUpdateCheck, getApiBaseUrl } from "./api.js";
 import { AppBootstrapProps, type ProviderScope, VIEWS } from "./config.js";
 import { getMessages } from "./i18n/index.js";
 import { resolveHeaderLayout } from "./lib/headerLayout.js";
+import { isReservedGlobalShortcut } from "./lib/globalShortcut.js";
 import {
   persistDismissedUpdateVersion,
   readDismissedUpdateVersion,
@@ -95,6 +96,7 @@ export function App(props: AppBootstrapProps) {
     ),
     [dismissedUpdateVersion, updateCheck],
   );
+  const reserveUpdateShortcuts = Boolean(visibleUpdateCheck?.has_update);
 
   const footerShortcuts = useMemo(() => {
     const shortcuts = [...(messages.app.footerShortcuts[activeView] ?? [])];
@@ -152,7 +154,6 @@ export function App(props: AppBootstrapProps) {
       exit();
       return;
     }
-    if (textEntryLocked) return;
     if (input === "q") {
       exit();
       return;
@@ -180,7 +181,9 @@ export function App(props: AppBootstrapProps) {
     }
     if (input === "3") {
       setViewIndex(2);
+      return;
     }
+    if (textEntryLocked && !isReservedGlobalShortcut(input, { includeUpdateShortcuts: reserveUpdateShortcuts })) return;
   });
 
   return (
@@ -229,6 +232,7 @@ export function App(props: AppBootstrapProps) {
           initialProvider={searchProvider}
           initialFocusMode={searchFocusMode}
           onTextEntryChange={setTextEntryLocked}
+          reserveUpdateShortcuts={reserveUpdateShortcuts}
           onQueryChange={setSearchQuery}
           onProviderChange={setSearchProvider}
           onFocusModeChange={setSearchFocusMode}
@@ -254,6 +258,7 @@ export function App(props: AppBootstrapProps) {
           initialFilePath={sessionsFilePath}
           initialFilter={sessionsFilter}
           onTextEntryChange={setTextEntryLocked}
+          reserveUpdateShortcuts={reserveUpdateShortcuts}
           onFilterChange={setSessionsFilter}
           onInitialFilePathHandled={() => setSessionsFilePath(null)}
         />
@@ -266,6 +271,7 @@ export function App(props: AppBootstrapProps) {
           initialThreadId={cleanupInitialThreadId}
           initialFilter={cleanupFilter}
           onTextEntryChange={setTextEntryLocked}
+          reserveUpdateShortcuts={reserveUpdateShortcuts}
           onFilterChange={setCleanupFilter}
           onInitialThreadIdHandled={() => setCleanupInitialThreadId(null)}
         />

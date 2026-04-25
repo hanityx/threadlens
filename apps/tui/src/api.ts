@@ -31,9 +31,13 @@ export async function fetchUpdateCheck(): Promise<UpdateCheckStatus> {
 export async function searchConversations(
   query: string,
   provider: string,
+  cursor?: string | null,
 ): Promise<NonNullable<SearchResponse["data"]>> {
   const providerQuery = provider === "all" ? "" : `&provider=${encodeURIComponent(provider)}`;
-  return apiGet(`/api/conversation-search?q=${encodeURIComponent(query)}&limit=120${providerQuery}`);
+  const cursorQuery = cursor ? `&cursor=${encodeURIComponent(cursor)}` : "";
+  return apiGet(
+    `/api/conversation-search?q=${encodeURIComponent(query)}&page_size=40&preview_hits_per_session=3${providerQuery}${cursorQuery}`,
+  );
 }
 
 export async function listProviderSessions(
