@@ -1,18 +1,24 @@
 <h1>
-  <img src="apps/web/public/favicon.svg" alt="ThreadLens icon" width="24" />
+  <img src="apps/web/public/favicon.svg" alt="ThreadLens icon" width="28" />
   ThreadLens
 </h1>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
-[![Node](https://img.shields.io/badge/Node-%3E%3D20-blue)](https://nodejs.org)
-[![pnpm](https://img.shields.io/badge/pnpm-%3E%3D10-orange)](https://pnpm.io)
-[![CI](https://github.com/hanityx/threadlens/actions/workflows/ci.yml/badge.svg)](https://github.com/hanityx/threadlens/actions/workflows/ci.yml)
+<p align="left">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-emerald.svg" alt="License: MIT" /></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/Node-%3E%3D22.12-blue" alt="Node" /></a>
+  <a href="https://pnpm.io"><img src="https://img.shields.io/badge/pnpm-%3E%3D10.33.2-orange" alt="pnpm" /></a>
+  <a href="https://github.com/hanityx/threadlens/actions/workflows/ci.yml"><img src="https://github.com/hanityx/threadlens/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <img src="https://img.shields.io/badge/Codex-111111?style=flat-square&logo=openai&logoColor=white&labelColor=111111&color=111111" alt="Codex" />
+  <img src="https://img.shields.io/badge/Claude-111111?style=flat-square&logo=anthropic&logoColor=white&labelColor=111111&color=111111" alt="Claude" />
+  <img src="https://img.shields.io/badge/Gemini-111111?style=flat-square&logo=googlegemini&logoColor=white&labelColor=111111&color=111111" alt="Gemini" />
+  <img src="https://img.shields.io/badge/Copilot-111111?style=flat-square&logo=githubcopilot&logoColor=white&labelColor=111111&color=111111" alt="Copilot" />
+</p>
 
-English | [한국어](README.ko.md)
+English | [한국어](docs/README.ko.md)
 
-ThreadLens is a local-first workbench for AI conversation search, provider-session review, and safe thread cleanup.
+Local AI conversations pile up. ThreadLens lets you find them, read them, and clean them up safely.
 
-Search local conversations across Codex, Claude, Gemini, and Copilot, inspect transcripts, back up session files, and stop destructive work behind dry-run guardrails.
+Search across Codex, Claude, Gemini, and Copilot, inspect transcripts, back up session files, and delete only what you mean to — with dry-run confirmation before any file is touched.
 
 ## Overview
 
@@ -21,7 +27,17 @@ Search local conversations across Codex, Claude, Gemini, and Copilot, inspect tr
 </p>
 
 <p align="center">
-  <sub>Start in Overview for recent activity, provider health, runtime recovery, and the default AI.</sub>
+  <sub>Overview shows recent activity, provider health, and runtime signals across all connected providers.</sub>
+</p>
+
+## Demo
+
+<p align="center">
+  <img src="docs/assets/threadlens-demo.gif" alt="ThreadLens search and session transcript demo" />
+</p>
+
+<p align="center">
+  <sub>Search by keyword across all providers, open a session, and read the transcript — no provider-specific folders to navigate.</sub>
 </p>
 
 ## Core Workflows
@@ -31,7 +47,7 @@ Search local conversations across Codex, Claude, Gemini, and Copilot, inspect tr
 </p>
 
 <p align="center">
-  <sub>Start in Search when you know the phrase, then switch to Sessions for raw provider files and transcript detail.</sub>
+  <sub>Search finds conversations by phrase across all providers. Sessions opens the raw session files, transcripts, and file-level actions.</sub>
 </p>
 
 <p align="center">
@@ -40,62 +56,55 @@ Search local conversations across Codex, Claude, Gemini, and Copilot, inspect tr
 </p>
 
 <p align="center">
-  <sub>The TUI keeps Search and Sessions keyboard-first in the terminal, with transcript preview and backup-first actions in the same flow.</sub>
+  <sub>The TUI brings the same search and session workflows to the terminal, keyboard-first.</sub>
 </p>
 
-## Highlights
+## Features
 
-- `Conversation Search` finds the right session or thread before you pick a workflow.
-- `Sessions` opens provider session files, transcript previews, and backup-first file actions.
-- `Thread` gives Codex thread review, impact analysis, and dry-run token execution in a dedicated workflow.
-- `Overview Setup` can save one default AI so `Sessions` and `Search` reopen from the same starting point.
-- `Diagnostics` exposes runtime, parser, data-source, recovery, and execution-flow signals from the same local runtime.
-- Web, TUI, and desktop all reuse the same Fastify API surface.
+- **Multi-provider search** — find any conversation across Codex, Claude, Gemini, and Copilot by phrase or keyword
+- **Transcript review** — open session files and read full transcripts without hunting through provider-specific folders
+- **Backup first** — back up any session file before touching it; backup copies land in a timestamped local directory
+- **Safe cleanup** — every destructive action requires a dry-run first; a confirm token gates the actual execute
+- **Codex thread review** — dedicated workflow for inspecting thread impact and running targeted cleanup
+- **Terminal workbench** — keyboard-first TUI that shares the same provider scope and local API
+- **Web, TUI, and desktop** — all surfaces run against the same local Fastify API; no cloud required
 
 ## Getting Started
+
+Runtime baseline: Node.js 22.12+ and pnpm 10.33.2+. The local `.nvmrc` pins the minimum Node 22 baseline used for development, while CI runs the supported Node 22 line.
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-Default local endpoints:
-
 - Web UI: `http://127.0.0.1:5174`
-- TS API: `http://127.0.0.1:8788`
+- API: `http://127.0.0.1:8788`
 
-Optional surfaces:
+```bash
+pnpm dev:tui      # terminal workbench
+pnpm dev:desktop  # Electron shell
+```
 
-- `pnpm dev:tui` starts the terminal workbench
-- `pnpm dev:desktop` starts the Electron shell in development mode
+## Desktop
 
-## Desktop Build Note
-
-- Desktop packaging is available for macOS, Windows, and Linux.
-- Local packaging from this repository is unsigned by default on macOS and Windows.
-- Release assets always include `ThreadLens-<version>-SHA256SUMS.txt` and `ThreadLens-<version>-desktop-trust-notes.md`.
-- macOS signing and notarization activate only when release workflow signing secrets are configured. Otherwise the trust notes explicitly mark the macOS artifact unsigned.
-- Windows signing activates only when release workflow signing secrets are configured. Otherwise the trust notes explicitly mark the Windows artifact unsigned and SmartScreen can still appear.
-- Linux AppImage builds need `chmod +x ThreadLens-*.AppImage` before launch.
-- Packaged outputs land in `apps/desktop-electron/dist/`.
-- Desktop-specific build details live in `apps/desktop-electron/README.md`.
+Packages for macOS, Windows, and Linux are available via GitHub Releases. Local builds are unsigned by default — see [`apps/desktop-electron/README.md`](apps/desktop-electron/README.md) for build and signing details.
 
 ## Documentation
 
-- Architecture: `docs/ARCHITECTURE.md`
-- Design system: `docs/DESIGN_SYSTEM.md`
-- Workflows: `docs/WORKFLOWS.md`
-- Provider support: `docs/PROVIDER_SUPPORT.md`
-- TUI guide: `docs/TUI.md`
-- Release notes: GitHub Releases and merged PR history
+- [Architecture](docs/ARCHITECTURE.md)
+- [Workflows](docs/WORKFLOWS.md)
+- [Provider support](docs/PROVIDER_SUPPORT.md)
+- [TUI guide](docs/TUI.md)
+- [Design system](docs/DESIGN_SYSTEM.md)
 
 ## Contributing
 
-For development guidelines, issue reporting, and feature proposal flow, read [CONTRIBUTING.md](CONTRIBUTING.md).
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for dev setup, issue reporting, and the PR checklist.
 
 ## Security
 
-For vulnerability reporting, read [SECURITY.md](SECURITY.md).
+Report vulnerabilities via [SECURITY.md](SECURITY.md) and GitHub private vulnerability reporting.
 
 ## License
 
