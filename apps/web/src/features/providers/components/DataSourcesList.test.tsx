@@ -37,13 +37,14 @@ const rows: DataSourceInventoryRow[] = [
 ];
 
 describe("DataSourcesList", () => {
-  it("renders detected counts, labels, and jump actions for mapped providers", () => {
+  it("renders detected counts, labels, and provider session totals for mapped providers", () => {
     const onOpenProviderSessions = vi.fn<(providerId: ProviderView) => void>();
     const html = renderToStaticMarkup(
       <DataSourcesList
         copy={copy}
         dataSourcesLoading={false}
         dataSourceRows={rows}
+        providerSessionProviders={[{ provider: "codex", total_bytes: 5 * 1024 * 1024 }]}
         detectedDataSourceCount={1}
         canOpenProviderById={(providerId) => providerId === "codex"}
         onOpenProviderSessions={onOpenProviderSessions}
@@ -55,7 +56,7 @@ describe("DataSourcesList", () => {
     expect(html).toContain("Codex root");
     expect(html).toContain("Custom Source Key");
     expect(html).toContain("Open sessions");
-    expect(html).toContain("2.0 KB");
+    expect(html).toContain("5.0 MB");
     expect(onOpenProviderSessions).not.toHaveBeenCalled();
   });
 

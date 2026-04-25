@@ -1,12 +1,13 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { getMessages, type Messages } from "@/i18n";
+import type { Messages } from "@/i18n";
+import { getMessages } from "@/i18n/catalog";
 import { ProviderAdvancedShell } from "@/features/providers/components/ProviderAdvancedShell";
 
 const messages = getMessages("en");
 
 describe("ProviderAdvancedShell", () => {
-  it("renders open disclosure with controls, metrics, and matrix slot", () => {
+  it("renders open disclosure with refresh controls and matrix slot only", () => {
     const onAdvancedOpenChange = vi.fn();
     const onRefreshProvidersData = vi.fn();
     const onProviderDataDepthChange = vi.fn();
@@ -23,8 +24,8 @@ describe("ProviderAdvancedShell", () => {
         providersLastRefreshAt="2026-03-24T08:30:00.000Z"
         providerDataDepth="balanced"
         onProviderDataDepthChange={onProviderDataDepthChange}
-        slowProviderThresholdMs={400}
-        slowThresholdOptions={[250, 400, 800]}
+        slowProviderThresholdMs={800}
+        slowThresholdOptions={[800, 1200, 1600]}
         onSlowProviderThresholdChange={onSlowProviderThresholdChange}
         canReturnHotspotScope
         hotspotOriginLabel="Codex"
@@ -47,11 +48,15 @@ describe("ProviderAdvancedShell", () => {
     expect(html).toContain("Refresh scan now");
     expect(html).toContain("Last refresh");
     expect(html).toContain("Refresh / scan");
-    expect(html).toContain(messages.providers.advancedSettingsSummary);
     expect(html).toContain("Back Codex");
-    expect(html).toContain("Last fetch DS 120ms");
-    expect(html).toContain("Slow providers 1/4");
     expect(html).toContain("Matrix slot");
+    expect(html).not.toContain("Scan settings / slow checks");
+    expect(html).not.toContain("Slow providers 1/4");
+    expect(html).not.toContain("Slow cutoff 800ms");
+    expect(html).not.toContain("Codex 480ms");
+    expect(html).not.toContain("Detected local storage only reports whether folders and files exist.");
+    expect(html).not.toContain("Last fetch DS 120ms");
+    expect(html).not.toContain("Slow scan detected");
     expect(html).not.toContain("<details class=\"inline-tools-disclosure\"");
     expect(onAdvancedOpenChange).not.toHaveBeenCalled();
     expect(onRefreshProvidersData).not.toHaveBeenCalled();
@@ -71,8 +76,8 @@ describe("ProviderAdvancedShell", () => {
         providersLastRefreshAt=""
         providerDataDepth="fast"
         onProviderDataDepthChange={() => undefined}
-        slowProviderThresholdMs={400}
-        slowThresholdOptions={[250, 400, 800]}
+        slowProviderThresholdMs={800}
+        slowThresholdOptions={[800, 1200, 1600]}
         onSlowProviderThresholdChange={() => undefined}
         canReturnHotspotScope={false}
         hotspotOriginLabel=""
@@ -91,7 +96,8 @@ describe("ProviderAdvancedShell", () => {
       />,
     );
 
-    expect(html).toContain("Open only when needed.");
+    expect(html).toContain("Open provider table and refresh controls.");
+    expect(html).not.toContain("Open only when needed.");
     expect(html).not.toContain("Matrix slot");
   });
 });

@@ -1,0 +1,185 @@
+.provider-routing-tools-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  align-items: start;
+  margin-top: 0;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--surface-stage-border-subtle);
+  border-radius: var(--radius-container);
+  background: var(--surface-stage-subtle);
+  box-shadow: var(--surface-card-shadow);
+  backdrop-filter: blur(var(--blur-md));
+}
+
+.provider-routing-tools-main {
+  display: grid;
+  align-items: start;
+  min-width: 0;
+  padding-left: 0;
+  padding-top: 0;
+}
+
+.provider-routing-tools-trigger {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  padding: 0 2px;
+  color: var(--text-secondary);
+  font-family: var(--font-label);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.provider-routing-tools-trigger small {
+  font: inherit;
+  color: var(--text-secondary);
+  opacity: 0.82;
+}
+
+.provider-routing-diagnostics-block {
+  border-top: 1px solid var(--surface-divider-subtle);
+  padding-top: 16px;
+}
+
+.provider-routing-tools-main .session-routing-disclosure {
+  width: 100%;
+  border: 1px solid var(--surface-stage-border-soft);
+  border-radius: var(--radius-container);
+  background: var(--surface-card-bg-subtle);
+  box-shadow: var(--surface-card-shadow);
+  backdrop-filter: blur(var(--blur-sm));
+}
+
+.provider-routing-tools-main .session-routing-disclosure summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 0;
+  border-radius: var(--radius-container);
+  background: transparent;
+  box-shadow: none;
+}
+
+.provider-routing-tools-main .session-routing-disclosure[open] {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.provider-advanced-shell {
+  display: grid;
+  gap: 6px;
+  border-radius: var(--radius-shell-lg);
+  border: 1px solid var(--surface-stage-border);
+  background: var(--surface-stage-subtle-strong);
+  box-shadow: var(--surface-stage-shadow);
+  backdrop-filter: blur(var(--blur-md));
+}
+
+.provider-advanced-shell:not([open]) {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  justify-self: stretch;
+  margin: 0;
+  border: 1px solid var(--surface-stage-border-soft);
+  background: var(--surface-card-bg-subtle);
+  box-shadow: var(--surface-card-shadow);
+  backdrop-filter: blur(var(--blur-sm));
+}
+
+.provider-advanced-stack {
+  display: grid;
+  gap: 6px;
+}
+
+.provider-advanced-shell summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+}
+
+.provider-advanced-shell .panel-summary-subcopy {
+  font-size: var(--text-2xs);
+  color: var(--text-secondary);
+}
+
+.provider-advanced-shell:not([open]) summary {
+  min-height: 100%;
+  align-items: flex-start;
+  border: 0;
+  border-radius: var(--radius-card);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-secondary);
+  opacity: 1;
+}
+
+.provider-advanced-summary-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.provider-advanced-summary-kicker {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-family: var(--font-label);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: none;
+}
+
+.provider-advanced-summary-copy strong {
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-family: var(--font-label);
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+.provider-advanced-summary-body {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.provider-advanced-summary-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--surface-pill-border);
+  border-radius: 999px;
+  background: var(--surface-pill-ghost);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-family: var(--font-label);
+  letter-spacing: 0.03em;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.provider-advanced-shell .panel-disclosure-body {
+  padding: 0 14px 14px;
+}
+
+.provider-diagnostics-toolbar {
+  gap: 6px;
+  padding: 0;
+}

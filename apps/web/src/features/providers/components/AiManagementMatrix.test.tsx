@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { getMessages, type Messages } from "@/i18n";
+import type { Messages } from "@/i18n";
+import { getMessages } from "@/i18n/catalog";
 import type { ProviderMatrixProvider } from "@/shared/types";
 import { AiManagementMatrix } from "@/features/providers/components/AiManagementMatrix";
 
@@ -27,7 +28,7 @@ const providers: ProviderMatrixProvider[] = [
 ];
 
 describe("AiManagementMatrix", () => {
-  it("renders provider matrix, hotspot cards, and flow board", () => {
+  it("renders the provider matrix without hotspot or flow-board noise", () => {
     const onJumpToProviderSessions = vi.fn();
     const onFocusSlowProviders = vi.fn();
     const onClearSlowFocus = vi.fn();
@@ -58,6 +59,7 @@ describe("AiManagementMatrix", () => {
             name: "Codex",
             status: "active",
             scanMs: 125,
+            isSlow: true,
             parseFail: 2,
             parseScore: 91,
             canRead: true,
@@ -74,18 +76,23 @@ describe("AiManagementMatrix", () => {
             ],
           },
         ]}
+        providerView="all"
+        allViewHiddenCount={1}
         flowStateLabel={(state) => state.toUpperCase()}
       />,
     );
 
-    expect(html).toContain(messages.providers.matrixDisclosure);
+    expect(html).toContain("Provider matrix");
     expect(html).toContain("Codex");
     expect(html).toContain("Open sessions");
-    expect(html).toContain(messages.providers.hotspotDisclosure);
-    expect(html).toContain("Slow 125ms");
-    expect(html).toContain(messages.providers.flowBoardTitle);
-    expect(html).toContain("Investigate parser failures.");
-    expect(html).toContain("Codex root");
+    expect(html).not.toContain("Needs attention");
+    expect(html).not.toContain("Parser issues");
+    expect(html).not.toContain("Slow provider hotspots");
+    expect(html).not.toContain("Slow 125ms");
+    expect(html).not.toContain("Provider flow board");
+    expect(html).not.toContain("Core AI");
+    expect(html).not.toContain("Shown only as optional");
+    expect(html).not.toContain("Investigate parser failures.");
     expect(onJumpToProviderSessions).not.toHaveBeenCalled();
     expect(onFocusSlowProviders).not.toHaveBeenCalled();
     expect(onClearSlowFocus).not.toHaveBeenCalled();
@@ -111,10 +118,41 @@ describe("AiManagementMatrix", () => {
         onClearSlowFocus={() => undefined}
         onJumpToParserProvider={() => undefined}
         visibleFlowCards={[]}
+        providerView="all"
+        allViewHiddenCount={0}
         flowStateLabel={(state) => state.toUpperCase()}
       />,
     );
 
     expect(html).toContain("skeleton-line");
+  });
+
+  it("shows a dedicated empty state message when no providers are available", () => {
+    const html = renderToStaticMarkup(
+      <AiManagementMatrix
+        messages={messages}
+        providerSummary={{ active: 0, total: 0 }}
+        providers={[]}
+        providerMatrixLoading={false}
+        providerScanMsById={new Map()}
+        slowProviderSet={new Set<string>()}
+        statusLabel={(status) => status.toUpperCase()}
+        capabilityLevelLabel={(level) => level}
+        onJumpToProviderSessions={() => undefined}
+        slowHotspotCards={[]}
+        providerTabCount={0}
+        slowFocusActive={false}
+        onFocusSlowProviders={() => undefined}
+        onClearSlowFocus={() => undefined}
+        onJumpToParserProvider={() => undefined}
+        visibleFlowCards={[]}
+        providerView="all"
+        allViewHiddenCount={0}
+        flowStateLabel={(state) => state.toUpperCase()}
+      />,
+    );
+
+    expect(html).toContain("No provider diagnostics in the current scope.");
+    expect(html).not.toContain("Loading provider matrix...");
   });
 });

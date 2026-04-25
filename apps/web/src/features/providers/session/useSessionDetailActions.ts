@@ -104,7 +104,7 @@ export function useSessionDetailActions(props: SessionDetailProps) {
     const result = await desktopBridge.openWorkbenchWindow({
       view: "providers",
       provider: selectedSession.provider,
-      filePath: selectedSession.file_path,
+      sessionId: selectedSession.session_id,
     });
 
     if (!result?.ok) {

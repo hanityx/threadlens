@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { getMessages } from "@/i18n";
+import { getMessages } from "@/i18n/catalog";
 import type { ProviderSessionActionResult, ProviderSessionRow } from "@/shared/types";
 import { SessionDetail } from "@/features/providers/session/SessionDetail";
 
@@ -21,6 +21,25 @@ const selectedSession: ProviderSessionRow = {
     detected_title: "Selected Codex session",
     title_source: "header",
   },
+};
+
+const archivedSelectedSession: ProviderSessionRow = {
+  ...selectedSession,
+  source: "archived_sessions",
+  file_path: "/tmp/archived/session-notes.jsonl",
+};
+
+const unarchiveActionResult: ProviderSessionActionResult = {
+  ok: true,
+  provider: "codex",
+  action: "unarchive_local",
+  dry_run: true,
+  target_count: 1,
+  valid_count: 1,
+  applied_count: 0,
+  confirm_token_expected: "tok-unarchive",
+  confirm_token_accepted: false,
+  backup_before_delete: false,
 };
 
 const sessionActionResult: ProviderSessionActionResult = {
@@ -66,19 +85,19 @@ describe("SessionDetail", () => {
         busy={false}
         canRunSessionAction={true}
         providerDeleteBackupEnabled={true}
-        setProviderDeleteBackupEnabled={vi.fn()}
         runSingleProviderAction={vi.fn()}
         runSingleProviderHardDelete={vi.fn(() => Promise.resolve(null))}
       />,
     );
 
-    expect(html).toContain(`Delete locally · ${messages.providers.resultPreviewReady}`);
-    expect(html).toContain(messages.providers.resultExecuteFromCardHint);
-    expect(html).toContain("tok-1");
-    expect(html).toContain("Execute Delete locally");
+    expect(html).toContain("Delete locally · Prep ready");
+    expect(html).toContain("Prepared. Review affected source files, then execute when ready.");
+    expect(html).not.toContain("tok-1");
+    expect(html).toContain(">Hard delete<");
+    expect(html).not.toContain("Execute Delete locally");
     expect(html).toContain("2 Rows Selected");
-    expect(html).toContain(messages.providers.archiveDryRun);
-    expect(html).toContain(messages.providers.deleteDryRun);
+    expect(html).toContain("Archive selected");
+    expect(html).toContain("Prepare deletion");
     expect(html).toContain("Hard delete");
     expect(html).toContain("Open folder");
     expect(html).toContain("/tmp/rollout-2026-03-29T03-15-34-session-notes.jsonl");
@@ -99,13 +118,20 @@ describe("SessionDetail", () => {
     expect(html).toContain('detail-section detail-section-transcript" open=""');
   });
 
-  it("does not show a single-session execute card for bulk preview results", () => {
+  it("shows an execute card for bulk preview results without exposing the token", () => {
     const html = renderToStaticMarkup(
       <SessionDetail
         messages={messages}
         selectedSession={selectedSession}
         selectedCount={2}
         sessionActionResult={bulkSessionActionResult}
+        sessionActionSelection={{
+          provider: "codex",
+          action: "archive_local",
+          file_paths: [selectedSession.file_path, "/tmp/other.jsonl"],
+          dry_run: true,
+          backup_root: "",
+        }}
         emptyScopeLabel="Codex"
         emptyNextSessions={[]}
         sessionTranscriptData={null}
@@ -114,15 +140,44 @@ describe("SessionDetail", () => {
         setSessionTranscriptLimit={vi.fn()}
         busy={false}
         canRunSessionAction={true}
+        canRunPreparedSessionAction={true}
         providerDeleteBackupEnabled={true}
-        setProviderDeleteBackupEnabled={vi.fn()}
+        runSingleProviderAction={vi.fn()}
+        runPreparedProviderAction={vi.fn(() => Promise.resolve(null))}
+        runSingleProviderHardDelete={vi.fn(() => Promise.resolve(null))}
+      />,
+    );
+
+    expect(html).toContain("Archive locally · Prep ready");
+    expect(html).toContain(">Archive<");
+    expect(html).not.toContain("tok-bulk");
+  });
+
+  it("uses unarchive copy and execute label for archived sessions", () => {
+    const html = renderToStaticMarkup(
+      <SessionDetail
+        messages={messages}
+        selectedSession={archivedSelectedSession}
+        selectedCount={1}
+        sessionActionResult={unarchiveActionResult}
+        emptyScopeLabel="Codex"
+        emptyNextSessions={[]}
+        sessionTranscriptData={null}
+        sessionTranscriptLoading={false}
+        sessionTranscriptLimit={120}
+        setSessionTranscriptLimit={vi.fn()}
+        busy={false}
+        canRunSessionAction={true}
+        providerDeleteBackupEnabled={false}
         runSingleProviderAction={vi.fn()}
         runSingleProviderHardDelete={vi.fn(() => Promise.resolve(null))}
       />,
     );
 
-    expect(html).not.toContain("Execute Archive locally");
-    expect(html).not.toContain("tok-bulk");
+    expect(html).toContain("Unarchive locally · Prep ready");
+    expect(html).toContain(">Unarchive<");
+    expect(html).not.toContain("Prepare unarchive");
+    expect(html).not.toContain("Prepare archive");
   });
 
   it("uses session-detail messages for the empty state copy", () => {
@@ -152,7 +207,6 @@ describe("SessionDetail", () => {
         busy={false}
         canRunSessionAction={false}
         providerDeleteBackupEnabled={true}
-        setProviderDeleteBackupEnabled={vi.fn()}
         runSingleProviderAction={vi.fn()}
         runSingleProviderHardDelete={vi.fn(() => Promise.resolve(null))}
       />,
@@ -187,7 +241,6 @@ describe("SessionDetail", () => {
         busy={false}
         canRunSessionAction={false}
         providerDeleteBackupEnabled={true}
-        setProviderDeleteBackupEnabled={vi.fn()}
         runSingleProviderAction={vi.fn()}
         runSingleProviderHardDelete={vi.fn(() => Promise.resolve(null))}
       />,
@@ -215,7 +268,6 @@ describe("SessionDetail", () => {
         busy={false}
         canRunSessionAction={true}
         providerDeleteBackupEnabled={true}
-        setProviderDeleteBackupEnabled={vi.fn()}
         runSingleProviderAction={vi.fn()}
         runSingleProviderHardDelete={vi.fn(() => Promise.resolve(null))}
       />,
@@ -234,7 +286,6 @@ describe("SessionDetail", () => {
     expect(html).toContain(esMessages.sessionDetail.copyTitle);
     expect(html).toContain(esMessages.sessionDetail.copyId);
     expect(html).toContain(esMessages.sessionDetail.copyPath);
-    expect(html).toContain(esMessages.providers.deleteWithBackup);
     expect(html).toContain(esMessages.sessionDetail.archiveDryRun);
     expect(html).toContain(esMessages.sessionDetail.deleteDryRun);
     expect(html).toContain(esMessages.sessionDetail.openFolder);
@@ -269,7 +320,6 @@ describe("SessionDetail", () => {
         busy={false}
         canRunSessionAction={true}
         providerDeleteBackupEnabled={true}
-        setProviderDeleteBackupEnabled={vi.fn()}
         runSingleProviderAction={vi.fn()}
         runSingleProviderHardDelete={vi.fn(() => Promise.resolve(null))}
       />,

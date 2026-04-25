@@ -7,6 +7,8 @@ import {
   resolveProviderLimits,
   resolveProviderQueryView,
   resolveSelectedProviderLabel,
+  shouldClearSelectedSessionPath,
+  shouldKeepSelectedSessionPathFallback,
   shouldHydrateProviderScope,
   shouldResetProviderView,
 } from "@/features/providers/hooks/useProvidersData";
@@ -211,6 +213,51 @@ describe("provider data shaping helpers", () => {
         },
       ),
     ).toBe(false);
+  });
+
+  it("keeps a selected session path while provider rows are still loading", () => {
+    expect(
+      shouldClearSelectedSessionPath({
+        selectedSessionPath: "/tmp/claude-session.jsonl",
+        availableProviderFilePaths: new Set<string>(),
+        providerSessionsLoading: true,
+        keepSelectedSessionPathFallback: false,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldClearSelectedSessionPath({
+        selectedSessionPath: "/tmp/claude-session.jsonl",
+        availableProviderFilePaths: new Set(["/tmp/claude-session.jsonl"]),
+        providerSessionsLoading: false,
+        keepSelectedSessionPathFallback: false,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldKeepSelectedSessionPathFallback({
+        providerView: "gemini",
+        selectedSessionPath: "/tmp/gemini-session.json",
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldClearSelectedSessionPath({
+        selectedSessionPath: "/tmp/claude-session.jsonl",
+        availableProviderFilePaths: new Set<string>(),
+        providerSessionsLoading: false,
+        keepSelectedSessionPathFallback: true,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldClearSelectedSessionPath({
+        selectedSessionPath: "/tmp/claude-session.jsonl",
+        availableProviderFilePaths: new Set<string>(),
+        providerSessionsLoading: false,
+        keepSelectedSessionPathFallback: false,
+      }),
+    ).toBe(true);
   });
 });
 

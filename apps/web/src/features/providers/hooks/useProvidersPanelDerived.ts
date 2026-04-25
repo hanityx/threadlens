@@ -32,9 +32,31 @@ export function useProvidersPanelDerived(options: {
   state: ReturnType<typeof useProvidersPanelState>;
 }) {
   const { props, state } = options;
-  const sourceFilterOptions = useMemo(
-    () => buildSourceFilterOptions(props.providerSessionRows),
+  const scopedProviderSessionRows = useMemo(
+    () => {
+      if (state.showBackupRows) {
+        return props.providerSessionRows.filter((row) => row.source === "cleanup_backups");
+      }
+      if (state.showArchivedRows) {
+        return props.providerSessionRows.filter((row) => row.source === "archived_sessions");
+      }
+      return props.providerSessionRows.filter(
+        (row) => row.source !== "cleanup_backups" && row.source !== "archived_sessions",
+      );
+    },
+    [props.providerSessionRows, state.showArchivedRows, state.showBackupRows],
+  );
+  const hasBackupRows = useMemo(
+    () => props.providerSessionRows.some((row) => row.source === "cleanup_backups"),
     [props.providerSessionRows],
+  );
+  const hasArchivedRows = useMemo(
+    () => props.providerSessionRows.some((row) => row.source === "archived_sessions"),
+    [props.providerSessionRows],
+  );
+  const sourceFilterOptions = useMemo(
+    () => buildSourceFilterOptions(scopedProviderSessionRows),
+    [scopedProviderSessionRows],
   );
   const canOpenProviderById = (providerId: ProviderView | null): providerId is ProviderView =>
     Boolean(providerId && props.providerTabs.some((tab) => tab.id === providerId));
@@ -73,7 +95,7 @@ export function useProvidersPanelDerived(options: {
   );
   const filteredProviderSessionRows = useMemo(
     () =>
-      filterProviderSessionRows(props.providerSessionRows, providerSessionComputedIndex, {
+      filterProviderSessionRows(scopedProviderSessionRows, providerSessionComputedIndex, {
         query: state.deferredSessionFilter,
         sourceFilter: state.sourceFilter,
         probeFilter: state.probeFilter,
@@ -81,7 +103,7 @@ export function useProvidersPanelDerived(options: {
         slowProviderSet: workbenchModel.slowProviderSet,
       }),
     [
-      props.providerSessionRows,
+      scopedProviderSessionRows,
       providerSessionComputedIndex,
       state.deferredSessionFilter,
       state.probeFilter,
@@ -112,6 +134,64 @@ export function useProvidersPanelDerived(options: {
     () => sortedProviderSessionRows.map((row) => row.file_path),
     [sortedProviderSessionRows],
   );
+  const selectedBackupSourceRows = useMemo(() => {
+    const selectedRows = props.providerSessionRows.filter((row) =>
+      Boolean(props.selectedProviderFiles[row.file_path]),
+    );
+    return selectedRows.filter((row) => row.source === "cleanup_backups");
+  }, [props.providerSessionRows, props.selectedProviderFiles]);
+  const actionEligibleFilePaths = useMemo(
+    () =>
+      props.providerSessionRows
+        .filter(
+          (row) =>
+            Boolean(props.selectedProviderFiles[row.file_path]) &&
+            row.source !== "cleanup_backups" &&
+            row.source !== "archived_sessions",
+        )
+        .map((row) => row.file_path),
+    [props.providerSessionRows, props.selectedProviderFiles],
+  );
+  const unarchiveEligibleFilePaths = useMemo(
+    () =>
+      props.providerSessionRows
+        .filter(
+          (row) =>
+            Boolean(props.selectedProviderFiles[row.file_path]) &&
+            row.source === "archived_sessions",
+        )
+        .map((row) => row.file_path),
+    [props.providerSessionRows, props.selectedProviderFiles],
+  );
+  const backupDeleteEligibleFilePaths = useMemo(
+    () =>
+      props.providerSessionRows
+        .filter(
+          (row) =>
+            Boolean(props.selectedProviderFiles[row.file_path]) &&
+            row.source === "cleanup_backups",
+        )
+        .map((row) => row.file_path),
+    [props.providerSessionRows, props.selectedProviderFiles],
+  );
+  const selectedProviderIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          props.providerSessionRows
+            .filter(
+              (row) =>
+                Boolean(props.selectedProviderFiles[row.file_path]) &&
+                row.source !== "cleanup_backups" &&
+                row.source !== "archived_sessions",
+            )
+            .map((row) => row.provider)
+            .filter(Boolean),
+        ),
+      ),
+    [props.providerSessionRows, props.selectedProviderFiles],
+  );
+  const backupEligibleFilePaths = actionEligibleFilePaths;
   const staleProviderFilePaths = useMemo(() => {
     const staleCutoffMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
     return sortedProviderSessionRows
@@ -190,10 +270,6 @@ export function useProvidersPanelDerived(options: {
   const selectedSessionParseFailCount = parserWorkspaceView.selectedSessionProvider
     ? providerFlowModel.parseFailByProvider[parserWorkspaceView.selectedSessionProvider]
     : undefined;
-  const selectedSessionPreview = useMemo(
-    () => props.providerSessionRows.find((row) => row.file_path === props.selectedSessionPath) ?? null,
-    [props.providerSessionRows, props.selectedSessionPath],
-  );
   const presentationModel = useMemo(
     () =>
       buildProviderPanelPresentationModel({
@@ -201,8 +277,15 @@ export function useProvidersPanelDerived(options: {
         providerView: props.providerView,
         selectedProviderLabel: props.selectedProviderLabel,
         providerActionData: props.providerActionData,
+        recoveryData: props.recoveryData,
         recoveryBackupExportData: props.recoveryBackupExportData,
+        backupRoot: props.backupRoot,
+        exportRoot: props.exportRoot,
+        latestExportArchivePath: props.latestExportArchivePath,
         selectedProviderFilePathsCount: props.selectedProviderFilePaths.length,
+        selectedBackupEligibleFilePathsCount: backupEligibleFilePaths.length,
+        selectedBackupSourceCount: selectedBackupSourceRows.length,
+        selectedProviderIdsCount: selectedProviderIds.length,
         providerActionProvider: props.providerActionProvider,
         providerDeleteBackupEnabled: props.providerDeleteBackupEnabled,
         hotspotScopeOrigin: state.hotspotScopeOrigin,
@@ -214,8 +297,15 @@ export function useProvidersPanelDerived(options: {
       props.providerView,
       props.selectedProviderLabel,
       props.providerActionData,
+      props.recoveryData,
       props.recoveryBackupExportData,
+      props.backupRoot,
+      props.exportRoot,
+      props.latestExportArchivePath,
       props.selectedProviderFilePaths.length,
+      backupEligibleFilePaths.length,
+      selectedBackupSourceRows.length,
+      selectedProviderIds.length,
       props.providerActionProvider,
       props.providerDeleteBackupEnabled,
       state.hotspotScopeOrigin,
@@ -226,25 +316,40 @@ export function useProvidersPanelDerived(options: {
   const sessionFileActionPreviewKey =
     props.providerActionSelection && presentationModel.sessionFileActionResult
       ? providerActionSelectionKey(
-          props.providerActionSelection.provider,
-          props.providerActionSelection.action,
-          props.providerActionSelection.file_paths,
-          { backup_before_delete: props.providerActionSelection.backup_before_delete },
+        props.providerActionSelection.provider,
+        props.providerActionSelection.action,
+        props.providerActionSelection.file_paths,
+        {
+          backup_before_delete: props.providerActionSelection.backup_before_delete,
+          backup_root: props.providerActionSelection.backup_root,
+        },
+      )
+      : "";
+  const archiveAction = state.showArchivedRows ? "unarchive_local" : "archive_local";
+  const archiveActionEligibleFilePaths = state.showArchivedRows
+    ? unarchiveEligibleFilePaths
+    : actionEligibleFilePaths;
+  const archiveSelectionKey =
+    props.providerActionProvider && archiveActionEligibleFilePaths.length > 0
+      ? providerActionSelectionKey(
+          props.providerActionProvider,
+          archiveAction,
+          archiveActionEligibleFilePaths,
+          { backup_root: props.backupRoot },
         )
       : "";
-  const archiveSelectionKey =
-    props.providerActionProvider && props.selectedProviderFilePaths.length > 0
-      ? providerActionSelectionKey(props.providerActionProvider, "archive_local", props.selectedProviderFilePaths)
-      : "";
   const deleteSelectionKey =
-    props.providerActionProvider && props.selectedProviderFilePaths.length > 0
-      ? providerActionSelectionKey(props.providerActionProvider, "delete_local", props.selectedProviderFilePaths, {
+    props.providerActionProvider && actionEligibleFilePaths.length > 0
+      ? providerActionSelectionKey(props.providerActionProvider, "delete_local", actionEligibleFilePaths, {
           backup_before_delete: props.providerDeleteBackupEnabled,
+          backup_root: props.backupRoot,
         })
       : "";
   const sessionFileActionCurrentKey =
     presentationModel.sessionFileActionResult?.action === "archive_local"
       ? archiveSelectionKey
+      : presentationModel.sessionFileActionResult?.action === "unarchive_local"
+        ? archiveSelectionKey
       : presentationModel.sessionFileActionResult?.action === "delete_local"
         ? deleteSelectionKey
         : "";
@@ -252,11 +357,19 @@ export function useProvidersPanelDerived(options: {
     presentationModel.sessionFileActionResult &&
       props.providerActionSelection &&
       props.providerActionSelection.action === presentationModel.sessionFileActionResult.action &&
+      (presentationModel.sessionFileActionResult.dry_run ||
+        String(presentationModel.sessionFileActionResult.confirm_token_expected ?? "").trim()) &&
+      presentationModel.sessionFileActionResult.applied_count === 0 &&
       sessionFileActionPreviewKey &&
       sessionFileActionPreviewKey === sessionFileActionCurrentKey,
   );
+  const sessionFileActionResult =
+    sessionFileActionPreviewKey &&
+    sessionFileActionPreviewKey === sessionFileActionCurrentKey
+      ? presentationModel.sessionFileActionResult
+      : null;
   const archiveStage = getProviderWorkflowStage(props.messages, {
-    action: "archive_local",
+    action: archiveAction,
     actionResult: presentationModel.sessionFileActionResult,
     actionSelection: props.providerActionSelection,
     currentSelectionKey: archiveSelectionKey,
@@ -282,10 +395,17 @@ export function useProvidersPanelDerived(options: {
     effectiveSlowOnly,
     workbenchModel,
     sessionModel: {
+      scopedProviderSessionRows,
+      hasBackupRows,
+      hasArchivedRows,
       sortedProviderSessionRows,
       renderedProviderSessionRows,
       archivedSessionCount,
       filteredProviderFilePaths,
+      actionEligibleFilePaths,
+      unarchiveEligibleFilePaths,
+      backupDeleteEligibleFilePaths,
+      backupEligibleFilePaths,
       staleProviderFilePaths,
       allFilteredProviderRowsSelected,
       allStaleProviderRowsSelected,
@@ -299,12 +419,12 @@ export function useProvidersPanelDerived(options: {
     flowModel: providerFlowModel,
     presentationModel: {
       ...presentationModel,
+      sessionFileActionResult,
       sessionFileActionCanExecute,
       archiveStage,
       deleteStage,
       providerSupportsCleanup,
       csvColumnItems,
-      selectedSessionPreview,
     },
     constants: {
       csvPresets: {
