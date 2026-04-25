@@ -131,7 +131,7 @@ describe("SearchRoute", () => {
     expect(pushState).toHaveBeenCalledWith(
       null,
       "",
-      "/?view=providers&provider=codex&filePath=%2Ftmp%2Fsession.jsonl",
+      "/?view=providers&provider=codex",
     );
   });
 

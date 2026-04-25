@@ -460,7 +460,7 @@ describe("desktop route helpers", () => {
         view: "providers",
         provider: "claude",
         sessionId: "claude-session-1",
-        filePath: "",
+        filePath: "/private/secret-session.jsonl",
         threadId: "",
       }),
     ).toBe(
@@ -489,8 +489,22 @@ describe("desktop route helpers", () => {
       view: "",
       provider: "",
       sessionId: "",
-      filePath: "/tmp/codex/session.jsonl",
+      filePath: "",
       threadId: "thread-2",
+    });
+  });
+
+  it("does not hydrate local file paths from the browser URL", () => {
+    expect(
+      parseDesktopRouteSearch(
+        "?view=providers&provider=claude&sessionId=claude-session-1&filePath=%2Fprivate%2Fsecret.jsonl",
+      ),
+    ).toEqual({
+      view: "providers",
+      provider: "claude",
+      sessionId: "claude-session-1",
+      filePath: "",
+      threadId: "",
     });
   });
 

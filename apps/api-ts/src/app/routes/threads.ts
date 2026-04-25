@@ -19,6 +19,7 @@ import {
   executeLocalCleanupTs,
 } from "../../domains/threads/cleanup.js";
 import { getThreadForensicsTs } from "../../domains/threads/forensics.js";
+import { parseSafeThreadId } from "../../domains/threads/thread-id.js";
 import { getThreadsTs } from "../../domains/threads/query.js";
 import {
   buildSessionTranscript,
@@ -60,22 +61,25 @@ export async function registerThreadRoutes(
     invalidateProviderSessionCache: (provider: "codex") => void;
   },
 ): Promise<void> {
+  const threadIdSchema = z.string().min(1).refine((value) => parseSafeThreadId(value) !== null, {
+    message: "invalid thread id",
+  });
   const idsPayloadSchema = z.object({
-    ids: z.array(z.string().min(1)).min(1).max(500),
+    ids: z.array(threadIdSchema).min(1).max(500),
   });
   const analyzeDeletePayloadSchema = z.object({
-    ids: z.array(z.string().min(1)).min(1).max(500),
+    ids: z.array(threadIdSchema).min(1).max(500),
     session_scan_limit: z.number().int().min(1).max(240).optional(),
   });
 
   const pinPayloadSchema = z.object({
-    ids: z.array(z.string().min(1)).min(1).max(500),
+    ids: z.array(threadIdSchema).min(1).max(500),
     pinned: z.boolean().optional().default(true),
   });
 
   const cleanupPayloadSchema = z
     .object({
-      ids: z.array(z.string().min(1)).min(1).max(500),
+      ids: z.array(threadIdSchema).min(1).max(500),
       dry_run: z.boolean().optional().default(true),
       options: z.unknown().optional(),
       confirm_token: z.string().optional().default(""),
@@ -88,17 +92,17 @@ export async function registerThreadRoutes(
     }));
 
   const renameThreadSchema = z.object({
-    id: z.string().min(1),
+    id: threadIdSchema,
     title: z.string().min(1),
   });
 
   const threadOpenFolderSchema = z.object({
-    thread_id: z.string().min(1),
+    thread_id: threadIdSchema,
   });
 
   const threadForensicsSchema = z.object({
-    ids: z.array(z.string().min(1)).optional(),
-    thread_ids: z.array(z.string().min(1)).optional(),
+    ids: z.array(threadIdSchema).optional(),
+    thread_ids: z.array(threadIdSchema).optional(),
   });
 
   app.post<{ Body: BulkThreadActionRequest }>(
@@ -286,11 +290,16 @@ export async function registerThreadRoutes(
           clean_state_refs?: boolean;
         },
       });
-      if (data.ok && parsed.data.dry_run === false) {
+      const changed =
+        parsed.data.dry_run === false &&
+        (Number((data as { deleted_file_count?: unknown }).deleted_file_count ?? 0) > 0 ||
+          String((data as { mode?: unknown }).mode ?? "") === "partial" ||
+          String((data as { mode?: unknown }).mode ?? "") === "applied");
+      if (changed) {
         deps.invalidateOverviewCache();
         deps.invalidateProviderSessionCache("codex");
       }
-      const status = data.ok ? 200 : 400;
+      const status = data.ok ? 200 : String((data as { mode?: unknown }).mode ?? "") === "partial" ? 207 : 400;
       return reply.code(status).send(withSchemaVersion(data));
     } catch (error) {
       return reply

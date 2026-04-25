@@ -7,6 +7,7 @@ import { analyzeDeleteImpactTs } from "./impact.js";
 import { findThreadArtifactsTs } from "./forensics.js";
 import { cleanGlobalStateRefsTs } from "./state.js";
 import { getOverviewTs } from "./overview.js";
+import { normalizeSafeThreadIds } from "./thread-id.js";
 
 type CleanupArtifact = {
   kind: string;
@@ -118,9 +119,7 @@ export async function executeLocalCleanupTs(
   threadIds: string[],
   execOptions?: CleanupExecOptions,
 ) {
-  const ids = Array.from(
-    new Set(threadIds.map((item) => String(item || "").trim()).filter(Boolean)),
-  );
+  const { ids, invalid: invalid_ids } = normalizeSafeThreadIds(threadIds);
   const options = normalizeCleanupOptions(execOptions?.options);
   const roots = {
     chatDir: execOptions?.roots?.chatDir ?? CHAT_DIR,
@@ -130,6 +129,26 @@ export async function executeLocalCleanupTs(
   };
   const dryRun = execOptions?.dryRun !== false;
   const confirmToken = String(execOptions?.confirmToken ?? "").trim();
+
+  if (invalid_ids.length > 0) {
+    return {
+      ok: false,
+      mode: dryRun ? "dry-run" : "failed",
+      error: "invalid-thread-id",
+      invalid_ids,
+      requested_ids: ids.length + invalid_ids.length,
+      target_file_count: 0,
+      deleted_file_count: 0,
+      failed: [],
+      failure_summary: {
+        failed_count: invalid_ids.length,
+        partial_failure: false,
+      },
+      state_result: { changed: false, removed: { titles: 0, order: 0, pinned: 0 } },
+      backup: { backup_dir: "", copied_count: 0, failed: [] },
+      targets: [],
+    };
+  }
 
   const artifacts = await findThreadArtifactsTs(ids, {
     chatDir: roots.chatDir,
@@ -163,7 +182,7 @@ export async function executeLocalCleanupTs(
   if (confirmToken !== confirm_token_expected) {
     return {
       ok: false,
-      mode: "execute",
+      mode: "failed",
       error: "confirmation token mismatch",
       requested_ids: ids.length,
       target_file_count: targetPaths.length,
@@ -201,18 +220,29 @@ export async function executeLocalCleanupTs(
         stateFilePath: roots.stateFilePath,
       })
     : stateResult;
+  const backupFailed = Array.isArray(backupInfo.failed) ? backupInfo.failed : [];
+  const failedCount = failed.length + backupFailed.length;
+  const changed = deleted_file_count > 0 || Boolean(executedStateResult.changed);
+  const mode = failedCount === 0 ? "applied" : changed ? "partial" : "failed";
 
   return {
-    ok: true,
-    mode: "execute",
+    ok: failedCount === 0,
+    mode,
     requested_ids: ids.length,
     target_file_count: targetPaths.length,
     deleted_file_count,
     failed,
+    failure_summary: {
+      failed_count: failedCount,
+      partial_failure: failedCount > 0 && changed,
+      backup_failed_count: backupFailed.length,
+      delete_failed_count: failed.length,
+    },
     state_result: executedStateResult,
     backup: {
       backup_dir: backupInfo.backup_dir,
       copied_count: backupInfo.copied_count,
+      failed: backupFailed,
     },
     targets,
     confirm_token_expected,
@@ -238,9 +268,21 @@ function isCleanupBackupPath(filePath: string, backupRoots = defaultCleanupBacku
 }
 
 export async function executeBackupCleanupTs(threadIds: string[], options?: BackupCleanupOptions) {
-  const ids = Array.from(
-    new Set(threadIds.map((item) => String(item || "").trim()).filter(Boolean)),
-  );
+  const { ids, invalid: invalid_ids } = normalizeSafeThreadIds(threadIds);
+  if (invalid_ids.length > 0) {
+    return {
+      ok: false,
+      mode: "failed",
+      error: "invalid-thread-id",
+      invalid_ids,
+      requested_ids: ids.length + invalid_ids.length,
+      target_file_count: 0,
+      deleted_file_count: 0,
+      failed: [],
+      backup: { backup_dir: "", copied_count: 0 },
+      targets: [],
+    };
+  }
   const idSet = new Set(ids);
   const overview = await getOverviewTs({ includeThreads: true, forceRefresh: true });
   const rows = Array.isArray((overview as Record<string, unknown>).threads)

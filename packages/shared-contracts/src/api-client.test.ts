@@ -98,4 +98,30 @@ describe("shared api client helpers", () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  it("adds desktop API tokens to requests when available", async () => {
+    const calls: Array<{ input: string; init?: RequestInit }> = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      calls.push({ input: String(input), init });
+      return new Response(JSON.stringify({ ok: true, data: null }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as typeof fetch;
+
+    try {
+      const client = createApiClient({
+        resolveBaseUrl: () => "http://127.0.0.1:8788",
+        resolveAuthToken: () => "secret-token",
+      });
+
+      await client.apiPostJsonAllowError("/api/local-cleanup", { ids: ["a"] });
+      expect(new Headers(calls[0]?.init?.headers).get("x-threadlens-api-token")).toBe(
+        "secret-token",
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

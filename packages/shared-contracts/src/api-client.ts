@@ -6,6 +6,7 @@ type ApiClientErrorMode = "detailed" | "simple";
 
 type ApiClientOptions = {
   resolveBaseUrl: () => MaybePromise<string>;
+  resolveAuthToken?: () => MaybePromise<string | null | undefined>;
   unwrapEnvelope?: boolean;
   errorMode?: ApiClientErrorMode;
 };
@@ -86,18 +87,29 @@ export function createApiClient(options: ApiClientOptions) {
     return `${apiBaseUrl}${path}`;
   }
 
+  async function buildHeaders(initHeaders?: HeadersInit, json = false): Promise<Headers> {
+    const headers = new Headers(initHeaders ?? undefined);
+    if (json && !headers.has("content-type")) headers.set("content-type", "application/json");
+    const authToken = (await options.resolveAuthToken?.())?.trim();
+    if (authToken && !headers.has("x-threadlens-api-token")) {
+      headers.set("x-threadlens-api-token", authToken);
+    }
+    return headers;
+  }
+
   async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
-    const response = await fetch(await buildApiUrl(path), init);
+    const response = await fetch(await buildApiUrl(path), {
+      ...init,
+      headers: await buildHeaders(init?.headers),
+    });
     return parseApiPayload<T>(response, path, { unwrapEnvelope, errorMode });
   }
 
   async function apiPost<T>(path: string, body: unknown, init?: RequestInit): Promise<T> {
-    const headers = new Headers(init?.headers ?? undefined);
-    if (!headers.has("content-type")) headers.set("content-type", "application/json");
     const response = await fetch(await buildApiUrl(path), {
       ...init,
       method: "POST",
-      headers,
+      headers: await buildHeaders(init?.headers, true),
       body: JSON.stringify(body),
     });
     return parseApiPayload<T>(response, path, { unwrapEnvelope, errorMode });
@@ -108,12 +120,10 @@ export function createApiClient(options: ApiClientOptions) {
     body: unknown,
     init?: RequestInit,
   ): Promise<{ ok: boolean; status: number; data: T }> {
-    const headers = new Headers(init?.headers ?? undefined);
-    if (!headers.has("content-type")) headers.set("content-type", "application/json");
     const response = await fetch(await buildApiUrl(path), {
       ...init,
       method: "POST",
-      headers,
+      headers: await buildHeaders(init?.headers, true),
       body: JSON.stringify(body),
     });
     const data = (await parseJsonPayload(response, path)) as T;
