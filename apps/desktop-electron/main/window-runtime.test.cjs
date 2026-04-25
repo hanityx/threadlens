@@ -13,10 +13,11 @@ test("createRouteSearch includes only defined route params", () => {
     createRouteSearch({
       view: "providers",
       provider: "codex",
-      filePath: "/tmp/session.jsonl",
+      sessionId: "session-1",
+      filePath: "",
       threadId: "",
     }),
-    "?view=providers&provider=codex&filePath=%2Ftmp%2Fsession.jsonl",
+    "?view=providers&provider=codex&sessionId=session-1",
   );
 
   assert.equal(createRouteSearch(null), "");
@@ -28,14 +29,16 @@ test("readInitialRoute parses valid JSON and rejects invalid payloads", () => {
       JSON.stringify({
         view: "providers",
         provider: "codex",
-        filePath: "/tmp/session.jsonl",
+        sessionId: "session-1",
+        filePath: "",
         threadId: "thread-1",
       }),
     ),
     {
       view: "providers",
       provider: "codex",
-      filePath: "/tmp/session.jsonl",
+      sessionId: "session-1",
+      filePath: "",
       threadId: "thread-1",
     },
   );

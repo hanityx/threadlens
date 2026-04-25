@@ -21,6 +21,9 @@ contextBridge.exposeInMainWorld("threadLensDesktop", {
   previewPath(filePath) {
     return runFileAction("preview", filePath);
   },
+  pickDirectory(initialPath) {
+    return ipcRenderer.invoke("threadlens:pick-directory", { initialPath });
+  },
   openWorkbenchWindow(payload) {
     return ipcRenderer.invoke("threadlens:open-window", payload);
   },

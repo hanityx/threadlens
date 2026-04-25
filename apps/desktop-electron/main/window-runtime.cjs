@@ -8,7 +8,7 @@ function createRouteSearch(route) {
   const params = new URLSearchParams();
   if (route?.view) params.set("view", String(route.view));
   if (route?.provider) params.set("provider", String(route.provider));
-  if (route?.filePath) params.set("filePath", String(route.filePath));
+  if (route?.sessionId) params.set("sessionId", String(route.sessionId));
   if (route?.threadId) params.set("threadId", String(route.threadId));
   const query = params.toString();
   return query ? `?${query}` : "";
@@ -24,6 +24,7 @@ function readInitialRoute(raw = process.env.THREADLENS_INITIAL_ROUTE, logger = c
     return {
       view: typeof parsed.view === "string" ? parsed.view : "",
       provider: typeof parsed.provider === "string" ? parsed.provider : "",
+      sessionId: typeof parsed.sessionId === "string" ? parsed.sessionId : "",
       filePath: typeof parsed.filePath === "string" ? parsed.filePath : "",
       threadId: typeof parsed.threadId === "string" ? parsed.threadId : "",
     };
