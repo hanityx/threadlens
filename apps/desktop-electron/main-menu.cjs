@@ -124,28 +124,33 @@ function resolveAppIconPath(options) {
   return candidates.find((candidate) => Boolean(candidate) && existsSync(candidate)) || null;
 }
 
+function joinForPlatform(platform, ...segments) {
+  return platform === "win32" ? path.win32.join(...segments) : path.posix.join(...segments);
+}
+
 function getDefaultIconCandidates(
   baseDir,
   isPackaged,
   resourcesPath,
   platform = process.platform,
 ) {
+  const joinPath = (...segments) => joinForPlatform(platform, ...segments);
   if (isPackaged) {
     if (platform === "darwin") {
-      return [path.join(resourcesPath, "icon.icns"), path.join(resourcesPath, "icon.png")];
+      return [joinPath(resourcesPath, "icon.icns"), joinPath(resourcesPath, "icon.png")];
     }
     if (platform === "win32") {
-      return [path.join(resourcesPath, "icon.ico"), path.join(resourcesPath, "icon.png")];
+      return [joinPath(resourcesPath, "icon.ico"), joinPath(resourcesPath, "icon.png")];
     }
-    return [path.join(resourcesPath, "icon.png"), path.join(resourcesPath, "icon.ico")];
+    return [joinPath(resourcesPath, "icon.png"), joinPath(resourcesPath, "icon.ico")];
   }
 
   return [
-    path.join(baseDir, "build", "icon.icns"),
-    path.join(baseDir, "build", "icon.ico"),
-    path.join(baseDir, "build", "icon.png"),
-    path.join(baseDir, "app", "web", "favicon.svg"),
-    path.join(baseDir, "..", "web", "public", "favicon.svg"),
+    joinPath(baseDir, "build", "icon.icns"),
+    joinPath(baseDir, "build", "icon.ico"),
+    joinPath(baseDir, "build", "icon.png"),
+    joinPath(baseDir, "app", "web", "favicon.svg"),
+    joinPath(baseDir, "..", "web", "public", "favicon.svg"),
   ];
 }
 

@@ -172,6 +172,10 @@ describe("tokens surface migration", () => {
   });
 
   it("defines semantic overview, setup, layout, and chat tokens", () => {
+    expect(tokensStyles).toMatch(/--text-3xs:\s*0\.615rem;/);
+    expect(tokensStyles).toMatch(/--text-2xs:\s*0\.675rem;/);
+    expect(tokensStyles).toMatch(/--text-xs:\s*0\.725rem;/);
+    expect(tokensStyles).toMatch(/--text-sm:\s*0\.7425rem;/);
     expect(tokensStyles).toMatch(/--text-body-base:\s*0\.9375rem;/);
     expect(tokensStyles).toMatch(/--text-body-compact:\s*0\.875rem;/);
     expect(tokensStyles).toMatch(/--surface-transcript-summary-strip:\s*color-mix\(in srgb, var\(--bg-elev\) 44%, transparent\);/);

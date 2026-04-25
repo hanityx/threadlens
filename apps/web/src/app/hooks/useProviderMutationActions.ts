@@ -78,7 +78,12 @@ export function useProviderMutationActions(options: UseProviderMutationActionsOp
         requestBody,
       );
       const firstData = extractEnvelopeData<ProviderSessionActionResult>(first.data) ?? first.data;
-      if (first.ok) return firstData;
+      if (first.ok) {
+        if (firstData?.ok === false) {
+          throw new Error(String(firstData.error || "provider-action-failed"));
+        }
+        return firstData;
+      }
       const previewReady = shouldReturnProviderActionPreview(input, firstData);
       if (previewReady) return firstData;
       throw new Error(String(firstData?.error || `provider-session-action status ${first.status}`));

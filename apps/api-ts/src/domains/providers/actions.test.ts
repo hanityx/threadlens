@@ -1,7 +1,7 @@
 import os from "node:os";
 import path from "node:path";
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { describe, expect, it } from "vitest";
+import { mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
+import { describe, expect, it, vi } from "vitest";
 import {
   CLAUDE_PROJECTS_DIR,
   CODEX_HOME,
@@ -243,6 +243,95 @@ describe("runProviderSessionAction", () => {
     } finally {
       await rm(sourceDir, { recursive: true, force: true });
       await rm(archivedDir, { recursive: true, force: true });
+    }
+  });
+
+  it("archives and restores Codex sessions when safe paths are realpath-normalized", async () => {
+    const previousHome = process.env.HOME;
+    const previousCodexHome = process.env.CODEX_HOME;
+    const previousStateDir = process.env.THREADLENS_STATE_DIR;
+    const root = await mkdtemp(path.join("/tmp", "threadlens-provider-realpath-"));
+
+    try {
+      const homeDir = path.join(root, "home");
+      process.env.HOME = homeDir;
+      process.env.CODEX_HOME = path.join(homeDir, ".codex");
+      process.env.THREADLENS_STATE_DIR = path.join(root, "state");
+      vi.resetModules();
+
+      const constants = await import("../../lib/constants.js");
+      const { runProviderSessionAction: runAction } = await import("./actions.js");
+
+      const sourceDir = path.join(constants.CODEX_HOME, "sessions", "realpath-smoke");
+      const archivedDir = path.join(constants.CODEX_HOME, "archived_sessions", "realpath-smoke");
+      const sourcePath = path.join(sourceDir, "session.jsonl");
+      const archivedPath = path.join(archivedDir, "session.jsonl");
+      const payload = "{\"type\":\"session\",\"id\":\"realpath-smoke\"}\n";
+      const deps = {
+        resolveAllowedProviderFilePath: async (_provider: "codex", filePath: string) => realpath(filePath),
+        supportsProviderCleanup: () => true,
+        invalidateProviderCaches: () => undefined,
+      };
+
+      await mkdir(sourceDir, { recursive: true });
+      await writeFile(sourcePath, payload, "utf8");
+
+      const preview = await runAction(
+        deps,
+        "codex",
+        "archive_local",
+        [sourcePath],
+        true,
+        "",
+      );
+      expect(preview.ok).toBe(true);
+      expect(preview.confirm_token_expected).toMatch(/^PROVIDER-/);
+
+      const archiveResult = await runAction(
+        deps,
+        "codex",
+        "archive_local",
+        [sourcePath],
+        false,
+        preview.confirm_token_expected,
+      );
+      expect(archiveResult.ok).toBe(true);
+      expect(archiveResult.applied_count).toBe(1);
+      await expect(stat(sourcePath)).rejects.toThrow();
+      await expect(readFile(archivedPath, "utf8")).resolves.toBe(payload);
+
+      const unarchivePreview = await runAction(
+        deps,
+        "codex",
+        "unarchive_local",
+        [archivedPath],
+        true,
+        "",
+      );
+      expect(unarchivePreview.ok).toBe(true);
+      expect(unarchivePreview.confirm_token_expected).toMatch(/^PROVIDER-/);
+
+      const unarchiveResult = await runAction(
+        deps,
+        "codex",
+        "unarchive_local",
+        [archivedPath],
+        false,
+        unarchivePreview.confirm_token_expected,
+      );
+      expect(unarchiveResult.ok).toBe(true);
+      expect(unarchiveResult.applied_count).toBe(1);
+      await expect(stat(archivedPath)).rejects.toThrow();
+      await expect(readFile(sourcePath, "utf8")).resolves.toBe(payload);
+    } finally {
+      if (previousHome === undefined) delete process.env.HOME;
+      else process.env.HOME = previousHome;
+      if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+      else process.env.CODEX_HOME = previousCodexHome;
+      if (previousStateDir === undefined) delete process.env.THREADLENS_STATE_DIR;
+      else process.env.THREADLENS_STATE_DIR = previousStateDir;
+      vi.resetModules();
+      await rm(root, { recursive: true, force: true });
     }
   });
 

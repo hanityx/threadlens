@@ -4,7 +4,8 @@
 
 | Version | Supported |
 |---------|-----------|
-| 0.2.x   | ✅ Current |
+| 0.3.x   | ✅ Current |
+| 0.2.x   | Security fixes only |
 
 ## Reporting a Vulnerability
 
@@ -22,8 +23,8 @@ This project runs **locally** and does not expose endpoints to the internet by d
 
 - **Token-verified cleanup flow**: All destructive operations (archive, delete) require a two-step dry-run + confirm-token handshake.
 - **Provider file path validation**: File operations are guarded by provider-root and extension allowlists to prevent path traversal.
-- **TS-only runtime**: The product runtime is served by the local Fastify API on `127.0.0.1:8788`. Unknown `/api/*` paths now return `404`.
-- **No authentication**: The API has no auth layer — it is designed for single-user local use only. Do not expose port `8788` to untrusted networks.
+- **TS-only runtime**: The product runtime is served by the local Fastify API on `127.0.0.1:8788`. Unknown `/api/*` paths return `404`.
+- **Desktop API token**: Packaged desktop runs generate a per-launch API token and require it for local API requests. Standalone development mode is still local-only; do not expose port `8788` to untrusted networks.
 
 ## Dependencies
 

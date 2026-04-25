@@ -391,16 +391,9 @@
 }
 
 .thread-toolbar-group-inline {
-  grid-template-columns: max-content auto;
+  grid-template-columns: minmax(0, max-content) max-content;
   align-items: center;
-  justify-content: start;
-  column-gap: 8px;
-}
-
-.thread-toolbar-group-inline {
-  grid-template-columns: max-content auto;
-  align-items: center;
-  justify-content: start;
+  justify-content: space-between;
   column-gap: 8px;
 }
 
@@ -423,7 +416,8 @@
 }
 
 .thread-toolbar-tools {
-  justify-self: start;
+  justify-self: end;
+  margin-left: auto;
 }
 
 @media (max-width: 1280px) {

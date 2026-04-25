@@ -1,5 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("po-locale", "en");
+    window.localStorage.removeItem("cmc-locale");
+  });
+});
+
 async function ensureTheme(page: Page, target: "light" | "dark") {
   const lightToggle = page.getByRole("button", { name: /light/i }).first();
   const darkToggle = page.getByRole("button", { name: /dark/i }).first();
@@ -74,7 +81,7 @@ async function runFullPageSmoke(page: Page, suffix: string, testInfo: { outputPa
   const setupButton = page.getByRole("button", { name: /^setup$/i }).first();
   await setupButton.click();
   await expect(page.getByRole("heading", { name: /^Setup$/i }).first()).toBeVisible();
-  await expect(page.getByText(/Choose one default AI/i).first()).toBeVisible();
+  await expect(page.getByText(/Preferred AI/i).first()).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath(`setup-${suffix}.png`),
     fullPage: true,

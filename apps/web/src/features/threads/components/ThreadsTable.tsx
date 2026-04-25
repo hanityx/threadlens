@@ -12,7 +12,6 @@ import {
   resolveThreadSortDirection,
   type ThreadSortColumn,
   resolveVisibleThreadSelectionCount,
-  toggleThreadRowSelectionState,
 } from "@/features/threads/model/threadsTableModel";
 
 export interface ThreadsTableProps {
@@ -326,10 +325,7 @@ export function ThreadsTable(props: ThreadsTableProps) {
                 <tr
                   key={buildThreadRowKey(row, index)}
                   className={`${isHighRisk ? "risk-row" : ""} ${selectedThreadId === row.thread_id ? "active-row" : ""}`.trim()}
-                  onClick={() => {
-                    setSelectedThreadId(row.thread_id);
-                    setSelected((prev) => toggleThreadRowSelectionState(prev, row.thread_id));
-                  }}
+                  onClick={() => setSelectedThreadId(row.thread_id)}
                 >
                   <td className="table-select-cell">
                     <label
@@ -345,7 +341,10 @@ export function ThreadsTable(props: ThreadsTableProps) {
                           normalizeDisplayValue(row.title) || row.thread_id,
                         )}
                         onClick={(event) => event.stopPropagation()}
-                        onChange={(e) => setSelected((prev) => ({ ...prev, [row.thread_id]: e.target.checked }))}
+                        onChange={(e) => {
+                          setSelected((prev) => ({ ...prev, [row.thread_id]: e.target.checked }));
+                          if (e.target.checked) setSelectedThreadId(row.thread_id);
+                        }}
                       />
                     </label>
                   </td>

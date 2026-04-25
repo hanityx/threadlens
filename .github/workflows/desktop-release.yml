@@ -35,6 +35,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.tag }}
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -94,11 +96,12 @@ jobs:
         with:
           name: ${{ matrix.artifact_name }}
           path: |
+            apps/desktop-electron/dist/**/*.dmg
             apps/desktop-electron/dist/**/*.zip
             apps/desktop-electron/dist/**/*.exe
             apps/desktop-electron/dist/**/*.AppImage
             apps/desktop-electron/dist/**/*.app
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   publish-release:
     name: Publish GitHub release
@@ -107,6 +110,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.tag }}
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -141,6 +146,7 @@ jobs:
           VERSION="${TAG#v}"
 
           mkdir -p release-assets
+          find release-artifacts -type f -name '*.dmg' -exec cp {} release-assets/ \;
           find release-artifacts -type f -name '*.zip' -exec cp {} release-assets/ \;
           find release-artifacts -type f -name '*.AppImage' -exec cp {} release-assets/ \;
 
@@ -156,6 +162,10 @@ jobs:
             echo "No release assets were collected."
             exit 1
           fi
+
+          test "$(find release-assets -maxdepth 1 -type f -name '*.dmg' | wc -l | tr -d ' ')" -ge 1
+          test "$(find release-assets -maxdepth 1 -type f -name '*.AppImage' | wc -l | tr -d ' ')" -ge 1
+          test "$(find release-assets -maxdepth 1 -type f -name '*.exe' | wc -l | tr -d ' ')" -ge 1
 
           (
             cd release-assets

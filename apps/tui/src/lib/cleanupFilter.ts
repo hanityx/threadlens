@@ -9,6 +9,13 @@ function cleanupRowPriority(row: ThreadRow): number {
   return 2;
 }
 
+export function shouldShowCleanupRow(row: ThreadRow): boolean {
+  const source = String(row.source ?? "").toLowerCase();
+  if (source === "cleanup_backups") return false;
+  if (source === "archived_sessions" || source === "local_archive") return false;
+  return !source.includes("backup");
+}
+
 export function preferCleanupRowCandidate(left: ThreadRow, right: ThreadRow): ThreadRow {
   const leftPriority = cleanupRowPriority(left);
   const rightPriority = cleanupRowPriority(right);
@@ -29,6 +36,7 @@ export function canonicalizeCleanupRows(rows: ThreadRow[]): ThreadRow[] {
   const orderedThreadIds: string[] = [];
 
   for (const row of rows) {
+    if (!shouldShowCleanupRow(row)) continue;
     const existing = preferredByThreadId.get(row.thread_id);
     if (!existing) {
       preferredByThreadId.set(row.thread_id, row);

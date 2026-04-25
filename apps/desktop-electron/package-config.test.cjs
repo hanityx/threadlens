@@ -17,6 +17,7 @@ test("desktop package defines cross-platform artifact scripts and targets", () =
   assert.equal(pkg.scripts["dist:linux"], "pnpm run build && electron-builder --linux AppImage");
 
   assert.equal(pkg.build.mac.icon, "build/icon.icns");
+  assert.equal(pkg.build.mac.identity, null);
   assert.deepEqual(pkg.build.mac.target, ["dmg"]);
 
   assert.equal(pkg.build.win.icon, "build/icon.ico");

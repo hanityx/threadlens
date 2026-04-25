@@ -158,6 +158,28 @@ describe("registerThreadRoutes cleanup invalidation", () => {
     expect(invalidateProviderSessionCache).not.toHaveBeenCalled();
   });
 
+  it("returns 207 for partial backup cleanup execution", async () => {
+    mockExecuteBackupCleanupTs.mockResolvedValue({
+      ok: false,
+      mode: "partial",
+      deleted_file_count: 1,
+      failed: [{ path: "/tmp/missing.jsonl", error: "unlink failed" }],
+    });
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/local-cleanup-backups",
+      payload: {
+        ids: ["thread-backup"],
+      },
+    });
+
+    expect(res.statusCode).toBe(207);
+    expect(invalidateOverviewCache).toHaveBeenCalledTimes(1);
+    expect(invalidateProviderSessionCache).toHaveBeenCalledTimes(1);
+    expect(invalidateProviderSessionCache).toHaveBeenCalledWith("codex");
+  });
+
   it("forwards analyze-delete session scan limits", async () => {
     mockAnalyzeDeleteTs.mockResolvedValue({
       count: 1,

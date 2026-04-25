@@ -156,7 +156,7 @@ export type CleanupPreviewResponse = ApiEnvelope<{
 export type ProviderActionResponse = ApiEnvelope<{
   ok: boolean;
   provider: string;
-  action: "backup_local" | "archive_local" | "delete_local";
+  action: "backup_local" | "archive_local" | "unarchive_local" | "delete_local";
   dry_run: boolean;
   target_count: number;
   valid_count: number;

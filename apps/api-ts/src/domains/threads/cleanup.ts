@@ -32,6 +32,7 @@ type CleanupExecOptions = {
   dryRun?: boolean;
   confirmToken?: string;
   options?: CleanupOptions;
+  backupPaths?: typeof backupPathsTs;
   roots?: {
     chatDir?: string;
     codexHome?: string;
@@ -202,7 +203,36 @@ export async function executeLocalCleanupTs(
   ) {
     backupTargets.push(stateResult.path);
   }
-  const backupInfo = await backupPathsTs(backupTargets, roots.backupRoot);
+  const backupInfo = await (execOptions?.backupPaths ?? backupPathsTs)(
+    backupTargets,
+    roots.backupRoot,
+  );
+  const backupFailed = Array.isArray(backupInfo.failed) ? backupInfo.failed : [];
+  if (backupFailed.length > 0) {
+    return {
+      ok: false,
+      mode: "failed",
+      error: "backup-failed-before-delete",
+      requested_ids: ids.length,
+      target_file_count: targetPaths.length,
+      deleted_file_count: 0,
+      failed: [],
+      failure_summary: {
+        failed_count: backupFailed.length,
+        partial_failure: false,
+        backup_failed_count: backupFailed.length,
+        delete_failed_count: 0,
+      },
+      state_result: stateResult,
+      backup: {
+        backup_dir: backupInfo.backup_dir,
+        copied_count: backupInfo.copied_count,
+        failed: backupFailed,
+      },
+      targets,
+      confirm_token_expected,
+    };
+  }
 
   let deleted_file_count = 0;
   const failed: Array<{ path: string; error: string }> = [];
@@ -220,8 +250,7 @@ export async function executeLocalCleanupTs(
         stateFilePath: roots.stateFilePath,
       })
     : stateResult;
-  const backupFailed = Array.isArray(backupInfo.failed) ? backupInfo.failed : [];
-  const failedCount = failed.length + backupFailed.length;
+  const failedCount = failed.length;
   const changed = deleted_file_count > 0 || Boolean(executedStateResult.changed);
   const mode = failedCount === 0 ? "applied" : changed ? "partial" : "failed";
 
@@ -235,14 +264,14 @@ export async function executeLocalCleanupTs(
     failure_summary: {
       failed_count: failedCount,
       partial_failure: failedCount > 0 && changed,
-      backup_failed_count: backupFailed.length,
+      backup_failed_count: 0,
       delete_failed_count: failed.length,
     },
     state_result: executedStateResult,
     backup: {
       backup_dir: backupInfo.backup_dir,
       copied_count: backupInfo.copied_count,
-      failed: backupFailed,
+      failed: [],
     },
     targets,
     confirm_token_expected,
@@ -332,14 +361,21 @@ export async function executeBackupCleanupTs(threadIds: string[], options?: Back
       failed.push({ path: resolved, error: String(error) });
     }
   }
+  const failedCount = failed.length;
+  const mode = failedCount === 0 ? "execute" : deleted_file_count > 0 ? "partial" : "failed";
 
   return {
-    ok: true,
-    mode: "execute",
+    ok: failedCount === 0,
+    mode,
     requested_ids: ids.length,
     target_file_count: targetPaths.length,
     deleted_file_count,
     failed,
+    failure_summary: {
+      failed_count: failedCount,
+      partial_failure: failedCount > 0 && deleted_file_count > 0,
+      delete_failed_count: failedCount,
+    },
     backup: { backup_dir: "", copied_count: 0 },
     targets,
   };

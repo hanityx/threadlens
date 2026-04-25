@@ -26,6 +26,7 @@ const {
 } = require("./main/smoke-runtime.cjs");
 const {
   createMainWindow: createDesktopWindow,
+  isAllowedExternalUrl,
   readInitialRoute,
 } = require("./main/window-runtime.cjs");
 
@@ -101,10 +102,14 @@ function createMenu() {
         app.showAboutPanel();
       },
       onReportIssue: () => {
-        void shell.openExternal(THREADLENS_ISSUE_URL);
+        if (isAllowedExternalUrl(THREADLENS_ISSUE_URL)) {
+          void shell.openExternal(THREADLENS_ISSUE_URL);
+        }
       },
       onOpenHomepage: () => {
-        void shell.openExternal(THREADLENS_HOMEPAGE_URL);
+        if (isAllowedExternalUrl(THREADLENS_HOMEPAGE_URL)) {
+          void shell.openExternal(THREADLENS_HOMEPAGE_URL);
+        }
       },
     }),
   );

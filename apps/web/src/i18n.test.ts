@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { detectPreferredLocale } from "@/i18n";
 import { getMessages } from "@/i18n/catalog";
+import { LOCALE_LABELS, LOCALE_SHORT_LABELS } from "@/i18n/locales";
 
 describe("i18n provider flow labels", () => {
   const nonEnglishLocales = ["zh-CN", "hi", "es", "pt-BR", "ru", "id", "de", "ja", "ko"] as const;
@@ -9,6 +10,11 @@ describe("i18n provider flow labels", () => {
 
   it("uses ThreadLens as the product title for English", () => {
     expect(getMessages("en").hero.title).toBe("ThreadLens");
+  });
+
+  it("keeps Korean second in locale picker order", () => {
+    expect(Object.keys(LOCALE_LABELS).slice(0, 2)).toEqual(["en", "ko"]);
+    expect(Object.keys(LOCALE_SHORT_LABELS).slice(0, 2)).toEqual(["en", "ko"]);
   });
 
   it("exposes flow board labels for English", () => {

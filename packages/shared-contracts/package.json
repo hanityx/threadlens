@@ -1,6 +1,6 @@
 {
   "name": "@threadlens/shared-contracts",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

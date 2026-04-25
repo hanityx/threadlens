@@ -350,7 +350,6 @@ export function ThreadsWorkbench() {
         highRiskVisibleCount={highRiskVisibleCount}
         pinnedCount={pinnedCount}
         selectedCount={selectedCount}
-        dryRunReady={dryRunReady}
       />
 
       <section
