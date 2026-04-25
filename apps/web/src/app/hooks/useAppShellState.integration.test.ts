@@ -52,11 +52,11 @@ describe("useAppShellState integration", () => {
     mockReadStorageValue.mockReturnValue("search draft");
   });
 
-  it("hydrates initial shell state from persisted storage and exposes empty defaults", () => {
+  it("hydrates persisted shell state without replaying the last Search query", () => {
     const { result } = renderShellState();
 
     expect(result.dismissedUpdateVersion).toBe("0.2.2");
-    expect(result.headerSearchSeed).toBe("search draft");
+    expect(result.headerSearchSeed).toBe("");
     expect(result.headerSearchDraft).toBe("");
     expect(result.searchThreadContext).toBeNull();
     expect(result.providerProbeFilterIntent).toBeNull();

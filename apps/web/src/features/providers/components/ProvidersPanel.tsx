@@ -172,7 +172,7 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   const model = useProvidersPanelModel({ props, state });
   const statusLabel = (status: "active" | "detected" | "missing") =>
     getProviderStatusLabel(messages, status);
-  const actionLabel = (action: "backup_local" | "archive_local" | "delete_local") =>
+  const actionLabel = (action: ProviderSessionActionResult["action"]) =>
     getProviderActionLabel(messages, action);
   const flowStateLabel = (stateLabel: ProviderFlowState) =>
     getProviderFlowStateLabel(messages, stateLabel);

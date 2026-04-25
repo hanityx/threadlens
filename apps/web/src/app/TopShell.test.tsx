@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { getMessages, type Locale } from "@/i18n";
+import type { Locale } from "@/i18n";
+import { getMessages } from "@/i18n/catalog";
 import { TopShell, type TopShellProps } from "@/app/components/TopShell";
 
 function renderTopShell(locale: Locale) {
@@ -28,16 +29,17 @@ function renderTopShell(locale: Locale) {
 }
 
 describe("TopShell", () => {
-  it("renders the locale picker with compact language code and locale labels", () => {
+  it("renders a compact locale picker without keeping closed options in tab order", () => {
     const html = renderTopShell("en");
 
     expect(html).toContain("EN");
     expect(html).toContain("English");
-    expect(html).toContain("한국어");
-    expect(html).toContain("Русский");
-    expect(html).toContain('role="listbox"');
-    expect(html).toContain('role="option"');
-    expect(html).toContain('aria-selected="true"');
+    expect(html).toContain('class="locale-picker is-compact"');
+    expect(html).toContain('aria-label="Language: English"');
+    expect(html).not.toContain("한국어");
+    expect(html).not.toContain("Русский");
+    expect(html).not.toContain('role="listbox"');
+    expect(html).not.toContain('role="option"');
   });
 
   it("keeps top-level navigation labels in English even when the locale is Spanish", () => {

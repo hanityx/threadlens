@@ -1,12 +1,15 @@
 import type React from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { ApiEnvelope, UpdateCheckStatus } from "@threadlens/shared-contracts";
+import { PROVIDER_IDS, type ApiEnvelope, type UpdateCheckStatus } from "@threadlens/shared-contracts";
 import { AppContext, type AppContextValue } from "@/app/AppContext";
 import { createAppContextValue } from "@/app/createAppContextValue";
 import { useAppData } from "@/app/hooks/useAppData";
 import { useAppShellState } from "@/app/hooks/useAppShellState";
 import {
+  resolveCanonicalExactProviderSessionMatch,
   resolvePreferredProvidersEntry,
+  shouldLookupRemoteExactSessionTarget,
+  shouldLookupRemoteExactThreadTarget,
   useAppShellBehavior,
 } from "@/app/model/appShellBehavior";
 import { useAppShellModel } from "@/app/model/appShellModel";
@@ -14,14 +17,18 @@ import { apiGet } from "@/api";
 import { useLocale } from "@/i18n";
 import { extractEnvelopeData } from "@/shared/lib/format";
 import {
-  PROVIDER_VIEW_STORAGE_KEY,
-  readStorageValue,
-  SETUP_PREFERRED_PROVIDER_STORAGE_KEY,
+  readPersistedSetupState,
 } from "@/shared/lib/appState";
+import type { RecoveryResponse } from "@/shared/types";
+
+function preloadChunk(loader: () => Promise<unknown>) {
+  // Providers home prefetch is best-effort only.
+  void loader().catch(() => undefined);
+}
 
 const preloadProvidersHomePanels = () => {
-  void import("@/features/providers/components/ProvidersPanel");
-  void import("@/features/providers/session/SessionDetail");
+  preloadChunk(() => import("@/features/providers/components/ProvidersPanel"));
+  preloadChunk(() => import("@/features/providers/session/SessionDetail"));
 };
 
 export function resolveShowUpdateBanner(
@@ -42,6 +49,17 @@ export function resolveRuntimeBackendDegraded(options: {
 }): boolean {
   const { runtimeError, runtimeLoading, runtimeBackendReachable } = options;
   return runtimeError || (!runtimeLoading && runtimeBackendReachable === false);
+}
+
+export function resolveRecoveryBackupSetCount(
+  recoveryData: RecoveryResponse | null | undefined,
+): number {
+  return (
+    recoveryData?.summary?.backup_sets ??
+    recoveryData?.backup_total ??
+    recoveryData?.backup_sets?.length ??
+    0
+  );
 }
 
 export function resolveForensicsErrorKey(
@@ -193,6 +211,7 @@ export function useAppController(options: {
     hasGlobalErrorStack,
     parserScoreText,
     runtimeLatencyText,
+    runtimeStatusText,
     backupSetsCount,
   } = useAppShellModel({
     layoutView,
@@ -223,6 +242,7 @@ export function useAppController(options: {
     selectedProviderLabel,
     runtimeBackendReachable: runtimeBackend?.reachable,
     runtimeBackendLatencyMs: runtimeBackend?.latency_ms,
+    runtimeBackendUrl: runtimeBackend?.url,
     analyzeErrorKey,
     cleanupErrorKey,
     acknowledgedForensicsErrorKeys,
@@ -235,9 +255,13 @@ export function useAppController(options: {
     providerSessionActionError: Boolean(providerSessionActionError),
     bulkActionError: Boolean(bulkActionError),
     showRuntimeBackendDegraded,
-    recoveryBackupSets: recovery.data?.summary?.backup_sets ?? 0,
+    recoveryBackupSets: resolveRecoveryBackupSetCount(recovery.data ?? null),
     messages,
   });
+  const knownProviderIdSet = new Set(
+    [...PROVIDER_IDS, ...providerTabs.map((tab) => String(tab.id || "").trim())]
+      .filter((id) => id && id !== "all"),
+  );
 
   const {
     handleProvidersIntent,
@@ -249,7 +273,7 @@ export function useAppController(options: {
     providerView,
     visibleProviderTabs,
     visibleProviderIdSet,
-    providerSessionRows: allVisibleProviderSessionRows,
+    providerSessionRows: allProviderSessionRows,
     visibleRows,
     showForensics,
     showThreadDetail,
@@ -277,16 +301,56 @@ export function useAppController(options: {
     setHeaderSearchSeed,
     prefetchProvidersData,
     prefetchRoutingData,
+    lookupExactThreadTarget: async (query: string) => {
+      if (!shouldLookupRemoteExactThreadTarget(query)) return null;
+      const data = await apiGet<{ rows?: Array<{ thread_id?: string }> }>(
+        `/api/threads?offset=0&limit=2&q=${encodeURIComponent(query)}&sort=updated_desc`,
+      );
+      const normalizedQuery = query.trim().toLowerCase();
+      const exactMatches = (data.rows ?? []).filter(
+        (row) => String(row.thread_id || "").trim().toLowerCase() === normalizedQuery,
+      );
+      if (exactMatches.length !== 1) return null;
+      return { threadId: String(exactMatches[0]?.thread_id || "") };
+    },
+    lookupExactSessionTarget: async (query: string) => {
+      if (!shouldLookupRemoteExactSessionTarget(query)) return null;
+      const data = await apiGet<{
+        rows?: Array<{ provider?: string; session_id?: string; file_path?: string }>;
+      }>(`/api/provider-sessions?limit=2000`);
+      const normalizedQuery = query.trim().toLowerCase();
+      const match = resolveCanonicalExactProviderSessionMatch(
+        normalizedQuery,
+        (data.rows ?? []).map((row) => ({
+          provider: String(row.provider || ""),
+          source: String((row as { source?: string }).source || ""),
+          session_id: String(row.session_id || ""),
+          file_path: String(row.file_path || ""),
+        })),
+      );
+      if (!match) return null;
+      const providerId = String(match?.provider || "").trim();
+      return {
+        sessionId: String(match?.session_id || ""),
+        filePath: String(match?.file_path || ""),
+        providerView:
+          knownProviderIdSet.has(providerId) && providerId
+            ? (providerId as typeof providerView)
+            : "all",
+      };
+    },
   });
 
   const openProvidersHome = () => {
     prefetchProvidersData();
     preloadProvidersHomePanels();
+    const persistedSetupState = readPersistedSetupState();
     const preferredProvider = resolvePreferredProvidersEntry({
-      preferredProviderId: readStorageValue([SETUP_PREFERRED_PROVIDER_STORAGE_KEY]),
-      storedProviderView: readStorageValue([PROVIDER_VIEW_STORAGE_KEY]),
+      preferredProviderId: persistedSetupState?.preferredProviderId ?? null,
+      storedProviderView: persistedSetupState?.providerView ?? null,
       visibleProviderIdSet,
     });
+    setSelectedSessionPath("");
     changeProviderView(preferredProvider);
     changeLayoutView("providers");
   };
@@ -312,7 +376,7 @@ export function useAppController(options: {
       showSearch, showProviders, showThreadsTable, showForensics, showRouting,
       showThreadDetail, showSessionDetail, showDetails,
       showGlobalAnalyzeDeleteError, showGlobalCleanupDryRunError, hasGlobalErrorStack,
-      parserScoreText, runtimeLatencyText, backupSetsCount,
+      parserScoreText, runtimeLatencyText, runtimeStatusText, backupSetsCount,
     },
     shellBehavior: {
       handleProvidersIntent,

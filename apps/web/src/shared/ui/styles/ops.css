@@ -1,0 +1,50 @@
+.ops-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 1.12fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.ops-layout.single {
+  grid-template-columns: 1fr;
+}
+
+.sessions-action-tools {
+  display: inline-flex;
+  justify-self: end;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex: 0 0 auto;
+  gap: 0;
+  margin-left: 0;
+  min-width: 0;
+  border: 1px solid var(--surface-border-ghost);
+  border-radius: 14px;
+  background: var(--surface-nav-ghost);
+  overflow: hidden;
+}
+
+.sessions-action-tool-btn {
+  min-height: 32px;
+  padding: 7px 6px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  box-shadow: none;
+  font-size: var(--text-xs);
+  font-family: var(--font-label);
+  letter-spacing: 0.03em;
+  text-transform: none;
+}
+
+.sessions-action-tool-btn + .sessions-action-tool-btn {
+  border-left: 1px solid var(--surface-border-ghost);
+}
+
+.sessions-action-tool-btn:hover:not(:disabled),
+.sessions-action-tool-btn:focus-visible,
+.sessions-action-tool-btn.is-active {
+  background: var(--surface-panel-subtle-soft);
+  color: var(--text);
+}

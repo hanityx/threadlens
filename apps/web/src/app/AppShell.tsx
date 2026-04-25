@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import type { UpdateCheckStatus } from "@threadlens/shared-contracts";
+import { TabSurfaceSkeleton } from "@/app/components/TabSurfaceSkeleton";
 import { DetailShell } from "@/app/components/DetailShell";
 import {
   RuntimeFeedbackStack,
@@ -9,7 +10,6 @@ import { TopShell, type TopShellProps } from "@/app/components/TopShell";
 import { UpdateBanner } from "@/app/components/UpdateBanner";
 import type { Messages } from "@/i18n";
 import type { LayoutView } from "@/shared/types";
-import { PanelHeader } from "@/shared/ui/components/PanelHeader";
 
 const OverviewWorkbench = lazy(async () => {
   const mod = await import("@/features/overview/components/OverviewWorkbench");
@@ -66,14 +66,7 @@ export function AppShell(props: {
     onDismissUpdate,
   } = props;
 
-  const renderSurfaceFallback = (title: string) => (
-    <section className="panel">
-      <PanelHeader title={title} subtitle={messages.common.loading} />
-      <div className="sub-toolbar">
-        <div className="skeleton-line" />
-      </div>
-    </section>
-  );
+  const renderSurfaceFallback = () => <TabSurfaceSkeleton />;
 
   return (
     <div className="app-shell">
@@ -98,22 +91,22 @@ export function AppShell(props: {
           />
         ) : null}
         {layoutView === "overview" ? (
-          <Suspense fallback={renderSurfaceFallback(messages.nav.overview)}>
+          <Suspense fallback={renderSurfaceFallback()}>
             <OverviewWorkbench />
           </Suspense>
         ) : null}
         {showSearch ? (
-          <Suspense fallback={renderSurfaceFallback(messages.nav.search)}>
+          <Suspense fallback={renderSurfaceFallback()}>
             <SearchRoute />
           </Suspense>
         ) : null}
         {showProviders ? (
-          <Suspense fallback={renderSurfaceFallback(messages.nav.providers)}>
+          <Suspense fallback={renderSurfaceFallback()}>
             <ProvidersWorkspace />
           </Suspense>
         ) : null}
         {showThreadsTable ? (
-          <Suspense fallback={renderSurfaceFallback(messages.nav.threads)}>
+          <Suspense fallback={renderSurfaceFallback()}>
             <ThreadsWorkbench />
           </Suspense>
         ) : null}

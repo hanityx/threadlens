@@ -63,8 +63,17 @@ export type ThreadRow = {
   cwd?: string;
   timestamp?: string;
   activity_status?: string;
+  activity_age_min?: number;
   risk_level?: string;
   risk_tags?: string[];
+  session_line_count?: number;
+  session_tool_calls?: number;
+  session_bytes?: number;
+  session_format_ok?: boolean | null;
+  context_score?: number;
+  has_local_data?: boolean;
+  has_session_log?: boolean;
+  local_cache_paths?: string[];
 };
 
 export type ThreadsResponse = {
@@ -75,6 +84,27 @@ export type ThreadsResponse = {
 
 /* ── Recovery ─────────────────────────────────────────── */
 export type RecoveryResponse = {
+  default_backup_root?: string;
+  default_export_root?: string;
+  backup_root?: string;
+  backup_total?: number;
+  backup_sets?: Array<{
+    backup_id: string;
+    path: string;
+    file_count: number;
+    total_bytes: number;
+    latest_mtime: string;
+    sample_files?: string[];
+  }>;
+  legacy_backup_sets?: Array<{
+    backup_id: string;
+    path: string;
+    file_count: number;
+    total_bytes: number;
+    latest_mtime: string;
+    sample_files?: string[];
+  }>;
+  plan_root?: string;
   summary?: { backup_sets: number; checklist_done: number; checklist_total: number };
   generated_at?: string;
 };
@@ -158,6 +188,7 @@ export type ProviderSessionsEnvelope = ApiEnvelope<{
     scanned: number;
     truncated: boolean;
     scan_ms?: number;
+    total_bytes?: number;
   }>;
   rows?: ProviderSessionRow[];
 }>;
@@ -195,7 +226,7 @@ export type ProviderParserHealthReport = {
 export type ProviderSessionActionResult = {
   ok: boolean;
   provider: string;
-  action: "backup_local" | "archive_local" | "delete_local";
+  action: "backup_local" | "archive_local" | "unarchive_local" | "delete_local";
   dry_run: boolean;
   target_count: number;
   valid_count: number;
@@ -205,6 +236,8 @@ export type ProviderSessionActionResult = {
   selection_fingerprint?: string;
   backup_before_delete?: boolean;
   backed_up_count?: number;
+  backup_id?: string | null;
+  backup_ids?: string[];
   backup_to?: string | null;
   backup_manifest_path?: string | null;
   backup_summary?: {
@@ -226,10 +259,11 @@ export type ProviderSessionActionResult = {
 
 export type ProviderActionSelection = {
   provider: string;
-  action: "backup_local" | "archive_local" | "delete_local";
+  action: "backup_local" | "archive_local" | "unarchive_local" | "delete_local";
   file_paths: string[];
   dry_run: boolean;
   backup_before_delete?: boolean;
+  backup_root?: string;
 };
 
 export type RecoveryBackupExportResponse = {
@@ -239,6 +273,7 @@ export type RecoveryBackupExportResponse = {
   export_root?: string;
   export_dir?: string;
   archive_path?: string;
+  download_token?: string;
   manifest_path?: string;
   selected_backup_ids?: string[];
   missing_backup_ids?: string[];
@@ -264,11 +299,75 @@ export type AnalyzeDeleteReport = {
   summary?: string;
   parents?: string[];
   impacts?: string[];
+  cross_session_links?: {
+    strong_links: number;
+    mention_links: number;
+    related_threads: number;
+    strong_samples: Array<{
+      thread_id: string;
+      title?: string;
+      direction: "outbound" | "inbound" | "both";
+      strength: "strong" | "mention";
+      evidence_kind:
+        | "parent_thread_id"
+        | "forked_from_id"
+        | "new_thread_id"
+        | "command_output"
+        | "tool_output"
+        | "search_text"
+        | "copied_context"
+        | "generic_mention";
+      matched_field?: string;
+      matched_event?: string;
+      matched_value?: string;
+      matched_excerpt?: string;
+    }>;
+    mention_samples: Array<{
+      thread_id: string;
+      title?: string;
+      direction: "outbound" | "inbound" | "both";
+      strength: "strong" | "mention";
+      evidence_kind:
+        | "parent_thread_id"
+        | "forked_from_id"
+        | "new_thread_id"
+        | "command_output"
+        | "tool_output"
+        | "search_text"
+        | "copied_context"
+        | "generic_mention";
+      matched_field?: string;
+      matched_event?: string;
+      matched_value?: string;
+      matched_excerpt?: string;
+    }>;
+    related_samples: Array<{
+      thread_id: string;
+      title?: string;
+      direction: "outbound" | "inbound" | "both";
+      strength: "strong" | "mention";
+      evidence_kind:
+        | "parent_thread_id"
+        | "forked_from_id"
+        | "new_thread_id"
+        | "command_output"
+        | "tool_output"
+        | "search_text"
+        | "copied_context"
+        | "generic_mention";
+      matched_field?: string;
+      matched_event?: string;
+      matched_value?: string;
+      matched_excerpt?: string;
+    }>;
+  };
 };
 
 export type AnalyzeDeleteData = {
   count?: number;
   reports?: AnalyzeDeleteReport[];
+  session_scan_limit?: number;
+  session_scan_candidates?: number;
 };
 
 export type ThreadCleanupOptions = {
@@ -368,18 +467,65 @@ export type ConversationSearchHit = {
   source?: string;
 };
 
+export type ConversationSearchSession = {
+  provider: string;
+  session_id: string;
+  thread_id?: string | null;
+  title: string;
+  display_title?: string;
+  file_path: string;
+  source?: string;
+  mtime: string;
+  match_count: number;
+  title_match_count: number;
+  best_match_kind: "title" | "message";
+  preview_matches: ConversationSearchHit[];
+  has_more_hits: boolean;
+};
+
 export type ConversationSearchEnvelope = ApiEnvelope<{
   generated_at?: string;
   q?: string;
   providers?: string[];
+  page_size?: number;
   searched_sessions?: number;
   available_sessions?: number;
   truncated?: boolean;
+  total_matching_sessions?: number;
+  total_matching_hits?: number;
+  has_more?: boolean;
+  next_cursor?: string | null;
+  preview_hits_per_session?: number;
+  sessions?: ConversationSearchSession[];
   results?: ConversationSearchHit[];
+}>;
+
+export type ConversationSearchSessionHitsEnvelope = ApiEnvelope<{
+  generated_at?: string;
+  q?: string;
+  provider?: string;
+  session_id?: string;
+  file_path?: string;
+  page_size?: number;
+  total_hits?: number;
+  has_more?: boolean;
+  next_cursor?: string | null;
+  hits?: ConversationSearchHit[];
 }>;
 
 /* ── UI State ─────────────────────────────────────────── */
 export type FilterMode = "all" | "high-risk" | "pinned";
+export type ThreadSort =
+  | "updated_desc"
+  | "updated_asc"
+  | "risk_desc"
+  | "risk_asc"
+  | "activity_desc"
+  | "activity_asc"
+  | "cwd_desc"
+  | "cwd_asc"
+  | "pinned_desc"
+  | "pinned_asc";
 export type ProviderView = "all" | (string & {});
 export type ProviderDataDepth = "fast" | "balanced" | "deep";
 export type LayoutView = "overview" | "search" | "threads" | "providers";

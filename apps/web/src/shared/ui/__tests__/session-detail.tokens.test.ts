@@ -88,7 +88,9 @@ describe("session detail token migration", () => {
     expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.detail-hero\s*{[^}]*padding:\s*11px 14px;/s);
     expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.impact-body\s*{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;/s);
     expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.detail-section-body\s*{[^}]*padding:\s*12px 14px;[^}]*gap:\s*8px;/s);
-    expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.impact-list h3\s*{[^}]*margin-bottom:\s*10px;/s);
+    expect(sessionDetailStyles).toMatch(/\.detail-section-transcript\s*{[^}]*min-height:\s*0;/s);
+    expect(sessionDetailStyles).toMatch(/\.thread-review-panel \.chat-log\s*{[^}]*max-height:\s*520px;[^}]*min-height:\s*0;[^}]*height:\s*auto;[^}]*flex:\s*0 0 auto;/s);
+    expect(sessionDetailStyles).toMatch(/\.impact-list h3\s*{[^}]*margin:\s*10px 0 6px;[^}]*font-size:\s*var\(--text-md\);/s);
     expect(sessionDetailStyles).toMatch(/\.thread-detail-empty-state\s*{[^}]*gap:\s*12px;[^}]*padding:\s*12px 14px;/s);
     expect(sessionDetailStyles).toMatch(/\.thread-detail-empty-copy\s*{[^}]*gap:\s*5px;/s);
     expect(sessionDetailStyles).toMatch(/\.thread-detail-empty-next\s*{[^}]*gap:\s*5px;[^}]*padding:\s*10px 12px;/s);
@@ -96,5 +98,14 @@ describe("session detail token migration", () => {
     expect(sessionDetailStyles).toMatch(/\.thread-review-empty-guide\s*{[^}]*gap:\s*7px;/s);
     expect(sessionDetailStyles).toMatch(/\.thread-review-empty-guide article\s*{[^}]*gap:\s*4px;[^}]*padding:\s*10px 11px;/s);
     expect(sessionDetailStyles).toMatch(/\.detail-hero-session-compact\s*{[^}]*gap:\s*8px;[^}]*padding:\s*11px 14px;/s);
+  });
+
+  it("keeps thread impact scoring rows on a three-column grid", () => {
+    expect(sessionDetailStyles).toMatch(
+      /\.thread-review-impact-evidence-body \.thread-review-impact-criteria-row\s*{[^}]*grid-template-columns:\s*minmax\(96px,\s*140px\) minmax\(0,\s*1fr\) auto;/s,
+    );
+    expect(sessionDetailStyles).toMatch(
+      /\.thread-review-impact-criteria-row em\s*{[^}]*justify-self:\s*end;[^}]*min-width:\s*max-content;[^}]*white-space:\s*nowrap;/s,
+    );
   });
 });

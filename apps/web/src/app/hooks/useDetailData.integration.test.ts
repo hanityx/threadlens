@@ -79,4 +79,15 @@ describe("useDetailData integration", () => {
     expect(result.threadTranscriptLimit).toBe(250);
     expect(result.sessionTranscriptLimit).toBe(40);
   });
+
+  it("disables selected-session actions for cleanup_backups rows", () => {
+    const result = renderDetailData({
+      selectedSession: {
+        ...makeSession("codex"),
+        source: "cleanup_backups",
+      },
+    });
+
+    expect(result.canRunSelectedSessionAction).toBe(false);
+  });
 });

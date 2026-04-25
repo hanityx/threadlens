@@ -2,33 +2,40 @@ import { startTransition, useEffect, type Dispatch, type MutableRefObject, type 
 import { PROVIDER_IDS } from "@threadlens/shared-contracts";
 import type { ConversationSearchHit, LayoutView, ProviderSessionRow, ProviderView, ThreadRow } from "@/shared/types";
 import { normalizeDesktopRouteFilePath } from "@/app/model/desktopRoute";
+import { SEARCH_PROVIDER_STORAGE_KEY, writeStorageValue } from "@/shared/lib/appState";
 
 const VALID_LAYOUT_VIEWS = new Set<LayoutView>(["overview", "search", "providers", "threads"]);
 const VALID_PROVIDER_VIEWS = new Set<ProviderView>(["all", ...PROVIDER_IDS]);
 
+function preloadChunk(loader: () => Promise<unknown>) {
+  // Route prefetch is opportunistic. Test teardown or chunk races should not fail the app.
+  void loader().catch(() => undefined);
+}
+
 const preloadProvidersPanel = () => {
-  void import("@/features/providers/components/ProvidersPanel");
+  preloadChunk(() => import("@/features/providers/components/ProvidersPanel"));
 };
 
 const preloadThreadDetail = () => {
-  void import("@/features/threads/components/ThreadDetail");
+  preloadChunk(() => import("@/features/threads/components/ThreadDetail"));
 };
 
 const preloadSessionDetail = () => {
-  void import("@/features/providers/session/SessionDetail");
+  preloadChunk(() => import("@/features/providers/session/SessionDetail"));
 };
 
 const preloadRoutingPanel = () => {
-  void import("@/features/providers/routing/RoutingPanel");
+  preloadChunk(() => import("@/features/providers/routing/RoutingPanel"));
 };
 
 const preloadForensicsPanel = () => {
-  void import("@/features/threads/components/ForensicsPanel");
+  preloadChunk(() => import("@/features/threads/components/ForensicsPanel"));
 };
 
 export type DesktopRouteState = {
   view: LayoutView | "";
   provider: ProviderView | "";
+  sessionId: string;
   filePath: string;
   threadId: string;
 };
@@ -45,6 +52,7 @@ type ProviderTab = {
 type HeaderSearchTarget =
   | {
       kind: "session";
+      sessionId: string;
       filePath: string;
       providerView: ProviderView;
     }
@@ -56,6 +64,15 @@ type HeaderSearchTarget =
 function normalizeHeaderSearchToken(value: string): string {
   return String(value || "").trim().toLowerCase();
 }
+
+export function shouldLookupRemoteExactThreadTarget(query: string): boolean {
+  const normalized = normalizeHeaderSearchToken(query);
+  if (!normalized || /\s/.test(normalized)) return false;
+  if (/^thread-[a-z0-9-]{8,}$/i.test(normalized)) return true;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(normalized);
+}
+
+export const shouldLookupRemoteExactSessionTarget = shouldLookupRemoteExactThreadTarget;
 
 function findUniquePrefixMatch<T>(
   query: string,
@@ -74,14 +91,87 @@ function findUniquePrefixMatch<T>(
   return prefixMatches.length === 1 ? prefixMatches[0] : null;
 }
 
+function findUniqueExactMatch<T>(
+  query: string,
+  items: T[],
+  keysForItem: (item: T) => Array<string | null | undefined>,
+): T | null {
+  const exactMatches = items.filter((item) =>
+    keysForItem(item).some((key) => normalizeHeaderSearchToken(String(key || "")) === query),
+  );
+  if (exactMatches.length !== 1) return null;
+  return exactMatches[0];
+}
+
+type SessionMatchLike = Pick<ProviderSessionRow, "provider" | "source" | "session_id" | "file_path">;
+
+function isBackupSessionRow(row: Pick<ProviderSessionRow, "source">): boolean {
+  return String(row.source || "").trim().toLowerCase() === "cleanup_backups";
+}
+
+export function resolveCanonicalExactProviderSessionMatch<T extends SessionMatchLike>(
+  query: string,
+  rows: T[],
+): T | null {
+  const exactMatches = rows.filter((row) =>
+    [row.session_id, row.file_path].some(
+      (key) => normalizeHeaderSearchToken(String(key || "")) === query,
+    ),
+  );
+  if (exactMatches.length === 0) return null;
+  if (exactMatches.length === 1) return exactMatches[0];
+  const primaryMatches = exactMatches.filter((row) => !isBackupSessionRow(row));
+  if (primaryMatches.length === 1) return primaryMatches[0];
+  return null;
+}
+
 export function resolveHeaderSearchTarget(options: {
   query: string;
   visibleProviderIdSet: Set<string>;
   providerSessionRows: ProviderSessionRow[];
   threadRows: ThreadRow[];
+  preferSessionExactMatch?: boolean;
 }): HeaderSearchTarget | null {
   const normalizedQuery = normalizeHeaderSearchToken(options.query);
   if (!normalizedQuery) return null;
+
+  const exactSessionMatch = resolveCanonicalExactProviderSessionMatch(
+    normalizedQuery,
+    options.providerSessionRows,
+  );
+  if (options.preferSessionExactMatch && exactSessionMatch) {
+    return {
+      kind: "session",
+      sessionId: exactSessionMatch.session_id,
+      filePath: exactSessionMatch.file_path,
+      providerView: options.visibleProviderIdSet.has(exactSessionMatch.provider)
+        ? (exactSessionMatch.provider as ProviderView)
+        : "all",
+    };
+  }
+
+  const exactThreadMatch = findUniqueExactMatch(
+    normalizedQuery,
+    options.threadRows,
+    (row) => [row.thread_id],
+  );
+  if (exactThreadMatch) {
+    return {
+      kind: "thread",
+      threadId: exactThreadMatch.thread_id,
+    };
+  }
+
+  if (exactSessionMatch) {
+    return {
+      kind: "session",
+      sessionId: exactSessionMatch.session_id,
+      filePath: exactSessionMatch.file_path,
+      providerView: options.visibleProviderIdSet.has(exactSessionMatch.provider)
+        ? (exactSessionMatch.provider as ProviderView)
+        : "all",
+    };
+  }
 
   const providerMatch = findUniquePrefixMatch(
     normalizedQuery,
@@ -91,6 +181,7 @@ export function resolveHeaderSearchTarget(options: {
   if (providerMatch) {
     return {
       kind: "session",
+      sessionId: providerMatch.session_id,
       filePath: providerMatch.file_path,
       providerView: options.visibleProviderIdSet.has(providerMatch.provider)
         ? (providerMatch.provider as ProviderView)
@@ -120,6 +211,7 @@ export function parseDesktopRouteSearch(search: string): DesktopRouteState {
   return {
     view: VALID_LAYOUT_VIEWS.has(view as LayoutView) ? (view as LayoutView) : "",
     provider: VALID_PROVIDER_VIEWS.has(String(provider || "")) ? (provider as ProviderView) : "",
+    sessionId: params.get("sessionId") ?? "",
     filePath: normalizeDesktopRouteFilePath(params.get("filePath") ?? ""),
     threadId: params.get("threadId") ?? "",
   };
@@ -138,6 +230,11 @@ export function buildDesktopRouteSearch(
     params.delete("provider");
   }
 
+  if (route.view === "providers" && route.sessionId) {
+    params.set("sessionId", route.sessionId);
+  } else {
+    params.delete("sessionId");
+  }
   if (route.view === "providers" && route.filePath) {
     params.set("filePath", route.filePath);
   } else {
@@ -159,13 +256,41 @@ export function shouldPushDesktopRouteHistory(
   nextRoute: DesktopRouteState,
 ): boolean {
   if (!previousRoute) return false;
-  return previousRoute.view !== nextRoute.view;
+  if (previousRoute.view !== nextRoute.view) return true;
+  if (
+    previousRoute.view === "providers" &&
+    nextRoute.view === "providers" &&
+    previousRoute.provider !== nextRoute.provider
+  ) {
+    return true;
+  }
+  if (
+    previousRoute.view === "providers" &&
+    nextRoute.view === "providers" &&
+    previousRoute.provider === nextRoute.provider &&
+    (previousRoute.sessionId || previousRoute.filePath) !==
+      (nextRoute.sessionId || nextRoute.filePath)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function matchesSelectedSessionRoute(
+  route: Pick<DesktopRouteState, "sessionId" | "filePath">,
+  selectedSessionId: string,
+  selectedSessionPath: string,
+): boolean {
+  if (route.sessionId) return selectedSessionId === route.sessionId;
+  if (route.filePath) return selectedSessionPath === route.filePath;
+  return false;
 }
 
 export function shouldDeferDesktopRouteSync(options: {
   currentRoute: DesktopRouteState;
   layoutView: LayoutView;
   providerView: ProviderView;
+  selectedSessionId: string;
   selectedSessionPath: string;
   selectedThreadId: string;
   routeHydrating?: boolean;
@@ -179,8 +304,12 @@ export function shouldDeferDesktopRouteSync(options: {
           options.currentRoute.provider === "all" ||
           options.providerView === options.currentRoute.provider);
       const detailReady =
-        !options.currentRoute.filePath ||
-        options.selectedSessionPath === options.currentRoute.filePath;
+        (!options.currentRoute.sessionId && !options.currentRoute.filePath) ||
+        matchesSelectedSessionRoute(
+          options.currentRoute,
+          options.selectedSessionId,
+          options.selectedSessionPath,
+        );
       if (!providerReady || !detailReady) {
         return true;
       }
@@ -214,30 +343,104 @@ export function shouldDeferDesktopRouteSync(options: {
   }
 
   return Boolean(
-    (options.currentRoute.view === "providers" &&
+    (options.routeHydrating &&
+      options.currentRoute.view === "providers" &&
       options.layoutView === "providers" &&
-      options.currentRoute.filePath &&
-      (!options.selectedSessionPath ||
+      (options.currentRoute.sessionId || options.currentRoute.filePath) &&
+      (
+        (!options.selectedSessionId &&
+          !options.selectedSessionPath &&
+          (!options.currentRoute.provider ||
+            options.currentRoute.provider === "all" ||
+            options.providerView === options.currentRoute.provider)) ||
         (options.currentRoute.provider &&
           options.currentRoute.provider !== "all" &&
-          options.selectedSessionPath === options.currentRoute.filePath &&
-          options.providerView !== options.currentRoute.provider))) ||
-      (options.currentRoute.view === "threads" &&
-        options.layoutView === "threads" &&
-        options.currentRoute.threadId &&
-        !options.selectedThreadId),
+          matchesSelectedSessionRoute(
+            options.currentRoute,
+            options.selectedSessionId,
+            options.selectedSessionPath,
+          ) &&
+          options.providerView !== options.currentRoute.provider)
+      )) ||
+    (options.routeHydrating &&
+      options.currentRoute.view === "threads" &&
+      options.layoutView === "threads" &&
+      options.currentRoute.threadId &&
+      !options.selectedThreadId),
   );
 }
 
 export function shouldDeferProviderFallback(options: {
   currentRoute: DesktopRouteState;
   visibleProviderTabs: ProviderTab[];
+  routeHydrating?: boolean;
 }): boolean {
   if (options.currentRoute.view !== "providers") return false;
   if (!options.currentRoute.provider || options.currentRoute.provider === "all") return false;
-  if (!options.currentRoute.filePath) return false;
   const nonAllVisibleTabs = options.visibleProviderTabs.filter((tab) => tab.id !== "all");
+  if (options.routeHydrating && nonAllVisibleTabs.length === 0) {
+    return true;
+  }
+  if (!options.currentRoute.sessionId && !options.currentRoute.filePath) return false;
   return nonAllVisibleTabs.length === 0;
+}
+
+export function shouldRestoreRoutedSessionSelection(options: {
+  routeHydrating?: boolean;
+  layoutView: LayoutView;
+  routeSessionId: string;
+  routeFilePath: string;
+  selectedSessionPath: string;
+  providerSessionRows: Array<Pick<ProviderSessionRow, "session_id" | "file_path">>;
+}) {
+  if (!options.routeHydrating) return false;
+  if (options.layoutView !== "providers") return false;
+  if ((!options.routeSessionId && !options.routeFilePath) || options.selectedSessionPath) return false;
+  return options.providerSessionRows.some((row) =>
+    (options.routeSessionId && row.session_id === options.routeSessionId) ||
+    row.file_path === options.routeFilePath,
+  );
+}
+
+export function shouldRestoreRoutedThreadSelection(options: {
+  routeHydrating?: boolean;
+  layoutView: LayoutView;
+  routeThreadId: string;
+  selectedThreadId: string;
+  visibleRows: Array<Pick<ThreadRow, "thread_id">>;
+}) {
+  if (!options.routeHydrating) return false;
+  if (options.layoutView !== "threads") return false;
+  if (!options.routeThreadId || options.selectedThreadId) return false;
+  return options.visibleRows.some((row) => row.thread_id === options.routeThreadId);
+}
+
+export function isEditableTextTarget(target: EventTarget | null): boolean {
+  if (!target || typeof target !== "object") return false;
+  const candidate = target as {
+    tagName?: string;
+    type?: string;
+    isContentEditable?: boolean;
+  };
+  if (candidate.isContentEditable) return true;
+  const tagName = typeof candidate.tagName === "string" ? candidate.tagName.toLowerCase() : "";
+  if (tagName === "textarea" || tagName === "select") return true;
+  if (tagName !== "input") return false;
+  const inputType = String(candidate.type || "text").toLowerCase();
+  return !["button", "checkbox", "radio", "reset", "submit"].includes(inputType);
+}
+
+export function shouldHandleGlobalSearchShortcut(options: {
+  key: string;
+  metaKey?: boolean;
+  ctrlKey?: boolean;
+  altKey?: boolean;
+  target: EventTarget | null;
+}): boolean {
+  if (options.altKey) return false;
+  if (!options.metaKey && !options.ctrlKey) return false;
+  if (options.key.toLowerCase() !== "k") return false;
+  return !isEditableTextTarget(options.target);
 }
 
 export function shouldApplyProviderFallback(options: {
@@ -246,12 +449,23 @@ export function shouldApplyProviderFallback(options: {
   visibleProviderTabs: ProviderTab[];
   visibleProviderIdSet: Set<string>;
   currentRoute: DesktopRouteState;
+  routeHydrating?: boolean;
 }): boolean {
   if (options.layoutView !== "providers") return false;
+  if (
+    options.currentRoute.view === "providers" &&
+    options.currentRoute.provider &&
+    options.currentRoute.provider !== "all" &&
+    options.providerView === options.currentRoute.provider &&
+    options.visibleProviderTabs.every((tab) => tab.id === "all")
+  ) {
+    return false;
+  }
   if (
     shouldDeferProviderFallback({
       currentRoute: options.currentRoute,
       visibleProviderTabs: options.visibleProviderTabs,
+      routeHydrating: options.routeHydrating,
     })
   ) {
     return false;
@@ -273,18 +487,16 @@ function applyDesktopRoute(options: {
 }, nextRoute: DesktopRouteState) {
   const routedView = nextRoute.view;
   if (routedView) {
-    startTransition(() => {
-      options.setLayoutView(routedView);
-    });
+    options.setLayoutView(routedView);
   }
 
   if (nextRoute.view === "providers") {
-    startTransition(() => {
-      options.setProviderView(nextRoute.provider || "all");
-    });
+    options.setProviderView(nextRoute.provider || "all");
   }
 
-  options.setSelectedSessionPath(nextRoute.view === "providers" ? nextRoute.filePath : "");
+  options.setSelectedSessionPath(
+    nextRoute.view === "providers" && nextRoute.filePath ? nextRoute.filePath : "",
+  );
   options.setSelectedThreadId(nextRoute.view === "threads" ? nextRoute.threadId : "");
 }
 
@@ -366,6 +578,10 @@ export function useAppShellBehavior(options: {
   setHeaderSearchSeed: Dispatch<SetStateAction<string>>;
   prefetchProvidersData: () => void;
   prefetchRoutingData: () => void;
+  lookupExactThreadTarget?: (query: string) => Promise<{ threadId: string } | null>;
+  lookupExactSessionTarget?: (
+    query: string,
+  ) => Promise<{ sessionId: string; filePath: string; providerView: ProviderView } | null>;
 }) {
   useEffect(() => {
     if (options.desktopRouteAppliedRef.current) return;
@@ -375,10 +591,20 @@ export function useAppShellBehavior(options: {
     const nextRoute = parseDesktopRouteSearch(window.location.search);
     options.desktopRouteRef.current = nextRoute;
     options.desktopRouteHydratingRef.current = Boolean(
-      nextRoute.view || nextRoute.provider || nextRoute.filePath || nextRoute.threadId,
+      nextRoute.view ||
+        nextRoute.provider ||
+        nextRoute.sessionId ||
+        nextRoute.filePath ||
+        nextRoute.threadId,
     );
 
-    if (!nextRoute.view && !nextRoute.provider && !nextRoute.filePath && !nextRoute.threadId) {
+    if (
+      !nextRoute.view &&
+      !nextRoute.provider &&
+      !nextRoute.sessionId &&
+      !nextRoute.filePath &&
+      !nextRoute.threadId
+    ) {
       return;
     }
     applyDesktopRoute(options, nextRoute);
@@ -398,7 +624,11 @@ export function useAppShellBehavior(options: {
       const nextRoute = parseDesktopRouteSearch(window.location.search);
       options.desktopRouteRef.current = nextRoute;
       options.desktopRouteHydratingRef.current = Boolean(
-        nextRoute.view || nextRoute.provider || nextRoute.filePath || nextRoute.threadId,
+        nextRoute.view ||
+          nextRoute.provider ||
+          nextRoute.sessionId ||
+          nextRoute.filePath ||
+          nextRoute.threadId,
       );
       applyDesktopRoute(options, nextRoute);
     };
@@ -418,11 +648,15 @@ export function useAppShellBehavior(options: {
     if (!options.desktopRouteAppliedRef.current) return;
 
     const currentRoute = parseDesktopRouteSearch(window.location.search);
+    const selectedSessionId =
+      options.providerSessionRows.find((row) => row.file_path === options.selectedSessionPath)
+        ?.session_id ?? "";
     if (
       shouldDeferDesktopRouteSync({
         currentRoute,
         layoutView: options.layoutView,
         providerView: options.providerView,
+        selectedSessionId,
         selectedSessionPath: options.selectedSessionPath,
         selectedThreadId: options.selectedThreadId,
         routeHydrating: options.desktopRouteHydratingRef.current,
@@ -438,6 +672,7 @@ export function useAppShellBehavior(options: {
     const nextRoute: DesktopRouteState = {
       view: options.layoutView,
       provider: options.layoutView === "providers" ? options.providerView : "",
+      sessionId: options.layoutView === "providers" ? selectedSessionId : "",
       filePath: options.layoutView === "providers" ? options.selectedSessionPath : "",
       threadId: options.layoutView === "threads" ? options.selectedThreadId : "",
     };
@@ -466,14 +701,28 @@ export function useAppShellBehavior(options: {
   ]);
 
   useEffect(() => {
+    const routeSessionId = options.desktopRouteRef.current.sessionId;
     const routeFilePath = options.desktopRouteRef.current.filePath;
-    if (options.layoutView !== "providers") return;
-    if (!routeFilePath || options.selectedSessionPath) return;
-    const routeMatch = options.providerSessionRows.some((row) => row.file_path === routeFilePath);
-    if (!routeMatch) return;
-    options.setSelectedSessionPath(routeFilePath);
+    if (
+      !shouldRestoreRoutedSessionSelection({
+        routeHydrating: options.desktopRouteHydratingRef.current,
+        layoutView: options.layoutView,
+        routeSessionId,
+        routeFilePath,
+        selectedSessionPath: options.selectedSessionPath,
+        providerSessionRows: options.providerSessionRows,
+      })
+    ) {
+      return;
+    }
+    const matchedRow = options.providerSessionRows.find((row) =>
+      (routeSessionId && row.session_id === routeSessionId) || row.file_path === routeFilePath,
+    );
+    if (!matchedRow) return;
+    options.setSelectedSessionPath(matchedRow.file_path);
   }, [
     options.desktopRouteRef,
+    options.desktopRouteHydratingRef,
     options.layoutView,
     options.providerSessionRows,
     options.selectedSessionPath,
@@ -482,13 +731,21 @@ export function useAppShellBehavior(options: {
 
   useEffect(() => {
     const routeThreadId = options.desktopRouteRef.current.threadId;
-    if (options.layoutView !== "threads") return;
-    if (!routeThreadId || options.selectedThreadId) return;
-    const routeMatch = options.visibleRows.some((row) => row.thread_id === routeThreadId);
-    if (!routeMatch) return;
+    if (
+      !shouldRestoreRoutedThreadSelection({
+        routeHydrating: options.desktopRouteHydratingRef.current,
+        layoutView: options.layoutView,
+        routeThreadId,
+        selectedThreadId: options.selectedThreadId,
+        visibleRows: options.visibleRows,
+      })
+    ) {
+      return;
+    }
     options.setSelectedThreadId(routeThreadId);
   }, [
     options.desktopRouteRef,
+    options.desktopRouteHydratingRef,
     options.layoutView,
     options.selectedThreadId,
     options.setSelectedThreadId,
@@ -503,9 +760,7 @@ export function useAppShellBehavior(options: {
     const routeVisible = nonAllVisibleTabs.some((tab) => tab.id === routedProvider);
     if (!routeVisible || options.providerView === routedProvider) return;
 
-    startTransition(() => {
-      options.setProviderView(routedProvider);
-    });
+    options.setProviderView(routedProvider);
   }, [options.providerView, options.setProviderView, options.visibleProviderTabs, options.desktopRouteRef]);
 
   useEffect(() => {
@@ -516,6 +771,7 @@ export function useAppShellBehavior(options: {
         visibleProviderTabs: options.visibleProviderTabs,
         visibleProviderIdSet: options.visibleProviderIdSet,
         currentRoute: options.desktopRouteRef.current,
+        routeHydrating: options.desktopRouteHydratingRef.current,
       })
     ) {
       return;
@@ -621,15 +877,27 @@ export function useAppShellBehavior(options: {
   }, [options.layoutView, options.panelChunkWarmupStartedRef]);
 
   useEffect(() => {
-    const isTypingTarget = (target: EventTarget | null) => {
-      if (!(target instanceof HTMLElement)) return false;
-      const tag = target.tagName.toLowerCase();
-      return target.isContentEditable || tag === "input" || tag === "textarea" || tag === "select";
-    };
-
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
-      if (isTypingTarget(event.target)) return;
+      if (event.defaultPrevented) return;
+
+      if (
+        shouldHandleGlobalSearchShortcut({
+          key: event.key,
+          metaKey: event.metaKey,
+          ctrlKey: event.ctrlKey,
+          altKey: event.altKey,
+          target: event.target,
+        })
+      ) {
+        event.preventDefault();
+        const input = document.querySelector(".top-search-input") as HTMLInputElement | null;
+        input?.focus();
+        input?.select();
+        return;
+      }
+
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (isEditableTextTarget(event.target)) return;
 
       if (event.key === "1") {
         event.preventDefault();
@@ -648,6 +916,7 @@ export function useAppShellBehavior(options: {
       }
       if (event.key === "4") {
         event.preventDefault();
+        options.setSelectedSessionPath("");
         options.changeLayoutView("providers");
         return;
       }
@@ -681,17 +950,30 @@ export function useAppShellBehavior(options: {
     preloadRoutingPanel();
   };
 
-  const handleHeaderSearchSubmit = () => {
+  const handleHeaderSearchSubmit = async () => {
     const nextQuery = options.headerSearchDraft.trim();
     if (!nextQuery) return;
     options.setHeaderSearchDraft("");
+    const preferSessionExactMatch = options.layoutView === "providers";
     const jumpTarget = resolveHeaderSearchTarget({
       query: nextQuery,
       visibleProviderIdSet: options.visibleProviderIdSet,
       providerSessionRows: options.providerSessionRows,
       threadRows: options.visibleRows,
+      preferSessionExactMatch,
     });
     if (jumpTarget?.kind === "session") {
+      if (typeof window !== "undefined") {
+        const nextSearch = buildDesktopRouteSearch(window.location.search, {
+          view: "providers",
+          provider: jumpTarget.providerView,
+          sessionId: jumpTarget.sessionId,
+          filePath: jumpTarget.filePath,
+          threadId: "",
+        });
+        const nextUrl = `${window.location.pathname}${nextSearch}${window.location.hash}`;
+        window.history.pushState(null, "", nextUrl);
+      }
       options.setSearchThreadContext(null);
       options.setSelectedThreadId("");
       options.setProviderView(jumpTarget.providerView);
@@ -699,6 +981,30 @@ export function useAppShellBehavior(options: {
       options.changeLayoutView("providers");
       return;
     }
+
+    if (preferSessionExactMatch && options.lookupExactSessionTarget && shouldLookupRemoteExactSessionTarget(nextQuery)) {
+      const remoteSessionTarget = await options.lookupExactSessionTarget(nextQuery);
+      if (remoteSessionTarget?.sessionId && remoteSessionTarget.filePath) {
+        if (typeof window !== "undefined") {
+          const nextSearch = buildDesktopRouteSearch(window.location.search, {
+            view: "providers",
+            provider: remoteSessionTarget.providerView,
+            sessionId: remoteSessionTarget.sessionId,
+            filePath: remoteSessionTarget.filePath,
+            threadId: "",
+          });
+          const nextUrl = `${window.location.pathname}${nextSearch}${window.location.hash}`;
+          window.history.pushState(null, "", nextUrl);
+        }
+        options.setSearchThreadContext(null);
+        options.setSelectedThreadId("");
+        options.setProviderView(remoteSessionTarget.providerView);
+        options.setSelectedSessionPath(remoteSessionTarget.filePath);
+        options.changeLayoutView("providers");
+        return;
+      }
+    }
+
     if (jumpTarget?.kind === "thread") {
       options.setSearchThreadContext(null);
       options.setSelectedSessionPath("");
@@ -706,7 +1012,54 @@ export function useAppShellBehavior(options: {
       options.changeLayoutView("threads");
       return;
     }
+
+    if (options.lookupExactThreadTarget && shouldLookupRemoteExactThreadTarget(nextQuery)) {
+      const remoteThreadTarget = await options.lookupExactThreadTarget(nextQuery);
+      if (remoteThreadTarget?.threadId) {
+        if (typeof window !== "undefined") {
+          const nextSearch = buildDesktopRouteSearch(window.location.search, {
+            view: "threads",
+            provider: "",
+            sessionId: "",
+            filePath: "",
+            threadId: remoteThreadTarget.threadId,
+          });
+          const nextUrl = `${window.location.pathname}${nextSearch}${window.location.hash}`;
+          window.history.pushState(null, "", nextUrl);
+        }
+        options.setSearchThreadContext(null);
+        options.setSelectedSessionPath("");
+        options.setSelectedThreadId(remoteThreadTarget.threadId);
+        options.changeLayoutView("threads");
+        return;
+      }
+    }
+
+    if (!preferSessionExactMatch && options.lookupExactSessionTarget && shouldLookupRemoteExactSessionTarget(nextQuery)) {
+      const remoteSessionTarget = await options.lookupExactSessionTarget(nextQuery);
+      if (remoteSessionTarget?.sessionId && remoteSessionTarget.filePath) {
+        if (typeof window !== "undefined") {
+          const nextSearch = buildDesktopRouteSearch(window.location.search, {
+            view: "providers",
+            provider: remoteSessionTarget.providerView,
+            sessionId: remoteSessionTarget.sessionId,
+            filePath: remoteSessionTarget.filePath,
+            threadId: "",
+          });
+          const nextUrl = `${window.location.pathname}${nextSearch}${window.location.hash}`;
+          window.history.pushState(null, "", nextUrl);
+        }
+        options.setSearchThreadContext(null);
+        options.setSelectedThreadId("");
+        options.setProviderView(remoteSessionTarget.providerView);
+        options.setSelectedSessionPath(remoteSessionTarget.filePath);
+        options.changeLayoutView("providers");
+        return;
+      }
+    }
+
     options.setHeaderSearchSeed(nextQuery);
+    writeStorageValue(SEARCH_PROVIDER_STORAGE_KEY, "all");
     options.changeLayoutView("search");
     if (typeof window === "undefined") return;
     window.setTimeout(() => {

@@ -65,6 +65,8 @@ function renderMutations(options?: {
     makeMutationState(),
     makeMutationState(),
     makeMutationState(),
+    makeMutationState(),
+    makeMutationState(),
   ];
 
   mockUseQueryClient.mockReturnValue(queryClient);
@@ -117,13 +119,29 @@ describe("useMutations integration", () => {
         data: { data: { latest: { id: "smoke-1", status: "pass" } } },
       },
       recoveryQuery: {
-        data: { data: { summary: { backup_sets: 3 } } },
+        data: {
+          data: {
+            backup_root: "/tmp/threadlens-backups/current",
+            default_backup_root: "/tmp/threadlens-backups/default",
+            summary: { backup_sets: 3 },
+          },
+        },
       },
     });
 
     expect(result.runtime.data?.data?.runtime_backend?.latency_ms).toBe(92);
     expect(result.smokeStatusLatest).toEqual({ id: "smoke-1", status: "pass" });
     expect((result.recovery.data as { data?: { summary?: { backup_sets?: number } } } | undefined)?.data?.summary?.backup_sets).toBe(3);
+    expect(
+      (
+        result.recovery.data as {
+          data?: { backup_root?: string; default_backup_root?: string };
+        } | undefined
+      )?.data,
+    ).toMatchObject({
+      backup_root: "/tmp/threadlens-backups/current",
+      default_backup_root: "/tmp/threadlens-backups/default",
+    });
     expect(result.runtimeLoading).toBe(false);
     expect(result.smokeStatusLoading).toBe(false);
     expect(result.recoveryLoading).toBe(false);
@@ -140,6 +158,7 @@ describe("useMutations integration", () => {
           error: new Error("runtime-backend-down-cached: runtime-down"),
         }),
         makeMutationState(),
+        makeMutationState(),
         makeMutationState({
           isError: true,
           error: new Error("no-valid-thread-ids"),
@@ -149,6 +168,7 @@ describe("useMutations integration", () => {
           isError: true,
           error: new Error("cleanup-preview-required"),
         }),
+        makeMutationState(),
         makeMutationState({
           isError: true,
           error: new Error("provider-session-action status 409"),
@@ -175,9 +195,11 @@ describe("useMutations integration", () => {
     const bulkPin = makeMutationState();
     const bulkUnpin = makeMutationState();
     const bulkArchive = makeMutationState();
+    const bulkUnarchive = makeMutationState();
     const analyzeDelete = makeMutationState();
     const cleanupDryRun = makeMutationState();
     const cleanupExecute = makeMutationState();
+    const cleanupBackupsExecute = makeMutationState();
     const providerSessionAction = makeMutationState({
       isError: true,
       mutateAsync: vi
@@ -208,17 +230,22 @@ describe("useMutations integration", () => {
         bulkPin,
         bulkUnpin,
         bulkArchive,
+        bulkUnarchive,
         analyzeDelete,
         cleanupDryRun,
         cleanupExecute,
+        cleanupBackupsExecute,
         providerSessionAction,
         recoveryBackupExport,
       ],
     });
 
+    result.setBackupRoot("/tmp/threadlens-backups");
+    result.setExportRoot("/tmp/threadlens-exports");
     result.bulkPin(["thread-1"]);
     result.bulkUnpin(["thread-2"]);
     result.bulkArchive(["thread-3"]);
+    result.bulkUnarchive(["thread-archived"]);
     result.analyzeDelete(["thread-4"]);
     result.cleanupDryRun(["thread-5"]);
     result.cleanupExecute(["thread-6"]);
@@ -231,7 +258,11 @@ describe("useMutations integration", () => {
     expect(bulkPin.mutate).toHaveBeenCalledWith(["thread-1"]);
     expect(bulkUnpin.mutate).toHaveBeenCalledWith(["thread-2"]);
     expect(bulkArchive.mutate).toHaveBeenCalledWith(["thread-3"]);
-    expect(analyzeDelete.mutate).toHaveBeenCalledWith(["thread-4"]);
+    expect(bulkUnarchive.mutate).toHaveBeenCalledWith(["thread-archived"]);
+    expect(analyzeDelete.mutate).toHaveBeenCalledWith({
+      ids: ["thread-4"],
+      sessionScanLimit: undefined,
+    });
     expect(cleanupDryRun.mutate).toHaveBeenCalledWith(["thread-5"]);
     expect(cleanupExecute.mutate).toHaveBeenCalledWith(["thread-6"]);
 
@@ -243,6 +274,7 @@ describe("useMutations integration", () => {
       dry_run: false,
       confirm_token: "",
       backup_before_delete: undefined,
+      backup_root: "/tmp/threadlens-backups",
     });
     expect(providerSessionAction.mutate).toHaveBeenNthCalledWith(2, {
       provider: "claude",
@@ -251,9 +283,14 @@ describe("useMutations integration", () => {
       dry_run: true,
       confirm_token: "",
       backup_before_delete: undefined,
+      backup_root: "/tmp/threadlens-backups",
     });
     expect(recoveryBackupExport.reset).toHaveBeenCalled();
-    expect(recoveryBackupExport.mutate).toHaveBeenCalledWith(["backup-1"]);
+    expect(recoveryBackupExport.mutate).toHaveBeenCalledWith({
+      backupIds: ["backup-1"],
+      backupRoot: "/tmp/threadlens-backups",
+      exportRoot: "/tmp/threadlens-exports",
+    });
 
     expect(providerSessionAction.mutateAsync).toHaveBeenNthCalledWith(1, {
       provider: "codex",
@@ -262,6 +299,7 @@ describe("useMutations integration", () => {
       dry_run: true,
       confirm_token: "",
       backup_before_delete: false,
+      backup_root: "/tmp/threadlens-backups",
     });
     expect(providerSessionAction.mutateAsync).toHaveBeenNthCalledWith(2, {
       provider: "codex",
@@ -270,6 +308,7 @@ describe("useMutations integration", () => {
       dry_run: false,
       confirm_token: "tok-hard-delete",
       backup_before_delete: false,
+      backup_root: "/tmp/threadlens-backups",
     });
     expect(providerSessionAction.mutateAsync).toHaveBeenNthCalledWith(3, {
       provider: "claude",
@@ -278,6 +317,7 @@ describe("useMutations integration", () => {
       dry_run: true,
       confirm_token: "",
       backup_before_delete: false,
+      backup_root: "/tmp/threadlens-backups",
     });
     expect(providerSessionAction.mutateAsync).toHaveBeenNthCalledWith(4, {
       provider: "claude",
@@ -286,6 +326,7 @@ describe("useMutations integration", () => {
       dry_run: false,
       confirm_token: "tok-hard-delete",
       backup_before_delete: false,
+      backup_root: "/tmp/threadlens-backups",
     });
   });
 
@@ -304,6 +345,8 @@ describe("useMutations integration", () => {
         makeMutationState(),
         makeMutationState(),
         makeMutationState(),
+        makeMutationState(),
+        makeMutationState(),
         providerSessionAction,
         makeMutationState(),
       ],
@@ -314,4 +357,138 @@ describe("useMutations integration", () => {
     expect(providerSessionAction.reset).not.toHaveBeenCalled();
     expect(providerSessionAction.mutate).not.toHaveBeenCalled();
   });
+
+  it("fans out grouped provider backups and returns a combined backup summary", async () => {
+    const providerSessionAction = makeMutationState({
+      mutateAsync: vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          provider: "codex",
+          action: "backup_local",
+          dry_run: false,
+          target_count: 1,
+          valid_count: 1,
+          applied_count: 1,
+          confirm_token_expected: "",
+          confirm_token_accepted: true,
+          backed_up_count: 1,
+          backup_id: "provider_actions/codex/latest",
+          backup_to: "/tmp/threadlens-backups/provider_actions/codex/latest",
+          backup_manifest_path: "/tmp/threadlens-backups/provider_actions/codex/latest/manifest.json",
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          provider: "claude",
+          action: "backup_local",
+          dry_run: false,
+          target_count: 2,
+          valid_count: 2,
+          applied_count: 2,
+          confirm_token_expected: "",
+          confirm_token_accepted: true,
+          backed_up_count: 2,
+          backup_id: "provider_actions/claude/latest",
+          backup_to: "/tmp/threadlens-backups/provider_actions/claude/latest",
+          backup_manifest_path: "/tmp/threadlens-backups/provider_actions/claude/latest/manifest.json",
+        }),
+    });
+
+    const { result } = renderMutations({
+      mutations: [
+        makeMutationState(),
+        makeMutationState(),
+        makeMutationState(),
+        makeMutationState(),
+        makeMutationState(),
+        makeMutationState(),
+        makeMutationState(),
+        makeMutationState(),
+        providerSessionAction,
+        makeMutationState(),
+      ],
+    });
+
+    result.setBackupRoot("/tmp/threadlens-backups");
+    const combined = await result.runGroupedProviderBackup([
+      { provider: "codex", file_paths: ["/tmp/codex-a.jsonl"] },
+      { provider: "claude", file_paths: ["/tmp/claude-a.jsonl", "/tmp/claude-b.jsonl"] },
+    ]);
+
+    expect(providerSessionAction.mutateAsync).toHaveBeenNthCalledWith(1, {
+      provider: "codex",
+      action: "backup_local",
+      file_paths: ["/tmp/codex-a.jsonl"],
+      dry_run: false,
+      confirm_token: "",
+      backup_root: "/tmp/threadlens-backups",
+    });
+    expect(providerSessionAction.mutateAsync).toHaveBeenNthCalledWith(2, {
+      provider: "claude",
+      action: "backup_local",
+      file_paths: ["/tmp/claude-a.jsonl", "/tmp/claude-b.jsonl"],
+      dry_run: false,
+      confirm_token: "",
+      backup_root: "/tmp/threadlens-backups",
+    });
+    expect(combined).toMatchObject({
+      ok: true,
+      provider: "all",
+      action: "backup_local",
+      target_count: 3,
+      valid_count: 3,
+      applied_count: 3,
+      backed_up_count: 3,
+      backup_ids: ["provider_actions/codex/latest", "provider_actions/claude/latest"],
+      backup_to: "/tmp/threadlens-backups/provider_actions",
+    });
+  });
+
+  it("backs up selected provider groups and exports the created backup sets as a ZIP", async () => {
+    const providerSessionAction = makeMutationState({
+      mutateAsync: vi.fn().mockResolvedValue({
+        ok: true,
+        provider: "codex",
+        action: "backup_local",
+        dry_run: false,
+        target_count: 1,
+        valid_count: 1,
+        applied_count: 1,
+        confirm_token_expected: "",
+        confirm_token_accepted: true,
+        backed_up_count: 1,
+        backup_id: "provider_actions/codex/latest",
+      }),
+    });
+    const recoveryBackupExport = makeMutationState();
+
+    const { result } = renderMutations({
+      mutations: [
+        makeMutationState(),
+        makeMutationState(),
+        makeMutationState(),
+        makeMutationState(),
+        makeMutationState(),
+        makeMutationState(),
+        makeMutationState(),
+        makeMutationState(),
+        providerSessionAction,
+        recoveryBackupExport,
+      ],
+    });
+
+    result.setBackupRoot("/tmp/threadlens-backups");
+    result.setExportRoot("/tmp/threadlens-exports");
+    const combined = await result.runGroupedProviderBackupExport([
+      { provider: "codex", file_paths: ["/tmp/codex-a.jsonl"] },
+    ]);
+
+    expect(combined?.backup_ids).toEqual(["provider_actions/codex/latest"]);
+    expect(recoveryBackupExport.mutate).toHaveBeenCalledWith({
+      backupIds: ["provider_actions/codex/latest"],
+      backupRoot: "/tmp/threadlens-backups",
+      exportRoot: "/tmp/threadlens-exports",
+    });
+  });
+
 });

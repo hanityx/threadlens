@@ -139,6 +139,9 @@ export function TranscriptLog({
   );
   const hasMoreRenderedTranscript = renderedTranscript.length < orderedTranscript.length;
   const modeLabel = truncated ? messages.transcript.partial : messages.transcript.full;
+  const showLoadFullSourceButton =
+    Boolean(onLoadFullSource) && truncated && limit < maxLimit;
+  const showLoadMoreFromSourceButton = truncated && limit < maxLimit;
 
   const handleFocusBodyWheel = (event: WheelEvent<HTMLDivElement>) => {
     const target = event.currentTarget;
@@ -202,22 +205,26 @@ export function TranscriptLog({
         >
           {messages.transcript.showMoreLoaded}
         </button>
-        <button
-          type="button"
-          className="btn-outline"
-          onClick={onLoadFullSource}
-          disabled={loading || !truncated || limit >= maxLimit || !onLoadFullSource}
-        >
-          {messages.transcript.loadFullSource}
-        </button>
-        <button
-          type="button"
-          className="btn-outline"
-          onClick={onLoadMore}
-          disabled={loading || !truncated || limit >= maxLimit}
-        >
-          {messages.transcript.loadMoreFromSource}
-        </button>
+        {showLoadFullSourceButton ? (
+          <button
+            type="button"
+            className="btn-outline"
+            onClick={onLoadFullSource}
+            disabled={loading}
+          >
+            {messages.transcript.loadFullSource}
+          </button>
+        ) : null}
+        {showLoadMoreFromSourceButton ? (
+          <button
+            type="button"
+            className="btn-outline"
+            onClick={onLoadMore}
+            disabled={loading}
+          >
+            {messages.transcript.loadMoreFromSource}
+          </button>
+        ) : null}
       </div>
     </>
   );

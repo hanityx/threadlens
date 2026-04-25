@@ -37,6 +37,16 @@ export function formatDateTime(value: string | number | Date | null | undefined)
   }).format(date);
 }
 
+export function formatDateYmd(value: string | number | Date | null | undefined): string {
+  if (value === null || value === undefined || value === "") return "-";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}.${month}.${day}`;
+}
+
 export function formatInteger(value: number | null | undefined): string {
   const num = Number(value ?? 0);
   if (!Number.isFinite(num)) return "0";
@@ -135,7 +145,18 @@ export function normalizeThreadRow(input: Record<string, unknown>): ThreadRow {
     cwd: input.cwd ? String(input.cwd) : undefined,
     timestamp: input.timestamp ? String(input.timestamp) : undefined,
     activity_status: input.activity_status ? String(input.activity_status) : undefined,
+    activity_age_min: parseNum(input.activity_age_min),
     risk_level: input.risk_level ? String(input.risk_level) : undefined,
     risk_tags: Array.isArray(input.risk_tags) ? input.risk_tags.map((x) => String(x)) : undefined,
+    session_line_count: parseNum(input.session_line_count),
+    session_tool_calls: parseNum(input.session_tool_calls),
+    session_bytes: parseNum(input.session_bytes),
+    session_format_ok:
+      input.session_format_ok === undefined || input.session_format_ok === null
+        ? null
+        : Boolean(input.session_format_ok),
+    context_score: parseNum(input.context_score),
+    has_local_data: Boolean(input.has_local_data),
+    has_session_log: Boolean(input.has_session_log),
   };
 }

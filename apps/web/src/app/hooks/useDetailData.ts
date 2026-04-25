@@ -45,7 +45,10 @@ export function resolveCanRunSelectedSessionAction(
   providerById: Map<string, { capabilities?: { safe_cleanup?: boolean } }>,
 ): boolean {
   const selectedSessionMeta = selectedSession ? providerById.get(selectedSession.provider) : null;
-  return Boolean(selectedSessionMeta?.capabilities?.safe_cleanup);
+  return Boolean(
+    selectedSessionMeta?.capabilities?.safe_cleanup &&
+      selectedSession?.source !== "cleanup_backups",
+  );
 }
 
 export function resolveThreadSelectionResetState(selectedThreadId: string) {

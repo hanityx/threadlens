@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useDeferredValue } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { ThreadsResponse, ThreadRow, FilterMode, LayoutView } from "@/shared/types";
+import type { ThreadsResponse, ThreadRow, FilterMode, LayoutView, ThreadSort } from "@/shared/types";
 import { PAGE_SIZE, INITIAL_CHUNK, CHUNK_SIZE } from "@/shared/types";
 import { apiGet } from "@/api";
 import { extractEnvelopeData, normalizeThreadRow } from "@/shared/lib/format";
@@ -40,6 +40,23 @@ export function filterThreadRows(rows: ThreadRow[], query: string, filterMode: F
     if (filterMode === "high-risk") return Number(row.risk_score ?? 0) >= 70;
     if (filterMode === "pinned") return Boolean(row.is_pinned);
     return true;
+  });
+}
+
+function isArchivedThreadSource(source?: string | null): boolean {
+  const lowered = String(source ?? "").trim().toLowerCase();
+  return /^archived[_-]/i.test(lowered) || lowered.includes("archived") || lowered === "archive";
+}
+
+function filterThreadRowsBySourceView(
+  rows: ThreadRow[],
+  showBackupRows: boolean,
+  showArchivedRows: boolean,
+) {
+  return rows.filter((row) => {
+    if (showBackupRows) return row.source === "cleanup_backups";
+    if (showArchivedRows) return isArchivedThreadSource(row.source);
+    return row.source !== "cleanup_backups" && !isArchivedThreadSource(row.source);
   });
 }
 
@@ -92,6 +109,9 @@ export function useThreadsData(layoutView: LayoutView) {
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [selectedThreadId, setSelectedThreadId] = useState<string>("");
+  const [threadSort, setThreadSort] = useState<ThreadSort>("updated_desc");
+  const [showBackupRows, setShowBackupRows] = useState(false);
+  const [showArchivedRows, setShowArchivedRows] = useState(false);
   const [threadsFastBoot, setThreadsFastBoot] = useState(true);
   const [renderLimit, setRenderLimit] = useState(INITIAL_CHUNK);
   const [threadsFetchMs, setThreadsFetchMs] = useState<number | null>(null);
@@ -110,12 +130,12 @@ export function useThreadsData(layoutView: LayoutView) {
   const threadsQueryLimit = resolveThreadsQueryLimit(layoutView, threadsFastBoot);
 
   const threads = useQuery({
-    queryKey: ["threads", deferredQuery, threadsQueryLimit],
+    queryKey: ["threads", deferredQuery, threadsQueryLimit, threadSort],
     queryFn: async ({ signal }) => {
       const startedAt = nowMs();
       try {
         return await apiGet<ThreadsResponse>(
-          `/api/threads?offset=0&limit=${threadsQueryLimit}&q=${encodeURIComponent(deferredQuery)}&sort=updated_desc`,
+          `/api/threads?offset=0&limit=${threadsQueryLimit}&q=${encodeURIComponent(deferredQuery)}&sort=${encodeURIComponent(threadSort)}`,
           { signal },
         );
       } finally {
@@ -144,6 +164,10 @@ export function useThreadsData(layoutView: LayoutView) {
   );
   const hasApiRows = Array.isArray(threads.data?.rows);
   const rows = hasApiRows ? rowsFromApi : threadsBootstrapRows;
+  const scopedRows = useMemo(
+    () => filterThreadRowsBySourceView(rows, showBackupRows, showArchivedRows),
+    [rows, showBackupRows, showArchivedRows],
+  );
 
   useEffect(() => {
     if (!hasApiRows || rowsFromApi.length === 0) return;
@@ -163,8 +187,12 @@ export function useThreadsData(layoutView: LayoutView) {
   }, [hasApiRows, rowsFromApi]);
 
   const filteredRows = useMemo(() => {
-    return filterThreadRows(rows, deferredQuery, filterMode);
-  }, [rows, deferredQuery, filterMode]);
+    return filterThreadRows(scopedRows, deferredQuery, filterMode);
+  }, [scopedRows, deferredQuery, filterMode]);
+
+  useEffect(() => {
+    setRenderLimit(INITIAL_CHUNK);
+  }, [deferredQuery, filterMode, threadSort, showBackupRows, showArchivedRows]);
 
   /* progressive rendering */
   useEffect(() => {
@@ -190,9 +218,13 @@ export function useThreadsData(layoutView: LayoutView) {
   }, [filteredRows.length]);
 
   const visibleRows = filteredRows.slice(0, renderLimit);
+  const hasMoreThreadRows = filteredRows.length > visibleRows.length;
+  const loadMoreThreadRows = () => {
+    setRenderLimit((prev) => Math.min(prev + CHUNK_SIZE, filteredRows.length));
+  };
   const availableThreadIds = useMemo(
-    () => new Set(rows.map((row) => row.thread_id).filter(Boolean)),
-    [rows],
+    () => new Set(scopedRows.map((row) => row.thread_id).filter(Boolean)),
+    [scopedRows],
   );
   const selectedIds = Object.entries(selected)
     .filter(([, on]) => on)
@@ -209,8 +241,16 @@ export function useThreadsData(layoutView: LayoutView) {
   }, [availableThreadIds]);
 
   const allFilteredSelected = resolveAllFilteredSelected(filteredRows, selectedIds);
-  const pinnedCount = useMemo(() => rows.filter((r) => r.is_pinned).length, [rows]);
-  const highRiskCount = useMemo(() => rows.filter((r) => Number(r.risk_score || 0) >= 70).length, [rows]);
+  const pinnedCount = useMemo(() => scopedRows.filter((r) => r.is_pinned).length, [scopedRows]);
+  const highRiskCount = useMemo(() => scopedRows.filter((r) => Number(r.risk_score || 0) >= 70).length, [scopedRows]);
+  const hasBackupRows = useMemo(
+    () => rows.some((row) => row.source === "cleanup_backups"),
+    [rows],
+  );
+  const hasArchivedRows = useMemo(
+    () => rows.some((row) => isArchivedThreadSource(row.source)),
+    [rows],
+  );
 
   const { threadsLoading, threadsFastBooting } = resolveThreadsLoadingState(
     threads.isLoading,
@@ -235,15 +275,19 @@ export function useThreadsData(layoutView: LayoutView) {
   return {
     query, setQuery,
     filterMode, setFilterMode,
+    threadSort, setThreadSort,
     selected, setSelected,
     selectedThreadId, setSelectedThreadId,
     threads,
     deferredQuery,
-    rows, filteredRows, visibleRows,
+    rows: scopedRows, filteredRows, visibleRows,
+    hasMoreThreadRows, loadMoreThreadRows,
     selectedIds, allFilteredSelected,
     pinnedCount, highRiskCount,
     threadsLoading, threadsFastBooting,
     threadsFetchMs,
     toggleSelectAllFiltered,
+    showBackupRows, setShowBackupRows, hasBackupRows,
+    showArchivedRows, setShowArchivedRows, hasArchivedRows,
   };
 }
