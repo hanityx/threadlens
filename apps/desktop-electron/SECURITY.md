@@ -14,7 +14,7 @@
   - `pickDirectory`
   - `openWorkbenchWindow`
 - Packaged desktop launches the local API with a per-run `THREADLENS_API_TOKEN`.
-- Renderer requests include that token for local mutation endpoints.
+- Renderer requests include that token for packaged local API requests.
 
 ## IPC validation
 

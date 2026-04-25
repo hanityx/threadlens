@@ -52,25 +52,8 @@ type DataSourcesCacheEntry = {
   payload: unknown;
 };
 
-const protectedLocalApiPaths = new Set([
-  "/api/agent-loops/action",
-  "/api/alert-hooks/config",
-  "/api/alert-hooks/evaluate",
-  "/api/alert-hooks/rule",
-  "/api/bulk-thread-action",
-  "/api/local-cleanup",
-  "/api/local-cleanup-backups",
-  "/api/provider-open-folder",
-  "/api/provider-session-action",
-  "/api/recovery-backup-export",
-  "/api/recovery-checklist",
-  "/api/recovery-drill",
-  "/api/recovery-open-folder",
-  "/api/rename-thread",
-  "/api/roadmap-checkin",
-  "/api/thread-archive-local",
-  "/api/thread-open-folder",
-  "/api/thread-pin",
+const publicLocalApiPaths = new Set([
+  "/api/healthz",
 ]);
 
 function readHeaderValue(value: string | string[] | undefined): string {
@@ -87,12 +70,12 @@ function isValidApiToken(actual: string, expected: string): boolean {
   );
 }
 
-export function isProtectedLocalApiRequest(method: string, pathname: string): boolean {
+export function requiresLocalApiToken(method: string, pathname: string): boolean {
   const normalizedMethod = method.toUpperCase();
-  if (normalizedMethod === "GET" || normalizedMethod === "HEAD" || normalizedMethod === "OPTIONS") {
+  if (normalizedMethod === "OPTIONS") {
     return false;
   }
-  return protectedLocalApiPaths.has(pathname);
+  return pathname.startsWith("/api/") && !publicLocalApiPaths.has(pathname);
 }
 
 function getRequestPathname(req: FastifyRequest): string {
@@ -117,7 +100,7 @@ async function requireApiTokenForProtectedLocalActions(
   const expectedToken = process.env.THREADLENS_API_TOKEN?.trim();
   if (!expectedToken) return;
   const pathname = getRequestPathname(req);
-  if (!isProtectedLocalApiRequest(req.method, pathname)) return;
+  if (!requiresLocalApiToken(req.method, pathname)) return;
 
   const actualToken = extractRequestApiToken(req);
   if (!actualToken || !isValidApiToken(actualToken, expectedToken)) {

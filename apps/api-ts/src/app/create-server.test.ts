@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createServer,
-  isProtectedLocalApiRequest,
+  requiresLocalApiToken,
   parseConversationSearchProviders,
 } from "./create-server.js";
 
@@ -30,14 +30,16 @@ describe("parseConversationSearchProviders", () => {
 });
 
 describe("local API auth guard", () => {
-  it("classifies only protected mutation paths", () => {
-    expect(isProtectedLocalApiRequest("POST", "/api/local-cleanup")).toBe(true);
-    expect(isProtectedLocalApiRequest("POST", "/api/provider-session-action")).toBe(true);
-    expect(isProtectedLocalApiRequest("GET", "/api/healthz")).toBe(false);
-    expect(isProtectedLocalApiRequest("POST", "/api/conversation-search")).toBe(false);
+  it("keeps only health and preflight requests public", () => {
+    expect(requiresLocalApiToken("GET", "/api/healthz")).toBe(false);
+    expect(requiresLocalApiToken("OPTIONS", "/api/local-cleanup")).toBe(false);
+    expect(requiresLocalApiToken("POST", "/api/local-cleanup")).toBe(true);
+    expect(requiresLocalApiToken("POST", "/api/provider-session-action")).toBe(true);
+    expect(requiresLocalApiToken("GET", "/api/overview")).toBe(true);
+    expect(requiresLocalApiToken("POST", "/api/conversation-search")).toBe(true);
   });
 
-  it("allows read-only endpoints without a token when a desktop token is configured", async () => {
+  it("allows health checks without a token when a desktop token is configured", async () => {
     vi.stubEnv("THREADLENS_API_TOKEN", "secret-token");
     const app = await createServer();
     try {
@@ -52,7 +54,7 @@ describe("local API auth guard", () => {
     }
   });
 
-  it("rejects protected local actions without the desktop API token", async () => {
+  it("rejects API requests without the desktop API token", async () => {
     vi.stubEnv("THREADLENS_API_TOKEN", "secret-token");
     const app = await createServer();
     try {
@@ -73,7 +75,7 @@ describe("local API auth guard", () => {
     }
   });
 
-  it("lets protected local actions reach route validation with a valid token", async () => {
+  it("lets API requests reach route validation with a valid token", async () => {
     vi.stubEnv("THREADLENS_API_TOKEN", "secret-token");
     const app = await createServer();
     try {
