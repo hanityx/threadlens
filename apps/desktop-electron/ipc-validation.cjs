@@ -39,6 +39,7 @@ function parseOpenWindowPayload(payload) {
   return {
     view: normalizeOptionalString(payload?.view),
     provider: normalizeOptionalString(payload?.provider),
+    sessionId: normalizeOptionalString(payload?.sessionId),
     filePath: typeof payload?.filePath === "string" ? payload.filePath : "",
     threadId: normalizeOptionalString(payload?.threadId),
   };
