@@ -189,6 +189,25 @@ describe("exportRecoveryBackupsTs", () => {
     });
   });
 
+  it("uses the default portable ZIP writer without platform-specific tools", async () => {
+    await withTempDir(async (rootDir) => {
+      const backupRoot = path.join(rootDir, "backups");
+      const exportRoot = path.join(rootDir, "exports");
+      const backupSet = path.join(backupRoot, "20260304T224500Z");
+      await mkdir(path.join(backupSet, "Users", "example"), { recursive: true });
+      await writeFile(path.join(backupSet, "Users", "example", "a.txt"), "alpha", "utf-8");
+
+      const result = await exportRecoveryBackupsTs({
+        roots: { backup_root: backupRoot, export_root: exportRoot },
+      });
+
+      expect(result.ok).toBe(true);
+      const archive = await readFile(String(result.archive_path));
+      expect(archive.subarray(0, 4)).toEqual(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
+      expect(archive.includes(Buffer.from("a.txt"))).toBe(true);
+    });
+  });
+
   it("exports only selected backup ids and reports missing ids", async () => {
     await withTempDir(async (rootDir) => {
       const backupRoot = path.join(rootDir, "backups");

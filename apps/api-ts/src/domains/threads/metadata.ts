@@ -5,6 +5,7 @@ import { createInterface } from "node:readline";
 import { CHAT_DIR } from "../../lib/constants.js";
 import { isRecord, pathExists } from "../../lib/utils.js";
 import { resolveCodexSessionPathByThreadId } from "../providers/search.js";
+import { normalizeSafeThreadIds, resolveThreadCacheFile } from "./thread-id.js";
 
 export type ThreadSessionMeta = {
   has_session_log: boolean;
@@ -115,9 +116,10 @@ export async function collectCodexLocalRefs(
   refs: Map<string, LocalRefData>;
   bucketCounts: Map<string, number>;
 }> {
+  const { ids } = normalizeSafeThreadIds(threadIds);
   const refs = new Map<string, LocalRefData>();
   const bucketCounts = new Map<string, number>();
-  for (const id of threadIds) {
+  for (const id of ids) {
     refs.set(id, { has_local_data: false, project_buckets: new Set<string>() });
   }
 
@@ -127,8 +129,9 @@ export async function collectCodexLocalRefs(
       if (!entry.isDirectory()) continue;
       const full = path.join(chatDir, entry.name);
       if (entry.name.startsWith("conversations-v3-")) {
-        for (const threadId of threadIds) {
-          const hitPath = path.join(full, `${threadId}.data`);
+        for (const threadId of ids) {
+          const hitPath = resolveThreadCacheFile(full, threadId);
+          if (!hitPath) continue;
           if (await pathExists(hitPath)) {
             if (refs.get(threadId)) refs.get(threadId)!.has_local_data = true;
           }
@@ -140,8 +143,9 @@ export async function collectCodexLocalRefs(
       let bucketTouched = false;
       for (const child of children) {
         if (!child.isDirectory() || !child.name.startsWith("conversations-v3-")) continue;
-        for (const threadId of threadIds) {
-          const hitPath = path.join(full, child.name, `${threadId}.data`);
+        for (const threadId of ids) {
+          const hitPath = resolveThreadCacheFile(path.join(full, child.name), threadId);
+          if (!hitPath) continue;
           if (await pathExists(hitPath)) {
             refs.get(threadId)!.has_local_data = true;
             refs.get(threadId)!.project_buckets.add(entry.name);

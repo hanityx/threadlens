@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { CODEX_GLOBAL_STATE_FILE } from "../../lib/constants.js";
 import { cleanTitleText, readJsonFile } from "../../lib/utils.js";
+import { normalizeSafeThreadIds } from "./thread-id.js";
 
 export type CodexUiState = {
   titles: Record<string, string>;
@@ -333,9 +334,10 @@ export function getThreadResumeCommandsTs(threadIds: string[]): {
   text?: string;
   error?: string;
 } {
-  const ids = Array.from(
-    new Set(threadIds.map((item) => String(item || "").trim()).filter(Boolean)),
-  );
+  const { ids, invalid } = normalizeSafeThreadIds(threadIds);
+  if (invalid.length > 0) {
+    return { ok: false, error: "invalid thread id" };
+  }
   if (ids.length === 0) {
     return { ok: false, error: "no thread ids provided" };
   }

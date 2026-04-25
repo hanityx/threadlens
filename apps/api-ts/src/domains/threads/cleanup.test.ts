@@ -261,6 +261,47 @@ describe("thread cleanup", () => {
     expect(String(data.confirm_token_expected)).toMatch(/^DEL-/);
   });
 
+  it("executeLocalCleanupTs rejects unsafe thread ids before scanning paths", async () => {
+    const fixture = await makeFixture();
+    const data = await executeLocalCleanupTs(["../victim"], {
+      dryRun: true,
+      roots: {
+        chatDir: fixture.chatDir,
+        codexHome: fixture.codexHome,
+        backupRoot: fixture.backupRoot,
+        stateFilePath: fixture.stateFilePath,
+      },
+    });
+
+    expect(data).toMatchObject({
+      ok: false,
+      mode: "dry-run",
+      error: "invalid-thread-id",
+      invalid_ids: ["../victim"],
+      target_file_count: 0,
+    });
+  });
+
+  it("executeLocalCleanupTs rejects execute with mismatched cleanup token", async () => {
+    const fixture = await makeFixture();
+    const result = await executeLocalCleanupTs([fixture.threadId], {
+      dryRun: false,
+      confirmToken: "wrong-token",
+      roots: {
+        chatDir: fixture.chatDir,
+        codexHome: fixture.codexHome,
+        backupRoot: fixture.backupRoot,
+        stateFilePath: fixture.stateFilePath,
+      },
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      mode: "failed",
+      error: "confirmation token mismatch",
+    });
+  });
+
   it("executeLocalCleanupTs executes delete and state cleanup with correct token", async () => {
     const fixture = await makeFixture();
     const preview = await executeLocalCleanupTs([fixture.threadId], {
@@ -283,6 +324,7 @@ describe("thread cleanup", () => {
       },
     });
     expect(result.ok).toBe(true);
+    expect(result.mode).toBe("applied");
     expect(result.deleted_file_count).toBe(2);
     expect(result.backup.copied_count).toBeGreaterThanOrEqual(2);
     const state = JSON.parse(await readFile(fixture.stateFilePath, "utf-8"));
