@@ -358,6 +358,18 @@ type RecoveryBackupExportOptions = {
   archiveWriter?: (sourceDir: string, archivePath: string) => Promise<void> | void;
 };
 
+const ZIP_UINT16_MAX = 0xffff;
+const ZIP_UINT32_MAX = 0xffffffff;
+const DEFAULT_PORTABLE_ZIP_MAX_BYTES = 512 * 1024 * 1024;
+
+function portableZipMaxBytes(): number {
+  const raw = Number(process.env.THREADLENS_PORTABLE_ZIP_MAX_BYTES ?? "");
+  if (Number.isFinite(raw) && raw > 0) {
+    return Math.min(Math.floor(raw), ZIP_UINT32_MAX);
+  }
+  return DEFAULT_PORTABLE_ZIP_MAX_BYTES;
+}
+
 function recoveryExportRoot(override?: string): string {
   return override ?? RECOVERY_EXPORT_ROOT;
 }
@@ -421,10 +433,16 @@ async function collectZipEntries(
   rootName = path.basename(sourceDir),
 ): Promise<Array<{ name: string; data: Buffer; mtime: Date; directory: boolean }>> {
   const entries: Array<{ name: string; data: Buffer; mtime: Date; directory: boolean }> = [];
+  const maxTotalBytes = portableZipMaxBytes();
+  let totalBytes = 0;
   const walk = async (absoluteDir: string, relativeDir: string) => {
     const dirStat = await stat(absoluteDir);
+    const directoryName = `${relativeDir.replace(/\\/g, "/").replace(/\/?$/, "/")}`;
+    if (Buffer.byteLength(directoryName, "utf8") > ZIP_UINT16_MAX) {
+      throw new Error("portable-zip-entry-name-too-long");
+    }
     entries.push({
-      name: `${relativeDir.replace(/\\/g, "/").replace(/\/?$/, "/")}`,
+      name: directoryName,
       data: Buffer.alloc(0),
       mtime: dirStat.mtime,
       directory: true,
@@ -437,6 +455,16 @@ async function collectZipEntries(
         await walk(childPath, childRelative);
       } else if (child.isFile()) {
         const fileStat = await stat(childPath);
+        if (fileStat.size > ZIP_UINT32_MAX) {
+          throw new Error("portable-zip-entry-too-large");
+        }
+        totalBytes += fileStat.size;
+        if (totalBytes > maxTotalBytes) {
+          throw new Error("portable-zip-total-size-limit-exceeded");
+        }
+        if (Buffer.byteLength(childRelative, "utf8") > ZIP_UINT16_MAX) {
+          throw new Error("portable-zip-entry-name-too-long");
+        }
         entries.push({
           name: childRelative,
           data: await readFile(childPath),
@@ -447,6 +475,9 @@ async function collectZipEntries(
     }
   };
   await walk(sourceDir, rootName || "recovery-export");
+  if (entries.length > ZIP_UINT16_MAX) {
+    throw new Error("portable-zip-entry-count-limit-exceeded");
+  }
   return entries;
 }
 
@@ -493,9 +524,15 @@ async function writePortableZipArchive(sourceDir: string, archivePath: string) {
     central.writeUInt32LE(offset, 42);
     centralParts.push(central, name);
     offset += local.length + name.length + entry.data.length;
+    if (offset > ZIP_UINT32_MAX) {
+      throw new Error("portable-zip-archive-too-large");
+    }
   }
 
   const centralDirectory = Buffer.concat(centralParts);
+  if (centralDirectory.length > ZIP_UINT32_MAX) {
+    throw new Error("portable-zip-central-directory-too-large");
+  }
   const end = Buffer.alloc(22);
   end.writeUInt32LE(0x06054b50, 0);
   end.writeUInt16LE(0, 4);

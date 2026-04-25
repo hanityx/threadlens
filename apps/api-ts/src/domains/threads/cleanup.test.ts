@@ -278,6 +278,20 @@ describe("thread cleanup", () => {
       mode: "dry-run",
       error: "invalid-thread-id",
       invalid_ids: ["../victim"],
+      requested_ids: 1,
+      target_file_count: 0,
+    });
+  });
+
+  it("executeBackupCleanupTs reports invalid requested ids in requested_ids", async () => {
+    const data = await executeBackupCleanupTs(["../victim"]);
+
+    expect(data).toMatchObject({
+      ok: false,
+      mode: "failed",
+      error: "invalid-thread-id",
+      invalid_ids: ["../victim"],
+      requested_ids: 1,
       target_file_count: 0,
     });
   });

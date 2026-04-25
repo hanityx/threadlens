@@ -96,7 +96,7 @@ function extractRequestApiToken(req: FastifyRequest): string {
 async function requireApiTokenForProtectedLocalActions(
   req: FastifyRequest,
   reply: FastifyReply,
-): Promise<void> {
+): Promise<void | FastifyReply> {
   const expectedToken = process.env.THREADLENS_API_TOKEN?.trim();
   if (!expectedToken) return;
   const pathname = getRequestPathname(req);
@@ -104,7 +104,7 @@ async function requireApiTokenForProtectedLocalActions(
 
   const actualToken = extractRequestApiToken(req);
   if (!actualToken || !isValidApiToken(actualToken, expectedToken)) {
-    reply.code(401).send(envelope(null, "api-auth-required"));
+    return reply.code(401).send(envelope(null, "api-auth-required"));
   }
 }
 

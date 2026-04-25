@@ -1,7 +1,7 @@
 import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   exportRecoveryBackupsTs,
   getLatestSmokeStatusTs,
@@ -16,6 +16,10 @@ async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
     await rm(dir, { recursive: true, force: true });
   }
 }
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("getLatestSmokeStatusTs", () => {
   it("falls back to raw perf/forensics reports when summary is missing", async () => {
@@ -205,6 +209,27 @@ describe("exportRecoveryBackupsTs", () => {
       const archive = await readFile(String(result.archive_path));
       expect(archive.subarray(0, 4)).toEqual(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
       expect(archive.includes(Buffer.from("a.txt"))).toBe(true);
+    });
+  });
+
+  it("rejects default portable ZIP exports above the configured in-memory limit", async () => {
+    await withTempDir(async (rootDir) => {
+      vi.stubEnv("THREADLENS_PORTABLE_ZIP_MAX_BYTES", "8");
+      const backupRoot = path.join(rootDir, "backups");
+      const exportRoot = path.join(rootDir, "exports");
+      const backupSet = path.join(backupRoot, "20260304T224500Z");
+      await mkdir(path.join(backupSet, "Users", "example"), { recursive: true });
+      await writeFile(
+        path.join(backupSet, "Users", "example", "too-big.txt"),
+        "more than eight bytes",
+        "utf-8",
+      );
+
+      await expect(
+        exportRecoveryBackupsTs({
+          roots: { backup_root: backupRoot, export_root: exportRoot },
+        }),
+      ).rejects.toThrow("portable-zip-total-size-limit-exceeded");
     });
   });
 
