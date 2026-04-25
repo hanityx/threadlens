@@ -4,28 +4,28 @@ export { SUPPORTED_LOCALES } from "@/i18n/types";
 
 export const LOCALE_LABELS: Record<Locale, string> = {
   en: "English",
-  "zh-CN": "简体中文",
-  hi: "हिन्दी",
-  es: "Español",
-  "pt-BR": "Português (Brasil)",
-  ru: "Русский",
-  id: "Bahasa Indonesia",
-  de: "Deutsch",
-  ja: "日本語",
   ko: "한국어",
+  es: "Español",
+  ja: "日本語",
+  de: "Deutsch",
+  "zh-CN": "简体中文",
+  ru: "Русский",
+  "pt-BR": "Português (Brasil)",
+  id: "Bahasa Indonesia",
+  hi: "हिन्दी",
 };
 
 export const LOCALE_SHORT_LABELS: Record<Locale, string> = {
   en: "EN",
-  "zh-CN": "ZH",
-  hi: "HI",
-  es: "ES",
-  "pt-BR": "PT",
-  ru: "RU",
-  id: "ID",
-  de: "DE",
-  ja: "JA",
   ko: "KO",
+  es: "ES",
+  ja: "JA",
+  de: "DE",
+  "zh-CN": "ZH",
+  ru: "RU",
+  "pt-BR": "PT",
+  id: "ID",
+  hi: "HI",
 };
 
 export function isSupportedLocale(raw: string | null | undefined): raw is Locale {

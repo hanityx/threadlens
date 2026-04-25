@@ -70,8 +70,8 @@ function createMainWindow({
   const windowTitle = buildWindowTitle(windowTitleSuffix);
   const iconPath = getAppIconPath();
   const win = new BrowserWindow({
-    width: 1440,
-    height: 960,
+    width: 1750,
+    height: 1000,
     minWidth: 1024,
     minHeight: 720,
     title: windowTitle,

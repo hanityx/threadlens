@@ -81,10 +81,10 @@
   --shadow-md: 0 1px 0 rgba(255, 255, 255, 0.1), 0 20px 44px rgba(0, 0, 0, 0.28);
   --shadow-lg: 0 1px 0 rgba(255, 255, 255, 0.12), 0 32px 72px rgba(0, 0, 0, 0.34);
   --shadow-glow: 0 18px 42px rgba(120, 138, 150, 0.14);
-  --text-3xs: 0.49rem;
-  --text-2xs: 0.55rem;
-  --text-xs: 0.6rem;
-  --text-sm: 0.68rem;
+  --text-3xs: 0.615rem;
+  --text-2xs: 0.675rem;
+  --text-xs: 0.725rem;
+  --text-sm: 0.7425rem;
   --text-base: 0.78rem;
   --text-md: 0.88rem;
   --text-lg: 1rem;

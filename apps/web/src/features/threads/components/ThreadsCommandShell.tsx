@@ -13,7 +13,6 @@ type ThreadsCommandShellProps = {
   highRiskVisibleCount: number;
   pinnedCount: number;
   selectedCount: number;
-  dryRunReady: boolean;
 };
 
 export function ThreadsCommandShell({
@@ -27,7 +26,6 @@ export function ThreadsCommandShell({
   highRiskVisibleCount,
   pinnedCount,
   selectedCount,
-  dryRunReady,
 }: ThreadsCommandShellProps) {
   return (
     <section className="page-section-header cleanup-command-shell">
@@ -59,10 +57,6 @@ export function ThreadsCommandShell({
               <strong>{selectedCount}</strong>
             </article>
           ) : null}
-          <article className={`thread-status-card ${dryRunReady ? "is-ready" : ""}`.trim()}>
-            <span>{messages.threadsTable.heroStatDryRun}</span>
-            <strong>{dryRunReady ? "ready" : "—"}</strong>
-          </article>
         </div>
         <section className="toolbar cleanup-toolbar">
           <div className="toolbar-search-shell is-input">

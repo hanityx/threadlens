@@ -53,6 +53,45 @@ test("buildWindowTitle appends an optional suffix", () => {
   assert.equal(buildWindowTitle("Review"), "ThreadLens Review");
 });
 
+test("createMainWindow uses the release-sized default bounds", () => {
+  let windowOptions = null;
+  const win = {
+    webContents: {
+      setWindowOpenHandler() {},
+    },
+    loadURL() {},
+    loadFile() {},
+  };
+  const BrowserWindow = function BrowserWindow(options) {
+    windowOptions = options;
+    return win;
+  };
+  const Menu = {
+    setApplicationMenu() {},
+  };
+
+  createMainWindow({
+    BrowserWindow,
+    Menu,
+    shell: { openExternal() {} },
+    route: null,
+    isDev: false,
+    rendererUrl: "http://127.0.0.1:5180",
+    appDir: "/tmp/desktop",
+    preloadPath: "/tmp/preload.cjs",
+    windowTitleSuffix: "",
+    sandbox: false,
+    getAppIconPath: () => null,
+    applyAppIcon() {},
+    createMenu: () => ({}),
+  });
+
+  assert.equal(windowOptions.width, 1750);
+  assert.equal(windowOptions.height, 1000);
+  assert.equal(windowOptions.minWidth, 1024);
+  assert.equal(windowOptions.minHeight, 720);
+});
+
 test("isAllowedExternalUrl only allows expected GitHub HTTPS links", () => {
   assert.equal(isAllowedExternalUrl("https://github.com/hanityx/threadlens"), true);
   assert.equal(isAllowedExternalUrl("https://www.github.com/hanityx/threadlens/issues"), true);

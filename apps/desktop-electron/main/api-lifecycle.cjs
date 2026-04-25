@@ -40,7 +40,16 @@ function logDesktopApi(stream, chunk, logger = console) {
     .map((line) => line.trim())
     .filter(Boolean);
   for (const line of lines) {
-    logger[stream](`[desktop-api] ${line}`);
+    try {
+      logger[stream](`[desktop-api] ${line}`);
+    } catch (err) {
+      if (err && err.code === "EPIPE") continue;
+      try {
+        if (stream !== "error") logger.error(`[desktop-api] log-failed: ${err && err.message}`);
+      } catch {
+        // A broken log sink must not take down the desktop app.
+      }
+    }
   }
 }
 

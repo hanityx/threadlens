@@ -5,6 +5,7 @@ const path = require("node:path");
 const {
   buildDesktopApiBaseUrl,
   buildDesktopApiEnv,
+  logDesktopApi,
   resolveDesktopApiEntry,
 } = require("./api-lifecycle.cjs");
 
@@ -58,4 +59,43 @@ test("resolveDesktopApiEntry picks packaged and dev entries separately", () => {
     }),
     path.join("/tmp/resources", "app.asar.unpacked", "app", "api", "server.cjs"),
   );
+});
+
+test("logDesktopApi prefixes and splits chunks into lines per stream", () => {
+  const logs = [];
+  const errs = [];
+  const logger = {
+    log: (line) => logs.push(line),
+    error: (line) => errs.push(line),
+  };
+
+  logDesktopApi("log", "hello\nworld\n", logger);
+  logDesktopApi("error", "boom", logger);
+
+  assert.deepEqual(logs, ["[desktop-api] hello", "[desktop-api] world"]);
+  assert.deepEqual(errs, ["[desktop-api] boom"]);
+});
+
+test("logDesktopApi swallows EPIPE from a broken logger instead of throwing", () => {
+  const attempted = [];
+  const logger = {
+    log: (line) => {
+      attempted.push(line);
+      const err = new Error("write EPIPE");
+      err.code = "EPIPE";
+      throw err;
+    },
+    error: () => {
+      const err = new Error("write EPIPE");
+      err.code = "EPIPE";
+      throw err;
+    },
+  };
+
+  assert.doesNotThrow(() => logDesktopApi("log", "one\ntwo\nthree", logger));
+  assert.deepEqual(attempted, [
+    "[desktop-api] one",
+    "[desktop-api] two",
+    "[desktop-api] three",
+  ]);
 });

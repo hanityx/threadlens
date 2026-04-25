@@ -284,7 +284,7 @@ describe("ThreadsWorkbench", () => {
     expect(html).toContain("Review &amp; Archive");
     expect(html).not.toContain("overview-note-label");
     expect(html).toContain(messages.threadsTable.heroBody);
-    expect(html).toContain(messages.threadsTable.heroStatDryRun);
+    expect(html).not.toContain(messages.threadsTable.heroStatDryRun);
     expect(html).toContain(messages.toolbar.searchThreads);
     expect(html).toContain(`>${messages.toolbar.all}<`);
     expect(html).toContain(`>${messages.toolbar.highRisk}<`);

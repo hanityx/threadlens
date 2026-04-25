@@ -1,5 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const path = require("node:path");
 
 const {
   buildMenuTemplate,
@@ -59,12 +60,12 @@ test("resolveAppIconPath prefers generated icons and falls back to staged assets
 
 test("getDefaultIconCandidates includes platform-specific packaged icons", () => {
   assert.deepEqual(
-    getDefaultIconCandidates("/tmp/desktop", true, "/tmp/resources", "win32"),
-    ["/tmp/resources/icon.ico", "/tmp/resources/icon.png"],
+    getDefaultIconCandidates("C:\\desktop", true, "C:\\resources", "win32"),
+    [path.win32.join("C:\\resources", "icon.ico"), path.win32.join("C:\\resources", "icon.png")],
   );
 
   assert.deepEqual(
     getDefaultIconCandidates("/tmp/desktop", true, "/tmp/resources", "linux"),
-    ["/tmp/resources/icon.png", "/tmp/resources/icon.ico"],
+    [path.posix.join("/tmp/resources", "icon.png"), path.posix.join("/tmp/resources", "icon.ico")],
   );
 });

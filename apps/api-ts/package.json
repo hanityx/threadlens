@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tsx watch --exclude dist --exclude dist-electron --exclude ../../packages/shared-contracts/dist src/cli.ts",
     "build": "pnpm --filter @threadlens/shared-contracts build && tsc -p tsconfig.json",
-    "bundle:desktop": "pnpm --filter @threadlens/shared-contracts build && rm -rf dist-electron && esbuild src/cli.ts --bundle --platform=node --format=cjs --target=node22 --define:import.meta.url='\"file:///threadlens/api-cli.mjs\"' --outfile=dist-electron/server.cjs",
+    "bundle:desktop": "pnpm --filter @threadlens/shared-contracts build && node -e \"require('node:fs').rmSync('dist-electron',{recursive:true,force:true})\" && esbuild src/cli.ts --bundle --platform=node --format=cjs --target=node22 --define:import.meta.url='\"file:///threadlens/api-cli.mjs\"' --outfile=dist-electron/server.cjs",
     "start": "node dist/cli.js",
     "test": "pnpm --filter @threadlens/shared-contracts build && vitest run --fileParallelism=false",
     "lint": "pnpm --filter @threadlens/shared-contracts build && tsc -p tsconfig.json --noEmit"

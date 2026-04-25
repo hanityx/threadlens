@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
   buildDesktopRouteSearch,
+  buildSearchWithoutDesktopFilePath,
   getFallbackProviderView,
   parseDesktopRouteSearch,
   resolveCanonicalExactProviderSessionMatch,
@@ -12,6 +13,7 @@ import {
   shouldLookupRemoteExactThreadTarget,
   resolvePreferredProvidersEntry,
   resolveHeaderSearchTarget,
+  resolveProviderRouteSessionId,
   shouldDeferProviderFallback,
   shouldDeferDesktopRouteSync,
   shouldPushDesktopRouteHistory,
@@ -508,6 +510,16 @@ describe("desktop route helpers", () => {
     });
   });
 
+  it("strips legacy filePath params while preserving the rest of the route", () => {
+    expect(
+      buildSearchWithoutDesktopFilePath(
+        "?view=providers&provider=codex&sessionId=codex-session-1&filePath=%2Fprivate%2Fsecret.jsonl",
+      ),
+    ).toBe("?view=providers&provider=codex&sessionId=codex-session-1");
+
+    expect(buildSearchWithoutDesktopFilePath("?view=providers&provider=codex")).toBeNull();
+  });
+
   it("clears provider-only params when switching to search", () => {
     expect(
       buildDesktopRouteSearch(
@@ -543,6 +555,38 @@ describe("desktop route helpers", () => {
         threadId: "",
       }),
     ).toBe("?foo=bar&view=overview");
+  });
+
+  it("keeps a routed sessionId while provider rows for the selected path are still loading", () => {
+    expect(
+      resolveProviderRouteSessionId({
+        currentRoute: {
+          view: "providers",
+          provider: "codex",
+          sessionId: "rollout-session-1",
+          filePath: "",
+          threadId: "",
+        },
+        layoutView: "providers",
+        selectedSessionId: "",
+        selectedSessionPath: "/tmp/codex/session.jsonl",
+      }),
+    ).toBe("rollout-session-1");
+
+    expect(
+      resolveProviderRouteSessionId({
+        currentRoute: {
+          view: "providers",
+          provider: "codex",
+          sessionId: "stale-route-session",
+          filePath: "",
+          threadId: "",
+        },
+        layoutView: "providers",
+        selectedSessionId: "resolved-session-1",
+        selectedSessionPath: "/tmp/codex/session.jsonl",
+      }),
+    ).toBe("resolved-session-1");
   });
 
   it("pushes history only when the surface changes", () => {

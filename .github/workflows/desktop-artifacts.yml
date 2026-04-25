@@ -64,6 +64,7 @@ jobs:
         with:
           name: threadlens-desktop-${{ matrix.os }}
           path: |
+            apps/desktop-electron/dist/**/*.dmg
             apps/desktop-electron/dist/**/*.zip
             apps/desktop-electron/dist/**/*.exe
             apps/desktop-electron/dist/**/*.AppImage

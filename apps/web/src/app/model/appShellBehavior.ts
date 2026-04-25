@@ -246,6 +246,14 @@ export function buildDesktopRouteSearch(
   return serialized ? `?${serialized}` : "";
 }
 
+export function buildSearchWithoutDesktopFilePath(currentSearch: string): string | null {
+  const params = new URLSearchParams(String(currentSearch || "").replace(/^\?/, ""));
+  if (!params.has("filePath")) return null;
+  params.delete("filePath");
+  const serialized = params.toString();
+  return serialized ? `?${serialized}` : "";
+}
+
 export function shouldPushDesktopRouteHistory(
   previousRoute: DesktopRouteState | null,
   nextRoute: DesktopRouteState,
@@ -269,6 +277,24 @@ export function shouldPushDesktopRouteHistory(
     return true;
   }
   return false;
+}
+
+export function resolveProviderRouteSessionId(options: {
+  currentRoute: DesktopRouteState;
+  layoutView: LayoutView;
+  selectedSessionId: string;
+  selectedSessionPath: string;
+}): string {
+  if (options.layoutView !== "providers") return "";
+  if (options.selectedSessionId) return options.selectedSessionId;
+  if (
+    options.selectedSessionPath &&
+    options.currentRoute.view === "providers" &&
+    options.currentRoute.sessionId
+  ) {
+    return options.currentRoute.sessionId;
+  }
+  return "";
 }
 
 function matchesSelectedSessionRoute(
@@ -585,6 +611,14 @@ export function useAppShellBehavior(options: {
     options.desktopRouteAppliedRef.current = true;
     const nextRoute = parseDesktopRouteSearch(window.location.search);
     options.desktopRouteRef.current = nextRoute;
+    const canonicalSearch = buildSearchWithoutDesktopFilePath(window.location.search);
+    if (canonicalSearch !== null) {
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${canonicalSearch}${window.location.hash}`,
+      );
+    }
     options.desktopRouteHydratingRef.current = Boolean(
       nextRoute.view ||
         nextRoute.provider ||
@@ -618,6 +652,14 @@ export function useAppShellBehavior(options: {
     const onPopState = () => {
       const nextRoute = parseDesktopRouteSearch(window.location.search);
       options.desktopRouteRef.current = nextRoute;
+      const canonicalSearch = buildSearchWithoutDesktopFilePath(window.location.search);
+      if (canonicalSearch !== null) {
+        window.history.replaceState(
+          null,
+          "",
+          `${window.location.pathname}${canonicalSearch}${window.location.hash}`,
+        );
+      }
       options.desktopRouteHydratingRef.current = Boolean(
         nextRoute.view ||
           nextRoute.provider ||
@@ -663,11 +705,17 @@ export function useAppShellBehavior(options: {
     }
 
     options.desktopRouteHydratingRef.current = false;
+    const nextSessionId = resolveProviderRouteSessionId({
+      currentRoute,
+      layoutView: options.layoutView,
+      selectedSessionId,
+      selectedSessionPath: options.selectedSessionPath,
+    });
 
     const nextRoute: DesktopRouteState = {
       view: options.layoutView,
       provider: options.layoutView === "providers" ? options.providerView : "",
-      sessionId: options.layoutView === "providers" ? selectedSessionId : "",
+      sessionId: nextSessionId,
       filePath: options.layoutView === "providers" ? options.selectedSessionPath : "",
       threadId: options.layoutView === "threads" ? options.selectedThreadId : "",
     };
