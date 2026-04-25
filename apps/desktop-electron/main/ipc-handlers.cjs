@@ -27,6 +27,7 @@ function registerDesktopIpcHandlers({
   browserWindowFromWebContents = () => null,
   createMainWindow,
   getDesktopApiBaseUrl,
+  getDesktopApiAuthToken = () => "",
   logger = console,
   previewLocalPathImpl = previewLocalPath,
 }) {
@@ -110,6 +111,10 @@ function registerDesktopIpcHandlers({
   ipcMain.handle(
     "threadlens:get-api-base-url",
     async () => getDesktopApiBaseUrl(),
+  );
+  ipcMain.handle(
+    "threadlens:get-api-auth-token",
+    async () => getDesktopApiAuthToken(),
   );
 }
 

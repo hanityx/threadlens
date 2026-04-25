@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { resolveApiBaseUrlFromRuntime } from "@/api";
+import {
+  resolveApiAuthTokenFromRuntime,
+  resolveApiBaseUrlFromRuntime,
+} from "@/api";
 
 describe("resolveApiBaseUrlFromRuntime", () => {
   it("prefers explicit env base URL", async () => {
@@ -44,6 +47,42 @@ describe("resolveApiBaseUrlFromRuntime", () => {
       resolveApiBaseUrlFromRuntime({
         envBaseUrl: "",
         isDev: true,
+      }),
+    ).resolves.toBe("");
+  });
+});
+
+describe("resolveApiAuthTokenFromRuntime", () => {
+  it("prefers explicit env tokens", async () => {
+    await expect(
+      resolveApiAuthTokenFromRuntime({
+        envToken: "env-token",
+      }),
+    ).resolves.toBe("env-token");
+  });
+
+  it("uses the desktop bridge token when available", async () => {
+    await expect(
+      resolveApiAuthTokenFromRuntime({
+        envToken: "",
+        runtimeWindow: {
+          threadLensDesktop: {
+            getApiAuthToken: vi.fn().mockResolvedValue("desktop-token"),
+          },
+        } as never,
+      }),
+    ).resolves.toBe("desktop-token");
+  });
+
+  it("falls back to an empty token when the desktop bridge rejects", async () => {
+    await expect(
+      resolveApiAuthTokenFromRuntime({
+        envToken: "",
+        runtimeWindow: {
+          threadLensDesktop: {
+            getApiAuthToken: vi.fn().mockRejectedValue(new Error("ipc unavailable")),
+          },
+        } as never,
       }),
     ).resolves.toBe("");
   });

@@ -31,10 +31,14 @@ test("registerDesktopIpcHandlers exposes a directory picker handler", async () =
     },
     createMainWindow: () => undefined,
     getDesktopApiBaseUrl: () => "http://127.0.0.1:8788",
+    getDesktopApiAuthToken: () => "desktop-token",
   });
 
   const pickDirectory = handlers.get("threadlens:pick-directory");
   assert.ok(pickDirectory);
+  const getApiAuthToken = handlers.get("threadlens:get-api-auth-token");
+  assert.ok(getApiAuthToken);
+  assert.equal(await getApiAuthToken(), "desktop-token");
 
   const result = await pickDirectory({}, { initialPath: "/tmp/backups" });
   assert.deepEqual(result, {

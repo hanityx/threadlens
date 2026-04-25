@@ -399,7 +399,7 @@ function resolveScopedFolderPath(folderPath: string, rootPath?: string) {
     try {
       return reply.code(200).send(withSchemaVersion(await getCompareAppsStatusTs()));
     } catch (error) {
-      return reply.code(500).send(envelope(null, `related-tools-error: ${String(error)}`));
+      return reply.code(500).send(envelope(null, `compare-apps-error: ${String(error)}`));
     }
   });
 

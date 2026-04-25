@@ -1,7 +1,6 @@
 import { startTransition, useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { PROVIDER_IDS } from "@threadlens/shared-contracts";
 import type { ConversationSearchHit, LayoutView, ProviderSessionRow, ProviderView, ThreadRow } from "@/shared/types";
-import { normalizeDesktopRouteFilePath } from "@/app/model/desktopRoute";
 import { SEARCH_PROVIDER_STORAGE_KEY, writeStorageValue } from "@/shared/lib/appState";
 
 const VALID_LAYOUT_VIEWS = new Set<LayoutView>(["overview", "search", "providers", "threads"]);
@@ -212,7 +211,7 @@ export function parseDesktopRouteSearch(search: string): DesktopRouteState {
     view: VALID_LAYOUT_VIEWS.has(view as LayoutView) ? (view as LayoutView) : "",
     provider: VALID_PROVIDER_VIEWS.has(String(provider || "")) ? (provider as ProviderView) : "",
     sessionId: params.get("sessionId") ?? "",
-    filePath: normalizeDesktopRouteFilePath(params.get("filePath") ?? ""),
+    filePath: "",
     threadId: params.get("threadId") ?? "",
   };
 }
@@ -235,11 +234,7 @@ export function buildDesktopRouteSearch(
   } else {
     params.delete("sessionId");
   }
-  if (route.view === "providers" && route.filePath) {
-    params.set("filePath", route.filePath);
-  } else {
-    params.delete("filePath");
-  }
+  params.delete("filePath");
 
   if (route.view === "threads" && route.threadId) {
     params.set("threadId", route.threadId);

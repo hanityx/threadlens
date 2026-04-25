@@ -1,5 +1,6 @@
 const path = require("node:path");
 const fs = require("node:fs");
+const { randomBytes } = require("node:crypto");
 const { app, BrowserWindow, Menu, ipcMain, nativeImage, shell, dialog } = require("electron");
 const {
   buildMenuTemplate,
@@ -49,6 +50,7 @@ let desktopApiBaseUrl = buildDesktopApiBaseUrl(
   DESKTOP_API_HOST,
   DESKTOP_API_START_PORT,
 );
+const desktopApiAuthToken = randomBytes(32).toString("hex");
 
 function getAppIconPath() {
   return resolveAppIconPath({
@@ -148,6 +150,7 @@ registerDesktopIpcHandlers({
   browserWindowFromWebContents: (webContents) => BrowserWindow.fromWebContents(webContents),
   createMainWindow: createWindow,
   getDesktopApiBaseUrl: () => desktopApiBaseUrl,
+  getDesktopApiAuthToken: () => desktopApiAuthToken,
 });
 
 app.whenReady().then(() => {
@@ -173,6 +176,7 @@ app.whenReady().then(() => {
         host: DESKTOP_API_HOST,
         userDataPath: app.getPath("userData"),
         appVersion: app.getVersion(),
+        apiToken: desktopApiAuthToken,
         baseEnv: process.env,
         execPath: process.execPath,
         mkdirSync: fs.mkdirSync,

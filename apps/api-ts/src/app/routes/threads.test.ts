@@ -111,6 +111,31 @@ describe("registerThreadRoutes cleanup invalidation", () => {
     expect(invalidateProviderSessionCache).toHaveBeenCalledWith("codex");
   });
 
+  it("invalidates caches and returns 207 for partial cleanup execution", async () => {
+    mockExecuteLocalCleanupTs.mockResolvedValue({
+      ok: false,
+      mode: "partial",
+      deleted_file_count: 1,
+      failed: [{ path: "/tmp/missing.jsonl", error: "unlink failed" }],
+    });
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/local-cleanup",
+      payload: {
+        ids: ["thread-1"],
+        dry_run: false,
+        confirm_token: "DEL-123",
+        options: {},
+      },
+    });
+
+    expect(res.statusCode).toBe(207);
+    expect(invalidateOverviewCache).toHaveBeenCalledTimes(1);
+    expect(invalidateProviderSessionCache).toHaveBeenCalledTimes(1);
+    expect(invalidateProviderSessionCache).toHaveBeenCalledWith("codex");
+  });
+
   it("does not invalidate caches for dry-run responses", async () => {
     mockExecuteLocalCleanupTs.mockResolvedValue({
       ok: true,

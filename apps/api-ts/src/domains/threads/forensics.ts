@@ -4,6 +4,7 @@ import { CHAT_DIR, CODEX_HOME } from "../../lib/constants.js";
 import { pathExists, readHeadLines } from "../../lib/utils.js";
 import { getOverviewTs } from "./overview.js";
 import { analyzeDeleteImpactTs } from "./impact.js";
+import { normalizeSafeThreadIds, resolveThreadCacheFile } from "./thread-id.js";
 
 type ThreadArtifact = {
   kind: string;
@@ -15,9 +16,7 @@ export async function findThreadArtifactsTs(
   threadIds: string[],
   options?: { chatDir?: string; codexHome?: string },
 ): Promise<ThreadArtifact[]> {
-  const ids = Array.from(
-    new Set(threadIds.map((item) => String(item || "").trim()).filter(Boolean)),
-  );
+  const { ids } = normalizeSafeThreadIds(threadIds);
   if (ids.length === 0) return [];
   const artifacts: ThreadArtifact[] = [];
 
@@ -30,7 +29,8 @@ export async function findThreadArtifactsTs(
       const full = path.join(chatDir, entry.name);
       if (entry.name.startsWith("conversations-v3-")) {
         for (const threadId of ids) {
-          const filePath = path.join(full, `${threadId}.data`);
+          const filePath = resolveThreadCacheFile(full, threadId);
+          if (!filePath) continue;
           if (await pathExists(filePath)) {
             artifacts.push({ kind: "chat-cache", thread_id: threadId, path: filePath });
           }
@@ -43,7 +43,8 @@ export async function findThreadArtifactsTs(
         if (!child.isDirectory() || !child.name.startsWith("conversations-v3-")) continue;
         const convPath = path.join(full, child.name);
         for (const threadId of ids) {
-          const filePath = path.join(convPath, `${threadId}.data`);
+          const filePath = resolveThreadCacheFile(convPath, threadId);
+          if (!filePath) continue;
           if (await pathExists(filePath)) {
             artifacts.push({ kind: "project-cache", thread_id: threadId, path: filePath });
           }
@@ -95,9 +96,7 @@ async function collectJsonlFiles(root: string): Promise<string[]> {
 }
 
 export async function getThreadForensicsTs(threadIds: string[]) {
-  const ids = Array.from(
-    new Set(threadIds.map((item) => String(item || "").trim()).filter(Boolean)),
-  );
+  const { ids } = normalizeSafeThreadIds(threadIds);
   if (ids.length === 0) {
     return {
       generated_at: new Date().toISOString(),
