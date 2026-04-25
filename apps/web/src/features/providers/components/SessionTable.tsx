@@ -85,7 +85,7 @@ export interface SessionTableProps {
   deleteStage: ProviderWorkflowStage;
   sessionFileActionResult: ProviderSessionActionResult | null;
   sessionFileActionCanExecute: boolean;
-  actionLabel: (action: "backup_local" | "archive_local" | "delete_local") => string;
+  actionLabel: (action: ProviderSessionActionResult["action"]) => string;
   csvExportedRows: number | null;
   sectionRef?: Ref<HTMLElement>;
   panelStyle?: CSSProperties;

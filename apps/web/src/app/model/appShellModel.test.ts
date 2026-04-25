@@ -7,7 +7,7 @@ import type {
   ProviderSessionRow,
   ProviderView,
 } from "@/shared/types";
-import { getMessages } from "@/i18n";
+import { getMessages } from "@/i18n/catalog";
 import {
   buildSearchProviderOptions,
   buildRecentThreadSummary,
@@ -16,6 +16,7 @@ import {
   buildVisibleProviderSessionSummary,
   buildVisibleParserSummary,
   buildVisibleProviderIds,
+  buildVisibleProviders,
   buildVisibleProviderSummary,
   buildVisibleProviderTabs,
 } from "@/app/model/appShellModel";
@@ -159,6 +160,7 @@ function renderModelProbe(
       selectedProviderLabel: null,
       runtimeBackendReachable: false,
       runtimeBackendLatencyMs: null,
+      runtimeBackendUrl: null,
       analyzeErrorKey: "",
       cleanupErrorKey: "",
       acknowledgedForensicsErrorKeys: { analyze: "", cleanup: "" },
@@ -184,6 +186,7 @@ function renderModelProbe(
       createElement("span", { "data-line": model.activeProviderSummaryLine }),
       createElement("span", { "data-parser": model.parserScoreText }),
       createElement("span", { "data-runtime": model.runtimeLatencyText }),
+      createElement("span", { "data-runtime-status": model.runtimeStatusText }),
       createElement("span", { "data-focus-session-title": model.focusSessionTitle }),
       createElement("span", { "data-focus-session-meta": model.focusSessionMeta }),
       createElement("span", { "data-review-title": model.focusReviewTitle }),
@@ -204,16 +207,37 @@ describe("appShellModel", () => {
     expect(visibleTabs.map((tab) => tab.id)).toEqual(["all", "claude", "gemini", "copilot", "zeta"]);
   });
 
-  it("drops optional providers from overview-wide ids but keeps explicit selections", () => {
+  it("keeps optional providers in all-provider ids and explicit selections", () => {
     const visibleTabs = buildVisibleProviderTabs(providerTabs);
 
-    expect(buildVisibleProviderIds(visibleTabs, "all")).toEqual(["claude", "gemini", "zeta"]);
+    expect(buildVisibleProviderIds(visibleTabs, "all")).toEqual(["claude", "gemini", "copilot", "zeta"]);
     expect(buildVisibleProviderIds(visibleTabs, "copilot")).toEqual([
       "claude",
       "gemini",
       "copilot",
       "zeta",
     ]);
+  });
+
+  it("synthesizes visible providers from tabs when matrix data is missing", () => {
+    const visibleTabs = buildVisibleProviderTabs(providerTabs);
+    const visibleProviderIds = buildVisibleProviderIds(visibleTabs, "all");
+
+    expect(
+      buildVisibleProviders(visibleTabs, providers, visibleProviderIds).map((provider) => provider.provider),
+    ).toEqual(["claude", "gemini", "copilot", "zeta"]);
+    expect(
+      buildVisibleProviders(visibleTabs, providers, visibleProviderIds).find((provider) => provider.provider === "copilot"),
+    ).toMatchObject({
+      provider: "copilot",
+      name: "Copilot",
+      capabilities: {
+        read_sessions: true,
+        analyze_context: true,
+        safe_cleanup: true,
+        hard_delete: true,
+      },
+    });
   });
 
   it("falls back to tab counts when provider matrix is empty", () => {
@@ -366,6 +390,18 @@ describe("appShellModel", () => {
     expect(html).toContain('data-focus-session-title="Claude Session"');
     expect(html).toContain('data-focus-session-meta="Claude /');
     expect(html).toContain('data-sync="Updated');
+  });
+
+  it("keeps measured latency in the top runtime slot and uses local only for the summary label", () => {
+    const messages = getMessages("en").overview;
+    const html = renderModelProbe("en", {
+      runtimeBackendReachable: true,
+      runtimeBackendLatencyMs: 7,
+      runtimeBackendUrl: "ts-native",
+    });
+
+    expect(html).toContain('data-runtime="7 ms"');
+    expect(html).toContain(`data-runtime-status="${messages.runtimeStatusLocal}"`);
   });
 
   it("surfaces review queue and global error stack when overview is degraded outside forensics", () => {

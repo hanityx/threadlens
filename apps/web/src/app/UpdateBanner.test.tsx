@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { getMessages } from "@/i18n";
+import { getMessages } from "@/i18n/catalog";
 import { UpdateBanner } from "@/app/components/UpdateBanner";
 
 describe("UpdateBanner", () => {

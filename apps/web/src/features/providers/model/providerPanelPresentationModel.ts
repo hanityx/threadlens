@@ -1,5 +1,5 @@
 import type { Messages } from "@/i18n";
-import type { ProviderSessionActionResult, ProviderView, RecoveryBackupExportResponse } from "@/shared/types";
+import type { ProviderActionSelection, ProviderSessionActionResult, ProviderView, RecoveryBackupExportResponse } from "@/shared/types";
 import { providerActionSelectionKey } from "@/shared/lib/appState";
 
 type ProviderFlowState = "done" | "pending" | "blocked";
@@ -19,10 +19,11 @@ export function getProviderStatusLabel(
 
 export function getProviderActionLabel(
   messages: Messages,
-  action: "backup_local" | "archive_local" | "delete_local",
+  action: ProviderSessionActionResult["action"],
 ) {
   if (action === "backup_local") return messages.providers.actionBackupLocal;
   if (action === "archive_local") return messages.providers.actionArchiveLocal;
+  if (action === "unarchive_local") return messages.providers.actionUnarchiveLocal;
   return messages.providers.actionDeleteLocal;
 }
 
@@ -93,15 +94,7 @@ export function getProviderWorkflowStage(
   options: {
     action: "archive_local" | "delete_local";
     actionResult: ProviderSessionActionResult | null;
-    actionSelection:
-      | {
-          provider: string;
-          action: "backup_local" | "archive_local" | "delete_local";
-          file_paths: string[];
-          dry_run?: boolean;
-          backup_before_delete?: boolean;
-        }
-      | null;
+    actionSelection: ProviderActionSelection | null;
     currentSelectionKey: string;
   },
 ): ProviderWorkflowStage {

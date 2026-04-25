@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { AppContext, type AppContextValue } from "@/app/AppContext";
 import { DetailShell } from "@/app/components/DetailShell";
-import { getMessages } from "@/i18n";
+import { getMessages } from "@/i18n/catalog";
 
 function buildContext(overrides: Partial<AppContextValue> = {}): AppContextValue {
   const messages = getMessages("en");
@@ -56,6 +56,7 @@ function buildContext(overrides: Partial<AppContextValue> = {}): AppContextValue
     bulkPin: () => undefined,
     bulkUnpin: () => undefined,
     bulkArchive: () => undefined,
+    bulkUnarchive: () => undefined,
     analyzeDelete: () => undefined,
     cleanupDryRun: () => undefined,
     selectedSession: null,
@@ -80,15 +81,19 @@ function buildContext(overrides: Partial<AppContextValue> = {}): AppContextValue
 describe("DetailShell", () => {
   it("renders both lazy fallbacks when thread and session detail panes are active", () => {
     const html = renderToStaticMarkup(
-      <AppContext.Provider value={buildContext()}>
+      <AppContext.Provider
+        value={buildContext({
+          visibleProviderSessionSummary: { providers: 1, rows: 1, parse_ok: 1, parse_fail: 0 },
+        })}
+      >
         <DetailShell />
       </AppContext.Provider>,
     );
 
     expect(html).toContain('class="detail-layout"');
-    expect(html).toContain("Thread Detail");
-    expect(html).toContain("Session Detail");
-    expect(html).toContain("Loading");
+    expect(html).toContain("surface-slot-skeleton");
+    expect(html).not.toContain("skeleton-line");
+    expect(html).not.toContain("sub-toolbar");
   });
 
   it("returns nothing when details are hidden or forensics owns the side area", () => {
@@ -105,5 +110,22 @@ describe("DetailShell", () => {
 
     expect(hiddenHtml).toBe("");
     expect(forensicsHtml).toBe("");
+  });
+
+  it("hides empty session detail when filtered session rows collapse to zero", () => {
+    const html = renderToStaticMarkup(
+      <AppContext.Provider
+        value={buildContext({
+          showThreadDetail: false,
+          showProviders: true,
+          selectedSession: null,
+          visibleProviderSessionSummary: { providers: 0, rows: 0, parse_ok: 0, parse_fail: 0 },
+        })}
+      >
+        <DetailShell />
+      </AppContext.Provider>,
+    );
+
+    expect(html).not.toContain("Session Detail");
   });
 });

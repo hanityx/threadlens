@@ -18,8 +18,8 @@ describe("useAppShellState helpers", () => {
     expect(clampLayoutScrollTarget(200, 600, 1000)).toBe(0);
   });
 
-  it("falls back to an empty header search seed when storage is blank", () => {
-    expect(resolveHeaderSearchSeed("cleanup")).toBe("cleanup");
+  it("does not hydrate stale search text into the Search tab", () => {
+    expect(resolveHeaderSearchSeed("cleanup")).toBe("");
     expect(resolveHeaderSearchSeed(null)).toBe("");
   });
 });

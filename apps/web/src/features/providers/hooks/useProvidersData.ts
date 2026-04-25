@@ -634,7 +634,7 @@ export function useProvidersData(options: {
     selectedSessionPath, setSelectedSessionPath,
     dataSources, providerMatrix, providerSessions, providerParserHealth, executionGraph,
     providers, providerSummary, providerTabs, providerSessionRows,
-    allProviderSessionRows, slowProviderIds, providerSessionSummary,
+    allProviderSessionRows, allProviderSessionProviders, slowProviderIds, providerSessionSummary,
     providerSessionsLimit, providerRowsSampled, dataSourceRows,
     allProviderRowsSelected, selectedProviderLabel, selectedProviderFilePaths,
     providerActionProvider, canRunProviderAction, selectedProviderMeta,

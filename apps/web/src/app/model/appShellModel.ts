@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 import {
   INTERNAL_PROVIDER_IDS,
-  OPTIONAL_PROVIDER_IDS,
   SEARCHABLE_PROVIDER_IDS,
   SEARCHABLE_PROVIDER_LABELS,
+  findProviderCapability,
 } from "@threadlens/shared-contracts";
 import { formatDateTime, formatProviderDisplayName } from "@/shared/lib/format";
 import type { Messages } from "@/i18n";
@@ -26,7 +26,6 @@ import {
 } from "@/app/model/workbenchFormat";
 
 const HIDDEN_PROVIDER_IDS = new Set<string>(INTERNAL_PROVIDER_IDS);
-const OPTIONAL_PROVIDER_ID_SET = new Set<string>(OPTIONAL_PROVIDER_IDS);
 const PROVIDER_DISPLAY_ORDER = ["all", "codex", "claude", "gemini", "copilot"];
 
 type ProviderTabLike = {
@@ -115,13 +114,51 @@ export function buildVisibleProviderTabs<T extends ProviderTabLike>(providerTabs
 
 export function buildVisibleProviderIds<T extends { id: ProviderView }>(
   visibleProviderTabs: T[],
-  providerView: ProviderView,
+  _providerView: ProviderView,
 ): Array<Exclude<ProviderView, "all">> {
   return visibleProviderTabs
-    .filter(
-      (tab) => tab.id !== "all" && (providerView !== "all" || !OPTIONAL_PROVIDER_ID_SET.has(tab.id)),
-    )
+    .filter((tab) => tab.id !== "all")
     .map((tab) => tab.id as Exclude<ProviderView, "all">);
+}
+
+function resolveCapabilityLevel(capabilities: ProviderMatrixProvider["capabilities"]): ProviderMatrixProvider["capability_level"] {
+  if (capabilities.safe_cleanup) return "full";
+  if (capabilities.read_sessions || capabilities.analyze_context) return "read-only";
+  return "unavailable";
+}
+
+export function buildVisibleProviders<T extends ProviderTabLike>(
+  visibleProviderTabs: T[],
+  providers: ProviderMatrixProvider[],
+  visibleProviderIds: Array<Exclude<ProviderView, "all">>,
+): ProviderMatrixProvider[] {
+  if (providers.length === 0) return [];
+
+  const providerMap = new Map<string, ProviderMatrixProvider>(
+    providers.map((provider) => [provider.provider, provider]),
+  );
+
+  return visibleProviderIds.map((providerId) => {
+    const existing = providerMap.get(providerId);
+    if (existing) return existing;
+
+    const tab = visibleProviderTabs.find((candidate) => candidate.id === providerId);
+    const capability = findProviderCapability(providerId);
+    const capabilities = {
+      read_sessions: capability?.read_sessions ?? false,
+      analyze_context: capability?.analyze_context ?? false,
+      safe_cleanup: capability?.safe_cleanup ?? false,
+      hard_delete: capability?.hard_delete ?? false,
+    };
+
+    return {
+      provider: providerId,
+      name: capability?.label ?? tab?.name ?? providerId,
+      status: tab?.status ?? "missing",
+      capability_level: resolveCapabilityLevel(capabilities),
+      capabilities,
+    };
+  });
 }
 
 export function buildVisibleProviderSummary<T extends ProviderTabLike>(
@@ -308,6 +345,7 @@ export function useAppShellModel(options: {
   selectedProviderLabel: string | null;
   runtimeBackendReachable: boolean | null | undefined;
   runtimeBackendLatencyMs: number | null | undefined;
+  runtimeBackendUrl?: string | null;
   analyzeErrorKey: string;
   cleanupErrorKey: string;
   acknowledgedForensicsErrorKeys: { analyze: string; cleanup: string };
@@ -336,9 +374,8 @@ export function useAppShellModel(options: {
     [visibleProviderIds],
   );
   const visibleProviders = useMemo(
-    () =>
-      options.providers.filter((provider) => visibleProviderIdSet.has(provider.provider)),
-    [options.providers, visibleProviderIdSet],
+    () => buildVisibleProviders(visibleProviderTabs, options.providers, visibleProviderIds),
+    [options.providers, visibleProviderIds, visibleProviderTabs],
   );
   const visibleProviderSummary = useMemo(
     () => buildVisibleProviderSummary(visibleProviderTabs, visibleProviders),
@@ -582,6 +619,15 @@ export function useAppShellModel(options: {
       : options.runtimeBackendReachable
         ? `${options.runtimeBackendLatencyMs ?? "-"} ms`
         : options.messages.overview.runtimeStatusDown;
+  const runtimeStatusText = overviewBooting
+    ? options.messages.overview.runtimeStatusSync
+    : overviewCountsLoading
+      ? options.messages.overview.runtimeStatusSync
+      : options.runtimeBackendReachable
+        ? options.runtimeBackendUrl === "ts-native"
+          ? options.messages.overview.runtimeStatusLocal
+          : options.messages.overview.runtimeStatusRemote
+        : options.messages.overview.runtimeStatusDown;
 
   return {
     visibleProviderTabs,
@@ -633,6 +679,7 @@ export function useAppShellModel(options: {
     hasGlobalErrorStack,
     parserScoreText,
     runtimeLatencyText,
+    runtimeStatusText,
     backupSetsCount: options.recoveryBackupSets,
   };
 }

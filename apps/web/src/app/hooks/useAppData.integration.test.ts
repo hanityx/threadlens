@@ -200,6 +200,7 @@ function makeMutations(overrides: Record<string, unknown> = {}) {
     bulkPin: {},
     bulkUnpin: {},
     bulkArchive: {},
+    bulkUnarchive: {},
     analyzeDelete: {},
     cleanupDryRun: {},
     cleanupExecute: {},
@@ -270,6 +271,34 @@ describe("useAppData integration", () => {
     expect(result.showRouting).toBe(true);
     expect(result.showDetails).toBe(true);
     expect(result.canRunSelectedSessionAction).toBe(true);
+  });
+
+  it("passes a fallback selected session into detail data when the routed provider row is missing", () => {
+    mockUsePreferences.mockReturnValue(
+      makePreferences({ layoutView: "providers", providerView: "gemini" }),
+    );
+    mockUseProvidersData.mockReturnValue(
+      makeProvidersData({
+        providerSessionRows: [],
+        selectedSessionPath: "/Users/example/.gemini/tmp/react-spectrum/chats/session-123.json",
+      }),
+    );
+
+    const result = renderHookResult();
+    const detailArgs = mockUseDetailData.mock.calls.at(-1)?.[0] as {
+      selectedSession: ProviderSessionRow | null;
+    };
+
+    expect(result.selectedSession?.provider).toBe("gemini");
+    expect(result.selectedSession?.source).toBe("search_result");
+    expect(result.selectedSession?.file_path).toBe(
+      "/Users/example/.gemini/tmp/react-spectrum/chats/session-123.json",
+    );
+    expect(detailArgs.selectedSession).toMatchObject({
+      provider: "gemini",
+      source: "search_result",
+      file_path: "/Users/example/.gemini/tmp/react-spectrum/chats/session-123.json",
+    });
   });
 
   it("refreshes runtime domains and provider data for providers layout", async () => {

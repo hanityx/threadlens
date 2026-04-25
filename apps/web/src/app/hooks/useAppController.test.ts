@@ -5,6 +5,7 @@ import type { UpdateCheckStatus } from "@threadlens/shared-contracts";
 import {
   resolveEmptySessionScopeLabel,
   resolveForensicsErrorKey,
+  resolveRecoveryBackupSetCount,
   resolveRuntimeBackendDegraded,
   resolveShowUpdateBanner,
   useAppController,
@@ -12,14 +13,19 @@ import {
 import type { AppContextValue } from "@/app/AppContext";
 import {
   PROVIDER_VIEW_STORAGE_KEY,
+  SETUP_COMMITTED_STORAGE_KEY,
   SETUP_PREFERRED_PROVIDER_STORAGE_KEY,
 } from "@/shared/lib/appState";
+
+const CLAUDE_SENTINEL_PATH =
+  "/__threadlens_fixture__/.claude/projects/-fixture-threadlens/b8792a1a-7606-4247-abec-819b25dddf65.jsonl";
 
 const mockUseQuery = vi.fn();
 const mockUseLocale = vi.fn();
 const mockUseAppShellModel = vi.fn();
 const mockUseAppShellBehavior = vi.fn();
 const mockReadStorageValue = vi.fn();
+const mockApiGet = vi.fn();
 
 vi.mock("@tanstack/react-query", () => ({
   useQuery: (...args: unknown[]) => mockUseQuery(...args),
@@ -27,6 +33,10 @@ vi.mock("@tanstack/react-query", () => ({
 
 vi.mock("@/i18n", () => ({
   useLocale: () => mockUseLocale(),
+}));
+
+vi.mock("@/api", () => ({
+  apiGet: (...args: unknown[]) => mockApiGet(...args),
 }));
 
 vi.mock("@/app/model/appShellModel", () => ({
@@ -145,7 +155,7 @@ function makeShellState(overrides: Record<string, unknown> = {}) {
     desktopRouteAppliedRef: { current: false },
     desktopRouteHydratingRef: { current: false },
     desktopRouteRef: {
-      current: { view: "", provider: "", filePath: "", threadId: "" },
+      current: { view: "", provider: "", sessionId: "", filePath: "", threadId: "" },
     },
     threadSearchInputRef: { current: null },
     detailLayoutRef: { current: null },
@@ -220,6 +230,7 @@ function makeShellModel(overrides: Record<string, unknown> = {}) {
     hasGlobalErrorStack: false,
     parserScoreText: "",
     runtimeLatencyText: "",
+    runtimeStatusText: "",
     backupSetsCount: 0,
     ...overrides,
   };
@@ -254,6 +265,7 @@ describe("useAppController helpers", () => {
     mockUseAppShellModel.mockReset();
     mockUseAppShellBehavior.mockReset();
     mockReadStorageValue.mockReset();
+    mockApiGet.mockReset();
 
     mockUseQuery.mockReturnValue({
       data: { data: makeUpdateCheckStatus({ has_update: false, latest_version: "0.2.2" }) },
@@ -270,6 +282,7 @@ describe("useAppController helpers", () => {
       handleDiagnosticsIntent: vi.fn(),
       handleHeaderSearchSubmit: vi.fn(),
     });
+    mockApiGet.mockResolvedValue({ rows: [] });
     mockReadStorageValue.mockImplementation((keys: string[]) => {
       if (keys.includes(SETUP_PREFERRED_PROVIDER_STORAGE_KEY)) return null;
       if (keys.includes(PROVIDER_VIEW_STORAGE_KEY)) return null;
@@ -326,6 +339,28 @@ describe("useAppController helpers", () => {
     });
   });
 
+  describe("resolveRecoveryBackupSetCount", () => {
+    it("uses the live recovery backup inventory when summary is absent", () => {
+      expect(
+        resolveRecoveryBackupSetCount({
+          backup_total: 20,
+          backup_sets: [{ backup_id: "set-1" } as never],
+        }),
+      ).toBe(20);
+      expect(
+        resolveRecoveryBackupSetCount({
+          backup_sets: [{ backup_id: "set-1" } as never, { backup_id: "set-2" } as never],
+        }),
+      ).toBe(2);
+      expect(
+        resolveRecoveryBackupSetCount({
+          summary: { backup_sets: 3, checklist_done: 0, checklist_total: 0 },
+          backup_total: 20,
+        }),
+      ).toBe(3);
+    });
+  });
+
   describe("resolveForensicsErrorKey", () => {
     it("returns stable keys with unknown fallback only when error exists", () => {
       expect(resolveForensicsErrorKey("analyze", true, "boom")).toBe("analyze:boom");
@@ -343,14 +378,34 @@ describe("useAppController helpers", () => {
   });
 
   describe("hook integration", () => {
-    it("opens providers home with the preferred visible provider from storage", () => {
+    it("opens providers home with the committed setup provider even when dedicated keys are stale", () => {
       const prefetchProvidersData = vi.fn();
       const changeProviderView = vi.fn();
       const changeLayoutView = vi.fn();
+      const setSelectedSessionPath = vi.fn();
+
+      Object.defineProperty(globalThis, "window", {
+        configurable: true,
+        value: {
+          localStorage: {
+            getItem(key: string) {
+              if (key === SETUP_COMMITTED_STORAGE_KEY) {
+                return JSON.stringify({
+                  selectedProviderIds: ["claude"],
+                  preferredProviderId: "claude",
+                  providerView: "claude",
+                  searchProvider: "claude",
+                });
+              }
+              return null;
+            },
+          },
+        },
+      });
 
       mockReadStorageValue.mockImplementation((keys: string[]) => {
-        if (keys.includes(SETUP_PREFERRED_PROVIDER_STORAGE_KEY)) return "claude";
         if (keys.includes(PROVIDER_VIEW_STORAGE_KEY)) return "codex";
+        if (keys.includes(SETUP_PREFERRED_PROVIDER_STORAGE_KEY)) return "codex";
         return null;
       });
       mockUseAppShellModel.mockReturnValue(
@@ -362,14 +417,58 @@ describe("useAppController helpers", () => {
       );
 
       const result = renderController({
-        appData: { prefetchProvidersData },
+        appData: { prefetchProvidersData, setSelectedSessionPath },
         shellState: { changeProviderView, changeLayoutView },
       });
 
       (result.ctx as AppContextValue).openProvidersHome();
 
       expect(prefetchProvidersData).toHaveBeenCalledTimes(1);
+      expect(setSelectedSessionPath).toHaveBeenCalledWith("");
       expect(changeProviderView).toHaveBeenCalledWith("claude");
+      expect(changeLayoutView).toHaveBeenCalledWith("providers");
+    });
+
+    it("falls back to all providers when only stale provider-view keys remain", () => {
+      const prefetchProvidersData = vi.fn();
+      const changeProviderView = vi.fn();
+      const changeLayoutView = vi.fn();
+      const setSelectedSessionPath = vi.fn();
+
+      Object.defineProperty(globalThis, "window", {
+        configurable: true,
+        value: {
+          localStorage: {
+            getItem() {
+              return null;
+            },
+          },
+        },
+      });
+
+      mockReadStorageValue.mockImplementation((keys: string[]) => {
+        if (keys.includes(PROVIDER_VIEW_STORAGE_KEY)) return "codex";
+        if (keys.includes(SETUP_PREFERRED_PROVIDER_STORAGE_KEY)) return null;
+        return null;
+      });
+      mockUseAppShellModel.mockReturnValue(
+        makeShellModel({
+          visibleProviderIdSet: new Set(["all", "codex", "claude"]),
+          visibleProviderTabs: [{ id: "all" }, { id: "codex" }, { id: "claude" }],
+          visibleProviderIds: ["all", "codex", "claude"],
+        }),
+      );
+
+      const result = renderController({
+        appData: { prefetchProvidersData, setSelectedSessionPath },
+        shellState: { changeProviderView, changeLayoutView },
+      });
+
+      (result.ctx as AppContextValue).openProvidersHome();
+
+      expect(prefetchProvidersData).toHaveBeenCalledTimes(1);
+      expect(setSelectedSessionPath).toHaveBeenCalledWith("");
+      expect(changeProviderView).toHaveBeenCalledWith("all");
       expect(changeLayoutView).toHaveBeenCalledWith("providers");
     });
 
@@ -393,6 +492,51 @@ describe("useAppController helpers", () => {
       expect(result.shellProps.showRuntimeBackendDegraded).toBe(true);
       expect(result.shellProps.runtimeBackend).toEqual({ reachable: false, latency_ms: 420 });
       expect((result.ctx as AppContextValue).emptySessionScopeLabel).toBe("All AI");
+    });
+
+    it("keeps the exact session provider when current visible provider scope is collapsed", async () => {
+      mockUseAppShellModel.mockReturnValue(
+        makeShellModel({
+          visibleProviderIdSet: new Set(["all"]),
+          visibleProviderTabs: [{ id: "all" }],
+          visibleProviderIds: ["all"],
+        }),
+      );
+      mockApiGet.mockResolvedValue({
+        rows: [
+          {
+            provider: "claude",
+            source: "projects",
+            session_id: "b8792a1a-7606-4247-abec-819b25dddf65",
+            file_path: CLAUDE_SENTINEL_PATH,
+          },
+        ],
+      });
+
+      renderController({
+        appData: {
+          layoutView: "threads",
+          providerTabs: [{ id: "all" }, { id: "codex" }, { id: "claude" }, { id: "gemini" }],
+        },
+      });
+
+      const behaviorArgs = mockUseAppShellBehavior.mock.calls.at(-1)?.[0] as {
+        lookupExactSessionTarget?: (query: string) => Promise<{
+          sessionId: string;
+          filePath: string;
+          providerView: string;
+        } | null>;
+      };
+
+      const target = await behaviorArgs.lookupExactSessionTarget?.(
+        "b8792a1a-7606-4247-abec-819b25dddf65",
+      );
+
+      expect(target).toEqual({
+        sessionId: "b8792a1a-7606-4247-abec-819b25dddf65",
+        filePath: CLAUDE_SENTINEL_PATH,
+        providerView: "claude",
+      });
     });
   });
 });

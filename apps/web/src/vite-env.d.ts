@@ -8,8 +8,16 @@ type ThreadLensDesktopActionResult = {
 type ThreadLensDesktopWindowPayload = {
   view?: "overview" | "search" | "providers" | "threads";
   provider?: string;
+  sessionId?: string;
   filePath?: string;
   threadId?: string;
+};
+
+type ThreadLensDesktopDirectoryResult = {
+  ok: boolean;
+  canceled?: boolean;
+  path?: string;
+  error?: string;
 };
 
 interface Window {
@@ -19,6 +27,7 @@ interface Window {
     revealPath?: (filePath: string) => Promise<ThreadLensDesktopActionResult>;
     openPath?: (filePath: string) => Promise<ThreadLensDesktopActionResult>;
     previewPath?: (filePath: string) => Promise<ThreadLensDesktopActionResult>;
+    pickDirectory?: (initialPath?: string) => Promise<ThreadLensDesktopDirectoryResult>;
     openWorkbenchWindow?: (
       payload: ThreadLensDesktopWindowPayload,
     ) => Promise<ThreadLensDesktopActionResult>;

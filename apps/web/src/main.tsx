@@ -3,13 +3,12 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Agentation } from "agentation";
 import { App } from "@/App";
-import { LocaleProvider } from "@/i18n";
+import { detectPreferredLocale, loadMessages, LocaleProvider } from "@/i18n";
+import {
+  LEGACY_LOCALE_STORAGE_KEY,
+  LOCALE_STORAGE_KEY,
+} from "@/shared/lib/appState";
 import "@/shared/ui/index.css";
-import "@/features/overview/overview.css";
-import "@/features/threads/threads.css";
-import "@/features/providers/providers.css";
-import "@/features/search/search.css";
-import "@/features/providers/routing/routing.css";
 
 const queryClient = new QueryClient();
 const agentationEndpoint =
@@ -20,13 +19,26 @@ const AgentationBridge = Agentation as unknown as React.ComponentType<{
   endpoint: string;
 }>;
 
-createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <LocaleProvider>
-        <App />
-        {agentationEnabled ? <AgentationBridge endpoint={agentationEndpoint} /> : null}
-      </LocaleProvider>
-    </QueryClientProvider>
-  </React.StrictMode>
-);
+async function bootstrap() {
+  const savedLocale =
+    window.localStorage.getItem(LOCALE_STORAGE_KEY) ??
+    window.localStorage.getItem(LEGACY_LOCALE_STORAGE_KEY);
+  const locale = detectPreferredLocale({
+    savedLocale,
+    browserLanguage: window.navigator?.language ?? null,
+  });
+  const messages = await loadMessages(locale);
+
+  createRoot(document.getElementById("root")!).render(
+    <React.StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <LocaleProvider initialLocale={locale} initialMessages={messages}>
+          <App />
+          {agentationEnabled ? <AgentationBridge endpoint={agentationEndpoint} /> : null}
+        </LocaleProvider>
+      </QueryClientProvider>
+    </React.StrictMode>,
+  );
+}
+
+void bootstrap();

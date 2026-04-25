@@ -115,9 +115,7 @@ describe("SetupWizard setup preference handoff", () => {
 
     expect(html).toContain("Setup");
     expect(html).toContain("Language");
-    expect(html).toContain("EN");
     expect(html).toContain("English");
-    expect(html).toContain("Русский");
   });
 
   it("keeps the Setup screen name in English even in Spanish locale", () => {

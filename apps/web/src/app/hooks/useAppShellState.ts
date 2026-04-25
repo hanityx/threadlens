@@ -3,9 +3,6 @@ import type { DesktopRouteState } from "@/app/model/appShellBehavior";
 import {
   persistDismissedUpdateVersion,
   readDismissedUpdateVersion,
-  readStorageValue,
-  SEARCH_DRAFT_STORAGE_KEY,
-  writeStorageValue,
 } from "@/shared/lib/appState";
 import type { ConversationSearchHit, LayoutView, ProviderView } from "@/shared/types";
 import type { ProviderProbeFilter } from "@/features/providers/model/sessionTableModel";
@@ -28,7 +25,8 @@ export function clampLayoutScrollTarget(
 }
 
 export function resolveHeaderSearchSeed(storedDraft: string | null): string {
-  return storedDraft ?? "";
+  void storedDraft;
+  return "";
 }
 
 export function useAppShellState(options: {
@@ -43,6 +41,7 @@ export function useAppShellState(options: {
   const desktopRouteRef = useRef<DesktopRouteState>({
     view: "",
     provider: "",
+    sessionId: "",
     filePath: "",
     threadId: "",
   });
@@ -56,9 +55,7 @@ export function useAppShellState(options: {
     readDismissedUpdateVersion(),
   );
   const [headerSearchDraft, setHeaderSearchDraft] = useState("");
-  const [headerSearchSeed, setHeaderSearchSeed] = useState(() =>
-    resolveHeaderSearchSeed(readStorageValue([SEARCH_DRAFT_STORAGE_KEY])),
-  );
+  const [headerSearchSeed, setHeaderSearchSeed] = useState("");
   const [acknowledgedForensicsErrorKeys, setAcknowledgedForensicsErrorKeys] = useState<{
     analyze: string;
     cleanup: string;
@@ -118,10 +115,6 @@ export function useAppShellState(options: {
       if (timeoutTwo) window.clearTimeout(timeoutTwo);
     };
   }, [layoutView]);
-
-  useEffect(() => {
-    writeStorageValue(SEARCH_DRAFT_STORAGE_KEY, headerSearchSeed);
-  }, [headerSearchSeed]);
 
   useEffect(() => {
     setHeaderSearchDraft("");
