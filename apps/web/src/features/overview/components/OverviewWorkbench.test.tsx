@@ -2,8 +2,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
 import { AppContext, type AppContextValue } from "@/app/AppContext";
-import { getMessages, type Locale } from "@/i18n";
+import type { Locale } from "@/i18n";
+import { getMessages } from "@/i18n/catalog";
 import { OverviewWorkbench } from "@/features/overview/components/OverviewWorkbench";
+import { SETUP_COMMITTED_STORAGE_KEY, SETUP_PREFERRED_PROVIDER_STORAGE_KEY, SETUP_SELECTION_STORAGE_KEY } from "@/shared/lib/appState";
 import type { ProviderSessionRow } from "@/shared/types";
 
 function renderOverview(locale: Locale, overrides?: Partial<AppContextValue>) {
@@ -17,6 +19,7 @@ function renderOverview(locale: Locale, overrides?: Partial<AppContextValue>) {
     setProviderView: vi.fn(),
     handleProvidersIntent: vi.fn(),
     runtimeLatencyText: "42ms",
+    runtimeStatusText: "local",
     focusSessionCommandId: "session-1",
     focusSessionStatus: "ready",
     visibleProviderSessionSummary: { rows: 0, parse_ok: 0, parse_fail: 0 },
@@ -79,6 +82,35 @@ describe("OverviewWorkbench", () => {
     expect(html).toContain("Setup");
     expect(html).toContain("Recent Activity");
     expect(html).toContain("Waiting for threads.");
+  });
+
+  it("keeps the review queue card semantic-safe while preserving direct actions", () => {
+    const html = renderOverview("en", {
+      focusReviewTitle: "Need review",
+      focusReviewMeta: "sessions / medium",
+      focusReviewThread: {
+        thread_id: "thread-1",
+        title: "Need review",
+        source: "sessions",
+        risk_score: 48,
+        risk_level: "medium",
+        is_pinned: false,
+      },
+      secondaryFlaggedPreview: [
+        {
+          thread_id: "thread-2",
+          title: "Secondary review",
+          source: "history",
+          risk_score: 77,
+          risk_level: "high",
+          is_pinned: false,
+        },
+      ],
+    } as Partial<AppContextValue>);
+
+    expect(html).not.toContain("overview-insight-card is-review is-clickable");
+    expect(html).toContain("overview-review-pill overview-review-pill-button");
+    expect(html).toContain("overview-review-focus overview-review-focus-button");
   });
 
   it("renders localized hero controls in Spanish", () => {
@@ -225,5 +257,309 @@ describe("OverviewWorkbench", () => {
     expect(html).toContain(messages.overview.dotThreadRiskHigh);
     expect(html).toContain(messages.overview.dotThreadPinned);
     expect(html).toContain(messages.overview.dotThreadActive);
+  });
+
+  it("ignores stale setup selection when no saved preferred provider exists", () => {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        localStorage: {
+          getItem(key: string) {
+            if (key === SETUP_SELECTION_STORAGE_KEY) return JSON.stringify(["claude"]);
+            if (key === SETUP_PREFERRED_PROVIDER_STORAGE_KEY) return null;
+            return null;
+          },
+        },
+      },
+    });
+
+    const html = renderOverview("en", {
+      providerView: "all",
+      providers: [
+        {
+          provider: "codex",
+          name: "Codex",
+          status: "active",
+          capability_level: "full",
+          capabilities: {
+            read_sessions: true,
+            analyze_context: true,
+            safe_cleanup: true,
+            hard_delete: true,
+          },
+          evidence: { session_log_count: 3 },
+        },
+        {
+          provider: "claude",
+          name: "Claude",
+          status: "active",
+          capability_level: "full",
+          capabilities: {
+            read_sessions: true,
+            analyze_context: true,
+            safe_cleanup: true,
+            hard_delete: true,
+          },
+          evidence: { session_log_count: 4 },
+        },
+      ] as Partial<AppContextValue["providers"]>,
+      visibleProviders: [
+        {
+          provider: "codex",
+          name: "Codex",
+          status: "active",
+          capability_level: "full",
+          capabilities: {
+            read_sessions: true,
+            analyze_context: true,
+            safe_cleanup: true,
+            hard_delete: true,
+          },
+          evidence: { session_log_count: 3 },
+        },
+        {
+          provider: "claude",
+          name: "Claude",
+          status: "active",
+          capability_level: "full",
+          capabilities: {
+            read_sessions: true,
+            analyze_context: true,
+            safe_cleanup: true,
+            hard_delete: true,
+          },
+          evidence: { session_log_count: 4 },
+        },
+      ] as Partial<AppContextValue["visibleProviders"]>,
+      visibleProviderIdSet: new Set(["codex", "claude"]),
+      activeSummaryText: "active 2/2",
+      activeProviderSummaryLine: "Codex · Claude",
+    } as Partial<AppContextValue>);
+
+    expect(html).toContain("active 2/2");
+    expect(html).toContain("Codex · Claude");
+  });
+
+  it("restores committed setup selection from the canonical payload when legacy keys are missing", () => {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        localStorage: {
+          getItem(key: string) {
+            if (key === SETUP_COMMITTED_STORAGE_KEY) {
+              return JSON.stringify({
+                selectedProviderIds: ["claude"],
+                preferredProviderId: "claude",
+                providerView: "claude",
+                searchProvider: "claude",
+              });
+            }
+            return null;
+          },
+        },
+      },
+    });
+
+    const html = renderOverview("en", {
+      providerView: "all",
+      providers: [
+        {
+          provider: "codex",
+          name: "Codex",
+          status: "active",
+          capability_level: "full",
+          capabilities: {
+            read_sessions: true,
+            analyze_context: true,
+            safe_cleanup: true,
+            hard_delete: true,
+          },
+          evidence: { session_log_count: 3 },
+        },
+        {
+          provider: "claude",
+          name: "Claude",
+          status: "active",
+          capability_level: "full",
+          capabilities: {
+            read_sessions: true,
+            analyze_context: true,
+            safe_cleanup: true,
+            hard_delete: true,
+          },
+          evidence: { session_log_count: 4 },
+        },
+      ] as Partial<AppContextValue["providers"]>,
+      visibleProviders: [
+        {
+          provider: "codex",
+          name: "Codex",
+          status: "active",
+          capability_level: "full",
+          capabilities: {
+            read_sessions: true,
+            analyze_context: true,
+            safe_cleanup: true,
+            hard_delete: true,
+          },
+          evidence: { session_log_count: 3 },
+        },
+        {
+          provider: "claude",
+          name: "Claude",
+          status: "active",
+          capability_level: "full",
+          capabilities: {
+            read_sessions: true,
+            analyze_context: true,
+            safe_cleanup: true,
+            hard_delete: true,
+          },
+          evidence: { session_log_count: 4 },
+        },
+      ] as Partial<AppContextValue["visibleProviders"]>,
+      visibleProviderIdSet: new Set(["codex", "claude"]),
+      activeSummaryText: "active 1/1",
+      activeProviderSummaryLine: "Claude",
+    } as Partial<AppContextValue>);
+
+    expect(html).toContain("active 1/1");
+    expect(html).toContain(">Claude<");
+  });
+
+  it("matches setup-style provider bytes for committed overview selection", () => {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        localStorage: {
+          getItem(key: string) {
+            if (key === SETUP_COMMITTED_STORAGE_KEY) {
+              return JSON.stringify({
+                selectedProviderIds: ["claude"],
+                preferredProviderId: "claude",
+                providerView: "claude",
+                searchProvider: "claude",
+              });
+            }
+            return null;
+          },
+        },
+      },
+    });
+
+    const codexRow: ProviderSessionRow = {
+      provider: "codex",
+      source: "sessions",
+      session_id: "codex-session",
+      display_title: "Codex session",
+      file_path: "/tmp/codex.jsonl",
+      size_bytes: 50 * 1024 * 1024,
+      mtime: "2026-04-22T10:00:00.000Z",
+      probe: {
+        ok: true,
+        format: "jsonl",
+        error: null,
+        detected_title: "Codex session",
+        title_source: "detected",
+      },
+    };
+    const claudeRow: ProviderSessionRow = {
+      provider: "claude",
+      source: "projects",
+      session_id: "claude-session",
+      display_title: "Claude session",
+      file_path: "/tmp/claude.jsonl",
+      size_bytes: Math.round(1.2 * 1024 * 1024),
+      mtime: "2026-04-23T10:00:00.000Z",
+      probe: {
+        ok: true,
+        format: "jsonl",
+        error: null,
+        detected_title: "Claude session",
+        title_source: "detected",
+      },
+    };
+
+    const html = renderOverview("en", {
+      providerView: "all",
+      providers: [
+        {
+          provider: "codex",
+          name: "Codex",
+          status: "active",
+          capability_level: "full",
+          capabilities: {
+            read_sessions: true,
+            analyze_context: true,
+            safe_cleanup: true,
+            hard_delete: true,
+          },
+          evidence: { session_log_count: 3 },
+        },
+        {
+          provider: "claude",
+          name: "Claude",
+          status: "active",
+          capability_level: "full",
+          capabilities: {
+            read_sessions: true,
+            analyze_context: true,
+            safe_cleanup: true,
+            hard_delete: true,
+          },
+          evidence: { session_log_count: 4 },
+        },
+      ] as Partial<AppContextValue["providers"]>,
+      visibleProviders: [
+        {
+          provider: "codex",
+          name: "Codex",
+          status: "active",
+          capability_level: "full",
+          capabilities: {
+            read_sessions: true,
+            analyze_context: true,
+            safe_cleanup: true,
+            hard_delete: true,
+          },
+        },
+        {
+          provider: "claude",
+          name: "Claude",
+          status: "active",
+          capability_level: "full",
+          capabilities: {
+            read_sessions: true,
+            analyze_context: true,
+            safe_cleanup: true,
+            hard_delete: true,
+          },
+        },
+      ] as Partial<AppContextValue["visibleProviders"]>,
+      visibleProviderIdSet: new Set(["codex", "claude"]),
+      dataSourceRows: [
+        { source_key: "history", present: true, total_bytes: 50 * 1024 * 1024 },
+        { source_key: "claude_projects", present: true, total_bytes: Math.round(0.7 * 1024 * 1024) },
+        { source_key: "claude_transcript_store", present: true, total_bytes: Math.round(0.3 * 1024 * 1024) },
+      ] as Partial<AppContextValue["dataSourceRows"]>,
+      visibleDataSourceRows: [
+        { source_key: "history", present: true, total_bytes: 50 * 1024 * 1024 },
+        { source_key: "claude_projects", present: true, total_bytes: Math.round(0.7 * 1024 * 1024) },
+        { source_key: "claude_transcript_store", present: true, total_bytes: Math.round(0.3 * 1024 * 1024) },
+      ] as Partial<AppContextValue["visibleDataSourceRows"]>,
+      allProviderSessionProviders: [
+        { provider: "codex", total_bytes: 50 * 1024 * 1024 },
+        { provider: "claude", total_bytes: Math.round(1.7 * 1024 * 1024) },
+      ] as Partial<AppContextValue["allProviderSessionProviders"]>,
+      visibleProviderSessionRows: [codexRow, claudeRow],
+      allProviderSessionRows: [codexRow, claudeRow],
+      activeSummaryText: "active 2/2",
+      activeProviderSummaryLine: "Codex · Claude",
+    } as Partial<AppContextValue>);
+
+    expect(html).toContain(">1.7 MB<");
+    expect(html).toContain("Claude session");
+    expect(html).not.toContain("Codex session");
+    expect(html).not.toContain(">50 MB<");
   });
 });

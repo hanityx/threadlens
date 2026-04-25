@@ -1,10 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getMessages } from "@/i18n";
-import {
-  resolveThreadWorkbenchPanelHeight,
-  ThreadsWorkbench,
-} from "@/features/threads/components/ThreadsWorkbench";
+import { getMessages } from "@/i18n/catalog";
+import { ThreadsWorkbench } from "@/features/threads/components/ThreadsWorkbench";
+import { resolveThreadWorkbenchPanelHeight } from "@/features/threads/model/threadsWorkbenchModel";
 
 const mockUseAppContext = vi.fn();
 const mockThreadsTable = vi.fn((props: Record<string, unknown>) => (
@@ -71,6 +69,15 @@ vi.mock("./ThreadsForensicsSlot", () => ({
 }));
 
 const messages = getMessages("en");
+const baseVisibleThread = {
+  thread_id: "thread-1",
+  title: "Thread 1",
+  risk_score: 48,
+  risk_level: "medium",
+  is_pinned: false,
+  source: "sessions",
+  timestamp: "2026-03-27T00:00:00.000Z",
+};
 
 function buildContext(overrides: Record<string, unknown> = {}) {
   return {
@@ -82,8 +89,8 @@ function buildContext(overrides: Record<string, unknown> = {}) {
     setFilterMode: vi.fn(),
     threadsFetchMs: null,
     threadsFastBooting: false,
-    visibleRows: [],
-    filteredRows: [],
+    visibleRows: [baseVisibleThread],
+    filteredRows: [baseVisibleThread],
     selectedIds: [],
     cleanupData: { confirm_token_expected: "token-123" },
     pendingCleanup: {
@@ -109,9 +116,11 @@ function buildContext(overrides: Record<string, unknown> = {}) {
     bulkPin: vi.fn(),
     bulkUnpin: vi.fn(),
     bulkArchive: vi.fn(),
+    bulkUnarchive: vi.fn(),
     analyzeDelete: vi.fn(),
     cleanupDryRun: vi.fn(),
     cleanupExecute: vi.fn(),
+    cleanupBackupsExecute: vi.fn(),
     analyzeDeleteError: true,
     cleanupDryRunError: true,
     cleanupExecuteError: true,
@@ -135,9 +144,23 @@ function buildContext(overrides: Record<string, unknown> = {}) {
 
 function getThreadsTableProps() {
   return mockThreadsTable.mock.calls[0]?.[0] as {
+    bulkArchive?: (ids: string[]) => void;
     analyzeDelete?: (ids: string[]) => void;
     cleanupDryRun?: (ids: string[]) => void;
     onRequestHardDeleteConfirm?: () => void;
+    onConfirmHardDelete?: () => void;
+    showBackupRows?: boolean;
+    showArchivedRows?: boolean;
+    canShowArchivedRows?: boolean;
+    onToggleShowBackupRows?: () => void;
+    onToggleShowArchivedRows?: () => void;
+  };
+}
+
+function getThreadDetailProps() {
+  return mockThreadDetailSlot.mock.calls[0]?.[0] as {
+    analyzeDelete?: (ids: string[]) => void;
+    openThreadFolder?: (id: string) => void;
   };
 }
 
@@ -186,6 +209,25 @@ describe("ThreadsWorkbench", () => {
     expect(mockThreadsForensicsSlot).toHaveBeenCalledTimes(1);
     const props = mockThreadsTable.mock.calls[0]?.[0] as { dryRunReady?: boolean };
     expect(props.dryRunReady).toBe(false);
+  });
+
+  it("does not treat a filtered-out focused thread as an active review target", () => {
+    mockUseAppContext.mockReturnValue(
+      buildContext({
+        filteredRows: [],
+        visibleRows: [],
+        selectedIds: [],
+      }),
+    );
+
+    renderToStaticMarkup(<ThreadsWorkbench />);
+
+    const props = mockThreadsTable.mock.calls[0]?.[0] as {
+      dryRunReady?: boolean;
+      selectedImpactCount?: number;
+    };
+    expect(props.dryRunReady).toBe(false);
+    expect(props.selectedImpactCount).toBe(0);
   });
 
   it("prefers the highest-risk visible row for the empty cleanup candidate", () => {
@@ -239,8 +281,8 @@ describe("ThreadsWorkbench", () => {
 
     const html = renderToStaticMarkup(<ThreadsWorkbench />);
 
-    expect(html).toContain(messages.threadsTable.heroEyebrow);
     expect(html).toContain("Review &amp; Archive");
+    expect(html).not.toContain("overview-note-label");
     expect(html).toContain(messages.threadsTable.heroBody);
     expect(html).toContain(messages.threadsTable.heroStatDryRun);
     expect(html).toContain(messages.toolbar.searchThreads);
@@ -306,7 +348,7 @@ describe("ThreadsWorkbench", () => {
 
     expect(setSelectedThreadId).toHaveBeenNthCalledWith(1, "thread-2");
     expect(setSelectedThreadId).toHaveBeenNthCalledWith(2, "thread-2");
-    expect(analyzeDelete).toHaveBeenCalledWith(["thread-2"]);
+    expect(analyzeDelete).toHaveBeenCalledWith(["thread-2"], undefined);
     expect(cleanupDryRun).toHaveBeenCalledWith(["thread-2"]);
   });
 
@@ -336,6 +378,117 @@ describe("ThreadsWorkbench", () => {
 
     expect(setSelectedThreadId).toHaveBeenCalledWith("thread-2");
     expect(cleanupExecute).toHaveBeenCalledWith(["thread-2"]);
+  });
+
+  it("runs backup cleanup, not normal cleanup, from the backup rows view", () => {
+    const localStorage = {
+      getItem: vi.fn((key: string) => (key === "po-thread-hard-delete-skip-confirm" ? "1" : null)),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+      clear: vi.fn(),
+    };
+    vi.stubGlobal("window", { localStorage });
+    const cleanupExecute = vi.fn();
+    const cleanupBackupsExecute = vi.fn();
+    mockUseAppContext.mockReturnValue(
+      buildContext({
+        selectedThreadId: "",
+        selectedIds: ["thread-backup"],
+        showThreadBackupRows: true,
+        cleanupExecute,
+        cleanupBackupsExecute,
+      }),
+    );
+
+    renderToStaticMarkup(<ThreadsWorkbench />);
+    const props = getThreadsTableProps();
+
+    props.onRequestHardDeleteConfirm?.();
+
+    expect(cleanupBackupsExecute).toHaveBeenCalledWith(["thread-backup"]);
+    expect(cleanupExecute).not.toHaveBeenCalled();
+  });
+
+  it("routes the archive button to unarchive while archived rows are shown", () => {
+    const bulkArchive = vi.fn();
+    const bulkUnarchive = vi.fn();
+    mockUseAppContext.mockReturnValue(
+      buildContext({
+        selectedIds: ["thread-archived"],
+        showThreadArchivedRows: true,
+        bulkArchive,
+        bulkUnarchive,
+      }),
+    );
+
+    renderToStaticMarkup(<ThreadsWorkbench />);
+    const props = getThreadsTableProps();
+
+    props.bulkArchive?.(["thread-archived"]);
+
+    expect(bulkUnarchive).toHaveBeenCalledWith(["thread-archived"]);
+    expect(bulkArchive).not.toHaveBeenCalled();
+  });
+
+  it("keeps backup and archived source toggles mutually exclusive", () => {
+    const setShowThreadBackupRows = vi.fn((value: boolean | ((prev: boolean) => boolean)) =>
+      typeof value === "function" ? value(false) : value,
+    );
+    const setShowThreadArchivedRows = vi.fn((value: boolean | ((prev: boolean) => boolean)) =>
+      typeof value === "function" ? value(false) : value,
+    );
+    mockUseAppContext.mockReturnValue(
+      buildContext({
+        hasThreadBackupRows: true,
+        setShowThreadBackupRows,
+        setShowThreadArchivedRows,
+      }),
+    );
+
+    renderToStaticMarkup(<ThreadsWorkbench />);
+    let props = getThreadsTableProps();
+    expect(props.canShowArchivedRows).toBe(true);
+
+    props.onToggleShowBackupRows?.();
+    expect(setShowThreadBackupRows).toHaveBeenCalledTimes(1);
+    expect(setShowThreadArchivedRows).toHaveBeenCalledWith(false);
+
+    mockThreadsTable.mockClear();
+    mockUseAppContext.mockReturnValue(
+      buildContext({
+        hasThreadBackupRows: true,
+        setShowThreadBackupRows,
+        setShowThreadArchivedRows,
+      }),
+    );
+    renderToStaticMarkup(<ThreadsWorkbench />);
+    props = getThreadsTableProps();
+
+    props.onToggleShowArchivedRows?.();
+    expect(setShowThreadArchivedRows).toHaveBeenCalledTimes(2);
+    expect(setShowThreadBackupRows).toHaveBeenCalledWith(false);
+  });
+
+  it("keeps the detail action rail scoped to impact analysis and folder opening", () => {
+    const analyzeDelete = vi.fn();
+    mockUseAppContext.mockReturnValue(
+      buildContext({
+        selectedThreadId: "thread-1",
+        selectedIds: [],
+        analyzeDelete,
+      }),
+    );
+
+    renderToStaticMarkup(<ThreadsWorkbench />);
+    const props = getThreadDetailProps();
+
+    expect(typeof props.analyzeDelete).toBe("function");
+    expect(typeof props.openThreadFolder).toBe("function");
+    expect("requestCleanupExecute" in props).toBe(false);
+    expect("cleanupExecuteReady" in props).toBe(false);
+
+    props.analyzeDelete?.(["thread-1"]);
+    expect(analyzeDelete).toHaveBeenCalledWith(["thread-1"], undefined);
   });
 
   it("uses the stack height when it exceeds the minimum", () => {

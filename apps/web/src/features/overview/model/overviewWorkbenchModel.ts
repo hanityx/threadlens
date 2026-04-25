@@ -1,6 +1,6 @@
 import { readStorageValue, SETUP_SELECTION_STORAGE_KEY } from "@/shared/lib/appState";
 import { formatBytesCompact } from "@/shared/lib/format";
-import type { ProviderSessionRow } from "@/shared/types";
+import type { DataSourceInventoryRow, ProviderMatrixProvider, ProviderSessionRow, ProviderView } from "@/shared/types";
 
 export type OverviewMessageMap = {
   sourceLocalArchive: string;
@@ -94,6 +94,50 @@ export function providerFromDataSource(sourceKey: string): string | null {
   return null;
 }
 
+export function buildProviderBytesById(options: {
+  dataSourceRows: DataSourceInventoryRow[];
+  providerSessionProviders?: Array<{ provider: string; total_bytes?: number }>;
+  providerSessionRows: ProviderSessionRow[];
+  providers?: Array<Pick<ProviderMatrixProvider, "provider">>;
+}) {
+  const inventoryBytesByProvider = new Map<string, number>();
+  options.dataSourceRows.forEach((row) => {
+    const providerId = providerFromDataSource(row.source_key);
+    if (!providerId || !row.present) return;
+    inventoryBytesByProvider.set(
+      providerId,
+      (inventoryBytesByProvider.get(providerId) ?? 0) + Number(row.total_bytes || 0),
+    );
+  });
+  const sessionBytesByProvider = new Map<string, number>();
+  options.providerSessionRows.forEach((row) => {
+    sessionBytesByProvider.set(
+      row.provider,
+      (sessionBytesByProvider.get(row.provider) ?? 0) + Number(row.size_bytes || 0),
+    );
+  });
+  const summaryBytesByProvider = new Map<string, number>();
+  (options.providerSessionProviders ?? []).forEach((provider) => {
+    summaryBytesByProvider.set(provider.provider, Number(provider.total_bytes || 0));
+  });
+  const providerIds = new Set([
+    ...inventoryBytesByProvider.keys(),
+    ...summaryBytesByProvider.keys(),
+    ...sessionBytesByProvider.keys(),
+    ...(options.providers ?? []).map((provider) => provider.provider),
+  ]);
+  return new Map(
+    Array.from(providerIds, (providerId) => [
+      providerId,
+      Math.max(
+        inventoryBytesByProvider.get(providerId) ?? 0,
+        summaryBytesByProvider.get(providerId) ?? 0,
+        sessionBytesByProvider.get(providerId) ?? 0,
+      ),
+    ]),
+  );
+}
+
 export function readStoredSetupSelectionIds(allProviderIdSet: Set<string>): string[] {
   const raw = readStorageValue([SETUP_SELECTION_STORAGE_KEY]);
   if (!raw) return [];
@@ -110,6 +154,26 @@ export function readStoredSetupSelectionIds(allProviderIdSet: Set<string>): stri
   } catch {
     return [];
   }
+}
+
+export function resolveOverviewProvidersEntry(options: {
+  selectedProviderIds: string[];
+  primaryProviderId: string;
+  currentProviderView: ProviderView;
+}): ProviderView {
+  if (options.selectedProviderIds.length > 1) {
+    return "all";
+  }
+  if (options.currentProviderView && options.currentProviderView !== "all") {
+    return options.currentProviderView;
+  }
+  if (options.selectedProviderIds.length === 1) {
+    return options.selectedProviderIds[0] as ProviderView;
+  }
+  if (options.primaryProviderId && options.selectedProviderIds.length === 0) {
+    return options.primaryProviderId as ProviderView;
+  }
+  return "all";
 }
 
 export function describeSessionHealthDot(

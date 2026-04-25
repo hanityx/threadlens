@@ -1,27 +1,37 @@
 import { normalizeDisplayValue } from "@/shared/lib/format";
 import type { Messages } from "@/i18n";
-import type { ConversationSearchHit } from "@/shared/types";
+import type { ConversationSearchHit, ConversationSearchSession } from "@/shared/types";
 
 const HOME_PATH_MARKER = `/${"Users"}/`;
-const MARKDOWN_FILE_NAME_PATTERN = /\b[\w.-]+\.md\b/i;
 const RECENT_KEY = "tl:search:recent";
+const DISMISSED_ACTIVE_RECENT_KEY = "tl:search:recent:dismissed-active";
 const MAX_RECENT = 8;
 
 export type RecentSearch = { q: string; ts: number };
 
 export type SearchSessionGroup = {
   key: string;
+  result: ConversationSearchSession;
   openHit: ConversationSearchHit;
   title: string;
   source: string;
   matches: ConversationSearchHit[];
+  hasMoreHits: boolean;
 };
 
 export type SearchProviderGroup = {
   id: string;
   name: string;
   matchCount: number;
+  hasApproximateHits: boolean;
   sessions: SearchSessionGroup[];
+};
+
+export type LoadedSessionHitsState = {
+  hits: SearchSessionGroup["matches"];
+  loading: boolean;
+  hasMore: boolean;
+  nextCursor: string | null;
 };
 
 export function formatSearchMessage(
@@ -32,6 +42,18 @@ export function formatSearchMessage(
     (result, [key, value]) => result.replaceAll(`{${key}}`, String(value)),
     template,
   );
+}
+
+export function buildSessionHitsFailureState(
+  previous: LoadedSessionHitsState | undefined,
+  fallbackHasMore: boolean,
+): LoadedSessionHitsState {
+  return {
+    hits: previous?.hits ?? [],
+    loading: false,
+    hasMore: previous?.hasMore ?? fallbackHasMore,
+    nextCursor: previous?.nextCursor ?? null,
+  };
 }
 
 export function loadRecentSearches(): RecentSearch[] {
@@ -51,6 +73,10 @@ export function loadRecentSearches(): RecentSearch[] {
 
 export function addRecentSearch(query: string): RecentSearch[] {
   const current = loadRecentSearches();
+  const dismissedActive = loadDismissedActiveRecentSearch();
+  if (dismissedActive && dismissedActive === query) {
+    return current;
+  }
   const updated: RecentSearch[] = [
     { q: query, ts: Date.now() },
     ...current.filter((item) => item.q !== query),
@@ -68,10 +94,46 @@ export function removeRecentSearch(query: string): RecentSearch[] {
   const updated = current.filter((item) => item.q !== query);
   try {
     localStorage.setItem(RECENT_KEY, JSON.stringify(updated));
+    localStorage.setItem(DISMISSED_ACTIVE_RECENT_KEY, query);
   } catch {
     // ignore storage errors
   }
   return updated;
+}
+
+export function loadDismissedActiveRecentSearch(): string {
+  try {
+    const raw = localStorage.getItem(DISMISSED_ACTIVE_RECENT_KEY);
+    return typeof raw === "string" ? raw.trim() : "";
+  } catch {
+    return "";
+  }
+}
+
+export function clearDismissedActiveRecentSearch(): void {
+  try {
+    localStorage.removeItem(DISMISSED_ACTIVE_RECENT_KEY);
+  } catch {
+    // ignore storage errors
+  }
+}
+
+export function syncDismissedActiveRecentSearch(activeQuery: string): void {
+  const dismissed = loadDismissedActiveRecentSearch();
+  if (!dismissed) return;
+  if (dismissed === activeQuery.trim()) return;
+  clearDismissedActiveRecentSearch();
+}
+
+export function shouldSkipHydratedInitialRecentPersistence(options: {
+  initialQuery: string;
+  debouncedQuery: string;
+  hydratedInitialPending: boolean;
+}): boolean {
+  const initialQuery = options.initialQuery.trim();
+  if (!options.hydratedInitialPending) return false;
+  if (!initialQuery) return false;
+  return options.debouncedQuery === initialQuery;
 }
 
 export function formatRecentTime(ts: number, searchMessages: Messages["search"]): string {
@@ -116,23 +178,22 @@ export function compactProviderName(provider?: string | null): string {
 
 export function compactSearchTitle(hit: ConversationSearchHit): string {
   const fallback =
-    hit.thread_id
-      ? `thread ${hit.thread_id.slice(0, 8)}`
-      : hit.session_id
-        ? `session ${hit.session_id.slice(0, 8)}`
-        : "session result";
+    normalizeDisplayValue(hit.session_id) ||
+    normalizeDisplayValue(hit.thread_id) ||
+    "session result";
   const raw = normalizeDisplayValue(hit.display_title) || normalizeDisplayValue(hit.title);
   if (!raw) return fallback;
   const lower = raw.toLowerCase();
-  const looksGenerated =
+  const looksBroken =
     lower === "none" ||
     lower === "unknown" ||
-    lower.startsWith("rollout-") ||
-    MARKDOWN_FILE_NAME_PATTERN.test(raw) ||
     raw.includes("<INSTRUCTIONS>") ||
-    raw.includes(HOME_PATH_MARKER) ||
-    raw.length > 88;
-  return looksGenerated ? fallback : raw;
+    raw.includes(HOME_PATH_MARKER);
+  return looksBroken ? fallback : raw;
+}
+
+export function compactSearchSessionTitle(session: ConversationSearchSession): string {
+  return compactSearchTitle(searchSessionOpenHit(session));
 }
 
 export function compactSearchSnippet(hit: ConversationSearchHit): string {
@@ -155,35 +216,51 @@ export function shouldIgnoreSearchCardKeyboardActivation(options: {
   return Boolean(interactiveAncestor && interactiveAncestor !== options.currentTarget);
 }
 
-export function searchHitDedupKey(hit: ConversationSearchHit): string {
-  const transcriptKey = hit.session_id || hit.file_path;
-  const snippetKey = (hit.snippet || "").trim().toLowerCase();
-  const titleKey = (hit.display_title || hit.title || "").trim().toLowerCase();
-  return [
-    hit.provider,
-    transcriptKey,
-    hit.match_kind,
-    titleKey,
-    snippetKey,
-  ].join("::");
-}
-
 export function isSearchFocusShortcut(event: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey">) {
   return (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k";
+}
+
+export function searchSessionOpenHit(session: ConversationSearchSession): ConversationSearchHit {
+  const previewMatch = session.preview_matches[0];
+  if (previewMatch) {
+    return {
+      ...previewMatch,
+      display_title: previewMatch.display_title || session.display_title,
+      title: previewMatch.title || session.title,
+      source: previewMatch.source || session.source,
+    };
+  }
+  return {
+    provider: session.provider,
+    session_id: session.session_id,
+    thread_id: session.thread_id,
+    title: session.title,
+    display_title: session.display_title,
+    file_path: session.file_path,
+    source: session.source,
+    mtime: session.mtime,
+    match_kind: session.best_match_kind,
+    snippet: session.title,
+    role: null,
+  };
+}
+
+export function buildSearchSessionKey(session: Pick<ConversationSearchSession, "provider" | "session_id" | "file_path">): string {
+  return `${session.provider}::${session.session_id || session.file_path}`;
 }
 
 export function buildProviderGroups(options: {
   provider: string;
   providerLabelById: Map<string, string>;
   providerOptions: Array<{ id: string; name: string }>;
-  results: ConversationSearchHit[];
+  sessions: ConversationSearchSession[];
 }): SearchProviderGroup[] {
-  const { provider, providerLabelById, providerOptions, results } = options;
-  const groups = new Map<string, ConversationSearchHit[]>();
-  for (const hit of results) {
-    const list = groups.get(hit.provider) ?? [];
-    list.push(hit);
-    groups.set(hit.provider, list);
+  const { provider, providerLabelById, providerOptions, sessions } = options;
+  const groups = new Map<string, ConversationSearchSession[]>();
+  for (const session of sessions) {
+    const list = groups.get(session.provider) ?? [];
+    list.push(session);
+    groups.set(session.provider, list);
   }
 
   const orderedProviders =
@@ -193,58 +270,49 @@ export function buildProviderGroups(options: {
 
   const orderedGroups = orderedProviders
     .map((providerId) => {
-      const providerResults = groups.get(providerId) ?? [];
-      const sessionMap = new Map<string, SearchSessionGroup>();
-
-      for (const hit of providerResults) {
-        const sessionKey = hit.session_id || hit.file_path;
-        const existing = sessionMap.get(sessionKey);
-        if (existing) {
-          existing.matches.push(hit);
-          continue;
-        }
-
-        sessionMap.set(sessionKey, {
-          key: sessionKey,
-          openHit: hit,
-          title: compactSearchTitle(hit),
-          source: normalizeDisplayValue(hit.source) || hit.file_path,
-          matches: [hit],
-        });
-      }
+      const providerSessions = groups.get(providerId) ?? [];
+      const groupedSessions = providerSessions.map((session) => {
+        const openHit = searchSessionOpenHit(session);
+        return {
+          key: buildSearchSessionKey(session),
+          result: session,
+          openHit,
+          title: compactSearchSessionTitle(session),
+          source: normalizeDisplayValue(session.source) || session.file_path,
+          matches: session.preview_matches,
+          hasMoreHits: session.has_more_hits,
+        };
+      });
 
       return {
         id: providerId,
         name: providerLabelById.get(providerId) ?? providerId,
-        matchCount: providerResults.length,
-        sessions: Array.from(sessionMap.values()),
+        matchCount: providerSessions.reduce((sum, session) => sum + session.match_count, 0),
+        hasApproximateHits: providerSessions.some((session) => session.has_more_hits),
+        sessions: groupedSessions,
       };
     })
     .filter((group) => group.sessions.length > 0);
 
-  for (const [providerId, providerResults] of groups.entries()) {
+  for (const [providerId, providerSessions] of groups.entries()) {
     if (orderedProviders.includes(providerId)) continue;
-    const sessionMap = new Map<string, SearchSessionGroup>();
-    for (const hit of providerResults) {
-      const sessionKey = hit.session_id || hit.file_path;
-      const existing = sessionMap.get(sessionKey);
-      if (existing) {
-        existing.matches.push(hit);
-        continue;
-      }
-      sessionMap.set(sessionKey, {
-        key: sessionKey,
-        openHit: hit,
-        title: compactSearchTitle(hit),
-        source: normalizeDisplayValue(hit.source) || hit.file_path,
-        matches: [hit],
-      });
-    }
     orderedGroups.push({
       id: providerId,
       name: providerLabelById.get(providerId) ?? providerId,
-      matchCount: providerResults.length,
-      sessions: Array.from(sessionMap.values()),
+      matchCount: providerSessions.reduce((sum, session) => sum + session.match_count, 0),
+      sessions: providerSessions.map((session) => {
+        const openHit = searchSessionOpenHit(session);
+        return {
+          key: buildSearchSessionKey(session),
+          result: session,
+          openHit,
+          title: compactSearchSessionTitle(session),
+          source: normalizeDisplayValue(session.source) || session.file_path,
+          matches: session.preview_matches,
+          hasMoreHits: session.has_more_hits,
+        };
+      }),
+      hasApproximateHits: providerSessions.some((session) => session.has_more_hits),
     });
   }
 

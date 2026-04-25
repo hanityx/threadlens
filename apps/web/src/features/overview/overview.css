@@ -233,6 +233,7 @@
 
 .overview-command-summary-button,
 .overview-primary-focus-link,
+.overview-review-pill-button,
 .overview-review-focus-button,
 .overview-review-list-item {
   appearance: none;
@@ -249,6 +250,7 @@
 }
 
 .overview-primary-focus-link,
+.overview-review-pill-button,
 .overview-review-focus-button,
 .overview-review-list-item {
   width: 100%;
@@ -527,6 +529,8 @@
   min-height: 196px;
   gap: 12px;
   padding: 22px 22px 20px;
+  justify-items: stretch;
+  text-align: left;
 }
 
 .overview-insight-card.is-review.is-clickable {
@@ -586,22 +590,26 @@
   text-transform: uppercase;
 }
 
+.overview-review-pill-button {
+  width: auto;
+}
+
 .overview-review-focus {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 4px;
-  justify-items: start;
-  justify-self: stretch;
-  align-self: start;
+  align-items: flex-start;
+  justify-content: flex-start;
   width: 100%;
   text-align: left;
 }
 
 .overview-review-focus-button {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 4px;
-  justify-items: start;
-  justify-self: stretch;
-  align-self: start;
+  align-items: flex-start;
+  justify-content: flex-start;
   width: 100%;
   text-align: left;
 }
@@ -688,15 +696,21 @@
 .overview-insight-card.is-mini {
   padding: 14px 15px 13px;
   gap: 6px;
+  justify-items: start;
+  text-align: left;
 }
 
 .overview-insight-card.is-mini strong {
   font-size: var(--text-xl);
+  width: 100%;
+  text-align: left;
 }
 
 .overview-insight-card.is-mini p {
   font-size: var(--text-sm);
   line-height: 1.32;
+  width: 100%;
+  text-align: left;
 }
 
 .overview-insight-card p {

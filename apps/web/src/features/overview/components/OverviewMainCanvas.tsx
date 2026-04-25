@@ -16,6 +16,7 @@ type OverviewMainCanvasProps = {
   setupGuideOpen: boolean;
   overviewBooting: boolean;
   runtimeLatencyText: string;
+  runtimeStatusText: string;
   syncStatusText: string;
   backupSetsCount: number;
   reviewRowsText: string;
@@ -57,6 +58,7 @@ export function OverviewMainCanvas({
   setupGuideOpen,
   overviewBooting,
   runtimeLatencyText,
+  runtimeStatusText,
   syncStatusText,
   backupSetsCount,
   reviewRowsText,
@@ -288,31 +290,22 @@ export function OverviewMainCanvas({
             </div>
           </Card>
           <div className="overview-support-stack">
-            <Card
-              variant="review"
-              className="is-clickable"
-              role="button"
-              tabIndex={0}
-              onClick={onOpenThreads}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  onOpenThreads();
-                }
-              }}
-            >
+            <Card variant="review">
               <div className="overview-review-head">
                 <span className="overview-note-label">{messages.overview.reviewQueue}</span>
-                <span className="overview-review-pill">{reviewRowsText}</span>
+                <button
+                  type="button"
+                  className="overview-review-pill overview-review-pill-button"
+                  onClick={onOpenThreads}
+                >
+                  {reviewRowsText}
+                </button>
               </div>
               {focusReviewThread ? (
                 <button
                   type="button"
                   className="overview-review-focus overview-review-focus-button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onOpenRecentThread(focusReviewThread.thread_id);
-                  }}
+                  onClick={() => onOpenRecentThread(focusReviewThread.thread_id)}
                 >
                   <div className="overview-review-title">{focusReviewTitle}</div>
                   <div className="overview-review-meta">{focusReviewMeta}</div>
@@ -330,10 +323,7 @@ export function OverviewMainCanvas({
                       key={`overview-review-secondary-${row.thread_id}`}
                       type="button"
                       className="overview-review-list-item"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onOpenRecentThread(row.thread_id);
-                      }}
+                      onClick={() => onOpenRecentThread(row.thread_id)}
                     >
                       <div className="overview-review-list-copy">
                         <strong>
@@ -367,7 +357,7 @@ export function OverviewMainCanvas({
                     ? messages.overview.loadingParserRuntime
                     : formatOverviewMessage(overviewMessages.backupsRuntimeSummary, {
                         backups: backupSetsCount,
-                        runtime: runtimeLatencyText,
+                        runtime: runtimeStatusText,
                       })}
                 </p>
               </Card>

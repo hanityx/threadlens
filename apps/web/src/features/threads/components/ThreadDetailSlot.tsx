@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { PanelHeader } from "@/shared/ui/components/PanelHeader";
+import { SurfaceSlotSkeleton } from "@/app/components/SurfaceSlotSkeleton";
 import type { ThreadDetailProps } from "@/features/threads/components/ThreadDetail";
 
 const ThreadDetail = lazy(async () => {
@@ -10,15 +10,5 @@ const ThreadDetail = lazy(async () => {
 export type ThreadDetailSlotProps = ThreadDetailProps;
 
 export function ThreadDetailSlot(props: ThreadDetailSlotProps) {
-  return (
-    <Suspense
-      fallback={
-        <section className="panel thread-review-panel">
-          <PanelHeader title={props.messages.threadDetail.title} subtitle={props.messages.common.loading} />
-        </section>
-      }
-    >
-      <ThreadDetail {...props} />
-    </Suspense>
-  );
+  return <Suspense fallback={<SurfaceSlotSkeleton />}><ThreadDetail {...props} /></Suspense>;
 }
