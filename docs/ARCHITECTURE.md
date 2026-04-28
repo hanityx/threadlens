@@ -7,11 +7,11 @@ ThreadLens uses one local Fastify backend shared by web, TUI, and desktop.
 - API: `127.0.0.1:8788`
 - Web dev server: `127.0.0.1:5174`
 - Unknown `/api/*` paths return `404`
-- Desktop packaging reuses the same web + API stack
+- Desktop packaging bundles the built web UI and starts the bundled local API with a per-launch token
 
 ## Surfaces
 
-- `apps/web`: React workbench for `Overview`, `Search`, `Thread`, and `Sessions`
+- `apps/web`: React workbench for `Overview`, `Search`, `Thread` (`threads` route), and `Sessions` (`providers` route)
 - `apps/tui`: Ink terminal workbench for `Search`, `Sessions`, and `Cleanup`
 - `apps/desktop-electron`: Electron shell that starts the bundled local API
 - `apps/api-ts`: Fastify runtime and domain logic
@@ -62,6 +62,7 @@ domains/
     metadata.ts
     overview.ts
     state.ts
+    thread-id.ts
   recovery/
     inventory.ts
     roadmap.ts
@@ -79,6 +80,21 @@ lib/
 
 This tree lists the main runtime modules. Tests, fixtures, and narrow helper files are omitted for readability.
 
+## Web Layout
+
+`apps/web/src` is split into app shell, feature surfaces, shared state, and shared UI primitives.
+
+```text
+app/                 shell, top navigation, detail rail, app-level hooks
+features/
+  overview/          setup, activity, and runtime summary
+  search/            cross-provider conversation search
+  providers/         Sessions surface, parser health, routing, backups, provider actions
+  threads/           Thread review, forensics, impact, and cleanup
+shared/              API helpers, preferences, contracts, formatters, UI components
+i18n/                localized message catalogs and locale loading
+```
+
 ## Rules
 
 - `create-server.ts` stays focused on bootstrap and route registration
@@ -91,4 +107,5 @@ This tree lists the main runtime modules. Tests, fixtures, and narrow helper fil
 - Destructive actions use `dry-run -> confirm token -> execute`
 - Session reads and writes validate provider roots first
 - Backup information stays close to destructive actions
+- Packaged desktop API requests require the per-launch desktop token
 - The API is for local single-user use and should not be exposed to untrusted networks

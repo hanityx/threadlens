@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Release tag to publish, for example v0.2.0
+        description: Release tag to publish, for example v0.3.0
         required: true
         type: string
       make_latest:

@@ -7,8 +7,9 @@ We welcome all contributions. To avoid wasted effort, please **open an issue or 
 ## Getting Started
 
 1. Fork and clone the repository
-2. Install dependencies: `pnpm install`
-3. Start the dev stack:
+2. Use Node.js 22.12+ and pnpm 10.33.2+ (`.nvmrc` pins the supported Node baseline)
+3. Install dependencies: `pnpm install`
+4. Start the dev stack:
    ```bash
    pnpm dev                   # TS API (:8788) + Web UI (:5174)
    pnpm dev:tui               # Optional terminal workbench
@@ -19,15 +20,19 @@ We welcome all contributions. To avoid wasted effort, please **open an issue or 
 
 ### Before Submitting
 
-- Run API tests: `pnpm --filter @threadlens/api test`
-- Run API build: `pnpm --filter @threadlens/api build`
-- Run Web tests when the web workbench changes: `pnpm --filter @threadlens/web test`
-- Run Web build when the web workbench changes: `pnpm --filter @threadlens/web build`
-- Run TUI tests when the terminal workbench changes: `pnpm --filter @threadlens/tui test`
-- Run TUI build when the terminal workbench changes: `pnpm --filter @threadlens/tui build`
-- Run desktop lint when the Electron shell changes: `pnpm --filter @threadlens/desktop-electron lint`
-- Run desktop tests when the Electron shell changes: `pnpm --filter @threadlens/desktop-electron test`
-- Run desktop packaging smoke when packaged desktop behavior changes: `pnpm package:desktop:dir && pnpm --filter @threadlens/desktop-electron smoke:packaged`
+```bash
+pnpm test    # all packages
+pnpm build   # shared-contracts + api + web
+pnpm lint    # all packages
+```
+
+Surface-specific changes additionally require:
+
+```bash
+pnpm build:tui                                  # terminal workbench changes
+pnpm --filter @threadlens/web test:e2e          # web workflow changes
+pnpm package:desktop:dir && pnpm --filter @threadlens/desktop-electron smoke:packaged  # desktop changes
+```
 
 These checks must pass before a PR is accepted.
 
@@ -45,10 +50,10 @@ For a deeper look at the backend layout and domain split, read [`docs/ARCHITECTU
 
 ### Where to Start
 
-- Check [issues labeled `good first issue`](https://github.com/hanityx/threadlens/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) for entry-level tasks.
-- Provider support improvements (search accuracy, transcript parsing, session metadata) are a good area for first contributions.
-- UI consistency fixes in `apps/web/src/` — check [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md) for what to look for.
-- Doc corrections are always welcome without a prior issue.
+- Browse [open issues](https://github.com/hanityx/threadlens/issues) or open a new one to propose an improvement
+- Provider support improvements (search accuracy, transcript parsing, session metadata)
+- UI consistency fixes in `apps/web/src/` — check [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md) for patterns
+- Doc corrections are always welcome without a prior issue
 
 ### Code Style
 
@@ -65,17 +70,12 @@ For a deeper look at the backend layout and domain split, read [`docs/ARCHITECTU
 - Prefer incremental migration over large rewrites
 - Keep tracked docs and tracked scripts free of machine-specific paths and maintainer-only notes
 
-### Public Markdown Hygiene
-
-If your change touches tracked markdown:
-
-- keep public docs free of local paths, machine-specific traces, and internal codenames
-
 ## Documentation
 
-- Keep public docs focused on product behavior, public architecture, and reproducible setup.
-- Do not add maintainer-only operating notes or machine-specific instructions to tracked docs.
-- If workflow details are only relevant to local operations, they belong outside the public doc surface.
+Keep public docs focused on product behavior, public architecture, and reproducible setup. If your change touches tracked markdown:
+
+- No local paths, machine-specific traces, or internal codenames
+- No maintainer-only operating notes — those belong outside the tracked doc surface
 
 ## Reporting Issues
 

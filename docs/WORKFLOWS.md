@@ -58,6 +58,23 @@ The usual path is:
 5. Review the confirm token and impact summary
 6. Execute only after review
 
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI
+    participant API
+    participant Filesystem
+
+    User->>UI: Select sessions to delete
+    UI->>API: Dry-run request
+    API-->>UI: Impact preview + confirm token
+    UI-->>User: "These files will be deleted" — confirm?
+    User->>UI: Approve
+    UI->>API: Execute request (with token)
+    API->>Filesystem: Create backup, then delete
+    API-->>UI: Completion report
+```
+
 ## Surface Map
 
 - `Overview`: status, default-AI setup, and diagnostics entry point
