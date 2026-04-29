@@ -5,6 +5,7 @@ import { PassThrough } from "node:stream";
 import { render } from "ink";
 import {
   SessionsView,
+  buildArchiveSessionActionCopy,
   buildSessionActionHints,
   shouldKeepPendingSessionAction,
   shouldRenderSessionLastAction,
@@ -149,6 +150,24 @@ test("SessionsView builds stable action hints for localized detail panes", () =>
     "d delete dry-run",
     "D 执行 delete",
   ]);
+});
+
+test("SessionsView uses restore copy for unarchive session actions", () => {
+  const copy = buildArchiveSessionActionCopy(getMessages("en"), "unarchive_local");
+  assert.equal(copy.dryRun, "Restore dry-run…");
+  assert.equal(copy.executePrompt("tok-123"), "Token: tok-123  ·  Press A to restore");
+  assert.equal(copy.runDryRunFirst, "Run a restore dry-run first (press a) to get a token.");
+  assert.equal(copy.running, "Restoring…");
+  assert.equal(copy.done(1, 1), "Restore done · 1/1 applied");
+});
+
+test("SessionsView keeps archive copy for archive session actions", () => {
+  const copy = buildArchiveSessionActionCopy(getMessages("en"), "archive_local");
+  assert.equal(copy.dryRun, "Archive dry-run…");
+  assert.equal(copy.executePrompt("tok-123"), "Token: tok-123  ·  Press A to execute");
+  assert.equal(copy.runDryRunFirst, "Run a dry-run first (press a) to get a token.");
+  assert.equal(copy.running, "Archiving…");
+  assert.equal(copy.done(1, 1), "Archive done · 1/1 applied");
 });
 
 test("SessionsView clears a pending token when the selection changes", () => {

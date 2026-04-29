@@ -37,13 +37,34 @@ export function filterVisibleSessionRows(rows: ProviderSessionRow[]): ProviderSe
 }
 
 type ConfirmableSessionAction = "archive_local" | "unarchive_local" | "delete_local";
+type ArchiveSessionAction = Exclude<ConfirmableSessionAction, "delete_local">;
 
 function isArchivedSessionRow(row: ProviderSessionRow): boolean {
   return row.source === "archived_sessions";
 }
 
-function resolveArchiveSessionAction(row: ProviderSessionRow): Exclude<ConfirmableSessionAction, "delete_local"> {
+function resolveArchiveSessionAction(row: ProviderSessionRow): ArchiveSessionAction {
   return isArchivedSessionRow(row) ? "unarchive_local" : "archive_local";
+}
+
+export function buildArchiveSessionActionCopy(messages: TuiMessages, action: ArchiveSessionAction) {
+  return action === "unarchive_local"
+    ? {
+        dryRun: messages.sessions.unarchiveDryRun,
+        dryRunDone: messages.sessions.unarchiveDryRunDone,
+        executePrompt: messages.sessions.unarchiveExecutePrompt,
+        runDryRunFirst: messages.sessions.unarchiveRunDryRunFirst,
+        running: messages.sessions.unarchiving,
+        done: messages.sessions.unarchiveDone,
+      }
+    : {
+        dryRun: messages.sessions.archiveDryRun,
+        dryRunDone: messages.sessions.archiveDryRunDone,
+        executePrompt: messages.sessions.archiveExecutePrompt,
+        runDryRunFirst: messages.sessions.archiveRunDryRunFirst,
+        running: messages.sessions.archiving,
+        done: messages.sessions.archiveDone,
+      };
 }
 
 function ActionBadge({ kind, mode }: { kind: string; mode: string }) {
@@ -240,7 +261,7 @@ export function SessionsView(props: {
   const pendingActionText = pendingAction
     ? pendingAction.kind === "delete_local"
       ? messages.sessions.deleteExecutePrompt(pendingAction.token)
-      : messages.sessions.archiveExecutePrompt(pendingAction.token)
+      : buildArchiveSessionActionCopy(messages, pendingAction.kind).executePrompt(pendingAction.token)
     : null;
   const selectedFilePath = filteredRows[selectedIndex]?.file_path ?? null;
   const renderSimpleEmptyState =
@@ -356,8 +377,9 @@ export function SessionsView(props: {
       return;
     }
     if (input === "a" && selected && selected.provider !== "all") {
-      setActionStatus({ tone: "running", text: messages.sessions.archiveDryRun });
       const action = resolveArchiveSessionAction(selected);
+      const copy = buildArchiveSessionActionCopy(messages, action);
+      setActionStatus({ tone: "running", text: copy.dryRun });
       void runProviderAction(selected.provider, action, [selected.file_path], { dryRun: true })
         .then((data) => {
           const token = String(data.confirm_token_expected || "").trim();
@@ -375,7 +397,7 @@ export function SessionsView(props: {
           });
           setActionStatus({
             tone: token ? "pending" : "success",
-            text: token ? messages.sessions.archiveExecutePrompt(token) : messages.sessions.archiveDryRunDone(data.target_count),
+            text: token ? copy.executePrompt(token) : copy.dryRunDone(data.target_count),
           });
         })
         .catch((actionError) => {
@@ -417,11 +439,12 @@ export function SessionsView(props: {
     }
     if (input === "A" && selected && selected.provider !== "all") {
       const action = resolveArchiveSessionAction(selected);
+      const copy = buildArchiveSessionActionCopy(messages, action);
       if (!pendingAction || pendingAction.kind !== action || pendingAction.filePath !== selected.file_path) {
-        setActionStatus({ tone: "pending", text: messages.sessions.archiveRunDryRunFirst });
+        setActionStatus({ tone: "pending", text: copy.runDryRunFirst });
         return;
       }
-      setActionStatus({ tone: "running", text: messages.sessions.archiving });
+      setActionStatus({ tone: "running", text: copy.running });
       void runProviderAction(selected.provider, action, [selected.file_path], { dryRun: false, confirmToken: pendingAction.token })
         .then((data) => {
           setPendingAction(null);
@@ -436,7 +459,7 @@ export function SessionsView(props: {
             backupCount: data.backed_up_count ?? 0,
             filePath: selected.file_path,
           });
-          setActionStatus({ tone: "success", text: messages.sessions.archiveDone(data.applied_count, data.valid_count) });
+          setActionStatus({ tone: "success", text: copy.done(data.applied_count, data.valid_count) });
           fetchRows(true);
         })
         .catch((actionError) => {

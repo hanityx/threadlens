@@ -294,6 +294,29 @@ describe("useMutations helpers", () => {
     });
   });
 
+  it("removes partially applied cleanup target rows from cached thread queries", () => {
+    const queryClient = new QueryClient();
+    const cacheKey = ["threads", "all", 2000, "updated_desc"];
+    const deleteSession = { thread_id: "partial-delete", source: "sessions", local_cache_paths: ["/tmp/partial-delete.jsonl"] };
+    const keepSession = { thread_id: "partial-keep", source: "sessions", local_cache_paths: ["/tmp/partial-keep.jsonl"] };
+    queryClient.setQueryData(cacheKey, {
+      rows: [deleteSession, keepSession],
+      total: 2,
+    });
+
+    removeBackupCleanupTargetsFromThreadsCache(queryClient, {
+      ok: true,
+      mode: "partial",
+      deleted_file_count: 1,
+      targets: [{ thread_id: "partial-delete", path: "/tmp/partial-delete.jsonl" }],
+    });
+
+    expect(queryClient.getQueryData(cacheKey)).toEqual({
+      rows: [keepSession],
+      total: 1,
+    });
+  });
+
   it("derives query gate settings from the current layout", () => {
     expect(resolveSmokeStatusQueryState("overview")).toEqual({
       enabled: true,

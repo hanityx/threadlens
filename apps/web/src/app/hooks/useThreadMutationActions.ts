@@ -46,7 +46,7 @@ export function removeBackupCleanupTargetsFromThreadsCache(queryClient: QueryCli
   const targetIds = new Set(targets.map((target) => normalizeCacheString(target.thread_id)).filter(Boolean));
   if (targetPaths.size === 0 && targetIds.size === 0) return;
   const removeAppliedCleanupTargets =
-    normalizeCacheString(cleanupData?.mode) === "applied" &&
+    ["applied", "partial"].includes(normalizeCacheString(cleanupData?.mode)) &&
     Number(cleanupData?.deleted_file_count ?? 0) > 0;
 
   queryClient.setQueriesData<ThreadsCacheData>({ queryKey: ["threads"] }, (current) => {
