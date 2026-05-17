@@ -39,7 +39,7 @@ ThreadLens deixa você pesquisar, abrir e revisar conversas, analisar impacto, f
 
 - **Busca** — encontre sessões do Codex, Claude, Gemini e Copilot com uma palavra-chave.
 - **Transcript** — abra conversas completas sem navegar pelas pastas de cada provider.
-- **Limpeza segura** — faça backup, dry-run e confirm token antes de qualquer ação destrutiva.
+- **Limpeza segura** — faça backup, revise com dry-run e exija um token de confirmação antes de apagar arquivos locais com segurança.
 - **Thread review** — inspecione o escopo do thread no Codex, sessões relacionadas e histórico de auditoria.
 - **Provider health** — status do provider, fluxo de descoberta de sessões e problemas de caminho/configuração em uma tela.
 - **TUI** — os mesmos fluxos de trabalho no terminal, com foco no teclado.
@@ -50,7 +50,7 @@ Para detalhes de caminhos, limitações e suporte atual, consulte [Provider supp
 
 ### Desktop
 
-[macOS .dmg ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.0/ThreadLens-0.3.0-arm64.dmg) · [Windows .exe ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.0/ThreadLens.0.3.0.exe) · [Linux .AppImage ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.0/ThreadLens-0.3.0.AppImage)
+[macOS .dmg ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.1/ThreadLens-0.3.1-arm64.dmg) · [Windows .exe ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.1/ThreadLens.0.3.1.exe) · [Linux .AppImage ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.1/ThreadLens-0.3.1.AppImage)
 
 As versões de macOS e Windows não são assinadas.
 

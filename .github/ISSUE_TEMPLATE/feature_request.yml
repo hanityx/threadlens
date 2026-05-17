@@ -1,0 +1,55 @@
+name: Feature request
+description: Suggest a feature or improvement.
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. A short problem statement is more useful than a full design.
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Area
+      options:
+        - Desktop app
+        - Web dashboard
+        - Terminal UI
+        - API / backend
+        - Provider sessions / search
+        - Packaging / release
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is hard, missing, confusing, or too slow today?
+      placeholder: I want to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Desired change
+      description: What should ThreadLens do differently?
+      placeholder: It would help if...
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Optional. Add examples, screenshots, related tools, or why this matters.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Optional. Mention any workaround or related issue.

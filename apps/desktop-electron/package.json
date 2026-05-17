@@ -1,6 +1,6 @@
 {
   "name": "@threadlens/desktop-electron",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "Electron shell for ThreadLens",
   "author": "ThreadLens Contributors",
@@ -33,10 +33,13 @@
     "files": [
       "main.cjs",
       "main/**/*",
+      "!main/**/*.test.cjs",
       "main-menu.cjs",
       "ipc-validation.cjs",
       "preload.cjs",
       "app/**/*",
+      "!app/web/icon-preview.html",
+      "!app/web/icons/threadlens-*.svg",
       "package.json"
     ],
     "asarUnpack": [

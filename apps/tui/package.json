@@ -1,8 +1,9 @@
 {
   "name": "@threadlens/tui",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Terminal workbench for ThreadLens",
   "license": "MIT",
+  "private": true,
   "type": "module",
   "bin": {
     "threadlens-tui": "dist/cli.js"

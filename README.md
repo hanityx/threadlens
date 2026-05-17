@@ -39,7 +39,7 @@ ThreadLens lets you search, open and review conversations, analyze impact, back 
 
 - **Search** — find sessions across Codex, Claude, Gemini, and Copilot with a single keyword.
 - **Transcript** — open full conversations without navigating provider-specific folders.
-- **Safe cleanup** — back up, dry-run, and confirm token before any destructive action.
+- **Safe cleanup** — back up first, preview with dry-run, and require a confirmation token before deleting local files safely.
 - **Thread review** — inspect Codex thread scope, related sessions, and audit history.
 - **Provider health** — provider status, session discovery flow, and path/config issues on one screen.
 - **TUI** — the same workflows in your terminal, keyboard-first.
@@ -50,7 +50,7 @@ See [Provider support](docs/PROVIDER_SUPPORT.md) for path details, limitations, 
 
 ### Desktop
 
-[macOS .dmg ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.0/ThreadLens-0.3.0-arm64.dmg) · [Windows .exe ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.0/ThreadLens.0.3.0.exe) · [Linux .AppImage ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.0/ThreadLens-0.3.0.AppImage)
+[macOS .dmg ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.1/ThreadLens-0.3.1-arm64.dmg) · [Windows .exe ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.1/ThreadLens.0.3.1.exe) · [Linux .AppImage ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.1/ThreadLens-0.3.1.AppImage)
 
 macOS and Windows builds are unsigned.
 

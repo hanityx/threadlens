@@ -50,25 +50,10 @@ pnpm package:desktop:linux
 - The packaged app runs against the embedded TS API only.
 - Security boundary notes live in `apps/desktop-electron/SECURITY.md`.
 
-## Release Trust Chain
-
-- Local packaging is unsigned by default on macOS and Windows.
-- The release workflow always publishes:
-  - `ThreadLens-<version>-SHA256SUMS.txt`
-  - `ThreadLens-<version>-desktop-trust-notes.md`
-  - `ThreadLens-<version>-desktop-trust.json`
-- macOS signing uses `CSC_LINK` + `CSC_KEY_PASSWORD` or `CSC_NAME`.
-- macOS notarization additionally requires one of:
-  - `APPLE_API_KEY` + `APPLE_API_KEY_ID` + `APPLE_API_ISSUER`
-  - `APPLE_ID` + `APPLE_APP_SPECIFIC_PASSWORD` + `APPLE_TEAM_ID`
-  - `APPLE_KEYCHAIN` + `APPLE_KEYCHAIN_PROFILE`
-- Windows signing uses `WIN_CSC_LINK` + `WIN_CSC_KEY_PASSWORD` or falls back to `CSC_LINK` + `CSC_KEY_PASSWORD`.
-- If those secrets are absent, the release trust notes explicitly mark the affected platform artifact unsigned instead of silently assuming a signed distribution.
-
 ## Notes
 
-- Electron packaging is unsigned on macOS and Windows by default unless the release workflow receives signing credentials.
+- Electron packaging is unsigned on macOS and Windows.
 - macOS DMG opens with a drag-to-Applications install window.
 - If first launch is blocked, use `Right-click -> Open` once, or approve it in `System Settings > Privacy & Security -> Open Anyway`.
-- Windows can require `More info` -> `Run anyway` on the first launch when the release trust notes report an unsigned artifact.
+- Windows can require `More info` -> `Run anyway` on the first launch for unsigned builds.
 - Linux AppImage launches can require `chmod +x`.

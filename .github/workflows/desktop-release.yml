@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Release tag to publish, for example v0.3.0
+        description: Release tag to publish, for example v0.3.1
         required: true
         type: string
       make_latest:
@@ -125,20 +125,6 @@ jobs:
 
       - name: Collect release assets
         shell: bash
-        env:
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          CSC_NAME: ${{ secrets.CSC_NAME }}
-          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_KEYCHAIN: ${{ secrets.APPLE_KEYCHAIN }}
-          APPLE_KEYCHAIN_PROFILE: ${{ secrets.APPLE_KEYCHAIN_PROFILE }}
         run: |
           set -euo pipefail
 
@@ -171,7 +157,6 @@ jobs:
             cd release-assets
             shasum -a 256 * > "ThreadLens-${VERSION}-SHA256SUMS.txt"
           )
-          node tools/generate-desktop-trust-notes.mjs --version "${VERSION}" --out release-assets
 
       - name: Create or update GitHub release
         env:
