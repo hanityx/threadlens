@@ -2,7 +2,9 @@ import { defineConfig } from "@playwright/test";
 
 const livePort = Number(process.env.PLAYWRIGHT_LIVE_PORT ?? "5181");
 const apiProxyTarget =
-  process.env.PLAYWRIGHT_LIVE_API_PROXY_TARGET ?? "http://127.0.0.1:8788";
+  // Use a dev api-ts target for live Web e2e. Packaged Electron usually owns
+  // 8788 with an IPC-only token, which the standalone Vite app cannot read.
+  process.env.PLAYWRIGHT_LIVE_API_PROXY_TARGET ?? "http://127.0.0.1:8799";
 
 export default defineConfig({
   testDir: "./e2e-live",
