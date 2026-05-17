@@ -2,14 +2,17 @@ import { mkdtemp, mkdir, realpath, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import type { ProviderId } from "@threadlens/shared-contracts";
 import { APP_DATA_DIR, CHAT_DIR } from "./constants.js";
 import {
   buildProviderActionToken,
   codexTranscriptSearchRoots,
+  listProviderAdapters,
   listProviderIds,
   parseProviderId,
   providerRootSpecs,
   resolveSafePathWithinRoots,
+  runProviderSessionAction,
 } from "./providers";
 
 describe("buildProviderActionToken", () => {
@@ -56,6 +59,12 @@ describe("buildProviderActionToken", () => {
 });
 
 describe("provider registry", () => {
+  it("exposes provider adapters through the compatibility facade", () => {
+    expect(listProviderAdapters().map((adapter) => adapter.id)).toEqual(
+      listProviderIds(),
+    );
+  });
+
   it("includes chatgpt provider in dynamic list", () => {
     expect(listProviderIds()).toContain("chatgpt");
   });
@@ -111,6 +120,19 @@ describe("provider registry", () => {
     expect(copilotRoots.some((spec) => spec.root.endsWith(path.join("Cursor", "User", "globalStorage", "github.copilot-chat")))).toBe(true);
     expect(copilotRoots.some((spec) => spec.root.endsWith(path.join("Code", "User", "workspaceStorage")))).toBe(true);
     expect(copilotRoots.some((spec) => spec.root.endsWith(path.join("Cursor", "User", "workspaceStorage")))).toBe(true);
+  });
+
+  it("fails closed for cleanup actions with unknown provider ids across internal boundaries", async () => {
+    const result = await runProviderSessionAction(
+      "unknown-provider" as ProviderId,
+      "delete_local",
+      ["/tmp/threadlens-unknown-provider.jsonl"],
+      true,
+      "",
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("cleanup-disabled-provider");
   });
 });
 

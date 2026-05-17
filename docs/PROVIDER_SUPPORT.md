@@ -1,6 +1,6 @@
 # Provider Support
 
-_Generated from `packages/shared-contracts/src/index.ts`. Do not hand-edit this file; run `pnpm docs:provider-support`._
+_Generated from `packages/shared-contracts/src/index.ts` and provider notes in `packages/shared-contracts/provider-support/generate-provider-support.mjs`. Do not hand-edit this file; run `pnpm docs:provider-support`._
 
 ThreadLens reads local conversation data from multiple provider-specific stores.
 This document distinguishes between:
@@ -33,7 +33,7 @@ The primary search/session workflow currently covers `Codex`, `Claude`, `Gemini`
 
 ## Local Path Notes
 
-- `Codex` reads session logs from `CODEX_HOME` plus detected Codex home mirrors such as `~/.codex` and `~/.codex-cli`; it is not tied to macOS app-data paths.
+- `Codex` indexes session logs from `CODEX_HOME` plus Codex-managed archive, recovery, cwd-backup, and cleanup-backup roots; thread-id transcript lookup can also fall back to Codex home mirrors such as `~/.codex` and `~/.codex-cli`.
 - `ChatGPT` reads the local desktop cache for the installed app; this provider remains read-only and stays outside the default search and cleanup flow.
 - `Claude` reads local session stores from dot-home roots such as `~/.claude`.
 - `Gemini` reads local session stores from dot-home roots such as `~/.gemini`.

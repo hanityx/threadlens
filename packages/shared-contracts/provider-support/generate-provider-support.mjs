@@ -6,15 +6,15 @@ import {
   INTERNAL_PROVIDER_IDS,
   PROVIDER_REGISTRY,
   SEARCHABLE_PROVIDER_IDS,
-} from "../packages/shared-contracts/dist/index.js";
+} from "../dist/index.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(__dirname, "..");
+const repoRoot = path.resolve(__dirname, "../../..");
 const outputPath = path.join(repoRoot, "docs", "PROVIDER_SUPPORT.md");
 
 const PROVIDER_PATH_NOTES = {
   codex:
-    "reads session logs from `CODEX_HOME` plus detected Codex home mirrors such as `~/.codex` and `~/.codex-cli`; it is not tied to macOS app-data paths.",
+    "indexes session logs from `CODEX_HOME` plus Codex-managed archive, recovery, cwd-backup, and cleanup-backup roots; thread-id transcript lookup can also fall back to Codex home mirrors such as `~/.codex` and `~/.codex-cli`.",
   claude: "reads local session stores from dot-home roots such as `~/.claude`.",
   gemini: "reads local session stores from dot-home roots such as `~/.gemini`.",
   copilot:
@@ -136,7 +136,7 @@ async function main() {
   const { publicScope, internalScope } = buildGuideList();
   const content = `# Provider Support
 
-_Generated from \`packages/shared-contracts/src/index.ts\`. Do not hand-edit this file; run \`pnpm docs:provider-support\`._
+_Generated from \`packages/shared-contracts/src/index.ts\` and provider notes in \`packages/shared-contracts/provider-support/generate-provider-support.mjs\`. Do not hand-edit this file; run \`pnpm docs:provider-support\`._
 
 ThreadLens reads local conversation data from multiple provider-specific stores.
 This document distinguishes between:

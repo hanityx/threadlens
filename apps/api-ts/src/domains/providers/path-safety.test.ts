@@ -2,6 +2,11 @@ import { mkdtemp, mkdir, realpath, rm, symlink, writeFile } from "node:fs/promis
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import {
+  getProviderCapability,
+  PROVIDER_IDS,
+  type ProviderId,
+} from "@threadlens/shared-contracts";
 import { APP_DATA_DIR, CHAT_DIR, CODEX_HOME } from "../../lib/constants.js";
 import {
   codexTranscriptSearchRoots,
@@ -49,6 +54,28 @@ describe("provider path safety", () => {
           spec.exts.includes(".json"),
       ),
     ).toBe(true);
+  });
+
+  it("fails closed for unknown provider ids passed across internal boundaries", () => {
+    const roots = providerRootSpecs("unknown-provider" as ProviderId);
+    expect(roots).toEqual([]);
+  });
+
+  it("keeps cleanup capability source of truth explicit for current providers", () => {
+    expect(
+      Object.fromEntries(
+        PROVIDER_IDS.map((provider) => [
+          provider,
+          getProviderCapability(provider).safe_cleanup,
+        ]),
+      ),
+    ).toEqual({
+      codex: true,
+      chatgpt: false,
+      claude: true,
+      gemini: true,
+      copilot: true,
+    });
   });
 
   it("keeps Codex and dot-home providers separate from desktop app-data cache roots", () => {
