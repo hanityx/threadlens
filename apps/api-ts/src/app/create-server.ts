@@ -36,9 +36,9 @@ import {
   invalidateProviderSearchCaches,
 } from "../domains/providers/search.js";
 import {
-  registerPlatformRoutes,
+  registerSystemRoutes,
   type ProxyRequest,
-} from "./routes/platform/index.js";
+} from "./routes/system/index.js";
 import { registerThreadRoutes } from "./routes/threads/index.js";
 import { registerProviderRoutes } from "./routes/providers/index.js";
 
@@ -244,7 +244,7 @@ export async function createServer(): Promise<FastifyInstance> {
   });
   app.addHook("preHandler", requireApiTokenForProtectedLocalActions);
 
-  await registerPlatformRoutes(app, {
+  await registerSystemRoutes(app, {
     getAgentRuntimeState,
     getCachedDataSources,
   });

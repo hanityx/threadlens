@@ -217,8 +217,8 @@ describe("ForensicsPanel", () => {
                   strength: "strong",
                   evidence_kind: "search_text",
                   matched_field: "copied_context",
-                  matched_value: "/Users/example/workspace/raw-value",
-                  matched_excerpt: "sample excerpt from /Users/example/workspace/raw-excerpt",
+                  matched_value: "/home/example/workspace/raw-value",
+                  matched_excerpt: "sample excerpt from /home/example/workspace/raw-excerpt",
                 },
               ],
             },
@@ -227,9 +227,9 @@ describe("ForensicsPanel", () => {
         analysisRaw={{
           ok: true,
           data: {
-            matched_excerpt: "sample excerpt from /Users/example/workspace/raw-excerpt",
-            matched_value: "/Users/example/workspace/raw-value",
-            file_path: "/Users/example/workspace/thread.jsonl",
+            matched_excerpt: "sample excerpt from /home/example/workspace/raw-excerpt",
+            matched_value: "/home/example/workspace/raw-value",
+            file_path: "/home/example/workspace/thread.jsonl",
           },
         }}
         cleanupRaw={null}
@@ -255,7 +255,7 @@ describe("ForensicsPanel", () => {
     expect(html).not.toContain("Impact payload (JSON)");
     expect(html).not.toContain("raw-excerpt");
     expect(html).not.toContain("raw-value");
-    expect(html).not.toContain("/Users/example/workspace/thread.jsonl");
+    expect(html).not.toContain("/home/example/workspace/thread.jsonl");
   });
 
   it("does not crash when readable cross-session evidence renders in a browser-like runtime without process", () => {
@@ -294,8 +294,8 @@ describe("ForensicsPanel", () => {
                       evidence_kind: "command_output",
                       matched_field: "payload.command",
                       matched_event: "event_msg",
-                      matched_value: "/Users/example/workspace/raw-value",
-                      matched_excerpt: "sample excerpt from /Users/example/workspace/raw-excerpt",
+                      matched_value: "/home/example/workspace/raw-value",
+                      matched_excerpt: "sample excerpt from /home/example/workspace/raw-excerpt",
                     },
                   ],
                 },

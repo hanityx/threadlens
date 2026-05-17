@@ -280,7 +280,7 @@ describe("useAppData integration", () => {
     mockUseProvidersData.mockReturnValue(
       makeProvidersData({
         providerSessionRows: [],
-        selectedSessionPath: "/Users/example/.gemini/tmp/react-spectrum/chats/session-123.json",
+        selectedSessionPath: "/example/.gemini/tmp/react-spectrum/chats/session-123.json",
       }),
     );
 
@@ -292,12 +292,12 @@ describe("useAppData integration", () => {
     expect(result.selectedSession?.provider).toBe("gemini");
     expect(result.selectedSession?.source).toBe("search_result");
     expect(result.selectedSession?.file_path).toBe(
-      "/Users/example/.gemini/tmp/react-spectrum/chats/session-123.json",
+      "/example/.gemini/tmp/react-spectrum/chats/session-123.json",
     );
     expect(detailArgs.selectedSession).toMatchObject({
       provider: "gemini",
       source: "search_result",
-      file_path: "/Users/example/.gemini/tmp/react-spectrum/chats/session-123.json",
+      file_path: "/example/.gemini/tmp/react-spectrum/chats/session-123.json",
     });
   });
 

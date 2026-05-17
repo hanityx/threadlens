@@ -160,7 +160,8 @@ Useful existing tests:
 
 - `apps/api-ts/src/domains/providers/path-safety.test.ts`
 - `apps/api-ts/src/domains/providers/parser-fixtures.test.ts`
-- `apps/api-ts/src/domains/providers/search.test.ts`
+- `apps/api-ts/src/domains/providers/services/search/session-search.test.ts`
+- `apps/api-ts/src/domains/providers/services/search/session-hit-search.test.ts`
 - `apps/api-ts/src/domains/providers/search-policy.test.ts`
 - `apps/api-ts/src/domains/providers/transcript.test.ts`
 - `apps/api-ts/src/domains/providers/matrix.test.ts`

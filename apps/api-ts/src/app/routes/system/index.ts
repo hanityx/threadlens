@@ -10,7 +10,7 @@ import {
   CODEX_HOME,
   START_TS,
 } from "../../../lib/constants.js";
-import { checkForUpdates } from "../../../lib/update-check.js";
+import { checkForUpdates } from "../../../domains/ops/update-check.js";
 import {
   cleanTitleText,
   envelope,
@@ -50,7 +50,7 @@ export type ProxyRequest = FastifyRequest<{
   Body: unknown;
 }>;
 
-export async function registerPlatformRoutes(
+export async function registerSystemRoutes(
   app: FastifyInstance,
   deps: {
     getAgentRuntimeState: () => Promise<AgentRuntimeState>;

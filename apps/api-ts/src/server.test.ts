@@ -3,8 +3,8 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { FastifyInstance } from "fastify";
 import { RECOVERY_EXPORT_ROOT, UPDATE_CHECK_CACHE_FILE } from "./lib/constants";
-import { resetUpdateCheckCacheForTests } from "./lib/update-check";
-import { issueRecoveryBackupDownloadTokenForTests } from "./app/routes/platform/index";
+import { resetUpdateCheckCacheForTests } from "./domains/ops/update-check";
+import { issueRecoveryBackupDownloadTokenForTests } from "./app/routes/system/index";
 import { createServer } from "./server";
 
 vi.mock("./domains/threads/state.js", async (importOriginal) => {
@@ -418,6 +418,33 @@ describe("api-ts direct endpoints", () => {
 
   it("GET /api/provider-parser-health rejects invalid provider", async () => {
     const res = await app.inject({ method: "GET", url: "/api/provider-parser-health?provider=invalid" });
+    expect(res.statusCode).toBe(400);
+    const payload = res.json();
+    expect(payload.ok).toBe(false);
+  });
+
+  it("GET /api/conversation-search requires a query", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/conversation-search" });
+    expect(res.statusCode).toBe(400);
+    const payload = res.json();
+    expect(payload.ok).toBe(false);
+  });
+
+  it("GET /api/conversation-search rejects invalid providers", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/conversation-search?q=hello&provider=invalid",
+    });
+    expect(res.statusCode).toBe(400);
+    const payload = res.json();
+    expect(payload.ok).toBe(false);
+  });
+
+  it("GET /api/conversation-search/session-hits rejects invalid providers", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/conversation-search/session-hits?q=hello&provider=invalid&session_id=s1",
+    });
     expect(res.statusCode).toBe(400);
     const payload = res.json();
     expect(payload.ok).toBe(false);
