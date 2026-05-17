@@ -233,30 +233,33 @@ export function providerRootSpecs(provider: ProviderId): ProviderRootSpec[] {
       ...providerBackupRootSpecs(provider),
     ];
   }
-  return [
-    {
-      source: "vscode_global",
-      root: COPILOT_VSCODE_GLOBAL,
-      exts: [".jsonl", ".json"],
-    },
-    {
-      source: "cursor_global",
-      root: COPILOT_CURSOR_GLOBAL,
-      exts: [".jsonl", ".json"],
-    },
-    {
-      source: "vscode_workspace_chats",
-      root: COPILOT_VSCODE_WORKSPACE_STORAGE,
-      exts: [".json"],
-    },
-    {
-      source: "cursor_workspace_chats",
-      root: COPILOT_CURSOR_WORKSPACE_STORAGE,
-      exts: [".json"],
-    },
-    ...(archivedSpec ? [archivedSpec] : []),
-    ...providerBackupRootSpecs(provider),
-  ];
+  if (provider === "copilot") {
+    return [
+      {
+        source: "vscode_global",
+        root: COPILOT_VSCODE_GLOBAL,
+        exts: [".jsonl", ".json"],
+      },
+      {
+        source: "cursor_global",
+        root: COPILOT_CURSOR_GLOBAL,
+        exts: [".jsonl", ".json"],
+      },
+      {
+        source: "vscode_workspace_chats",
+        root: COPILOT_VSCODE_WORKSPACE_STORAGE,
+        exts: [".json"],
+      },
+      {
+        source: "cursor_workspace_chats",
+        root: COPILOT_CURSOR_WORKSPACE_STORAGE,
+        exts: [".json"],
+      },
+      ...(archivedSpec ? [archivedSpec] : []),
+      ...providerBackupRootSpecs(provider),
+    ];
+  }
+  return [];
 }
 
 export function codexTranscriptSearchRoots(): ProviderRootSpec[] {

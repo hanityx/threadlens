@@ -13,8 +13,15 @@ import { invalidateProviderSearchCaches } from "../domains/providers/search.js";
 import { invalidateProviderMatrixCache } from "../domains/providers/matrix.js";
 import { resolveAllowedProviderFilePath } from "../domains/providers/path-safety.js";
 import type { ProviderId } from "../domains/providers/types.js";
+import { findProviderCapability } from "@threadlens/shared-contracts";
 
 export type * from "../domains/providers/types.js";
+export type { ProviderAdapter } from "../domains/providers/adapters.js";
+
+export {
+  getProviderAdapter,
+  listProviderAdapters,
+} from "../domains/providers/adapters.js";
 
 export {
   listProviderIds,
@@ -60,7 +67,7 @@ export {
 export { buildProviderActionToken, buildSessionTranscript };
 
 function supportsProviderCleanup(provider: ProviderId): boolean {
-  return provider !== "chatgpt";
+  return findProviderCapability(provider)?.safe_cleanup === true;
 }
 
 export async function runProviderSessionAction(
