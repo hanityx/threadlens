@@ -49,6 +49,14 @@ export function matchesConversationSearch(
   return tokens.every((token) => normalizedText.includes(token));
 }
 
+export function isExactPhraseSearchMatch(
+  text: string,
+  normalizedQuery: string,
+): boolean {
+  if (!normalizedQuery) return false;
+  return normalizeSearchQuery(text).includes(normalizedQuery);
+}
+
 export function buildSearchSnippet(
   text: string,
   normalizedQuery: string,
