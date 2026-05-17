@@ -1,6 +1,5 @@
 import path from "node:path";
 import {
-  CHAT_DIR,
   CODEX_HOME,
   CLAUDE_HOME,
   CLAUDE_PROJECTS_DIR,
@@ -14,12 +13,10 @@ import {
   countFilesRecursiveByExt,
   countJsonlFilesRecursive,
   pathExists,
-  quickFileCount,
 } from "../../../../lib/utils.js";
 import {
   providerHealth,
   providerRoots,
-  providerScanRoots,
 } from "./adapter-access.js";
 import {
   countCopilotMatrixSessionFiles,
@@ -32,7 +29,6 @@ import type {
 export type ProviderMatrixSignals = {
   codexHomes: string[];
   codexRootExists: boolean;
-  chatGptRootExists: boolean;
   claudeRootExists: boolean;
   geminiRootExists: boolean;
   geminiSessionLogs: number;
@@ -41,7 +37,6 @@ export type ProviderMatrixSignals = {
   copilotProviderRoots: ProviderRootSpec[];
   copilotRootExists: boolean;
   codexSessionLogs: number;
-  chatGptSessionLogs: number;
   claudeSessionLogs: number;
   copilotSignalFiles: number;
 };
@@ -51,7 +46,6 @@ export async function readProviderMatrixSignals(): Promise<ProviderMatrixSignals
     new Set(codexTranscriptSearchRoots().map((spec) => path.dirname(spec.root))),
   );
   const codexRootExists = await pathExists(CODEX_HOME);
-  const chatGptRootExists = await pathExists(CHAT_DIR);
   const claudeRootExists = await pathExists(CLAUDE_HOME);
   const copilotVsCodeExists = await pathExists(COPILOT_VSCODE_GLOBAL);
   const copilotCursorExists = await pathExists(COPILOT_CURSOR_GLOBAL);
@@ -61,7 +55,6 @@ export async function readProviderMatrixSignals(): Promise<ProviderMatrixSignals
   const copilotCursorWorkspaceExists = await pathExists(
     COPILOT_CURSOR_WORKSPACE_STORAGE,
   );
-  const chatGptConversationRoots = await providerScanRoots("chatgpt");
   const geminiHealth = await providerHealth("gemini");
   const copilotProviderRoots = providerRoots("copilot");
 
@@ -73,17 +66,11 @@ export async function readProviderMatrixSignals(): Promise<ProviderMatrixSignals
     (await countFilesRecursiveByExt(CLAUDE_TRANSCRIPTS_DIR, [".jsonl", ".json"]));
   const geminiRootExists = geminiHealth?.root_exists ?? false;
   const geminiSessionLogs = geminiHealth?.session_log_count ?? 0;
-  const chatGptSessionLogs = (
-    await Promise.all(
-      chatGptConversationRoots.map((spec) => quickFileCount(spec.root)),
-    )
-  ).reduce((sum, count) => sum + count, 0);
   const copilotSignalFiles = await countCopilotMatrixSessionFiles(copilotProviderRoots);
 
   return {
     codexHomes,
     codexRootExists,
-    chatGptRootExists,
     claudeRootExists,
     geminiRootExists,
     geminiSessionLogs,
@@ -96,7 +83,6 @@ export async function readProviderMatrixSignals(): Promise<ProviderMatrixSignals
       copilotVsCodeWorkspaceExists ||
       copilotCursorWorkspaceExists,
     codexSessionLogs,
-    chatGptSessionLogs,
     claudeSessionLogs,
     copilotSignalFiles,
   };

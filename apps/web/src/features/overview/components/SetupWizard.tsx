@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { findProviderCapability } from "@threadlens/shared-contracts";
 import { Button } from "@/shared/ui/components/Button";
 import { PanelHeader } from "@/shared/ui/components/PanelHeader";
 import { LocalePicker } from "@/app/components/LocalePicker";
@@ -67,7 +68,6 @@ function providerFromDataSource(sourceKey: string): string | null {
   if (key.startsWith("claude")) return "claude";
   if (key.startsWith("gemini")) return "gemini";
   if (key.startsWith("copilot")) return "copilot";
-  if (key.startsWith("chat_")) return "chatgpt";
   if (
     key.startsWith("codex_") ||
     key === "sessions" ||
@@ -100,7 +100,7 @@ function normalizeSelectedProviderIds(selectedProviderIds: string[]): string[] {
     new Set(
       selectedProviderIds
         .map((item) => String(item || "").trim())
-        .filter((item) => Boolean(item) && item !== "chatgpt"),
+        .filter((item) => Boolean(findProviderCapability(item))),
     ),
   );
 }
@@ -163,9 +163,7 @@ export function SetupWizard({
   }, [parserReports]);
 
   const providerCards = useMemo<WizardProviderCard[]>(() => {
-    return providers
-      .filter((provider) => provider.provider !== "chatgpt")
-      .map((provider) => ({
+    return providers.map((provider) => ({
       providerId: provider.provider,
       name: formatProviderDisplayName(provider.name),
       status: provider.status,

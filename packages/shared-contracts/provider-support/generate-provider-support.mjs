@@ -19,8 +19,6 @@ const PROVIDER_PATH_NOTES = {
   gemini: "reads local session stores from dot-home roots such as `~/.gemini`.",
   copilot:
     "resolves local app-data roots by platform: macOS `~/Library/Application Support`, Windows `%APPDATA%`, and Linux `XDG_CONFIG_HOME` or `~/.config`.",
-  chatgpt:
-    "reads the local desktop cache for the installed app; this provider remains read-only and stays outside the default search and provider session action workflow.",
 };
 
 const PROVIDER_WORKFLOW_NOTES = {
@@ -44,15 +42,16 @@ const PROVIDER_WORKFLOW_NOTES = {
     "Useful for search, transcript inspection, and session-file workflows.",
     "It does not use the dedicated Codex cleanup path.",
   ],
-  chatgpt: [
-    "Read-only desktop cache source.",
-    "Useful for desktop cache discovery and provider diagnostics.",
-    "Excluded from the default search scope and provider session action workflow.",
-  ],
 };
 
 function yesNo(value) {
   return value ? "Yes" : "No";
+}
+
+function providerCategory(provider) {
+  if (provider.search_scope_visibility === "public") return "primary workflow";
+  if (provider.read_sessions) return "read-only session source";
+  return "read-only cache source";
 }
 
 function sessionActionSummary(provider) {
@@ -76,7 +75,7 @@ function buildCapabilityTable() {
   const rows = PROVIDER_REGISTRY.map((provider) =>
     [
       provider.label,
-      provider.docs_visibility === "public" ? "primary workflow" : "read-only cache source",
+      providerCategory(provider),
       provider.search_scope_visibility,
       yesNo(provider.read_sessions),
       yesNo(provider.read_transcript),

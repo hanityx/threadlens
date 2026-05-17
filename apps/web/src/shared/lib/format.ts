@@ -106,7 +106,6 @@ export function formatProviderDisplayName(value: string | null | undefined): str
   if (!raw) return "";
   const normalized = raw.toLowerCase().replace(/\s+/g, "-");
   if (normalized === "codex") return "Codex";
-  if (normalized === "chatgpt" || normalized === "chatgpt-desktop") return "ChatGPT";
   if (normalized === "claude" || normalized === "claude-cli") return "Claude";
   if (normalized === "gemini" || normalized === "gemini-cli") return "Gemini";
   if (normalized === "copilot" || normalized === "copilot-chat") return "Copilot";

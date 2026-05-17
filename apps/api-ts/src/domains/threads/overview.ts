@@ -1,6 +1,5 @@
 import path from "node:path";
 import {
-  CHAT_DIR,
   CODEX_GLOBAL_STATE_FILE,
   CODEX_HOME,
   PROJECTS_DIR,
@@ -212,7 +211,6 @@ async function buildOverview(includeThreads: boolean, forceRefresh: boolean) {
   const visibleScanRows = scan.rows;
   const { refs } = await collectCodexLocalRefs(
     visibleScanRows.map((row) => row.session_id),
-    CHAT_DIR,
   );
   const sessionMetaByThreadId = new Map(
     await Promise.all(
@@ -370,7 +368,6 @@ async function buildOverview(includeThreads: boolean, forceRefresh: boolean) {
     project_dirs: await listProjectDirs(),
     paths: {
       codex_global_state: CODEX_GLOBAL_STATE_FILE,
-      chat_root: CHAT_DIR,
       projects_root: PROJECTS_DIR || null,
       codex_sessions_root: path.join(CODEX_HOME, "sessions"),
       codex_archived_sessions_root: path.join(CODEX_HOME, "archived_sessions"),

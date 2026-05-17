@@ -23,7 +23,6 @@ export const PROVIDER_SCAN_FILE_STAT_CONCURRENCY = 32;
 export const PROVIDER_SESSION_MANIFEST_FILE_LIMIT = 8_000;
 export const PROVIDER_SCAN_BUDGET_WEIGHTS: Partial<Record<ProviderId, number>> = {
   codex: 1.35,
-  chatgpt: 0.6,
   claude: 1.35,
   gemini: 1,
   copilot: 0.85,

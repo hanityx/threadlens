@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { copyFile, mkdir, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 import { BACKUP_ROOT } from "../recovery/constants.js";
-import { CHAT_DIR, CODEX_HOME } from "../providers/constants.js";
+import { CODEX_HOME } from "../providers/constants.js";
 import { nowIsoUtc } from "../../lib/utils.js";
 import { analyzeDeleteImpactTs } from "./impact.js";
 import { findThreadArtifactsTs } from "./forensics.js";
@@ -35,7 +35,6 @@ type CleanupExecOptions = {
   options?: CleanupOptions;
   backupPaths?: typeof backupPathsTs;
   roots?: {
-    chatDir?: string;
     codexHome?: string;
     backupRoot?: string;
     stateFilePath?: string;
@@ -104,9 +103,6 @@ function selectCleanupTargets(
 ): CleanupArtifact[] {
   const normalized = normalizeCleanupOptions(options);
   return artifacts.filter((artifact) => {
-    if ((artifact.kind === "chat-cache" || artifact.kind === "project-cache") && normalized.delete_cache) {
-      return true;
-    }
     if (
       (artifact.kind === "session-log" || artifact.kind === "archived-session-log") &&
       normalized.delete_session_logs
@@ -124,7 +120,6 @@ export async function executeLocalCleanupTs(
   const { ids, invalid: invalid_ids } = normalizeSafeThreadIds(threadIds);
   const options = normalizeCleanupOptions(execOptions?.options);
   const roots = {
-    chatDir: execOptions?.roots?.chatDir ?? CHAT_DIR,
     codexHome: execOptions?.roots?.codexHome ?? CODEX_HOME,
     backupRoot: execOptions?.roots?.backupRoot ?? BACKUP_ROOT,
     stateFilePath: execOptions?.roots?.stateFilePath,
@@ -153,7 +148,6 @@ export async function executeLocalCleanupTs(
   }
 
   const artifacts = await findThreadArtifactsTs(ids, {
-    chatDir: roots.chatDir,
     codexHome: roots.codexHome,
   });
   const targets = selectCleanupTargets(artifacts, options);
@@ -386,7 +380,6 @@ export async function analyzeDeleteTs(
   threadIds: string[],
   options?: {
     roots?: {
-      chatDir?: string;
       stateFilePath?: string;
     };
     sessionScanLimit?: number;
@@ -397,7 +390,6 @@ export async function analyzeDeleteTs(
   },
 ) {
   return analyzeDeleteImpactTs(threadIds, {
-    chatDir: options?.roots?.chatDir,
     stateFilePath: options?.roots?.stateFilePath,
     sessionScanLimit: options?.sessionScanLimit,
     resolveSessionPath: options?.resolveSessionPath,

@@ -45,7 +45,6 @@ function providerHealth(provider: ProviderId): ProviderAdapter["health"] {
 
 export const PROVIDER_ADAPTERS = Object.freeze({
   codex: buildProviderAdapter("codex"),
-  chatgpt: buildProviderAdapter("chatgpt"),
   claude: buildProviderAdapter("claude"),
   gemini: buildProviderAdapter("gemini"),
   copilot: buildProviderAdapter("copilot"),

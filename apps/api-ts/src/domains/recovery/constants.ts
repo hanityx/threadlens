@@ -7,12 +7,10 @@ import {
   START_TS,
 } from "../../platform/paths.js";
 import {
-  CHAT_DIR,
   CODEX_HOME,
 } from "../providers/constants.js";
 
 export {
-  CHAT_DIR,
   CODEX_HOME,
   PROJECT_ROOT,
   START_TS,

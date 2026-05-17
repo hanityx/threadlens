@@ -2,9 +2,6 @@ import { spawn } from "node:child_process";
 import { createReadStream } from "node:fs";
 import { createInterface } from "node:readline";
 import {
-  CHAT_DIR,
-} from "../providers/constants.js";
-import {
   getProviderSessionsTs,
   resolveCodexSessionPathByThreadId,
 } from "../providers/search.js";
@@ -588,7 +585,6 @@ export async function analyzeDeleteImpactTs(
   threadIds: string[],
   options?: {
     stateFilePath?: string;
-    chatDir?: string;
     sessionScanLimit?: number;
     resolveSessionPath?: (threadId: string) => Promise<string | null>;
     resolveCrossSessionRows?: () => Promise<CrossSessionRowTs[]>;
@@ -605,7 +601,7 @@ export async function analyzeDeleteImpactTs(
   const titles = state.titles;
   const orderSet = new Set(state.order);
   const pinnedSet = new Set(state.pinned);
-  const { refs, bucketCounts } = await collectCodexLocalRefs(ids, options?.chatDir ?? CHAT_DIR);
+  const { refs, bucketCounts } = await collectCodexLocalRefs(ids);
   const resolveSessionPath =
     options?.resolveSessionPath ?? resolveCodexSessionPathByThreadId;
   const crossSessionResult =
@@ -665,8 +661,8 @@ export async function analyzeDeleteImpactTs(
       score += 1;
     }
     if (local.has_local_data) {
-      parents.push("com.openai.chat:conversations-v3-*");
-      impacts.push("Local conversation cache file (.data) will be removed");
+      parents.push("local-thread-data");
+      impacts.push("Local thread data will be removed");
       score += 1;
     }
     if (sessionMeta.has_session_log) {

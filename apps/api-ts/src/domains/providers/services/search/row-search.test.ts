@@ -6,22 +6,22 @@ describe("searchConversationRows", () => {
   it("returns metadata matches without loading transcripts when the limit is satisfied", async () => {
     const row = makeRow({
       display_title: "Unrelated title",
-      session_id: "rollout-2026-03-25T10-00-00-019d-chatgpt-scope",
-      file_path: "/tmp/chatgpt-scope.jsonl",
+      session_id: "rollout-2026-03-25T10-00-00-019d-metadata-scope",
+      file_path: "/tmp/metadata-scope.jsonl",
     });
     const transcriptLoader = vi.fn(async () =>
       makeTranscript(row, [
         {
           idx: 0,
           role: "assistant",
-          text: "chatgpt only in transcript",
+          text: "needle only in transcript",
           ts: "2026-03-25T10:00:00.000Z",
           source_type: "response_item.message",
         },
       ]),
     );
 
-    const result = await searchConversationRows([row], "chatgpt", {
+    const result = await searchConversationRows([row], "metadata", {
       limit: 1,
       transcriptLoader,
     });
@@ -29,7 +29,7 @@ describe("searchConversationRows", () => {
     expect(result.results).toHaveLength(1);
     expect(result.results[0]).toMatchObject({
       match_kind: "title",
-      session_id: "chatgpt-scope",
+      session_id: "metadata-scope",
     });
     expect(transcriptLoader).not.toHaveBeenCalled();
   });

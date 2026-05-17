@@ -34,19 +34,6 @@ export const PROVIDER_REGISTRY = [
     hard_delete: true,
   },
   {
-    id: "chatgpt",
-    label: "ChatGPT",
-    docs_visibility: "internal",
-    search_scope_visibility: "internal",
-    provider_tab_group: "internal",
-    thread_review: false,
-    read_sessions: true,
-    read_transcript: false,
-    analyze_context: true,
-    safe_cleanup: false,
-    hard_delete: false,
-  },
-  {
     id: "claude",
     label: "Claude",
     docs_visibility: "public",
@@ -128,11 +115,7 @@ export const OPTIONAL_PROVIDER_IDS = Object.freeze(
   ),
 ) as readonly ProviderId[];
 
-export const INTERNAL_PROVIDER_IDS = Object.freeze(
-  PROVIDER_REGISTRY.filter((provider) => provider.provider_tab_group === "internal").map(
-    (provider) => provider.id,
-  ),
-) as readonly ProviderId[];
+export const INTERNAL_PROVIDER_IDS = Object.freeze([]) as readonly ProviderId[];
 
 const PROVIDER_CAPABILITY_MAP = Object.freeze(
   Object.fromEntries(PROVIDER_REGISTRY.map((provider) => [provider.id, provider])),

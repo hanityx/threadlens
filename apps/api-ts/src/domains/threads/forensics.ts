@@ -1,10 +1,10 @@
 import { readdir } from "node:fs/promises";
 import path from "node:path";
-import { CHAT_DIR, CODEX_HOME } from "../providers/constants.js";
+import { CODEX_HOME } from "../providers/constants.js";
 import { pathExists, readHeadLines } from "../../lib/utils.js";
 import { getOverviewTs } from "./overview.js";
 import { analyzeDeleteImpactTs } from "./impact.js";
-import { normalizeSafeThreadIds, resolveThreadCacheFile } from "./thread-id.js";
+import { normalizeSafeThreadIds } from "./thread-id.js";
 
 type ThreadArtifact = {
   kind: string;
@@ -14,46 +14,13 @@ type ThreadArtifact = {
 
 export async function findThreadArtifactsTs(
   threadIds: string[],
-  options?: { chatDir?: string; codexHome?: string },
+  options?: { codexHome?: string },
 ): Promise<ThreadArtifact[]> {
   const { ids } = normalizeSafeThreadIds(threadIds);
   if (ids.length === 0) return [];
   const artifacts: ThreadArtifact[] = [];
 
-  const chatDir = options?.chatDir ?? CHAT_DIR;
   const codexHome = options?.codexHome ?? CODEX_HOME;
-  try {
-    const entries = await readdir(chatDir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const full = path.join(chatDir, entry.name);
-      if (entry.name.startsWith("conversations-v3-")) {
-        for (const threadId of ids) {
-          const filePath = resolveThreadCacheFile(full, threadId);
-          if (!filePath) continue;
-          if (await pathExists(filePath)) {
-            artifacts.push({ kind: "chat-cache", thread_id: threadId, path: filePath });
-          }
-        }
-        continue;
-      }
-      if (!entry.name.startsWith("project-g-p-")) continue;
-      const children = await readdir(full, { withFileTypes: true }).catch(() => []);
-      for (const child of children) {
-        if (!child.isDirectory() || !child.name.startsWith("conversations-v3-")) continue;
-        const convPath = path.join(full, child.name);
-        for (const threadId of ids) {
-          const filePath = resolveThreadCacheFile(convPath, threadId);
-          if (!filePath) continue;
-          if (await pathExists(filePath)) {
-            artifacts.push({ kind: "project-cache", thread_id: threadId, path: filePath });
-          }
-        }
-      }
-    }
-  } catch {
-    // ignore local cache scan errors
-  }
 
   for (const root of [path.join(codexHome, "sessions"), path.join(codexHome, "archived_sessions")]) {
     let files: string[] = [];

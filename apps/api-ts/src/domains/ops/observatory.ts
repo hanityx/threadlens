@@ -52,9 +52,6 @@ function classifyCodexProcess(command: string): string {
   if (lc.includes("codex helper (renderer)")) return "codex-desktop-renderer";
   if (lc.includes("codex helper --type=gpu-process")) return "codex-desktop-gpu";
   if (lc.includes("codex helper --type=utility")) return "codex-desktop-utility";
-  if (lc.includes("codex app-server") && lc.includes("vscode/extensions/openai.chatgpt")) {
-    return "vscode-codex-app-server";
-  }
   if (lc.includes("codex app-server")) return "codex-app-server";
   if (lc.includes("oh-my-codex/dist/mcp/")) return "omx-mcp";
   if (lc.includes("openai.chat-helper")) return "openai-chat-helper";
@@ -83,10 +80,8 @@ function processSignature(processClass: string, command: string): string {
     const match = lc.match(/--type=([a-z\-]+)/);
     return match ? `codex-helper:${match[1]}` : processClass;
   }
-  if (processClass === "codex-app-server" || processClass === "vscode-codex-app-server") {
-    return lc.includes("vscode/extensions/openai.chatgpt")
-      ? "codex-app-server:vscode"
-      : "codex-app-server:desktop";
+  if (processClass === "codex-app-server") {
+    return "codex-app-server:desktop";
   }
   if (processClass === "automation-loop") {
     const match = lc.match(/([a-z0-9._-]*(?:loop|control|controller|supervisor|injector)[a-z0-9._-]*\.sh)/);

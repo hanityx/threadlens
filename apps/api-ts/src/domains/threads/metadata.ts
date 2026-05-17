@@ -1,11 +1,8 @@
 import { createReadStream } from "node:fs";
-import { readdir } from "node:fs/promises";
-import path from "node:path";
 import { createInterface } from "node:readline";
-import { CHAT_DIR } from "../providers/constants.js";
 import { isRecord, pathExists } from "../../lib/utils.js";
 import { resolveCodexSessionPathByThreadId } from "../providers/search.js";
-import { normalizeSafeThreadIds, resolveThreadCacheFile } from "./thread-id.js";
+import { normalizeSafeThreadIds } from "./thread-id.js";
 
 export type ThreadSessionMeta = {
   has_session_log: boolean;
@@ -16,22 +13,6 @@ export type LocalRefData = {
   has_local_data: boolean;
   project_buckets: Set<string>;
 };
-
-async function countProjectBucketFiles(bucketPath: string): Promise<number> {
-  try {
-    const children = await readdir(bucketPath, { withFileTypes: true });
-    let total = 0;
-    for (const child of children) {
-      if (!child.isDirectory() || !child.name.startsWith("conversations-v3-")) continue;
-      const convPath = path.join(bucketPath, child.name);
-      const convFiles = await readdir(convPath, { withFileTypes: true }).catch(() => []);
-      total += convFiles.filter((entry) => entry.isFile() && entry.name.endsWith(".data")).length;
-    }
-    return total;
-  } catch {
-    return 0;
-  }
-}
 
 function extractSessionCwdFromLine(line: string): string {
   const parsed = JSON.parse(line);
@@ -111,7 +92,6 @@ export async function readCodexSessionMetaForThreadId(
 
 export async function collectCodexLocalRefs(
   threadIds: string[],
-  chatDir = CHAT_DIR,
 ): Promise<{
   refs: Map<string, LocalRefData>;
   bucketCounts: Map<string, number>;
@@ -122,44 +102,5 @@ export async function collectCodexLocalRefs(
   for (const id of ids) {
     refs.set(id, { has_local_data: false, project_buckets: new Set<string>() });
   }
-
-  try {
-    const entries = await readdir(chatDir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const full = path.join(chatDir, entry.name);
-      if (entry.name.startsWith("conversations-v3-")) {
-        for (const threadId of ids) {
-          const hitPath = resolveThreadCacheFile(full, threadId);
-          if (!hitPath) continue;
-          if (await pathExists(hitPath)) {
-            if (refs.get(threadId)) refs.get(threadId)!.has_local_data = true;
-          }
-        }
-        continue;
-      }
-      if (!entry.name.startsWith("project-g-p-")) continue;
-      const children = await readdir(full, { withFileTypes: true }).catch(() => []);
-      let bucketTouched = false;
-      for (const child of children) {
-        if (!child.isDirectory() || !child.name.startsWith("conversations-v3-")) continue;
-        for (const threadId of ids) {
-          const hitPath = resolveThreadCacheFile(path.join(full, child.name), threadId);
-          if (!hitPath) continue;
-          if (await pathExists(hitPath)) {
-            refs.get(threadId)!.has_local_data = true;
-            refs.get(threadId)!.project_buckets.add(entry.name);
-            bucketTouched = true;
-          }
-        }
-      }
-      if (bucketTouched && !bucketCounts.has(entry.name)) {
-        bucketCounts.set(entry.name, await countProjectBucketFiles(full));
-      }
-    }
-  } catch {
-    return { refs, bucketCounts };
-  }
-
   return { refs, bucketCounts };
 }

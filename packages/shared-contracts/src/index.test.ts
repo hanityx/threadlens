@@ -39,30 +39,19 @@ describe("shared contracts exports", () => {
   it("keeps the full provider registry in one ordered source of truth", () => {
     expect(PROVIDER_IDS).toEqual([
       "codex",
-      "chatgpt",
       "claude",
       "gemini",
       "copilot",
     ]);
-    expect(PROVIDER_REGISTRY).toHaveLength(5);
-    expect(PROVIDER_LABELS.chatgpt).toBe("ChatGPT");
+    expect(PROVIDER_REGISTRY).toHaveLength(4);
   });
 
-  it("marks chatgpt as internal read-only capability while keeping public providers visible", () => {
-    expect(INTERNAL_PROVIDER_IDS).toEqual(["chatgpt"]);
+  it("keeps unsupported providers out of the registry while keeping public providers visible", () => {
+    expect(INTERNAL_PROVIDER_IDS).toEqual([]);
     expect(CORE_PROVIDER_IDS).toEqual(["codex", "claude", "gemini"]);
     expect(OPTIONAL_PROVIDER_IDS).toEqual(["copilot"]);
 
-    expect(getProviderCapability("chatgpt")).toMatchObject({
-      docs_visibility: "internal",
-      search_scope_visibility: "internal",
-      provider_tab_group: "internal",
-      read_sessions: true,
-      read_transcript: false,
-      analyze_context: true,
-      safe_cleanup: false,
-      hard_delete: false,
-    });
+    expect(findProviderCapability("removed-provider")).toBeUndefined();
   });
 
   it("keeps public workflow providers cleanup-capable by policy", () => {
@@ -78,7 +67,7 @@ describe("shared contracts exports", () => {
   });
 
   it("supports safe string lookup for runtime payloads", () => {
-    expect(findProviderCapability("chatgpt")?.read_transcript).toBe(false);
+    expect(findProviderCapability("removed-provider")).toBeUndefined();
     expect(findProviderCapability("CLAUDE")?.search_scope_visibility).toBe("public");
     expect(findProviderCapability("unknown")).toBeUndefined();
   });

@@ -1,6 +1,5 @@
 import type { ProviderId } from "@threadlens/shared-contracts";
 import {
-  CHAT_DIR,
   CLAUDE_HOME,
   CLAUDE_PROJECTS_DIR,
   CLAUDE_TRANSCRIPTS_DIR,
@@ -11,9 +10,13 @@ import {
 } from "../../constants.js";
 import {
   providerLabel,
+  providerRoots,
   supportsProviderCleanup,
   supportsProviderHardDelete,
 } from "./adapter-access.js";
+import {
+  listProviderAdapters,
+} from "../../registry.js";
 import {
   capabilityLevel,
   providerStatus,
@@ -41,17 +44,15 @@ export function buildProviderMatrixProviders(
   signals: ProviderMatrixSignals,
 ): ProviderMatrixData["providers"] {
   const codexStatus = providerStatus(signals.codexRootExists, signals.codexSessionLogs);
-  const chatGptStatus = providerStatus(signals.chatGptRootExists, signals.chatGptSessionLogs);
   const claudeStatus = providerStatus(signals.claudeRootExists, signals.claudeSessionLogs);
   const geminiStatus = providerStatus(signals.geminiRootExists, signals.geminiSessionLogs);
   const copilotStatus = providerStatus(signals.copilotRootExists, signals.copilotSignalFiles);
   const codexReady = providerActionReadiness("codex", codexStatus);
-  const chatGptReady = providerActionReadiness("chatgpt", chatGptStatus);
   const claudeReady = providerActionReadiness("claude", claudeStatus);
   const geminiReady = providerActionReadiness("gemini", geminiStatus);
   const copilotReady = providerActionReadiness("copilot", copilotStatus);
 
-  return [
+  const providers: ProviderMatrixData["providers"] = [
     {
       provider: "codex" as ProviderId,
       name: providerLabel("codex"),
@@ -67,23 +68,6 @@ export function buildProviderMatrixProviders(
         roots: signals.codexHomes,
         session_log_count: signals.codexSessionLogs,
         notes: "Thread logs, pinned state, and global state.",
-      },
-    },
-    {
-      provider: "chatgpt" as ProviderId,
-      name: providerLabel("chatgpt"),
-      status: chatGptStatus,
-      capability_level: capabilityLevel(chatGptStatus, chatGptReady.safeCleanup),
-      capabilities: {
-        read_sessions: signals.chatGptRootExists,
-        analyze_context: signals.chatGptSessionLogs > 0,
-        safe_cleanup: chatGptReady.safeCleanup,
-        hard_delete: chatGptReady.hardDelete,
-      },
-      evidence: {
-        roots: [CHAT_DIR],
-        session_log_count: signals.chatGptSessionLogs,
-        notes: "Desktop cache and conversation files.",
       },
     },
     {
@@ -146,4 +130,33 @@ export function buildProviderMatrixProviders(
       },
     },
   ];
+
+  const providersById = new Map(providers.map((provider) => [provider.provider, provider]));
+  for (const adapter of listProviderAdapters()) {
+    if (providersById.has(adapter.id)) continue;
+    const status = providerStatus(false, 0);
+    const readiness = providerActionReadiness(adapter.id, status);
+    providersById.set(adapter.id, {
+      provider: adapter.id,
+      name: providerLabel(adapter.id),
+      status,
+      capability_level: capabilityLevel(status, readiness.safeCleanup),
+      capabilities: {
+        read_sessions: false,
+        analyze_context: false,
+        safe_cleanup: readiness.safeCleanup,
+        hard_delete: readiness.hardDelete,
+      },
+      evidence: {
+        roots: providerRoots(adapter.id).map((spec) => spec.root),
+        session_log_count: 0,
+        notes: "Provider root specs.",
+      },
+    });
+  }
+
+  return listProviderAdapters().flatMap((adapter) => {
+    const provider = providersById.get(adapter.id);
+    return provider ? [provider] : [];
+  });
 }

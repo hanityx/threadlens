@@ -18,19 +18,14 @@ import {
 
 async function makeFixture() {
   const root = await mkdtemp(path.join(os.tmpdir(), "po-cleanup-"));
-  const chatDir = path.join(root, "chat");
-  const cacheDir = path.join(chatDir, "conversations-v3-main");
   const codexHome = path.join(root, ".codex");
   const sessionsDir = path.join(codexHome, "sessions", "2026", "03", "14");
   const backupRoot = path.join(root, "backups");
   const stateFilePath = path.join(codexHome, ".codex-global-state.json");
-  await mkdir(cacheDir, { recursive: true });
   await mkdir(sessionsDir, { recursive: true });
   await mkdir(backupRoot, { recursive: true });
   const threadId = "thread-1";
-  const cacheFile = path.join(cacheDir, `${threadId}.data`);
   const sessionFile = path.join(sessionsDir, `rollout-2026-03-14T00-00-00-${threadId}.jsonl`);
-  await writeFile(cacheFile, "cache", "utf-8");
   await writeFile(
     sessionFile,
     `${JSON.stringify({ type: "session_meta", payload: { cwd: "/tmp/demo" } })}\n`,
@@ -51,7 +46,7 @@ async function makeFixture() {
     ),
     "utf-8",
   );
-  return { threadId, chatDir, codexHome, backupRoot, stateFilePath, cacheFile, sessionFile };
+  return { threadId, codexHome, backupRoot, stateFilePath, sessionFile };
 }
 
 describe("thread cleanup", () => {
@@ -124,7 +119,7 @@ describe("thread cleanup", () => {
   it("analyzeDeleteTs reports state and local/session impacts", async () => {
     const fixture = await makeFixture();
     const data = await analyzeDeleteTs([fixture.threadId], {
-      roots: { chatDir: fixture.chatDir, stateFilePath: fixture.stateFilePath },
+      roots: { stateFilePath: fixture.stateFilePath },
       resolveSessionPath: async (threadId) =>
         threadId === fixture.threadId ? fixture.sessionFile : null,
     });
@@ -249,7 +244,6 @@ describe("thread cleanup", () => {
     const data = await executeLocalCleanupTs([fixture.threadId], {
       dryRun: true,
       roots: {
-        chatDir: fixture.chatDir,
         codexHome: fixture.codexHome,
         backupRoot: fixture.backupRoot,
         stateFilePath: fixture.stateFilePath,
@@ -257,7 +251,7 @@ describe("thread cleanup", () => {
     });
     expect(data.ok).toBe(true);
     expect(data.mode).toBe("dry-run");
-    expect(data.target_file_count).toBe(2);
+    expect(data.target_file_count).toBe(1);
     expect(String(data.confirm_token_expected)).toMatch(/^DEL-/);
   });
 
@@ -266,7 +260,6 @@ describe("thread cleanup", () => {
     const data = await executeLocalCleanupTs(["../victim"], {
       dryRun: true,
       roots: {
-        chatDir: fixture.chatDir,
         codexHome: fixture.codexHome,
         backupRoot: fixture.backupRoot,
         stateFilePath: fixture.stateFilePath,
@@ -336,7 +329,6 @@ describe("thread cleanup", () => {
       dryRun: false,
       confirmToken: "wrong-token",
       roots: {
-        chatDir: fixture.chatDir,
         codexHome: fixture.codexHome,
         backupRoot: fixture.backupRoot,
         stateFilePath: fixture.stateFilePath,
@@ -355,7 +347,6 @@ describe("thread cleanup", () => {
     const preview = await executeLocalCleanupTs([fixture.threadId], {
       dryRun: true,
       roots: {
-        chatDir: fixture.chatDir,
         codexHome: fixture.codexHome,
         backupRoot: fixture.backupRoot,
         stateFilePath: fixture.stateFilePath,
@@ -366,7 +357,6 @@ describe("thread cleanup", () => {
       dryRun: false,
       confirmToken: String(preview.confirm_token_expected),
       roots: {
-        chatDir: fixture.chatDir,
         codexHome: fixture.codexHome,
         backupRoot: fixture.backupRoot,
         stateFilePath: fixture.stateFilePath,
@@ -375,7 +365,7 @@ describe("thread cleanup", () => {
         backup_dir: path.join(fixture.backupRoot, "failed"),
         copied_count: 0,
         copied: [],
-        failed: [{ path: fixture.cacheFile, error: "copy failed" }],
+        failed: [{ path: fixture.sessionFile, error: "copy failed" }],
       }),
     });
 
@@ -391,7 +381,6 @@ describe("thread cleanup", () => {
         delete_failed_count: 0,
       },
     });
-    await expect(stat(fixture.cacheFile)).resolves.toBeTruthy();
     await expect(stat(fixture.sessionFile)).resolves.toBeTruthy();
   });
 
@@ -400,7 +389,6 @@ describe("thread cleanup", () => {
     const preview = await executeLocalCleanupTs([fixture.threadId], {
       dryRun: true,
       roots: {
-        chatDir: fixture.chatDir,
         codexHome: fixture.codexHome,
         backupRoot: fixture.backupRoot,
         stateFilePath: fixture.stateFilePath,
@@ -410,7 +398,6 @@ describe("thread cleanup", () => {
       dryRun: false,
       confirmToken: String(preview.confirm_token_expected),
       roots: {
-        chatDir: fixture.chatDir,
         codexHome: fixture.codexHome,
         backupRoot: fixture.backupRoot,
         stateFilePath: fixture.stateFilePath,
@@ -418,8 +405,8 @@ describe("thread cleanup", () => {
     });
     expect(result.ok).toBe(true);
     expect(result.mode).toBe("applied");
-    expect(result.deleted_file_count).toBe(2);
-    expect(result.backup.copied_count).toBeGreaterThanOrEqual(2);
+    expect(result.deleted_file_count).toBe(1);
+    expect(result.backup.copied_count).toBeGreaterThanOrEqual(1);
     const state = JSON.parse(await readFile(fixture.stateFilePath, "utf-8"));
     expect(state["thread-titles"].titles).toEqual({});
     expect(state["thread-titles"].order).toEqual([]);

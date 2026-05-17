@@ -9,7 +9,6 @@ import type { ProviderSessionAction } from "./types.js";
 
 export const IMPLEMENTED_PROVIDER_IDS = [
   "codex",
-  "chatgpt",
   "claude",
   "gemini",
   "copilot",

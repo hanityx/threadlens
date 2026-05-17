@@ -30,7 +30,6 @@ const providerTabs: Array<{
   { id: "gemini", name: "Gemini", status: "detected" },
   { id: "claude", name: "Claude", status: "active" },
   { id: "copilot", name: "Copilot", status: "missing" },
-  { id: "chatgpt", name: "ChatGPT", status: "active" },
   { id: "zeta", name: "Zeta", status: "detected" },
 ];
 

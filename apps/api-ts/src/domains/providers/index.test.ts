@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { ProviderId } from "@threadlens/shared-contracts";
-import { APP_DATA_DIR, CHAT_DIR } from "./constants.js";
+import { APP_DATA_DIR } from "./constants.js";
 import {
   buildProviderActionToken,
   codexTranscriptSearchRoots,
@@ -65,13 +65,9 @@ describe("provider registry", () => {
     );
   });
 
-  it("includes chatgpt provider in dynamic list", () => {
-    expect(listProviderIds()).toContain("chatgpt");
-  });
-
   it("parses provider id case-insensitively", () => {
-    expect(parseProviderId("CHATGPT")).toBe("chatgpt");
     expect(parseProviderId("CoDeX")).toBe("codex");
+    expect(parseProviderId("REMOVED_PROVIDER")).toBeUndefined();
   });
 
   it("includes Gemini antigravity conversation root for pb sessions", () => {
@@ -106,7 +102,6 @@ describe("provider registry", () => {
     const codexRoots = providerRootSpecs("codex");
     const claudeRoots = providerRootSpecs("claude");
     const geminiRoots = providerRootSpecs("gemini");
-    const chatGptRoots = providerRootSpecs("chatgpt");
     const copilotRoots = providerRootSpecs("copilot");
 
     expect(codexRoots.every((spec) => !spec.root.includes(APP_DATA_DIR))).toBe(true);
@@ -115,7 +110,6 @@ describe("provider registry", () => {
     expect(claudeRoots.some((spec) => spec.source === "cleanup_backups")).toBe(true);
     expect(geminiRoots.some((spec) => spec.root.includes(".gemini"))).toBe(true);
     expect(geminiRoots.some((spec) => spec.source === "cleanup_backups")).toBe(true);
-    expect(chatGptRoots.some((spec) => spec.root === CHAT_DIR)).toBe(true);
     expect(copilotRoots.some((spec) => spec.root.endsWith(path.join("Code", "User", "globalStorage", "github.copilot-chat")))).toBe(true);
     expect(copilotRoots.some((spec) => spec.root.endsWith(path.join("Cursor", "User", "globalStorage", "github.copilot-chat")))).toBe(true);
     expect(copilotRoots.some((spec) => spec.root.endsWith(path.join("Code", "User", "workspaceStorage")))).toBe(true);

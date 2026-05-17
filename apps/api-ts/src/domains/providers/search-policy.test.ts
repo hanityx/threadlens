@@ -27,13 +27,12 @@ describe("resolveConversationSearchLimits", () => {
 describe("buildConversationSearchProviderBudgets", () => {
   it("splits the shared scan budget across providers", () => {
     const budgets = buildConversationSearchProviderBudgets(
-      ["codex", "chatgpt", "claude", "gemini", "copilot"],
+      ["codex", "claude", "gemini", "copilot"],
       160,
     );
 
     expect(budgets.map((entry) => entry.provider)).toEqual([
       "codex",
-      "chatgpt",
       "claude",
       "gemini",
       "copilot",
@@ -42,17 +41,16 @@ describe("buildConversationSearchProviderBudgets", () => {
     expect(
       Object.fromEntries(budgets.map((entry) => [entry.provider, entry.limit])),
     ).toEqual({
-      codex: 42,
-      chatgpt: 19,
-      claude: 42,
-      gemini: 31,
-      copilot: 26,
+      codex: 48,
+      claude: 47,
+      gemini: 35,
+      copilot: 30,
     });
   });
 
   it("gives a single provider the full scan budget", () => {
-    expect(buildConversationSearchProviderBudgets(["chatgpt"], 160)).toEqual([
-      { provider: "chatgpt", limit: 160 },
+    expect(buildConversationSearchProviderBudgets(["claude"], 160)).toEqual([
+      { provider: "claude", limit: 160 },
     ]);
   });
 });
@@ -94,10 +92,10 @@ describe("provider action policy", () => {
     }
   });
 
-  it("keeps internal read-only ChatGPT outside provider session actions", () => {
-    expect(listProviderActionProviderIds()).not.toContain("chatgpt");
-    expect(supportsProviderAction("chatgpt", "backup_local")).toBe(false);
-    expect(supportsProviderAction("chatgpt", "archive_local")).toBe(false);
-    expect(supportsProviderAction("chatgpt", "delete_local")).toBe(false);
+  it("keeps removed providers outside provider session actions", () => {
+    expect(listProviderActionProviderIds()).not.toContain("removed-provider");
+    expect(supportsProviderAction("removed-provider" as Parameters<typeof supportsProviderAction>[0], "backup_local")).toBe(false);
+    expect(supportsProviderAction("removed-provider" as Parameters<typeof supportsProviderAction>[0], "archive_local")).toBe(false);
+    expect(supportsProviderAction("removed-provider" as Parameters<typeof supportsProviderAction>[0], "delete_local")).toBe(false);
   });
 });

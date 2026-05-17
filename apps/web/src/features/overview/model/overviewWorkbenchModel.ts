@@ -81,7 +81,6 @@ export function providerFromDataSource(sourceKey: string): string | null {
   if (key.startsWith("claude")) return "claude";
   if (key.startsWith("gemini")) return "gemini";
   if (key.startsWith("copilot")) return "copilot";
-  if (key.startsWith("chat_")) return "chatgpt";
   if (
     key.startsWith("codex_") ||
     key === "sessions" ||
@@ -148,7 +147,7 @@ export function readStoredSetupSelectionIds(allProviderIdSet: Set<string>): stri
       new Set(
         parsed
           .map((item) => String(item || "").trim())
-          .filter((item) => Boolean(item) && item !== "chatgpt" && allProviderIdSet.has(item)),
+          .filter((item) => Boolean(item) && allProviderIdSet.has(item)),
       ),
     );
   } catch {

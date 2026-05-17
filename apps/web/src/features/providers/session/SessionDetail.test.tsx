@@ -291,40 +291,4 @@ describe("SessionDetail", () => {
     expect(html).toContain(esMessages.sessionDetail.openFolder);
   });
 
-  it("renders Korean transcript empty-state guidance for session-specific formats", () => {
-    const koMessages = getMessages("ko");
-    const chatGptSession = {
-      ...selectedSession,
-      provider: "chatgpt" as const,
-    };
-    const html = renderToStaticMarkup(
-      <SessionDetail
-        messages={koMessages}
-        selectedSession={chatGptSession}
-        selectedCount={1}
-        sessionActionResult={null}
-        emptyScopeLabel="ChatGPT"
-        emptyNextSessions={[]}
-        sessionTranscriptData={{
-          provider: "chatgpt",
-          thread_id: null,
-          file_path: chatGptSession.file_path,
-          scanned_lines: 0,
-          messages: [],
-          message_count: 0,
-          truncated: false,
-        }}
-        sessionTranscriptLoading={false}
-        sessionTranscriptLimit={120}
-        setSessionTranscriptLimit={vi.fn()}
-        busy={false}
-        canRunSessionAction={true}
-        providerDeleteBackupEnabled={true}
-        runSingleProviderAction={vi.fn()}
-        runSingleProviderHardDelete={vi.fn(() => Promise.resolve(null))}
-      />,
-    );
-
-    expect(html).toContain("ChatGPT 데스크톱 캐시는 트랜스크립트를 직접 열 수 없습니다.");
-  });
 });

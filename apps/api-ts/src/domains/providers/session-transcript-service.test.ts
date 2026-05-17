@@ -65,18 +65,6 @@ describe("getProviderSessionTranscript", () => {
     });
   });
 
-  it("fails closed when the provider does not support transcript reads", async () => {
-    const { filePath, service } = await setupCodexSessionFixture();
-
-    const result = await service.getProviderSessionTranscript("chatgpt", filePath, 50);
-
-    expect(result).toEqual({
-      ok: false,
-      statusCode: 400,
-      message: "provider does not support transcript reads",
-    });
-  });
-
   it("fails closed for unknown provider ids at the capability gate", async () => {
     const { filePath, service } = await setupCodexSessionFixture();
 

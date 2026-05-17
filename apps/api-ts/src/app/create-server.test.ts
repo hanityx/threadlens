@@ -28,10 +28,10 @@ describe("parseConversationSearchProviders", () => {
     });
   });
 
-  it("keeps internal ChatGPT legacy data out of public search scope", () => {
-    expect(parseConversationSearchProviders("codex,chatgpt")).toEqual({
+  it("keeps removed providers out of public search scope", () => {
+    expect(parseConversationSearchProviders("codex,removed-provider")).toEqual({
       providers: ["codex"],
-      invalid: ["chatgpt"],
+      invalid: ["removed-provider"],
     });
   });
 });

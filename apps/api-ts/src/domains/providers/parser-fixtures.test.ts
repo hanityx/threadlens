@@ -3,6 +3,7 @@ import { cp, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { listSessionReadableProviderIds } from "./capabilities.js";
 
 const FIXTURE_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -28,7 +29,6 @@ describe("provider parser fixtures", () => {
       APP_DATA_DIR: appDataDir,
       CODEX_HOME: path.join(tempHome, ".codex"),
       BACKUP_ROOT: path.join(tempHome, ".codex", "local_cleanup_backups"),
-      CHAT_DIR: path.join(appDataDir, "com.openai.chat"),
       CLAUDE_HOME: path.join(tempHome, ".claude"),
       CLAUDE_PROJECTS_DIR: path.join(tempHome, ".claude", "projects"),
       CLAUDE_TRANSCRIPTS_DIR: path.join(tempHome, ".claude", "transcripts"),
@@ -99,9 +99,9 @@ describe("provider parser fixtures", () => {
       forceRefresh: true,
     });
 
-    expect(parserHealth.summary.providers).toBe(5);
-    expect(parserHealth.summary.scanned).toBe(5);
-    expect(parserHealth.summary.parse_ok).toBe(4);
+    expect(parserHealth.summary.providers).toBe(listSessionReadableProviderIds().length);
+    expect(parserHealth.summary.scanned).toBe(4);
+    expect(parserHealth.summary.parse_ok).toBe(3);
     expect(parserHealth.summary.parse_fail).toBe(1);
 
     const reportByProvider = Object.fromEntries(
@@ -124,11 +124,6 @@ describe("provider parser fixtures", () => {
       parse_fail: 1,
     });
     expect(reportByProvider.copilot).toMatchObject({
-      scanned: 1,
-      parse_ok: 1,
-      parse_fail: 0,
-    });
-    expect(reportByProvider.chatgpt).toMatchObject({
       scanned: 1,
       parse_ok: 1,
       parse_fail: 0,
@@ -183,13 +178,6 @@ describe("provider parser fixtures", () => {
         title_source: "json-content",
       },
     });
-    expect(rowByProvider.chatgpt).toMatchObject({
-      display_title: "chatgpt-fixture",
-      probe: {
-        ok: true,
-        format: "unknown",
-        title_source: "binary-cache-id",
-      },
-    });
+    expect(rowByProvider["removed-provider"]).toBeUndefined();
   });
 });

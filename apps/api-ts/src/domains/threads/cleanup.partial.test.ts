@@ -26,19 +26,14 @@ describe("executeLocalCleanupTs partial failure contract", () => {
       "node:fs/promises",
     );
     const root = await mkdtemp(path.join(os.tmpdir(), "po-cleanup-partial-"));
-    const chatDir = path.join(root, "chat");
-    const cacheDir = path.join(chatDir, "conversations-v3-main");
     const codexHome = path.join(root, ".codex");
     const sessionsDir = path.join(codexHome, "sessions", "2026", "03", "14");
     const backupRoot = path.join(root, "backups");
     const stateFilePath = path.join(codexHome, ".codex-global-state.json");
     const threadId = "thread-1";
-    const cacheFile = path.join(cacheDir, `${threadId}.data`);
     const sessionFile = path.join(sessionsDir, `rollout-2026-03-14T00-00-00-${threadId}.jsonl`);
-    await mkdir(cacheDir, { recursive: true });
     await mkdir(sessionsDir, { recursive: true });
     await mkdir(backupRoot, { recursive: true });
-    await writeFile(cacheFile, "cache", "utf-8");
     await writeFile(sessionFile, "{}\n", "utf-8");
     await writeFile(
       stateFilePath,
@@ -51,10 +46,10 @@ describe("executeLocalCleanupTs partial failure contract", () => {
 
     const preview = await executeLocalCleanupTs([threadId], {
       dryRun: true,
-      roots: { chatDir, codexHome, backupRoot, stateFilePath },
+      roots: { codexHome, backupRoot, stateFilePath },
     });
     mockUnlink.mockImplementation(async (filePath: string) => {
-      if (path.resolve(filePath) === cacheFile) {
+      if (path.resolve(filePath) === sessionFile) {
         throw new Error("unlink denied");
       }
       return actualFs.unlink(filePath);
@@ -63,12 +58,12 @@ describe("executeLocalCleanupTs partial failure contract", () => {
     const result = await executeLocalCleanupTs([threadId], {
       dryRun: false,
       confirmToken: String(preview.confirm_token_expected),
-      roots: { chatDir, codexHome, backupRoot, stateFilePath },
+      roots: { codexHome, backupRoot, stateFilePath },
     });
 
     expect(result.ok).toBe(false);
     expect(result.mode).toBe("partial");
-    expect(result.deleted_file_count).toBe(1);
+    expect(result.deleted_file_count).toBe(0);
     expect(result.failed).toHaveLength(1);
     expect(result.failure_summary).toMatchObject({
       failed_count: 1,

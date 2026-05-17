@@ -1285,8 +1285,8 @@ describe("desktop route helpers", () => {
 
     expect(
       resolvePreferredProvidersEntry({
-        preferredProviderId: "chatgpt",
-        storedProviderView: "chatgpt",
+        preferredProviderId: "removed-provider",
+        storedProviderView: "removed-provider",
         visibleProviderIdSet: new Set(["all", "codex", "claude"]),
       }),
     ).toBe("all");
