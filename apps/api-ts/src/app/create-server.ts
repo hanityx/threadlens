@@ -29,7 +29,7 @@ import {
 } from "../lib/utils.js";
 
 import type { ProviderId } from "../domains/providers/types.js";
-import { parseProviderId } from "../domains/providers/path-safety.js";
+import { parseSearchableProviderId } from "../domains/providers/capabilities.js";
 import { getDataSourceInventoryTs } from "../domains/recovery/inventory.js";
 import { invalidateOverviewTsCache } from "../domains/threads/overview.js";
 import {
@@ -38,9 +38,9 @@ import {
 import {
   registerPlatformRoutes,
   type ProxyRequest,
-} from "./routes/platform.js";
-import { registerThreadRoutes } from "./routes/threads.js";
-import { registerProviderRoutes } from "./routes/providers.js";
+} from "./routes/platform/index.js";
+import { registerThreadRoutes } from "./routes/threads/index.js";
+import { registerProviderRoutes } from "./routes/providers/index.js";
 
 type RuntimeCacheEntry = {
   expires_at: number;
@@ -120,7 +120,7 @@ export function parseConversationSearchProviders(
   const providers: ProviderId[] = [];
   const invalid: string[] = [];
   for (const token of tokens) {
-    const parsed = parseProviderId(token);
+    const parsed = parseSearchableProviderId(token);
     if (!parsed) {
       invalid.push(token);
       continue;

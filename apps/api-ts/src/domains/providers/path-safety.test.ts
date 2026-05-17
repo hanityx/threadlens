@@ -4,10 +4,19 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   getProviderCapability,
-  PROVIDER_IDS,
   type ProviderId,
 } from "@threadlens/shared-contracts";
 import { APP_DATA_DIR, CHAT_DIR, CODEX_HOME } from "../../lib/constants.js";
+import {
+  IMPLEMENTED_PROVIDER_IDS,
+} from "./capabilities.js";
+import {
+  isValidProviderRootSource,
+  providerScanRootSpecs,
+} from "./provider-roots.js";
+import {
+  invalidateChatGptConversationRootsCache,
+} from "./adapters/chatgpt/roots.js";
 import {
   codexTranscriptSearchRoots,
   isAllowedProviderFilePath,
@@ -64,7 +73,7 @@ describe("provider path safety", () => {
   it("keeps cleanup capability source of truth explicit for current providers", () => {
     expect(
       Object.fromEntries(
-        PROVIDER_IDS.map((provider) => [
+        IMPLEMENTED_PROVIDER_IDS.map((provider) => [
           provider,
           getProviderCapability(provider).safe_cleanup,
         ]),
@@ -128,6 +137,7 @@ describe("provider path safety", () => {
   });
 
   it("rejects loose ChatGPT data files outside conversations-v3 roots", async () => {
+    invalidateChatGptConversationRootsCache();
     const testDir = path.join(CHAT_DIR, "__threadlens-vitest__");
     const looseFile = path.join(testDir, "loose.data");
     try {
@@ -137,7 +147,38 @@ describe("provider path safety", () => {
       await expect(resolveAllowedProviderFilePath("chatgpt", looseFile)).resolves.toBeNull();
     } finally {
       await rm(testDir, { recursive: true, force: true });
+      invalidateChatGptConversationRootsCache();
     }
+  });
+
+  it("allows ChatGPT data files only inside discovered conversations-v3 roots", async () => {
+    invalidateChatGptConversationRootsCache();
+    const root = path.join(CHAT_DIR, "__threadlens-vitest__", "conversations-v3-test");
+    const filePath = path.join(root, "conversation.data");
+    try {
+      await mkdir(root, { recursive: true });
+      await writeFile(filePath, "{}", "utf-8");
+
+      await expect(resolveAllowedProviderFilePath("chatgpt", filePath)).resolves.toBe(
+        await realpath(filePath),
+      );
+      const scanRoots = await providerScanRootSpecs("chatgpt");
+      expect(scanRoots.map((spec) => spec.root)).toContain(root);
+      expect(scanRoots.every((spec) => spec.source === "conversations")).toBe(true);
+    } finally {
+      await rm(path.join(CHAT_DIR, "__threadlens-vitest__"), {
+        recursive: true,
+        force: true,
+      });
+      invalidateChatGptConversationRootsCache();
+    }
+  });
+
+  it("validates provider root source names before they can be used for backup paths", () => {
+    expect(isValidProviderRootSource("cleanup_backups")).toBe(true);
+    expect(isValidProviderRootSource("nested/source")).toBe(false);
+    expect(isValidProviderRootSource("../escape")).toBe(false);
+    expect(isValidProviderRootSource("bad-source")).toBe(false);
   });
 });
 

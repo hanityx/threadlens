@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   ProviderSessionRow,
   TranscriptPayload,
-} from "../../lib/providers.js";
+} from "./index.js";
 import {
   buildConversationSearchProviderBudgets,
   createCachedConversationTranscriptLoader,
@@ -1345,7 +1345,9 @@ describe("provider manifest cache behavior", () => {
     }));
 
     try {
-      const { readPersistedProviderManifest } = await import("./search/manifest-store.js");
+      const { readPersistedProviderManifest } = await import(
+        "./services/search/manifest-store.js"
+      );
       const persisted = await readPersistedProviderManifest("claude");
 
       expect(persisted?.manifest.candidates).toHaveLength(1);

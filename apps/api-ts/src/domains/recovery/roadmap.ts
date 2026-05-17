@@ -17,7 +17,7 @@ import { getOverviewTs } from "../threads/overview.js";
 import {
   getRelatedToolsStatusTs,
   getRuntimeHealthTs,
-} from "../../lib/recovery.js";
+} from "./index.js";
 
 async function readRoadmapState(): Promise<Record<string, unknown>[]> {
   const data = await readJsonFile(ROADMAP_STATE_FILE);

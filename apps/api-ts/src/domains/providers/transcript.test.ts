@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildSessionTranscript } from "./transcript";
-import { inferSessionId } from "./transcripts/normalizers.js";
+import { inferSessionId } from "./services/transcripts/normalizers.js";
 
 const tmpDirs: string[] = [];
 

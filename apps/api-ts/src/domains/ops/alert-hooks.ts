@@ -6,7 +6,7 @@ import {
   ALERT_RULES_FILE,
   ALERT_STATE_FILE,
 } from "../../lib/constants.js";
-import { getRuntimeHealthTs } from "../../lib/recovery.js";
+import { getRuntimeHealthTs } from "../recovery/index.js";
 import {
   isRecord,
   nowIsoUtc,
