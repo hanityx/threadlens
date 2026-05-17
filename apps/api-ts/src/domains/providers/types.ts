@@ -131,6 +131,13 @@ export type ProviderRootSpec = {
   exts: string[];
 };
 
+export type ProviderHealthEvidence = {
+  root_exists: boolean;
+  session_log_count: number;
+  roots: string[];
+  notes: string;
+};
+
 export type ProviderMatrixData = {
   generated_at: string;
   mode: string;

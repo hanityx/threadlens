@@ -1,8 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@threadlens/shared-contracts", () => ({
-  getProviderCapability: () => ({ safe_cleanup: true, hard_delete: true }),
-}));
+vi.mock("@threadlens/shared-contracts", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@threadlens/shared-contracts")>();
+  return {
+    ...actual,
+    getProviderCapability: () => ({ safe_cleanup: true, hard_delete: true }),
+  };
+});
 
 vi.mock("../../lib/constants.js", () => ({
   CHAT_DIR: "/mock/chat",
@@ -31,14 +36,6 @@ vi.mock("../../lib/utils.js", () => ({
 
 vi.mock("./path-safety.js", () => ({
   codexTranscriptSearchRoots: () => [{ root: "/mock/codex/sessions" }],
-  providerName: (provider: string) =>
-    ({
-      chatgpt: "ChatGPT",
-      claude: "Claude",
-      gemini: "Gemini",
-      copilot: "Copilot",
-      codex: "Codex",
-    })[provider] ?? provider,
   providerRootSpecs: (provider: string) =>
     provider === "copilot"
       ? [
@@ -56,6 +53,7 @@ vi.mock("./probe.js", () => ({
   isWorkspaceChatSessionPath: () => true,
 }));
 
+import { listProviderAdapters } from "./adapters.js";
 import { getProviderMatrixTs, invalidateProviderMatrixCache } from "./matrix.js";
 
 describe("provider matrix notes", () => {
@@ -102,11 +100,42 @@ describe("provider matrix notes", () => {
     );
   });
 
+  it("keeps matrix rows aligned with the provider adapter registry", async () => {
+    const data = await getProviderMatrixTs({ forceRefresh: true });
+
+    expect(data.providers.map((provider) => provider.provider)).toEqual(
+      listProviderAdapters().map((adapter) => adapter.id),
+    );
+    expect(data.providers.map((provider) => provider.name)).toEqual(
+      listProviderAdapters().map((adapter) => adapter.label),
+    );
+  });
+
   it("counts Copilot matrix sessions with the same roots used by provider sessions", async () => {
     const data = await getProviderMatrixTs({ forceRefresh: true });
     const copilot = data.providers.find((provider) => provider.provider === "copilot");
 
     expect(copilot?.evidence.session_log_count).toBe(3);
     expect(copilot?.evidence.roots).toContain("/mock/backups/copilot");
+  });
+
+  it("uses adapter health evidence for Gemini without changing the matrix shape", async () => {
+    const data = await getProviderMatrixTs({ forceRefresh: true });
+    const gemini = data.providers.find((provider) => provider.provider === "gemini");
+
+    expect(gemini).toMatchObject({
+      provider: "gemini",
+      status: "active",
+      evidence: {
+        roots: [
+          "/mock/gemini",
+          "/mock/gemini/tmp",
+          "/mock/gemini/history",
+          "/mock/gemini/checkpoints",
+        ],
+        session_log_count: 3,
+        notes: "History, tmp, and checkpoint files.",
+      },
+    });
   });
 });

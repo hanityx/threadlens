@@ -15,8 +15,9 @@ function inferFormat(filePath: string): "jsonl" | "json" | "unknown" {
 }
 
 export function inferSessionId(filePath: string): string {
-  const base = path.basename(filePath);
-  const ext = path.extname(base);
+  const normalizedPath = filePath.replace(/\\/g, "/");
+  const base = path.posix.basename(normalizedPath);
+  const ext = path.posix.extname(base);
   if (!ext) return base;
   return base.slice(0, -ext.length);
 }

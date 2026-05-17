@@ -13,6 +13,7 @@ import { invalidateProviderSearchCaches } from "../domains/providers/search.js";
 import { invalidateProviderMatrixCache } from "../domains/providers/matrix.js";
 import { resolveAllowedProviderFilePath } from "../domains/providers/path-safety.js";
 import type { ProviderId } from "../domains/providers/types.js";
+import type { ProviderSessionAction } from "../domains/providers/types.js";
 import { findProviderCapability } from "@threadlens/shared-contracts";
 
 export type * from "../domains/providers/types.js";
@@ -66,8 +67,24 @@ export {
 } from "../domains/providers/search-helpers.js";
 export { buildProviderActionToken, buildSessionTranscript };
 
-function supportsProviderCleanup(provider: ProviderId): boolean {
-  return findProviderCapability(provider)?.safe_cleanup === true;
+function supportsProviderAction(
+  provider: ProviderId,
+  action: ProviderSessionAction,
+): boolean {
+  const capability = findProviderCapability(provider);
+  if (!capability) {
+    return false;
+  }
+  if (action === "backup_local") {
+    return capability.read_sessions === true;
+  }
+  if (action === "delete_local") {
+    return (
+      capability.safe_cleanup === true &&
+      capability.hard_delete === true
+    );
+  }
+  return capability.safe_cleanup === true;
 }
 
 export async function runProviderSessionAction(
@@ -81,7 +98,7 @@ export async function runProviderSessionAction(
   return runProviderSessionActionInternal(
     {
       resolveAllowedProviderFilePath,
-      supportsProviderCleanup,
+      supportsProviderAction,
       invalidateProviderCaches: (targetProvider) => {
         invalidateProviderSearchCaches(targetProvider);
         invalidateProviderMatrixCache();

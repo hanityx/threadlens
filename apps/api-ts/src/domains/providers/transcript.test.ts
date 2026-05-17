@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildSessionTranscript } from "./transcript";
+import { inferSessionId } from "./transcripts/normalizers.js";
 
 const tmpDirs: string[] = [];
 
@@ -17,6 +18,12 @@ afterEach(async () => {
 });
 
 describe("buildSessionTranscript", () => {
+  it("infers transcript session ids from Windows-style paths on POSIX runtimes", () => {
+    expect(inferSessionId("C:\\Users\\hwan\\.codex\\sessions\\win-transcript.jsonl")).toBe(
+      "win-transcript",
+    );
+  });
+
   it("ignores duplicated event_msg user_message entries when response_item already exists", async () => {
     const tmpDir = await mkdtemp(path.join(os.tmpdir(), "threadlens-transcript-"));
     tmpDirs.push(tmpDir);

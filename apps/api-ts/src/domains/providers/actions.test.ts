@@ -1,6 +1,6 @@
 import os from "node:os";
 import path from "node:path";
-import { mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { describe, expect, it, vi } from "vitest";
 import {
   CLAUDE_PROJECTS_DIR,
@@ -11,6 +11,7 @@ import {
   HOME_DIR,
 } from "../../lib/constants.js";
 import { deriveProviderBackupRelativePath, runProviderSessionAction } from "./actions.js";
+import type { ProviderId, ProviderSessionAction } from "./types.js";
 
 describe("deriveProviderBackupRelativePath", () => {
   it("stores Claude project backups under the provider source instead of the filesystem root", () => {
@@ -55,6 +56,50 @@ describe("deriveProviderBackupRelativePath", () => {
 });
 
 describe("runProviderSessionAction", () => {
+  it("uses action-aware provider support before resolving targets", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "threadlens-provider-action-"));
+    const filePath = path.join(tempDir, "session.jsonl");
+    try {
+      await writeFile(filePath, "{}", "utf8");
+      const resolveAllowedProviderFilePath = vi.fn(async () => filePath);
+      const deps = {
+        resolveAllowedProviderFilePath,
+        supportsProviderAction: (
+          _provider: ProviderId,
+          action: ProviderSessionAction,
+        ) => action === "archive_local",
+        invalidateProviderCaches: () => undefined,
+      };
+
+      const archivePreview = await runProviderSessionAction(
+        deps,
+        "codex",
+        "archive_local",
+        [filePath],
+        true,
+        "",
+      );
+      expect(archivePreview.ok).toBe(true);
+      expect(archivePreview.confirm_token_expected).toMatch(/^PROVIDER-/);
+      expect(resolveAllowedProviderFilePath).toHaveBeenCalledTimes(1);
+
+      const deletePreview = await runProviderSessionAction(
+        deps,
+        "codex",
+        "delete_local",
+        [filePath],
+        true,
+        "",
+      );
+      expect(deletePreview.ok).toBe(false);
+      expect(deletePreview.error).toBe("cleanup-disabled-provider");
+      expect(deletePreview.confirm_token_expected).toBe("");
+      expect(resolveAllowedProviderFilePath).toHaveBeenCalledTimes(1);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
   it("rejects custom backup roots outside the user home during preview", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "threadlens-provider-action-"));
     const filePath = path.join(tempDir, "session.jsonl");
@@ -64,7 +109,7 @@ describe("runProviderSessionAction", () => {
       const result = await runProviderSessionAction(
         {
           resolveAllowedProviderFilePath: async () => filePath,
-          supportsProviderCleanup: () => true,
+          supportsProviderAction: () => true,
           invalidateProviderCaches: () => undefined,
         },
         "codex",
@@ -93,7 +138,7 @@ describe("runProviderSessionAction", () => {
       const result = await runProviderSessionAction(
         {
           resolveAllowedProviderFilePath: async () => filePath,
-          supportsProviderCleanup: () => true,
+          supportsProviderAction: () => true,
           invalidateProviderCaches: () => undefined,
         },
         "codex",
@@ -112,6 +157,136 @@ describe("runProviderSessionAction", () => {
     }
   });
 
+  it("rejects custom backup roots that resolve outside the user home", async () => {
+    const previousHome = process.env.HOME;
+    const previousCodexHome = process.env.CODEX_HOME;
+    const previousStateDir = process.env.THREADLENS_STATE_DIR;
+    const root = await mkdtemp(path.join(os.tmpdir(), "threadlens-provider-backup-root-"));
+
+    try {
+      const homeDir = path.join(root, "home");
+      const outsideDir = path.join(root, "outside");
+      process.env.HOME = homeDir;
+      process.env.CODEX_HOME = path.join(homeDir, ".codex");
+      process.env.THREADLENS_STATE_DIR = path.join(root, "state");
+      vi.resetModules();
+
+      const constants = await import("../../lib/constants.js");
+      const { runProviderSessionAction: runAction } = await import("./actions.js");
+      const sourceDir = path.join(constants.CODEX_HOME, "sessions", "backup-root-smoke");
+      const sourcePath = path.join(sourceDir, "session.jsonl");
+      const backupRootLink = path.join(constants.HOME_DIR, "ThreadLens Backups Link");
+
+      await mkdir(sourceDir, { recursive: true });
+      await mkdir(outsideDir, { recursive: true });
+      await writeFile(sourcePath, "{\"type\":\"session\"}\n", "utf8");
+      await symlink(outsideDir, backupRootLink, "dir");
+
+      const result = await runAction(
+        {
+          resolveAllowedProviderFilePath: async () => sourcePath,
+          supportsProviderAction: () => true,
+          invalidateProviderCaches: () => undefined,
+        },
+        "codex",
+        "backup_local",
+        [sourcePath],
+        true,
+        "",
+        { backup_root: backupRootLink },
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result.error).toBe("backup_root_outside_home");
+      expect(result.confirm_token_expected).toBe("");
+    } finally {
+      if (previousHome === undefined) delete process.env.HOME;
+      else process.env.HOME = previousHome;
+      if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+      else process.env.CODEX_HOME = previousCodexHome;
+      if (previousStateDir === undefined) delete process.env.THREADLENS_STATE_DIR;
+      else process.env.THREADLENS_STATE_DIR = previousStateDir;
+      vi.resetModules();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not delete provider files when backup destination resolves outside the user home", async () => {
+    const previousHome = process.env.HOME;
+    const previousCodexHome = process.env.CODEX_HOME;
+    const previousStateDir = process.env.THREADLENS_STATE_DIR;
+    const root = await mkdtemp(path.join(os.tmpdir(), "threadlens-provider-backup-dest-"));
+
+    try {
+      const homeDir = path.join(root, "home");
+      const outsideDir = path.join(root, "outside");
+      process.env.HOME = homeDir;
+      process.env.CODEX_HOME = path.join(homeDir, ".codex");
+      process.env.THREADLENS_STATE_DIR = path.join(root, "state");
+      vi.resetModules();
+
+      const constants = await import("../../lib/constants.js");
+      const { runProviderSessionAction: runAction } = await import("./actions.js");
+      const sourceDir = path.join(constants.CODEX_HOME, "sessions", "backup-dest-smoke");
+      const sourcePath = path.join(sourceDir, "session.jsonl");
+      const backupRoot = path.join(constants.HOME_DIR, "ThreadLens Test Backups");
+      const providerActionsLink = path.join(backupRoot, "provider_actions");
+      const payload = "{\"type\":\"session\",\"id\":\"backup-dest-smoke\"}\n";
+      const deps = {
+        resolveAllowedProviderFilePath: async () => sourcePath,
+        supportsProviderAction: () => true,
+        invalidateProviderCaches: () => undefined,
+      };
+
+      await mkdir(sourceDir, { recursive: true });
+      await mkdir(backupRoot, { recursive: true });
+      await mkdir(outsideDir, { recursive: true });
+      await writeFile(sourcePath, payload, "utf8");
+      await symlink(outsideDir, providerActionsLink, "dir");
+
+      const preview = await runAction(
+        deps,
+        "codex",
+        "delete_local",
+        [sourcePath],
+        true,
+        "",
+        { backup_before_delete: true, backup_root: backupRoot },
+      );
+      expect(preview.ok).toBe(true);
+      expect(preview.confirm_token_expected).toMatch(/^PROVIDER-/);
+
+      const result = await runAction(
+        deps,
+        "codex",
+        "delete_local",
+        [sourcePath],
+        false,
+        preview.confirm_token_expected,
+        { backup_before_delete: true, backup_root: backupRoot },
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result.mode).toBe("failed");
+      expect(result.applied_count).toBe(0);
+      expect(result.failed).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ step: "backup_root", error: "backup_root_outside_home" }),
+        ]),
+      );
+      await expect(readFile(sourcePath, "utf8")).resolves.toBe(payload);
+    } finally {
+      if (previousHome === undefined) delete process.env.HOME;
+      else process.env.HOME = previousHome;
+      if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+      else process.env.CODEX_HOME = previousCodexHome;
+      if (previousStateDir === undefined) delete process.env.THREADLENS_STATE_DIR;
+      else process.env.THREADLENS_STATE_DIR = previousStateDir;
+      vi.resetModules();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("rejects custom backup roots outside the user home", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "threadlens-provider-action-"));
     const filePath = path.join(tempDir, "session.jsonl");
@@ -121,7 +296,7 @@ describe("runProviderSessionAction", () => {
       const result = await runProviderSessionAction(
         {
           resolveAllowedProviderFilePath: async () => filePath,
-          supportsProviderCleanup: () => true,
+          supportsProviderAction: () => true,
           invalidateProviderCaches: () => undefined,
         },
         "codex",
@@ -139,6 +314,92 @@ describe("runProviderSessionAction", () => {
     }
   });
 
+  it("does not delete provider files when backup manifest writing fails", async () => {
+    const previousHome = process.env.HOME;
+    const previousCodexHome = process.env.CODEX_HOME;
+    const previousStateDir = process.env.THREADLENS_STATE_DIR;
+    const root = await mkdtemp(path.join(os.tmpdir(), "threadlens-provider-manifest-"));
+    const fixedNow = "2026-05-02T00:00:00.000Z";
+    const folderName = "2026-05-02T00-00-00-000Z-delete_local";
+
+    try {
+      const homeDir = path.join(root, "home");
+      process.env.HOME = homeDir;
+      process.env.CODEX_HOME = path.join(homeDir, ".codex");
+      process.env.THREADLENS_STATE_DIR = path.join(root, "state");
+      vi.resetModules();
+      vi.doMock("../../lib/utils.js", async (importOriginal) => ({
+        ...(await importOriginal<typeof import("../../lib/utils.js")>()),
+        nowIsoUtc: () => fixedNow,
+      }));
+
+      const constants = await import("../../lib/constants.js");
+      const { runProviderSessionAction: runAction } = await import("./actions.js");
+      const sourceDir = path.join(constants.CODEX_HOME, "sessions", "manifest-smoke");
+      const sourcePath = path.join(sourceDir, "session.jsonl");
+      const backupRoot = path.join(constants.HOME_DIR, "ThreadLens Test Backups");
+      const manifestPath = path.join(
+        backupRoot,
+        "provider_actions",
+        "codex",
+        folderName,
+        "_manifest.json",
+      );
+      const payload = "{\"type\":\"session\",\"id\":\"manifest-smoke\"}\n";
+      const deps = {
+        resolveAllowedProviderFilePath: async () => sourcePath,
+        supportsProviderAction: () => true,
+        invalidateProviderCaches: () => undefined,
+      };
+
+      await mkdir(sourceDir, { recursive: true });
+      await mkdir(manifestPath, { recursive: true });
+      await writeFile(sourcePath, payload, "utf8");
+
+      const preview = await runAction(
+        deps,
+        "codex",
+        "delete_local",
+        [sourcePath],
+        true,
+        "",
+        { backup_before_delete: true, backup_root: backupRoot },
+      );
+      expect(preview.ok).toBe(true);
+      expect(preview.confirm_token_expected).toMatch(/^PROVIDER-/);
+
+      const result = await runAction(
+        deps,
+        "codex",
+        "delete_local",
+        [sourcePath],
+        false,
+        preview.confirm_token_expected,
+        { backup_before_delete: true, backup_root: backupRoot },
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result.mode).toBe("failed");
+      expect(result.applied_count).toBe(0);
+      expect(result.failed).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ file_path: manifestPath, step: "manifest_write" }),
+        ]),
+      );
+      await expect(readFile(sourcePath, "utf8")).resolves.toBe(payload);
+    } finally {
+      if (previousHome === undefined) delete process.env.HOME;
+      else process.env.HOME = previousHome;
+      if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+      else process.env.CODEX_HOME = previousCodexHome;
+      if (previousStateDir === undefined) delete process.env.THREADLENS_STATE_DIR;
+      else process.env.THREADLENS_STATE_DIR = previousStateDir;
+      vi.doUnmock("../../lib/utils.js");
+      vi.resetModules();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("restores archived Codex sessions back to the source sessions directory", async () => {
     const testRunId = `threadlens-vitest-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const archivedDir = path.join(CODEX_HOME, "archived_sessions", "__threadlens-vitest__", testRunId);
@@ -148,7 +409,7 @@ describe("runProviderSessionAction", () => {
     const payload = `{"type":"session","id":"${testRunId}"}\n`;
     const deps = {
       resolveAllowedProviderFilePath: async () => archivedPath,
-      supportsProviderCleanup: () => true,
+      supportsProviderAction: () => true,
       invalidateProviderCaches: () => undefined,
     };
 
@@ -201,7 +462,7 @@ describe("runProviderSessionAction", () => {
     const payload = `{"type":"session","id":"${testRunId}"}\n`;
     const deps = {
       resolveAllowedProviderFilePath: async () => sourcePath,
-      supportsProviderCleanup: () => true,
+      supportsProviderAction: () => true,
       invalidateProviderCaches: () => undefined,
     };
 
@@ -269,7 +530,7 @@ describe("runProviderSessionAction", () => {
       const payload = "{\"type\":\"session\",\"id\":\"realpath-smoke\"}\n";
       const deps = {
         resolveAllowedProviderFilePath: async (_provider: "codex", filePath: string) => realpath(filePath),
-        supportsProviderCleanup: () => true,
+        supportsProviderAction: () => true,
         invalidateProviderCaches: () => undefined,
       };
 
@@ -365,7 +626,7 @@ describe("runProviderSessionAction", () => {
     const archivedPath = path.join(archivedDir, fileName);
     const deps = {
       resolveAllowedProviderFilePath: async (_provider: typeof provider, filePath: string) => filePath,
-      supportsProviderCleanup: () => true,
+      supportsProviderAction: () => true,
       invalidateProviderCaches: () => undefined,
     };
 

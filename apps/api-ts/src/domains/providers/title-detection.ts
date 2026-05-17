@@ -1,19 +1,14 @@
-import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { CODEX_HOME, CLAUDE_PROJECTS_DIR } from "../../lib/constants.js";
-import { isRecord, readFileTail, safeJsonParse } from "../../lib/utils.js";
-import { isPathInsideRoot } from "./path-safety.js";
+import { isRecord } from "../../lib/utils.js";
+import { normalizeDetectedTitle } from "./title-normalization.js";
 
-type CodexTitleMapCacheEntry = {
-  expires_at: number;
-  map: Map<string, string>;
-};
-
-let codexTitleMapCache: CodexTitleMapCacheEntry | null = null;
-
-export function invalidateCodexThreadTitleMapCache() {
-  codexTitleMapCache = null;
-}
+export {
+  extractCodexThreadIdFromSessionName,
+  getCodexThreadTitleMap,
+  invalidateCodexThreadTitleMapCache,
+} from "./codex-title-map.js";
+export { detectClaudeRenamedTitle } from "./claude-title-detection.js";
+export { normalizeDetectedTitle } from "./title-normalization.js";
 
 export function fallbackDisplayTitle(
   detectedTitle: string,
@@ -28,23 +23,6 @@ export function fallbackDisplayTitle(
     normalizeDetectedTitle(sessionId) ||
     "Untitled session"
   );
-}
-
-function extractUuidFromText(text: string): string {
-  const match = String(text || "").match(/[0-9a-f]{8}-[0-9a-f-]{27,}/i);
-  return match ? match[0] : "";
-}
-
-export function extractCodexThreadIdFromSessionName(name: string): string {
-  return extractUuidFromText(name);
-}
-
-export function normalizeDetectedTitle(text: string, maxLen = 96): string {
-  const singleLine = String(text || "").replace(/\s+/g, " ").trim();
-  if (!singleLine) return "";
-  return singleLine.length > maxLen
-    ? `${singleLine.slice(0, maxLen - 1).trimEnd()}…`
-    : singleLine;
 }
 
 function isBoilerplateTitle(text: string): boolean {
@@ -167,96 +145,4 @@ export function detectSessionTitleFromHead(
   }
 
   return { title: "", source: null };
-}
-
-export async function detectClaudeRenamedTitle(
-  filePath: string,
-  format: "jsonl" | "json" | "unknown",
-): Promise<{ title: string; source: string | null } | null> {
-  if (
-    format !== "jsonl" ||
-    !isPathInsideRoot(filePath, CLAUDE_PROJECTS_DIR)
-  ) {
-    return null;
-  }
-  const tail = await readFileTail(filePath, 262_144);
-  if (!tail.text.trim()) return null;
-  let customTitle = "";
-  let agentName = "";
-  for (const line of tail.text.split(/\r?\n/)) {
-    const parsed = safeJsonParse(line);
-    if (!isRecord(parsed)) continue;
-    const type = String(parsed.type ?? "");
-    if (type === "custom-title") {
-      const value = normalizeDetectedTitle(String(parsed.customTitle ?? ""));
-      if (value) customTitle = value;
-      continue;
-    }
-    if (type === "agent-name") {
-      const value = normalizeDetectedTitle(String(parsed.agentName ?? ""));
-      if (value) agentName = value;
-    }
-  }
-  if (customTitle) {
-    return { title: customTitle, source: "claude-custom-title" };
-  }
-  if (agentName) {
-    return { title: agentName, source: "claude-agent-name" };
-  }
-  return null;
-}
-
-export async function getCodexThreadTitleMap(): Promise<Map<string, string>> {
-  const now = Date.now();
-  if (codexTitleMapCache && codexTitleMapCache.expires_at > now) {
-    return codexTitleMapCache.map;
-  }
-  const titleMap = new Map<string, string>();
-  const globalStateTitleIds = new Set<string>();
-  try {
-    const raw = await readFile(
-      path.join(CODEX_HOME, ".codex-global-state.json"),
-      "utf-8",
-    );
-    const parsed = safeJsonParse(raw);
-    const blob =
-      isRecord(parsed) && isRecord(parsed["thread-titles"])
-        ? (parsed["thread-titles"] as Record<string, unknown>)
-        : null;
-    const titles =
-      blob && isRecord(blob.titles)
-        ? (blob.titles as Record<string, unknown>)
-        : null;
-    if (titles) {
-      for (const [id, title] of Object.entries(titles)) {
-        const tid = extractUuidFromText(id);
-        const txt = normalizeDetectedTitle(String(title ?? ""));
-        if (tid && txt) {
-          titleMap.set(tid, txt);
-          globalStateTitleIds.add(tid);
-        }
-      }
-    }
-  } catch {
-    // no-op
-  }
-  try {
-    const raw = await readFile(path.join(CODEX_HOME, "session_index.jsonl"), "utf-8");
-    for (const line of raw.split(/\r?\n/)) {
-      const parsed = safeJsonParse(line);
-      if (!isRecord(parsed)) continue;
-      const tid = extractUuidFromText(String(parsed.id ?? ""));
-      const txt = normalizeDetectedTitle(String(parsed.thread_name ?? ""));
-      if (tid && txt && !globalStateTitleIds.has(tid)) {
-        titleMap.set(tid, txt);
-      }
-    }
-  } catch {
-    // no-op
-  }
-  codexTitleMapCache = {
-    expires_at: now + 60_000,
-    map: titleMap,
-  };
-  return titleMap;
 }

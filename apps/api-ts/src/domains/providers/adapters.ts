@@ -3,8 +3,9 @@ import {
   PROVIDER_LABELS,
   type ProviderId,
 } from "@threadlens/shared-contracts";
+import { getGeminiProviderHealth } from "./adapter-health.js";
 import { providerRootSpecs, providerScanRootSpecs } from "./path-safety.js";
-import type { ProviderRootSpec } from "./types.js";
+import type { ProviderHealthEvidence, ProviderRootSpec } from "./types.js";
 
 export type ProviderSessionLocator =
   | { kind: "file"; file_path: string }
@@ -15,19 +16,29 @@ export type ProviderAdapter = {
   label: string;
   roots(): ProviderRootSpec[];
   scanRoots?(): Promise<ProviderRootSpec[]>;
+  health?(): Promise<ProviderHealthEvidence>;
 };
+
+function providerHealth(provider: ProviderId): ProviderAdapter["health"] {
+  if (provider === "gemini") return getGeminiProviderHealth;
+  return undefined;
+}
 
 export const PROVIDER_ADAPTERS = Object.freeze(
   Object.fromEntries(
-    PROVIDER_IDS.map((id) => [
-      id,
-      Object.freeze({
+    PROVIDER_IDS.map((id) => {
+      const health = providerHealth(id);
+      return [
         id,
-        label: PROVIDER_LABELS[id],
-        roots: () => providerRootSpecs(id),
-        scanRoots: () => providerScanRootSpecs(id),
-      } satisfies ProviderAdapter),
-    ]),
+        Object.freeze({
+          id,
+          label: PROVIDER_LABELS[id],
+          roots: () => providerRootSpecs(id),
+          scanRoots: () => providerScanRootSpecs(id),
+          ...(health ? { health } : {}),
+        } satisfies ProviderAdapter),
+      ];
+    }),
   ),
 ) as Readonly<Record<ProviderId, ProviderAdapter>>;
 
