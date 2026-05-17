@@ -102,7 +102,7 @@ describe("compactSearchTitle", () => {
       title: "rollout-2026-04-16T23-47-06-019d96c2-9123-7481-9127-224fad716008",
       display_title: "",
       file_path:
-        "/Users/example/.codex-cli/sessions/2026/04/16/rollout-2026-04-16T23-47-06-019d96c2-9123-7481-9127-224fad716008.jsonl",
+        "/example/.codex-cli/sessions/2026/04/16/rollout-2026-04-16T23-47-06-019d96c2-9123-7481-9127-224fad716008.jsonl",
       mtime: "2026-04-16T23:47:06.000Z",
       match_kind: "title",
       snippet: "rollout-2026-04-16T23-47-06-019d96c2-9123-7481-9127-224fad716008",

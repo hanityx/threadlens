@@ -174,4 +174,35 @@ describe("provider matrix notes", () => {
       },
     });
   });
+
+  it("does not report ChatGPT cleanup readiness when its runtime roots are missing", () => {
+    const providers = buildProviderMatrixProviders({
+      codexHomes: [],
+      codexRootExists: false,
+      codexSessionLogs: 0,
+      chatGptRootExists: false,
+      chatGptSessionLogs: 0,
+      claudeRootExists: false,
+      claudeSessionLogs: 0,
+      geminiRootExists: false,
+      geminiSessionLogs: 0,
+      geminiRoots: [],
+      geminiNotes: "History, tmp, and checkpoint files.",
+      copilotProviderRoots: [],
+      copilotRootExists: false,
+      copilotSignalFiles: 0,
+    });
+    const chatgpt = providers.find((provider) => provider.provider === "chatgpt");
+
+    expect(chatgpt).toMatchObject({
+      status: "missing",
+      capability_level: "unavailable",
+      capabilities: {
+        read_sessions: false,
+        analyze_context: false,
+        safe_cleanup: false,
+        hard_delete: false,
+      },
+    });
+  });
 });

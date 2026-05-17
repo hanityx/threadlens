@@ -52,10 +52,10 @@ describe("useAppData helpers", () => {
   });
 
   it("builds a fallback selected session for routed provider detail paths", () => {
-    const fallback = selectSessionByPath([], "/Users/example/.gemini/tmp/chat/session-123.json", "gemini");
+    const fallback = selectSessionByPath([], "/example/.gemini/tmp/chat/session-123.json", "gemini");
 
     expect(fallback).toEqual(
-      buildFallbackSessionRow("/Users/example/.gemini/tmp/chat/session-123.json", "gemini"),
+      buildFallbackSessionRow("/example/.gemini/tmp/chat/session-123.json", "gemini"),
     );
     expect(fallback?.probe.ok).toBe(false);
     expect(fallback?.probe.format).toBe("json");

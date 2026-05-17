@@ -23,7 +23,19 @@ import type {
 } from "./signals.js";
 import type {
   ProviderMatrixData,
+  ProviderStatus,
 } from "../../types.js";
+
+function providerActionReadiness(
+  provider: ProviderId,
+  status: ProviderStatus,
+) {
+  const runtimeReady = status !== "missing";
+  return {
+    safeCleanup: supportsProviderCleanup(provider) && runtimeReady,
+    hardDelete: supportsProviderHardDelete(provider) && runtimeReady,
+  };
+}
 
 export function buildProviderMatrixProviders(
   signals: ProviderMatrixSignals,
@@ -33,21 +45,23 @@ export function buildProviderMatrixProviders(
   const claudeStatus = providerStatus(signals.claudeRootExists, signals.claudeSessionLogs);
   const geminiStatus = providerStatus(signals.geminiRootExists, signals.geminiSessionLogs);
   const copilotStatus = providerStatus(signals.copilotRootExists, signals.copilotSignalFiles);
-  const codexCleanupReady = supportsProviderCleanup("codex") && codexStatus !== "missing";
-  const codexHardDeleteReady =
-    supportsProviderHardDelete("codex") && codexStatus !== "missing";
+  const codexReady = providerActionReadiness("codex", codexStatus);
+  const chatGptReady = providerActionReadiness("chatgpt", chatGptStatus);
+  const claudeReady = providerActionReadiness("claude", claudeStatus);
+  const geminiReady = providerActionReadiness("gemini", geminiStatus);
+  const copilotReady = providerActionReadiness("copilot", copilotStatus);
 
   return [
     {
       provider: "codex" as ProviderId,
       name: providerLabel("codex"),
       status: codexStatus,
-      capability_level: capabilityLevel(codexStatus, codexCleanupReady),
+      capability_level: capabilityLevel(codexStatus, codexReady.safeCleanup),
       capabilities: {
         read_sessions: signals.codexRootExists,
         analyze_context: signals.codexSessionLogs > 0,
-        safe_cleanup: codexCleanupReady,
-        hard_delete: codexHardDeleteReady,
+        safe_cleanup: codexReady.safeCleanup,
+        hard_delete: codexReady.hardDelete,
       },
       evidence: {
         roots: signals.codexHomes,
@@ -59,15 +73,12 @@ export function buildProviderMatrixProviders(
       provider: "chatgpt" as ProviderId,
       name: providerLabel("chatgpt"),
       status: chatGptStatus,
-      capability_level: capabilityLevel(
-        chatGptStatus,
-        supportsProviderCleanup("chatgpt"),
-      ),
+      capability_level: capabilityLevel(chatGptStatus, chatGptReady.safeCleanup),
       capabilities: {
         read_sessions: signals.chatGptRootExists,
         analyze_context: signals.chatGptSessionLogs > 0,
-        safe_cleanup: supportsProviderCleanup("chatgpt"),
-        hard_delete: supportsProviderHardDelete("chatgpt"),
+        safe_cleanup: chatGptReady.safeCleanup,
+        hard_delete: chatGptReady.hardDelete,
       },
       evidence: {
         roots: [CHAT_DIR],
@@ -79,16 +90,12 @@ export function buildProviderMatrixProviders(
       provider: "claude" as ProviderId,
       name: providerLabel("claude"),
       status: claudeStatus,
-      capability_level: capabilityLevel(
-        claudeStatus,
-        supportsProviderCleanup("claude") && claudeStatus !== "missing",
-      ),
+      capability_level: capabilityLevel(claudeStatus, claudeReady.safeCleanup),
       capabilities: {
         read_sessions: signals.claudeRootExists,
         analyze_context: signals.claudeSessionLogs > 0,
-        safe_cleanup: supportsProviderCleanup("claude") && claudeStatus !== "missing",
-        hard_delete:
-          supportsProviderHardDelete("claude") && claudeStatus !== "missing",
+        safe_cleanup: claudeReady.safeCleanup,
+        hard_delete: claudeReady.hardDelete,
       },
       evidence: {
         roots: [CLAUDE_HOME, CLAUDE_PROJECTS_DIR, CLAUDE_TRANSCRIPTS_DIR],
@@ -100,16 +107,12 @@ export function buildProviderMatrixProviders(
       provider: "gemini" as ProviderId,
       name: providerLabel("gemini"),
       status: geminiStatus,
-      capability_level: capabilityLevel(
-        geminiStatus,
-        supportsProviderCleanup("gemini") && geminiStatus !== "missing",
-      ),
+      capability_level: capabilityLevel(geminiStatus, geminiReady.safeCleanup),
       capabilities: {
         read_sessions: signals.geminiRootExists,
         analyze_context: signals.geminiSessionLogs > 0,
-        safe_cleanup: supportsProviderCleanup("gemini") && geminiStatus !== "missing",
-        hard_delete:
-          supportsProviderHardDelete("gemini") && geminiStatus !== "missing",
+        safe_cleanup: geminiReady.safeCleanup,
+        hard_delete: geminiReady.hardDelete,
       },
       evidence: {
         roots: signals.geminiRoots,
@@ -121,17 +124,12 @@ export function buildProviderMatrixProviders(
       provider: "copilot" as ProviderId,
       name: providerLabel("copilot"),
       status: copilotStatus,
-      capability_level: capabilityLevel(
-        copilotStatus,
-        supportsProviderCleanup("copilot") && copilotStatus !== "missing",
-      ),
+      capability_level: capabilityLevel(copilotStatus, copilotReady.safeCleanup),
       capabilities: {
         read_sessions: signals.copilotRootExists,
         analyze_context: signals.copilotSignalFiles > 0,
-        safe_cleanup:
-          supportsProviderCleanup("copilot") && copilotStatus !== "missing",
-        hard_delete:
-          supportsProviderHardDelete("copilot") && copilotStatus !== "missing",
+        safe_cleanup: copilotReady.safeCleanup,
+        hard_delete: copilotReady.hardDelete,
       },
       evidence: {
         roots: [

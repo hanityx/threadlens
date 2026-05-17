@@ -262,7 +262,7 @@ describe("providerPanelPresentationModel", () => {
         legacy_backup_sets: [
           {
             backup_id: "provider_actions/codex/legacy",
-            path: "/Users/example/.codex/local_cleanup_backups/provider_actions/codex/legacy",
+            path: "/example/.codex/local_cleanup_backups/provider_actions/codex/legacy",
             file_count: 4,
             total_bytes: 256,
             latest_mtime: "2026-04-22T07:00:00.000Z",
@@ -293,7 +293,7 @@ describe("providerPanelPresentationModel", () => {
           legacyBackupSets?: Array<{ path: string }>;
         }
       ).legacyBackupSets?.[0]?.path,
-    ).toContain("/Users/example/.codex/local_cleanup_backups");
+    ).toContain("/example/.codex/local_cleanup_backups");
   });
 
   it("uses provider-scoped backup inventory on provider surfaces", () => {

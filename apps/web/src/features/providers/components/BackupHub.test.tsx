@@ -97,7 +97,7 @@ describe("BackupHub", () => {
       legacyBackupSets: [
         {
           backup_id: "provider_actions/codex/legacy-1",
-          path: "/Users/example/.codex/local_cleanup_backups/provider_actions/codex/legacy-1",
+          path: "/example/.codex/local_cleanup_backups/provider_actions/codex/legacy-1",
           file_count: 2,
           total_bytes: 256,
           latest_mtime: "2026-04-24T06:00:00.000Z",
@@ -110,7 +110,7 @@ describe("BackupHub", () => {
     expect(html).toContain("Older backups");
     expect(html).toContain('class="provider-backup-legacy-block"');
     expect(html).not.toContain('class="provider-backup-legacy-block" open=""');
-    expect(html).toContain("/Users/example/.codex/local_cleanup_backups/provider_actions/codex/legacy-1");
+    expect(html).toContain("/example/.codex/local_cleanup_backups/provider_actions/codex/legacy-1");
   });
 
   it("shows grouped backup progress while multi-provider backup is running", () => {

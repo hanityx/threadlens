@@ -28,9 +28,9 @@ ThreadLens uses one local Fastify backend shared by web, TUI, and desktop.
 
 `apps/api-ts/src/app/routes`
 
-- `platform.ts`: health, version, runtime, overview, recovery, smoke, execution graph, alert hooks, agent loops
-- `providers.ts`: provider matrix, sessions, parser health, conversation search, session transcripts, provider session actions
-- `threads.ts`: thread list, thread mutations, forensics, impact analysis, local cleanup
+- `system/`: health, version, update check, runtime, recovery, smoke, execution graph, alert hooks, agent loops
+- `providers/`: provider matrix, sessions, parser health, conversation search, session transcripts, provider session actions
+- `threads/`: thread list/query, thread mutations, forensics, impact analysis, local cleanup
 
 ## Backend Layout
 
@@ -40,19 +40,38 @@ ThreadLens uses one local Fastify backend shared by web, TUI, and desktop.
 app/
   create-server.ts
   routes/
-    platform.ts
-    providers.ts
-    threads.ts
+    providers/
+      index.ts
+      actions.ts
+      matrix.ts
+      search.ts
+      sessions.ts
+      transcript.ts
+    system/
+      index.ts
+      recovery.ts
+    threads/
+      index.ts
+      bulk-actions.ts
+      cleanup.ts
+      forensics.ts
+      open-folder.ts
+      query.ts
+      state-actions.ts
+      transcript.ts
 domains/
   providers/
-    matrix.ts
-    path-safety.ts
-    probe.ts
-    search-helpers.ts
-    search.ts
-    actions.ts
-    title-detection.ts
-    transcript.ts
+    adapters/
+    services/
+      actions/
+      matrix/
+      search/
+      transcripts/
+    shared/
+    capabilities.ts
+    constants.ts
+    index.ts
+    registry.ts
     types.ts
   threads/
     query.ts
@@ -70,11 +89,21 @@ domains/
     observatory.ts
     alert-hooks.ts
     agent-loops.ts
+    update-check.ts
+platform/
+  paths.ts
 lib/
   constants.ts
-  providers.ts
-  recovery.ts
-  update-check.ts
+  envelope.ts
+  fs.ts
+  guards.ts
+  http.ts
+  json.ts
+  process.ts
+  query.ts
+  schemas.ts
+  text.ts
+  time.ts
   utils.ts
 ```
 
@@ -99,7 +128,9 @@ i18n/                localized message catalogs and locale loading
 
 - `create-server.ts` stays focused on bootstrap and route registration
 - Route handlers register HTTP; domain logic lives under `domains/`
-- `lib/` stays for shared constants and focused helpers
+- `lib/` stays for focused cross-cutting helpers and compatibility facades
+- `platform/` owns OS/env/path abstraction and does not import app or domains
+- Provider services do not import provider-specific adapter modules directly; they go through the registry
 - Web, TUI, and desktop reuse the same API contracts
 
 ## Safety

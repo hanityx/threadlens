@@ -6,7 +6,7 @@ import {
   THREADLENS_GITHUB_RELEASE_API_URL,
   THREADLENS_LATEST_RELEASE_URL,
   UPDATE_CHECK_CACHE_FILE,
-} from "./constants.js";
+} from "../../lib/constants.js";
 
 const UPDATE_CHECK_TTL_MS = 24 * 60 * 60 * 1000;
 const UPDATE_CHECK_FAILURE_TTL_MS = 15 * 60 * 1000;

@@ -20,9 +20,45 @@ module.exports = {
       to: { path: "^apps/api-ts/src/app/" },
     },
     {
+      name: "platform-must-not-import-domains",
+      severity: "error",
+      from: { path: "^apps/api-ts/src/platform/" },
+      to: { path: "^apps/api-ts/src/domains/" },
+    },
+    {
+      name: "platform-must-not-import-app",
+      severity: "error",
+      from: { path: "^apps/api-ts/src/platform/" },
+      to: { path: "^apps/api-ts/src/app/" },
+    },
+    {
       name: "provider-services-must-not-import-app",
       severity: "error",
       from: { path: "^apps/api-ts/src/domains/providers/services/" },
+      to: { path: "^apps/api-ts/src/app/" },
+    },
+    {
+      name: "provider-services-must-not-import-provider-adapters-directly",
+      severity: "error",
+      from: {
+        path: "^apps/api-ts/src/domains/providers/services/",
+        pathNot: "\\.test\\.ts$",
+      },
+      to: { path: "^apps/api-ts/src/domains/providers/adapters/" },
+    },
+    {
+      name: "provider-adapters-must-not-import-provider-services",
+      severity: "error",
+      from: {
+        path: "^apps/api-ts/src/domains/providers/adapters/",
+        pathNot: "\\.test\\.ts$",
+      },
+      to: { path: "^apps/api-ts/src/domains/providers/services/" },
+    },
+    {
+      name: "provider-adapters-must-not-import-app",
+      severity: "error",
+      from: { path: "^apps/api-ts/src/domains/providers/adapters/" },
       to: { path: "^apps/api-ts/src/app/" },
     },
     {
