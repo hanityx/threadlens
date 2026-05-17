@@ -83,9 +83,14 @@ export type ProviderSessionLocator =
 Most providers can use the existing JSON/JSONL transcript flow. In the current
 code, custom storage shapes still touch these areas:
 
+- `apps/api-ts/src/domains/providers/search/constants.ts`
 - `apps/api-ts/src/domains/providers/search.ts`
 - `apps/api-ts/src/domains/providers/transcript.ts`
 - `apps/api-ts/src/domains/providers/probe.ts`
+
+`search/constants.ts` contains the default searchable providers and optional
+scan budget weights. New providers use a default weight of `1` when omitted, so
+only add a custom weight when the provider needs a different scan budget.
 
 Add fixtures for the real local file shape. Do not infer a provider format from
 docs alone; use sample session files.
