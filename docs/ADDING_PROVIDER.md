@@ -39,10 +39,21 @@ pnpm docs:provider-support
 ## 2. Add Local Roots
 
 Provider roots define where ThreadLens is allowed to read provider files from.
-Update the provider adapter/root definitions in
-`apps/api-ts/src/domains/providers/`.
+Update the explicit api-ts provider registry and the provider-specific adapter
+folder under `apps/api-ts/src/domains/providers/`.
 
-Add roots for:
+Touch these files deliberately:
+
+- `apps/api-ts/src/domains/providers/registry.ts` for the explicit implemented
+  adapter registration
+- `apps/api-ts/src/domains/providers/capabilities.ts` for route/search/report
+  exposure policy
+- `apps/api-ts/src/domains/providers/adapters/<provider>/` for provider-specific
+  root discovery, title, transcript, or health evidence
+- `apps/api-ts/src/domains/providers/shared/` only for provider-neutral path/root
+  helpers
+
+Add or validate roots for:
 
 - live session files
 - archived session files, if supported
@@ -50,11 +61,12 @@ Add roots for:
 - provider-specific cache locations, if needed
 
 Path safety must fail closed. Unknown provider ids must not fall through to
-another provider's roots.
+another provider's roots. `ProviderRootSpec.source` is used in backup-relative
+paths, so it must be deterministic and validation-safe. Do not derive `source`
+from arbitrary local directory names.
 
-The current first step toward cleaner extension is the internal adapter registry.
 Adapters identify the provider and expose root discovery. Keep this boundary
-small at first:
+small:
 
 ```ts
 export type ProviderAdapter = {
@@ -80,24 +92,20 @@ export type ProviderSessionLocator =
 
 ## 3. Add Search and Transcript Support
 
-Most providers can use the existing JSON/JSONL transcript flow. In the current
-code, custom storage shapes still touch these areas:
+Most providers can use the existing JSON/JSONL transcript flow. Provider-neutral
+engines live under `apps/api-ts/src/domains/providers/services/`; provider-specific
+logic belongs under `apps/api-ts/src/domains/providers/adapters/<provider>/`.
 
-- `apps/api-ts/src/domains/providers/search/constants.ts`
-- `apps/api-ts/src/domains/providers/search.ts`
-- `apps/api-ts/src/domains/providers/transcript.ts`
-- `apps/api-ts/src/domains/providers/probe.ts`
-
-`search/constants.ts` contains the default searchable providers and optional
-scan budget weights. New providers use a default weight of `1` when omitted, so
-only add a custom weight when the provider needs a different scan budget.
+Do not add a new provider by hardcoding it into search or matrix entry points.
+The default search/report/matrix surfaces should flow through
+`capabilities.ts` and the explicit adapter registry. If a provider needs a
+custom scan budget, add that weight in the search service only after the
+provider is registered and tested.
 
 Add fixtures for the real local file shape. Do not infer a provider format from
 docs alone; use sample session files.
 
-The intended direction is to move provider-specific session discovery and
-transcript building behind adapters over follow-up PRs. For database-backed
-providers, start read-only:
+For database-backed providers, start read-only:
 
 - open the database in read-only mode
 - use a busy timeout or retry path for live provider databases
@@ -107,8 +115,9 @@ providers, start read-only:
 
 ## 4. Add Provider Diagnostics
 
-Update `apps/api-ts/src/domains/providers/matrix.ts` so the provider appears in
-the provider health matrix with useful evidence.
+Update the provider adapter/health evidence so the provider appears in the
+provider health matrix with useful evidence. Matrix rows should stay aligned
+with the explicit adapter registry and capability helpers.
 
 The matrix should show:
 
@@ -119,8 +128,10 @@ The matrix should show:
 
 ## 5. Add Archive, Backup, and Delete Behavior
 
-If the provider supports destructive file actions, update
-`apps/api-ts/src/domains/providers/actions.ts`.
+If the provider supports destructive file actions, update the provider action
+service under `apps/api-ts/src/domains/providers/services/actions/` only when
+the action is truly cross-provider. Provider-specific root/target differences
+belong in `adapters/<provider>/` or `shared/` helpers.
 
 Destructive actions must keep the existing safety rules:
 
@@ -149,18 +160,19 @@ Useful existing tests:
 - `apps/api-ts/src/domains/providers/path-safety.test.ts`
 - `apps/api-ts/src/domains/providers/parser-fixtures.test.ts`
 - `apps/api-ts/src/domains/providers/search.test.ts`
+- `apps/api-ts/src/domains/providers/search-policy.test.ts`
 - `apps/api-ts/src/domains/providers/transcript.test.ts`
 - `apps/api-ts/src/domains/providers/matrix.test.ts`
 - `apps/api-ts/src/domains/providers/actions.test.ts`
+- `apps/api-ts/src/domains/providers/adapters.test.ts`
 
 ## Adapter Direction
 
-The current code still has provider behavior spread across registry, path
-safety, search, transcript, matrix, and actions. The intended direction is an
-internal provider adapter registry, not an external plugin system.
+The provider boundary is an internal provider adapter registry, not an external
+plugin system.
 
-The adapter boundary starts with provider identity and root discovery. Later PRs
-can move provider-specific behavior behind that boundary, such as:
+The adapter boundary starts with provider identity and root discovery. Keep
+provider-specific behavior behind that boundary when possible, such as:
 
 - health evidence
 - session discovery
@@ -170,6 +182,10 @@ can move provider-specific behavior behind that boundary, such as:
 Capabilities should remain in `packages/shared-contracts/src/index.ts`; adapter
 code should read them through `getProviderCapability(adapter.id)` instead of
 storing a second copy.
+
+`capabilities.ts` in api-ts is not a second capability source of truth. It is
+the policy layer that intersects shared-contract facts with api-ts implemented
+adapters and route exposure rules.
 
 Do not add dynamic loading of third-party provider code. ThreadLens reads and can
 mutate local AI session files, so provider support should stay in reviewed source
@@ -183,6 +199,7 @@ Before opening a provider PR:
 pnpm docs:provider-support
 pnpm --filter @threadlens/shared-contracts test
 pnpm --filter @threadlens/api test
+pnpm lint:deps
 ```
 
 If provider UI copy changes are included, also run the relevant web or TUI tests.
