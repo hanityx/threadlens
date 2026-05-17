@@ -78,7 +78,7 @@ Then do a short manual pass for the three product surfaces:
 
 ## External Review Trigger
 
-Use Oracle/Pro review for high-risk changes only:
+Use external review for high-risk changes only:
 
 - Provider contract, adapter registry, auth, CORS, or direct payload changes.
 - Packaged Electron API lifecycle, preload, or renderer bridge changes.

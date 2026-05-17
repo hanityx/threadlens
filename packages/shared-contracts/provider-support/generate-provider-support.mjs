@@ -133,15 +133,22 @@ function buildGuideList() {
 
 async function main() {
   const { publicScope, internalScope } = buildGuideList();
+  const scopeBullets = [
+    "- `primary workflow providers` used in the main search, sessions, and cleanup flows",
+  ];
+  if (internalScope.length > 0) {
+    scopeBullets.push(
+      "- `read-only cache sources` that can still appear in diagnostics or provider-specific inspection",
+    );
+  }
   const content = `# Provider Support
 
 _Generated from \`packages/shared-contracts/src/index.ts\` and provider notes in \`packages/shared-contracts/provider-support/generate-provider-support.mjs\`. Do not hand-edit this file; run \`pnpm docs:provider-support\`._
 
 ThreadLens reads local conversation data from multiple provider-specific stores.
-This document distinguishes between:
+This document currently covers:
 
-- \`primary workflow providers\` used in the main search, sessions, and cleanup flows
-- \`read-only cache sources\` that can still appear in diagnostics or provider-specific inspection
+${scopeBullets.join("\n")}
 
 The primary search/session workflow currently covers ${publicScope.map((label) => `\`${label}\``).join(", ")}.
 ${internalScope.length > 0 ? `${internalScope.map((label) => `\`${label}\``).join(", ")} is currently treated as a read-only desktop cache source. It remains available to the provider registry, but stays outside the default search scope and provider session action workflow.` : ""}

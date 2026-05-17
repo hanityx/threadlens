@@ -18,8 +18,8 @@ The TUI expects the local API at `http://127.0.0.1:8788` by default.
 ## CLI Examples
 
 ```bash
-pnpm start:tui -- --query obsidian
-pnpm start:tui -- --query obsidian --results
+pnpm start:tui -- --query project-notes
+pnpm start:tui -- --query project-notes --results
 pnpm start:tui -- --view sessions --provider codex
 pnpm start:tui -- --view cleanup --filter risk
 ```

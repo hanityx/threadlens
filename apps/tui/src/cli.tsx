@@ -12,8 +12,8 @@ ${messages.cli.usageLabel}
 
 ${messages.cli.examplesLabel}
   threadlens-tui
-  threadlens-tui --query obsidian
-  threadlens-tui --query obsidian --results
+  threadlens-tui --query project-notes
+  threadlens-tui --query project-notes --results
   threadlens-tui --view sessions --provider codex
   threadlens-tui --view cleanup --filter risk
   threadlens-tui --locale ko

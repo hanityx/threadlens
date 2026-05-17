@@ -5,7 +5,7 @@ session discovery, transcript parsing, search, diagnostics, archive, backup, and
 delete behavior, so new providers need both capability metadata and path-safety
 coverage.
 
-This guide describes the current internal extension path. It is not an external
+This guide describes the current in-repo extension path. It is not an external
 plugin API, and new provider code should stay in reviewed source until a separate
 security model exists.
 
@@ -44,12 +44,17 @@ folder under `apps/api-ts/src/domains/providers/`.
 
 Touch these files deliberately:
 
+- `packages/shared-contracts/src/index.ts` for the shared provider capability
+  source of truth
 - `apps/api-ts/src/domains/providers/registry.ts` for the explicit implemented
   adapter registration
 - `apps/api-ts/src/domains/providers/capabilities.ts` for route/search/report
   exposure policy
+- `apps/api-ts/src/domains/providers/shared/file-roots.ts` for canonical file
+  root specs and scan root specs
 - `apps/api-ts/src/domains/providers/adapters/<provider>/` for provider-specific
-  root discovery, title, transcript, or health evidence
+  root discovery, title, transcript, or health evidence when real
+  provider-specific behavior exists
 - `apps/api-ts/src/domains/providers/shared/` only for provider-neutral path/root
   helpers
 
@@ -74,21 +79,30 @@ export type ProviderAdapter = {
   label: string;
   roots(): ProviderRootSpec[];
   scanRoots?(): Promise<ProviderRootSpec[]>;
+  scanSessions?(): Promise<ProviderSessionCandidate[] | ProviderSessionRow[]>;
+  health?(): Promise<ProviderHealthEvidence>;
 };
 ```
 
 Do not duplicate capabilities in adapters. Capabilities must remain sourced from
 `getProviderCapability(adapter.id)`.
 
+Do not create empty `adapters/<provider>/transcript.ts`, `title.ts`, or
+`health.ts` files just to match a template. Optional adapter modules should
+exist only when they hold real provider-specific behavior.
+
 Providers that do not store sessions as standalone files should use a session
-locator model in later PRs instead of encoding provider-specific ids into fake
-file paths:
+locator model instead of encoding provider-specific ids into fake file paths:
 
 ```ts
 export type ProviderSessionLocator =
   | { kind: "file"; file_path: string }
   | { kind: "sqlite"; db_path: string; session_id: string };
 ```
+
+The locator type exists in the registry, but full DB-backed product support
+also needs transcript routing and UI selection keys that do not collapse
+multiple sessions sharing one backing database file.
 
 ## 3. Add Search and Transcript Support
 
@@ -158,6 +172,7 @@ At minimum, cover:
 
 Useful existing tests:
 
+- `apps/api-ts/src/domains/providers/provider-extension-contract.test.ts`
 - `apps/api-ts/src/domains/providers/path-safety.test.ts`
 - `apps/api-ts/src/domains/providers/parser-fixtures.test.ts`
 - `apps/api-ts/src/domains/providers/services/search/session-search.test.ts`
@@ -170,7 +185,7 @@ Useful existing tests:
 
 ## Adapter Direction
 
-The provider boundary is an internal provider adapter registry, not an external
+The provider boundary is an in-repo provider adapter registry, not an external
 plugin system.
 
 The adapter boundary starts with provider identity and root discovery. Keep
@@ -198,10 +213,7 @@ code unless a separate security model is designed.
 Before opening a provider PR:
 
 ```sh
-pnpm docs:provider-support
-pnpm --filter @threadlens/shared-contracts test
-pnpm --filter @threadlens/api test
-pnpm lint:deps
+pnpm qa:provider
 ```
 
 If provider UI copy changes are included, also run the relevant web or TUI tests.

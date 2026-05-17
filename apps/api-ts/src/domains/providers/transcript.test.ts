@@ -19,7 +19,7 @@ afterEach(async () => {
 
 describe("buildSessionTranscript", () => {
   it("infers transcript session ids from Windows-style paths on POSIX runtimes", () => {
-    expect(inferSessionId("C:\\Users\\hwan\\.codex\\sessions\\win-transcript.jsonl")).toBe(
+    expect(inferSessionId("C:\\Users\\example\\.codex\\sessions\\win-transcript.jsonl")).toBe(
       "win-transcript",
     );
   });
