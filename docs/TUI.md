@@ -35,12 +35,16 @@ pnpm start:tui -- --view cleanup --filter risk
 
 The TUI follows the shared searchable-provider contract used in the web workbench.
 
+![ThreadLens TUI search view](assets/readme-tui-search.png)
+
 ### Sessions
 
 - Browse provider session rows
 - Open transcript previews
 - Run backup, archive, and delete flows
 - Use dry-run and confirm-token execution for destructive actions
+
+![ThreadLens TUI sessions view](assets/readme-tui-sessions.png)
 
 ### Cleanup
 

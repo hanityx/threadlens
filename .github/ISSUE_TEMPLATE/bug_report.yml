@@ -1,0 +1,80 @@
+name: Bug report
+description: Report something that is broken or unexpected.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Fill in the required fields first; logs and screenshots are optional.
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Affected area
+      options:
+        - Desktop app
+        - Web dashboard
+        - Terminal UI
+        - API / backend
+        - Provider sessions / search
+        - Packaging / release
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: ThreadLens version
+      description: Use the app version, release tag, or commit SHA. Write "unknown" if you are not sure.
+      placeholder: v0.3.1
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-behavior
+    attributes:
+      label: Current behavior
+      description: What is happening now?
+      placeholder: ThreadLens currently...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+      placeholder: I expected...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Exact steps are best. A short description is fine if the bug is obvious.
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. See ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Optional, but helpful for desktop, packaging, or source-build issues.
+      placeholder: |
+        OS:
+        Install/run mode: downloaded app / built from source / dev server
+        Node/pnpm, if built from source:
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Optional. Paste only what is relevant. Screenshots can be attached after creating the issue.
+      render: shell

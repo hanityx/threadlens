@@ -39,7 +39,7 @@ ThreadLens 让你在一处搜索本地分散的 AI 会话、查看对话、分�
 
 - **搜索** — 用一个关键词搜索 Codex、Claude、Gemini、Copilot 的所有会话。
 - **Transcript** — 无需手动找 provider 文件夹，直接打开完整对话。
-- **安全清理** — 执行任何破坏性操作前先备份、dry-run 并输入 confirm token。
+- **安全清理** — 删除本地文件前先备份，用 dry-run 预览，并要求输入确认令牌。
 - **Thread 审查** — 查看 Codex 线程范围、关联会话和审计历史。
 - **Provider 健康** — 在一个界面查看 provider 状态、会话发现流程及路径/配置问题。
 - **TUI** — 在终端以键盘为主使用相同工作流。
@@ -50,7 +50,7 @@ ThreadLens 让你在一处搜索本地分散的 AI 会话、查看对话、分�
 
 ### 桌面端
 
-[macOS .dmg ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.0/ThreadLens-0.3.0-arm64.dmg) · [Windows .exe ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.0/ThreadLens.0.3.0.exe) · [Linux .AppImage ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.0/ThreadLens-0.3.0.AppImage)
+[macOS .dmg ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.1/ThreadLens-0.3.1-arm64.dmg) · [Windows .exe ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.1/ThreadLens.0.3.1.exe) · [Linux .AppImage ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.1/ThreadLens-0.3.1.AppImage)
 
 macOS 和 Windows 构建版本未签名。
 

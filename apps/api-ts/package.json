@@ -1,8 +1,9 @@
 {
   "name": "@threadlens/api",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Fastify API gateway for ThreadLens",
   "license": "MIT",
+  "private": true,
   "type": "module",
   "scripts": {
     "dev": "tsx watch --exclude dist --exclude dist-electron --exclude ../../packages/shared-contracts/dist src/cli.ts",

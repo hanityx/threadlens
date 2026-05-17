@@ -39,7 +39,7 @@ ThreadLens는 로컬에 흩어진 AI 세션을 한 곳에서 검색하고, 대�
 
 - **검색** — Codex, Claude, Gemini, Copilot 세션을 하나의 키워드로 검색합니다.
 - **Transcript** — provider별 폴더를 직접 찾지 않아도 전체 대화를 열어볼 수 있습니다.
-- **안전한 정리** — 파괴적인 작업 전에 백업, dry-run, confirm token으로 실행합니다.
+- **안전한 정리** — 파괴적인 작업 전에 백업, dry-run, 확인 토큰으로 로컬 파일을 안전하게 삭제합니다.
 - **Thread review** — Codex 스레드 범위, 관련 세션, audit history를 확인합니다.
 - **Provider health** — provider 상태, 세션 탐색 흐름, 경로/설정 문제를 한 화면에서 확인합니다.
 - **TUI** — 같은 워크플로우를 터미널에서 키보드 중심으로 사용할 수 있습니다.
@@ -50,7 +50,7 @@ ThreadLens는 로컬에 흩어진 AI 세션을 한 곳에서 검색하고, 대�
 
 ### 데스크톱
 
-[macOS .dmg ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.0/ThreadLens-0.3.0-arm64.dmg) · [Windows .exe ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.0/ThreadLens.0.3.0.exe) · [Linux .AppImage ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.0/ThreadLens-0.3.0.AppImage)
+[macOS .dmg ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.1/ThreadLens-0.3.1-arm64.dmg) · [Windows .exe ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.1/ThreadLens.0.3.1.exe) · [Linux .AppImage ↗](https://github.com/hanityx/threadlens/releases/download/v0.3.1/ThreadLens-0.3.1.AppImage)
 
 macOS, Windows 빌드는 unsigned입니다.
 
