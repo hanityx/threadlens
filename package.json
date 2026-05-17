@@ -53,9 +53,11 @@
     "package:desktop:win": "pnpm build:desktop && pnpm --filter @threadlens/desktop-electron dist:win",
     "package:desktop:linux": "pnpm build:desktop && pnpm --filter @threadlens/desktop-electron dist:linux",
     "test": "pnpm -r test",
-    "lint": "pnpm -r lint"
+    "lint": "pnpm -r lint",
+    "lint:deps": "depcruise --config .dependency-cruiser.cjs apps/api-ts/src"
   },
   "devDependencies": {
+    "dependency-cruiser": "^17.4.0",
     "typescript": "^6.0.3"
   }
 }

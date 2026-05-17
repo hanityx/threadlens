@@ -6,8 +6,8 @@ export {
   extractCodexThreadIdFromSessionName,
   getCodexThreadTitleMap,
   invalidateCodexThreadTitleMapCache,
-} from "./codex-title-map.js";
-export { detectClaudeRenamedTitle } from "./claude-title-detection.js";
+} from "./adapters/codex/title-map.js";
+export { detectClaudeRenamedTitle } from "./adapters/claude/title.js";
 export { normalizeDetectedTitle } from "./title-normalization.js";
 
 export function fallbackDisplayTitle(

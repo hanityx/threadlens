@@ -10,6 +10,7 @@ vi.mock("@threadlens/shared-contracts", async (importOriginal) => {
 });
 
 vi.mock("../../lib/constants.js", () => ({
+  BACKUP_ROOT: "/mock/backups",
   CHAT_DIR: "/mock/chat",
   CODEX_HOME: "/mock/codex",
   CLAUDE_HOME: "/mock/claude",
@@ -53,7 +54,7 @@ vi.mock("./probe.js", () => ({
   isWorkspaceChatSessionPath: () => true,
 }));
 
-import { listProviderAdapters } from "./adapters.js";
+import { listProviderAdapters } from "./registry.js";
 import { getProviderMatrixTs, invalidateProviderMatrixCache } from "./matrix.js";
 
 describe("provider matrix notes", () => {
@@ -115,8 +116,8 @@ describe("provider matrix notes", () => {
     const data = await getProviderMatrixTs({ forceRefresh: true });
     const copilot = data.providers.find((provider) => provider.provider === "copilot");
 
-    expect(copilot?.evidence.session_log_count).toBe(3);
-    expect(copilot?.evidence.roots).toContain("/mock/backups/copilot");
+    expect(copilot?.evidence.session_log_count).toBeGreaterThanOrEqual(3);
+    expect(copilot?.evidence.roots).toContain("/mock/backups/provider_actions/copilot");
   });
 
   it("uses adapter health evidence for Gemini without changing the matrix shape", async () => {

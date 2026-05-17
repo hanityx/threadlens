@@ -1,25 +1,29 @@
 import {
   getProviderCapability,
-  PROVIDER_IDS,
 } from "@threadlens/shared-contracts";
 import { describe, expect, it } from "vitest";
+import {
+  IMPLEMENTED_PROVIDER_IDS,
+} from "./capabilities.js";
 import {
   type ProviderAdapter,
   type ProviderSessionLocator,
   getProviderAdapter,
   listProviderAdapters,
   PROVIDER_ADAPTERS,
-} from "./adapters.js";
+} from "./registry.js";
 import { providerRootSpecs } from "./path-safety.js";
 
 describe("provider adapters", () => {
   it("registers one internal adapter for each provider contract id", () => {
-    expect(listProviderAdapters().map((adapter) => adapter.id)).toEqual(PROVIDER_IDS);
-    expect(Object.keys(PROVIDER_ADAPTERS)).toEqual([...PROVIDER_IDS]);
+    expect(listProviderAdapters().map((adapter) => adapter.id)).toEqual(
+      IMPLEMENTED_PROVIDER_IDS,
+    );
+    expect(Object.keys(PROVIDER_ADAPTERS)).toEqual([...IMPLEMENTED_PROVIDER_IDS]);
   });
 
   it("keeps adapter roots equivalent to current provider root specs", () => {
-    for (const provider of PROVIDER_IDS) {
+    for (const provider of IMPLEMENTED_PROVIDER_IDS) {
       const adapter = getProviderAdapter(provider);
       expect(adapter).toBeDefined();
       expect(adapter?.roots()).toEqual(providerRootSpecs(provider));
@@ -31,7 +35,7 @@ describe("provider adapters", () => {
   });
 
   it("does not duplicate provider capabilities inside adapters", () => {
-    for (const provider of PROVIDER_IDS) {
+    for (const provider of IMPLEMENTED_PROVIDER_IDS) {
       const adapter = getProviderAdapter(provider);
       expect(adapter).toBeDefined();
       if (!adapter) throw new Error(`missing adapter for ${provider}`);

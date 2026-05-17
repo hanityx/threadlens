@@ -12,19 +12,26 @@ afterEach(() => {
 describe("parseConversationSearchProviders", () => {
   it("accepts comma-separated provider ids", () => {
     expect(
-      parseConversationSearchProviders("codex,chatgpt,copilot"),
+      parseConversationSearchProviders("codex,claude,copilot"),
     ).toEqual({
-      providers: ["codex", "chatgpt", "copilot"],
+      providers: ["codex", "claude", "copilot"],
       invalid: [],
     });
   });
 
   it("dedupes repeated providers and reports invalid tokens", () => {
     expect(
-      parseConversationSearchProviders(["codex,chatgpt", "codex,unknown"]),
+      parseConversationSearchProviders(["codex,claude", "codex,unknown"]),
     ).toEqual({
-      providers: ["codex", "chatgpt"],
+      providers: ["codex", "claude"],
       invalid: ["unknown"],
+    });
+  });
+
+  it("keeps internal ChatGPT legacy data out of public search scope", () => {
+    expect(parseConversationSearchProviders("codex,chatgpt")).toEqual({
+      providers: ["codex"],
+      invalid: ["chatgpt"],
     });
   });
 });

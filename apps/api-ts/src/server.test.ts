@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { FastifyInstance } from "fastify";
 import { RECOVERY_EXPORT_ROOT, UPDATE_CHECK_CACHE_FILE } from "./lib/constants";
 import { resetUpdateCheckCacheForTests } from "./lib/update-check";
-import { issueRecoveryBackupDownloadTokenForTests } from "./app/routes/platform";
+import { issueRecoveryBackupDownloadTokenForTests } from "./app/routes/platform/index";
 import { createServer } from "./server";
 
 vi.mock("./domains/threads/state.js", async (importOriginal) => {
