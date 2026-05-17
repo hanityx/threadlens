@@ -1,6 +1,6 @@
 import { readdir } from "node:fs/promises";
 import path from "node:path";
-import { CHAT_DIR, CODEX_HOME } from "../../lib/constants.js";
+import { CHAT_DIR, CODEX_HOME } from "../providers/constants.js";
 import { pathExists, readHeadLines } from "../../lib/utils.js";
 import { getOverviewTs } from "./overview.js";
 import { analyzeDeleteImpactTs } from "./impact.js";

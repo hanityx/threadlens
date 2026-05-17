@@ -226,6 +226,10 @@ export async function createServer(): Promise<FastifyInstance> {
         cb(null, true);
         return;
       }
+      if (origin === "null") {
+        cb(null, Boolean(process.env.THREADLENS_API_TOKEN?.trim()));
+        return;
+      }
       try {
         const parsed = new URL(origin);
         const hostname = parsed.hostname.toLowerCase();

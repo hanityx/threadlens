@@ -40,6 +40,68 @@ describe("shared api client helpers", () => {
     ).rejects.toThrow("/api/malformed returned malformed envelope");
   });
 
+  it("keeps versioned direct payloads intact for mixed legacy endpoints", async () => {
+    const response = new Response(
+      JSON.stringify({
+        ok: true,
+        provider: "codex",
+        action: "archive_local",
+        schema_version: "2026-02-27",
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+
+    await expect(
+      parseApiPayload<{ provider: string; action: string }>(response, "/api/provider-session-action", {
+        unwrapEnvelope: true,
+      }),
+    ).resolves.toMatchObject({
+      provider: "codex",
+      action: "archive_local",
+    });
+  });
+
+  it("rejects versioned malformed envelopes for normal envelope endpoints", async () => {
+    const response = new Response(
+      JSON.stringify({
+        ok: true,
+        schema_version: "2026-02-27",
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+
+    await expect(
+      parseApiPayload(response, "/api/threads", { unwrapEnvelope: true }),
+    ).rejects.toThrow("/api/threads returned malformed envelope");
+  });
+
+  it("rejects direct versioned payloads without ok true", async () => {
+    const response = new Response(
+      JSON.stringify({
+        schema_version: "2026-02-27",
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+
+    await expect(
+      parseApiPayload(response, "/api/provider-session-action", { unwrapEnvelope: true }),
+    ).rejects.toThrow("/api/provider-session-action returned malformed envelope");
+  });
+
+  it("rejects direct versioned payloads without the endpoint shape", async () => {
+    const response = new Response(
+      JSON.stringify({
+        ok: true,
+        schema_version: "2026-02-27",
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+
+    await expect(
+      parseApiPayload(response, "/api/provider-session-action", { unwrapEnvelope: true }),
+    ).rejects.toThrow("/api/provider-session-action returned malformed envelope");
+  });
+
   it("keeps envelope payloads intact for web-style consumers", async () => {
     const response = new Response(
       JSON.stringify({

@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { copyFile, mkdir, stat, unlink } from "node:fs/promises";
 import path from "node:path";
-import { BACKUP_ROOT, CHAT_DIR, CODEX_HOME } from "../../lib/constants.js";
+import { BACKUP_ROOT } from "../recovery/constants.js";
+import { CHAT_DIR, CODEX_HOME } from "../providers/constants.js";
 import { nowIsoUtc } from "../../lib/utils.js";
 import { analyzeDeleteImpactTs } from "./impact.js";
 import { findThreadArtifactsTs } from "./forensics.js";

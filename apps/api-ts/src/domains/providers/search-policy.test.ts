@@ -80,6 +80,20 @@ describe("defaultConversationSearchProviders", () => {
 });
 
 describe("provider action policy", () => {
+  it("keeps public workflow providers in provider session actions", () => {
+    expect(listProviderActionProviderIds()).toEqual([
+      "codex",
+      "claude",
+      "gemini",
+      "copilot",
+    ]);
+    for (const provider of ["codex", "claude", "gemini", "copilot"] as const) {
+      expect(supportsProviderAction(provider, "backup_local")).toBe(true);
+      expect(supportsProviderAction(provider, "archive_local")).toBe(true);
+      expect(supportsProviderAction(provider, "delete_local")).toBe(true);
+    }
+  });
+
   it("keeps internal read-only ChatGPT outside provider session actions", () => {
     expect(listProviderActionProviderIds()).not.toContain("chatgpt");
     expect(supportsProviderAction("chatgpt", "backup_local")).toBe(false);

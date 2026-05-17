@@ -93,6 +93,7 @@ describe("abort propagation", () => {
       await expect(
         mod.getProviderSessionScan("claude", 1, { signal: controller.signal }),
       ).rejects.toMatchObject({ name: "AbortError" });
+      await new Promise((resolve) => setImmediate(resolve));
       expect(walkFilesByExt).not.toHaveBeenCalled();
       expect(statMock).not.toHaveBeenCalled();
     } finally {

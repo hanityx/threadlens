@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { attachDesktopSmoke } = require("./smoke-runtime.cjs");
+const { attachDesktopSmoke, defaultRequestRendererFetch } = require("./smoke-runtime.cjs");
 
 test("attachDesktopSmoke completes immediately when load already finished", async () => {
   const events = new Map();
@@ -20,6 +20,7 @@ test("attachDesktopSmoke completes immediately when load already finished", asyn
       getURL() {
         return "file:///tmp/threadlens/index.html";
       },
+      executeJavaScript: async () => ({ ok: true, status: 200, stage: "fetch" }),
     },
   };
 
@@ -54,7 +55,29 @@ test("attachDesktopSmoke completes immediately when load already finished", asyn
   assert.deepEqual(exits, [0]);
   assert.ok(
     logs.some((message) =>
-      /\[desktop-smoke\] ready api=http:\/\/127\.0\.0\.1:8788 status=200/.test(message),
+      /\[desktop-smoke\] ready api=http:\/\/127\.0\.0\.1:8788 status=200 rendererFetch=200/.test(message),
     ),
   );
+});
+
+test("defaultRequestRendererFetch checks the renderer bridge token and api fetch path", async () => {
+  let script = "";
+  let userGesture = false;
+  const win = {
+    webContents: {
+      executeJavaScript: async (nextScript, nextUserGesture) => {
+        script = nextScript;
+        userGesture = nextUserGesture;
+        return { ok: true, status: 200, stage: "fetch" };
+      },
+    },
+  };
+
+  const result = await defaultRequestRendererFetch(win, "http://127.0.0.1:8788/api/version");
+
+  assert.deepEqual(result, { ok: true, status: 200, stage: "fetch" });
+  assert.equal(userGesture, true);
+  assert.match(script, /getApiAuthToken/);
+  assert.match(script, /x-threadlens-api-token/);
+  assert.match(script, /http:\/\/127\.0\.0\.1:8788\/api\/version/);
 });

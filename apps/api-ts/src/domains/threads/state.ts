@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { CODEX_GLOBAL_STATE_FILE } from "../../lib/constants.js";
+import { CODEX_GLOBAL_STATE_FILE } from "../providers/constants.js";
 import { cleanTitleText, readJsonFile } from "../../lib/utils.js";
 import { normalizeSafeThreadIds } from "./thread-id.js";
 

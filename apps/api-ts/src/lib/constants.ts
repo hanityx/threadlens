@@ -1,9 +1,8 @@
 /**
  * Shared path constants and configuration values.
  *
- * Every other `lib/` module in this package imports from here.
- * The file must **not** import from any sibling module to keep the
- * dependency graph acyclic.
+ * Keep this file limited to platform and API/runtime configuration.
+ * Provider and recovery roots live under their domain constants modules.
  */
 
 import path from "node:path";
@@ -14,11 +13,13 @@ import {
   DOCUMENTS_DIR,
   DOWNLOADS_DIR,
   HOME_DIR,
+  PROJECTS_DIR,
   PROJECT_ROOT,
   START_TS,
   STATE_DIR,
   resolveAppVersion,
   resolvePlatformAppDataDir,
+  resolvePlatformChatDir,
   resolvePlatformDocumentsDir,
   resolvePlatformDownloadsDir,
   resolvePlatformHomeDir,
@@ -31,11 +32,13 @@ export {
   DOCUMENTS_DIR,
   DOWNLOADS_DIR,
   HOME_DIR,
+  PROJECTS_DIR,
   PROJECT_ROOT,
   START_TS,
   STATE_DIR,
   resolveAppVersion,
   resolvePlatformAppDataDir,
+  resolvePlatformChatDir,
   resolvePlatformDocumentsDir,
   resolvePlatformDownloadsDir,
   resolvePlatformHomeDir,
@@ -65,83 +68,10 @@ export const ALERT_STATE_FILE = path.join(STATE_DIR, "alert_state.json");
 export const ALERT_EVENTS_FILE = path.join(STATE_DIR, "alert_events.jsonl");
 export const UPDATE_CHECK_CACHE_FILE = path.join(STATE_DIR, "update_check.json");
 
-/* ── Provider storage roots ───────────────────────────────────────── */
-export const PROJECTS_DIR = String(
-  process.env.THREADLENS_PROJECTS_DIR ?? process.env.PROJECTS_DIR ?? "",
-).trim();
-
-export function resolvePlatformChatDir(
-  platform = process.platform,
-  env: Record<string, string | undefined> = process.env,
-) {
-  if (platform === "darwin") {
-    return path.join(
-      resolvePlatformHomeDir(platform, env),
-      "Library",
-      "Application Support",
-      "com.openai.chat",
-    );
-  }
-  return path.join(resolvePlatformAppDataDir(platform, env), "com.openai.chat");
-}
-
-/* ── Codex paths ──────────────────────────────────────────────────── */
-
-export const CODEX_HOME =
-  process.env.CODEX_HOME ?? path.join(HOME_DIR, ".codex");
-export const CODEX_GLOBAL_STATE_FILE = path.join(
-  CODEX_HOME,
-  ".codex-global-state.json",
-);
-export const BACKUP_ROOT = path.join(DOCUMENTS_DIR, "ThreadLens", "backups");
-export const RECOVERY_EXPORT_ROOT = path.join(
-  DOWNLOADS_DIR,
-  "ThreadLens",
-  "recovery-exports",
-);
 export const THREADS_BOOT_CACHE_FILE = path.join(
   PROJECT_ROOT,
   ".run",
   "threads_boot_cache.json",
-);
-
-export const CHAT_DIR = resolvePlatformChatDir();
-export const CLAUDE_HOME = path.join(HOME_DIR, ".claude");
-export const CLAUDE_PROJECTS_DIR = path.join(CLAUDE_HOME, "projects");
-export const CLAUDE_TRANSCRIPTS_DIR = path.join(CLAUDE_HOME, "transcripts");
-export const GEMINI_HOME = path.join(HOME_DIR, ".gemini");
-export const GEMINI_HISTORY_DIR = path.join(GEMINI_HOME, "history");
-export const GEMINI_TMP_DIR = path.join(GEMINI_HOME, "tmp");
-export const GEMINI_ANTIGRAVITY_CONVERSATIONS_DIR = path.join(
-  GEMINI_HOME,
-  "antigravity",
-  "conversations",
-);
-export const COPILOT_VSCODE_GLOBAL = path.join(
-  APP_DATA_DIR,
-  "Code",
-  "User",
-  "globalStorage",
-  "github.copilot-chat",
-);
-export const COPILOT_VSCODE_WORKSPACE_STORAGE = path.join(
-  APP_DATA_DIR,
-  "Code",
-  "User",
-  "workspaceStorage",
-);
-export const COPILOT_CURSOR_GLOBAL = path.join(
-  APP_DATA_DIR,
-  "Cursor",
-  "User",
-  "globalStorage",
-  "github.copilot-chat",
-);
-export const COPILOT_CURSOR_WORKSPACE_STORAGE = path.join(
-  APP_DATA_DIR,
-  "Cursor",
-  "User",
-  "workspaceStorage",
 );
 
 /* ── API path sets ────────────────────────────────────────────────── */

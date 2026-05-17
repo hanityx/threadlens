@@ -4,7 +4,7 @@ import {
   CODEX_GLOBAL_STATE_FILE,
   CODEX_HOME,
   PROJECTS_DIR,
-} from "../../lib/constants.js";
+} from "../providers/constants.js";
 import {
   pathExists,
   readJsonFile,

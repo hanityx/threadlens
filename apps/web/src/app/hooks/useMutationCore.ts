@@ -3,7 +3,7 @@ import type {
   LayoutView,
   ProviderSessionActionResult,
 } from "@/shared/types";
-import { buildApiUrl } from "@/api";
+import { apiFetch } from "@/api";
 import {
   RUNTIME_BACKEND_DOWN_CACHED,
   formatMutationErrorMessage,
@@ -41,6 +41,7 @@ export type RecoveryBackupDownloadRequest = {
 };
 
 export const RECOVERY_BACKUP_ROOT_DEBOUNCE_MS = 250;
+export const RECOVERY_BACKUP_DOWNLOAD_URL_REVOKE_MS = 60_000;
 
 export function trimTrailingSlashes(value: string) {
   return String(value || "").trim().replace(/\/+$/, "");
@@ -107,12 +108,21 @@ export async function startRecoveryBackupDownload(options: RecoveryBackupDownloa
   if (!normalized) return;
   const normalizedDownloadToken = String(options.downloadToken || "").trim();
   if (!normalizedDownloadToken) return;
+  const downloadPath = `/api/recovery-backup-export/download?token=${encodeURIComponent(normalizedDownloadToken)}`;
+  const response = await apiFetch(downloadPath);
+  if (!response.ok) {
+    throw new Error(`recovery-backup-export-download status ${response.status}`);
+  }
+  const objectUrl = URL.createObjectURL(await response.blob());
+  const revokeObjectUrl = URL.revokeObjectURL.bind(URL);
   const anchor = document.createElement("a");
-  anchor.href = await buildApiUrl(
-    `/api/recovery-backup-export/download?token=${encodeURIComponent(normalizedDownloadToken)}`,
-  );
+  anchor.href = objectUrl;
   anchor.download = normalized.split("/").pop() || "threadlens-backup.zip";
+  anchor.style.display = "none";
+  document.body?.appendChild(anchor);
   anchor.click();
+  anchor.remove();
+  setTimeout(() => revokeObjectUrl(objectUrl), RECOVERY_BACKUP_DOWNLOAD_URL_REVOKE_MS);
 }
 
 export function buildGroupedProviderBackupResult(

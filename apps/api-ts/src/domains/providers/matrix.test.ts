@@ -5,7 +5,10 @@ vi.mock("@threadlens/shared-contracts", async (importOriginal) => {
     await importOriginal<typeof import("@threadlens/shared-contracts")>();
   return {
     ...actual,
-    getProviderCapability: () => ({ safe_cleanup: true, hard_delete: true }),
+    getProviderCapability: (provider: string) => ({
+      safe_cleanup: provider !== "chatgpt",
+      hard_delete: provider !== "chatgpt",
+    }),
   };
 });
 
@@ -200,6 +203,37 @@ describe("provider matrix notes", () => {
       capabilities: {
         read_sessions: false,
         analyze_context: false,
+        safe_cleanup: false,
+        hard_delete: false,
+      },
+    });
+  });
+
+  it("keeps detected ChatGPT read-only in matrix", () => {
+    const providers = buildProviderMatrixProviders({
+      codexHomes: [],
+      codexRootExists: false,
+      codexSessionLogs: 0,
+      chatGptRootExists: true,
+      chatGptSessionLogs: 3,
+      claudeRootExists: false,
+      claudeSessionLogs: 0,
+      geminiRootExists: false,
+      geminiSessionLogs: 0,
+      geminiRoots: [],
+      geminiNotes: "History, tmp, and checkpoint files.",
+      copilotProviderRoots: [],
+      copilotRootExists: false,
+      copilotSignalFiles: 0,
+    });
+    const chatgpt = providers.find((provider) => provider.provider === "chatgpt");
+
+    expect(chatgpt).toMatchObject({
+      status: "active",
+      capability_level: "read-only",
+      capabilities: {
+        read_sessions: true,
+        analyze_context: true,
         safe_cleanup: false,
         hard_delete: false,
       },

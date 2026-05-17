@@ -339,6 +339,89 @@ describe("useAppShellBehavior", () => {
     expect(changeLayoutView).toHaveBeenCalledWith("search");
   });
 
+  it("skips delayed search focus when document is gone after submit", async () => {
+    vi.useFakeTimers();
+    const originalDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
+    Reflect.deleteProperty(globalThis, "document");
+
+    const setHeaderSearchDraft = vi.fn();
+    const setHeaderSearchSeed = vi.fn();
+    const changeLayoutView = vi.fn();
+    const storage = new Map<string, string>();
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        location: { search: "?view=providers&provider=codex", pathname: "/", hash: "" },
+        history: { pushState: vi.fn(), replaceState: vi.fn() },
+        localStorage: {
+          getItem: (key: string) => storage.get(key) ?? null,
+          setItem: (key: string, value: string) => storage.set(key, value),
+        },
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        setTimeout,
+        clearTimeout,
+      },
+    });
+
+    let latest: ReturnType<typeof useAppShellBehavior> | undefined;
+    function Harness() {
+      latest = useAppShellBehavior({
+        layoutView: "providers",
+        providerView: "codex",
+        visibleProviderTabs: [{ id: "all" }, { id: "codex" }],
+        visibleProviderIdSet: new Set(["all", "codex"]),
+        providerSessionRows: [],
+        visibleRows: [],
+        showForensics: false,
+        showThreadDetail: false,
+        showSessionDetail: false,
+        selectedThreadId: "",
+        selectedSessionPath: "",
+        searchThreadContext: null,
+        analyzeErrorKey: "",
+        cleanupErrorKey: "",
+        headerSearchDraft: "claude",
+        threadSearchInputRef: { current: null },
+        detailLayoutRef: { current: null },
+        panelChunkWarmupStartedRef: { current: false },
+        desktopRouteAppliedRef: { current: false },
+        desktopRouteHydratingRef: { current: false },
+        desktopRouteRef: {
+          current: { view: "", provider: "", sessionId: "", filePath: "", threadId: "" },
+        },
+        changeLayoutView,
+        setLayoutView: vi.fn(),
+        setProviderView: vi.fn(),
+        setSelectedSessionPath: vi.fn(),
+        setSelectedThreadId: vi.fn(),
+        setAcknowledgedForensicsErrorKeys: vi.fn(),
+        setSearchThreadContext: vi.fn(),
+        setHeaderSearchDraft,
+        setHeaderSearchSeed,
+        prefetchProvidersData: vi.fn(),
+        prefetchRoutingData: vi.fn(),
+      });
+      return createElement("div");
+    }
+
+    try {
+      renderToStaticMarkup(createElement(Harness));
+      await latest?.handleHeaderSearchSubmit();
+      await vi.advanceTimersByTimeAsync(120);
+
+      expect(setHeaderSearchSeed).toHaveBeenCalledWith("claude");
+      expect(changeLayoutView).toHaveBeenCalledWith("search");
+    } finally {
+      vi.useRealTimers();
+      if (originalDocument) {
+        Object.defineProperty(globalThis, "document", originalDocument);
+      } else {
+        Reflect.deleteProperty(globalThis, "document");
+      }
+    }
+  });
+
   it("probes an exact provider session before honoring a local thread match in providers mode", async () => {
     const setSearchThreadContext = vi.fn();
     const setSelectedSessionPath = vi.fn();

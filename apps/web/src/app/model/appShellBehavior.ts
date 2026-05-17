@@ -1106,6 +1106,7 @@ export function useAppShellBehavior(options: {
     options.changeLayoutView("search");
     if (typeof window === "undefined") return;
     window.setTimeout(() => {
+      if (typeof document === "undefined") return;
       const input = document.querySelector(".search-panel .search-input") as HTMLInputElement | null;
       input?.focus();
       input?.select();

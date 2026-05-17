@@ -62,6 +62,7 @@ export async function getProviderSessionScan(
   limit = 80,
   options?: { forceRefresh?: boolean; signal?: AbortSignal },
 ): Promise<ProviderSessionScan> {
+  throwIfAborted(options?.signal);
   const safeLimit = Math.max(
     1,
     Math.min(MAX_CONVERSATION_SEARCH_SCAN_LIMIT, Number(limit) || 80),

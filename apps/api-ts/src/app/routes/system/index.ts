@@ -7,9 +7,9 @@ import {
 import { getExecutionGraphData } from "../../../execution-graph.js";
 import {
   APP_VERSION,
-  CODEX_HOME,
   START_TS,
-} from "../../../lib/constants.js";
+} from "../../../platform/paths.js";
+import { CODEX_HOME } from "../../../domains/providers/constants.js";
 import { checkForUpdates } from "../../../domains/ops/update-check.js";
 import {
   cleanTitleText,

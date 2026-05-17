@@ -74,6 +74,25 @@ export function resolvePlatformAppDataDir(
   return env.XDG_CONFIG_HOME ?? path.join(homeDir, ".config");
 }
 
+export const PROJECTS_DIR = String(
+  process.env.THREADLENS_PROJECTS_DIR ?? process.env.PROJECTS_DIR ?? "",
+).trim();
+
+export function resolvePlatformChatDir(
+  platform = process.platform,
+  env: Record<string, string | undefined> = process.env,
+) {
+  if (platform === "darwin") {
+    return path.join(
+      resolvePlatformHomeDir(platform, env),
+      "Library",
+      "Application Support",
+      "com.openai.chat",
+    );
+  }
+  return path.join(resolvePlatformAppDataDir(platform, env), "com.openai.chat");
+}
+
 export function resolvePlatformDocumentsDir(
   platform = process.platform,
   env: Record<string, string | undefined> = process.env,
