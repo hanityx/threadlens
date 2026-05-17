@@ -36,6 +36,15 @@ function isEnvelopeLike<T>(payload: unknown): payload is ApiEnvelope<T> {
   );
 }
 
+function isEnvelopeStatusLike(payload: unknown): payload is { ok: boolean; error?: unknown } {
+  return Boolean(
+    payload &&
+      typeof payload === "object" &&
+      "ok" in payload &&
+      typeof (payload as { ok?: unknown }).ok === "boolean",
+  );
+}
+
 async function parseJsonPayload(response: Response, path: string): Promise<unknown> {
   try {
     return await response.json();
@@ -68,11 +77,14 @@ export async function parseApiPayload<T>(
 
   const payload = await parseJsonPayload(response, path);
 
-  if (options.unwrapEnvelope && isEnvelopeLike<T>(payload)) {
-    if (!payload.ok || payload.data == null) {
-      throw new Error(payload.error || `${path} failed`);
+  if (options.unwrapEnvelope && isEnvelopeStatusLike(payload)) {
+    if (!payload.ok) {
+      throw new Error(String(payload.error || `${path} failed`));
     }
-    return payload.data;
+    if (!("data" in payload)) {
+      throw new Error(`${path} returned malformed envelope`);
+    }
+    return (payload as ApiEnvelope<T>).data as T;
   }
 
   return payload as T;

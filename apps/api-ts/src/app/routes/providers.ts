@@ -9,7 +9,7 @@ import {
   resolveAllowedProviderFilePath,
 } from "../../domains/providers/path-safety.js";
 import { getProviderMatrixTs } from "../../domains/providers/matrix.js";
-import { buildSessionTranscript } from "../../domains/providers/transcript.js";
+import { getProviderSessionTranscript } from "../../domains/providers/session-transcript-service.js";
 import { runProviderSessionAction } from "../../lib/providers.js";
 import {
   getProviderParserHealthTs,
@@ -372,22 +372,17 @@ export async function registerProviderRoutes(
         if (!filePath) {
           return reply.code(400).send(envelope(null, "file_path required"));
         }
-        const safeFilePath = await resolveAllowedProviderFilePath(provider, filePath);
-        if (!safeFilePath) {
-          return reply
-            .code(400)
-            .send(envelope(null, "file_path outside provider roots"));
-        }
-        const exists = await pathExists(safeFilePath);
-        if (!exists) {
-          return reply.code(404).send(envelope(null, "session file not found"));
-        }
-        const data = await buildSessionTranscript(
+        const result = await getProviderSessionTranscript(
           provider,
-          safeFilePath,
+          filePath,
           Number(limitRaw) || 300,
         );
-        return reply.code(200).send(withSchemaVersion(data));
+        if (!result.ok) {
+          return reply
+            .code(result.statusCode)
+            .send(envelope(null, result.message));
+        }
+        return reply.code(200).send(withSchemaVersion(result.data));
       } catch (error) {
         return reply
           .code(500)

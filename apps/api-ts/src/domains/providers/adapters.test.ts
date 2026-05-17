@@ -40,6 +40,13 @@ describe("provider adapters", () => {
     }
   });
 
+  it("keeps provider health optional and separate from capabilities", () => {
+    expect(getProviderAdapter("gemini")?.health).toEqual(expect.any(Function));
+    expect(getProviderAdapter("codex")?.health).toBeUndefined();
+    expect("health" in (getProviderAdapter("codex") ?? {})).toBe(false);
+    expect("capabilities" in (getProviderAdapter("gemini") ?? {})).toBe(false);
+  });
+
   it("defines session locators without forcing DB-backed providers into fake paths", () => {
     const fileLocator: ProviderSessionLocator = {
       kind: "file",

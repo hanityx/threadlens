@@ -17,6 +17,29 @@ describe("shared api client helpers", () => {
     });
   });
 
+  it("unwraps successful null envelope data without treating it as an error", async () => {
+    const response = new Response(
+      JSON.stringify({
+        ok: true,
+        data: null,
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+
+    await expect(parseApiPayload<null>(response, "/api/noop", { unwrapEnvelope: true })).resolves.toBeNull();
+  });
+
+  it("rejects successful envelopes that omit the data field", async () => {
+    const response = new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+
+    await expect(
+      parseApiPayload<null>(response, "/api/malformed", { unwrapEnvelope: true }),
+    ).rejects.toThrow("/api/malformed returned malformed envelope");
+  });
+
   it("keeps envelope payloads intact for web-style consumers", async () => {
     const response = new Response(
       JSON.stringify({

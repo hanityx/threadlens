@@ -12,6 +12,9 @@ describe("provider probe helpers", () => {
     expect(inferSessionId("/tmp/12345678-1234-1234-1234-1234567890ab.json")).toBe(
       "12345678-1234-1234-1234-1234567890ab",
     );
+    expect(inferSessionId("C:\\Users\\hwan\\.codex\\sessions\\win-session.jsonl")).toBe(
+      "win-session",
+    );
   });
 
   it("treats binary provider caches as readable id hints", async () => {
