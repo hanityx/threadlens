@@ -11,6 +11,11 @@ type ApiClientOptions = {
   errorMode?: ApiClientErrorMode;
 };
 
+const DIRECT_VERSIONED_PAYLOAD_PATHS = new Set([
+  "/api/local-cleanup",
+  "/api/provider-session-action",
+]);
+
 function formatApiError(
   path: string,
   status: number,
@@ -43,6 +48,33 @@ function isEnvelopeStatusLike(payload: unknown): payload is { ok: boolean; error
       "ok" in payload &&
       typeof (payload as { ok?: unknown }).ok === "boolean",
   );
+}
+
+function isRecord(payload: unknown): payload is Record<string, unknown> {
+  return Boolean(payload && typeof payload === "object");
+}
+
+function normalizeApiPath(path: string): string {
+  return path.split("?")[0] ?? path;
+}
+
+function isDirectVersionedPayloadPath(path: string): boolean {
+  return DIRECT_VERSIONED_PAYLOAD_PATHS.has(normalizeApiPath(path));
+}
+
+function isAllowedDirectVersionedPayload(path: string, payload: unknown): boolean {
+  if (!isRecord(payload)) return false;
+  if (!isDirectVersionedPayloadPath(path)) return false;
+  if (payload.ok !== true || typeof payload.schema_version !== "string") return false;
+
+  const normalizedPath = normalizeApiPath(path);
+  if (normalizedPath === "/api/provider-session-action") {
+    return typeof payload.provider === "string" && typeof payload.action === "string";
+  }
+  if (normalizedPath === "/api/local-cleanup") {
+    return typeof payload.mode === "string";
+  }
+  return false;
 }
 
 async function parseJsonPayload(response: Response, path: string): Promise<unknown> {
@@ -82,9 +114,21 @@ export async function parseApiPayload<T>(
       throw new Error(String(payload.error || `${path} failed`));
     }
     if (!("data" in payload)) {
+      if (isAllowedDirectVersionedPayload(path, payload)) {
+        return payload as T;
+      }
       throw new Error(`${path} returned malformed envelope`);
     }
     return (payload as ApiEnvelope<T>).data as T;
+  }
+
+  if (
+    options.unwrapEnvelope &&
+    isDirectVersionedPayloadPath(path) &&
+    isRecord(payload) &&
+    "schema_version" in payload
+  ) {
+    throw new Error(`${path} returned malformed envelope`);
   }
 
   return payload as T;
@@ -115,6 +159,13 @@ export function createApiClient(options: ApiClientOptions) {
       headers: await buildHeaders(init?.headers),
     });
     return parseApiPayload<T>(response, path, { unwrapEnvelope, errorMode });
+  }
+
+  async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+    return fetch(await buildApiUrl(path), {
+      ...init,
+      headers: await buildHeaders(init?.headers),
+    });
   }
 
   async function apiPost<T>(path: string, body: unknown, init?: RequestInit): Promise<T> {
@@ -148,6 +199,7 @@ export function createApiClient(options: ApiClientOptions) {
 
   return {
     buildApiUrl,
+    apiFetch,
     apiGet,
     apiPost,
     apiPostJsonAllowError,

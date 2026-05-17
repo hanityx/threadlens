@@ -10,7 +10,6 @@ const selectAllFilteredLabel = /^(Select all filtered)$/i;
 const forensicsErrorLabel = /^(Analysis\/dry-run request failed)$/i;
 const threadsHeading = /^(Thread|Cleanup|Threads|Codex Cleanup)$/i;
 const forensicsTitle = /^(Cleanup Check|Cleanup Check \/ Next Steps)$/i;
-const prepReadyLabel = /^(Deletion prep ready|Token|Prep)$/i;
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -47,11 +46,20 @@ test("live stack executes safe forensics dry-run flow when threads exist", async
   test.skip(rowCount === 0, "no thread rows available for live dry-run smoke");
 
   await threadsPanel.locator("tbody input[type='checkbox']").first().check();
+  const analyzeResponse = page.waitForResponse(
+    (response) => response.url().includes("/api/analyze-delete") && response.request().method() === "POST",
+  );
   await threadsPanel.getByRole("button", { name: bulkImpactLabel }).click();
-  await threadsPanel.getByRole("button", { name: bulkCleanupDryRunLabel }).click();
+  expect((await analyzeResponse).ok()).toBe(true);
 
   await expect(page.locator(".impact-panel").first()).toBeVisible();
   await expect(page.getByRole("heading", { name: forensicsTitle }).first()).toBeVisible();
-  await expect(page.getByText(prepReadyLabel).first()).toBeVisible();
+
+  const cleanupResponse = page.waitForResponse(
+    (response) => response.url().includes("/api/local-cleanup") && response.request().method() === "POST",
+  );
+  await threadsPanel.getByRole("button", { name: bulkCleanupDryRunLabel }).click();
+  expect((await cleanupResponse).ok()).toBe(true);
+  await expect(threadsPanel.getByRole("button", { name: /^Hard delete$/i })).toBeEnabled();
   await expect(page.getByText(forensicsErrorLabel)).toHaveCount(0);
 });

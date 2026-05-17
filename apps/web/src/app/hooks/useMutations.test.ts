@@ -5,6 +5,7 @@ import {
   buildRecoveryCenterPath,
   formatMutationHookError,
   performProviderHardDeleteFlow,
+  RECOVERY_BACKUP_DOWNLOAD_URL_REVOKE_MS,
   resolveBulkActionErrorState,
   resolveMutationBusyState,
   resolveQueryLoadingState,
@@ -18,6 +19,7 @@ import { removeBackupCleanupTargetsFromThreadsCache } from "@/app/hooks/useThrea
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe("performProviderHardDeleteFlow", () => {
@@ -161,6 +163,23 @@ describe("performProviderHardDeleteFlow", () => {
 });
 
 describe("startRecoveryBackupDownload", () => {
+  function stubDownloadRuntime(
+    response = new Response(new Blob(["fake-zip"], { type: "application/zip" }), { status: 200 }),
+  ) {
+    const fetchMock = vi.fn().mockResolvedValue(response);
+    const createObjectURL = vi.fn().mockReturnValue("blob:threadlens-export");
+    const revokeObjectURL = vi.fn();
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL,
+      revokeObjectURL,
+    });
+
+    return { createObjectURL, fetchMock, revokeObjectURL };
+  }
+
   it("no-ops when document is unavailable", async () => {
     await expect(
       startRecoveryBackupDownload({
@@ -194,12 +213,23 @@ describe("startRecoveryBackupDownload", () => {
     expect(createElement).not.toHaveBeenCalled();
   });
 
-  it("creates and clicks a tokenized download link for exported archives", async () => {
+  it("fetches and clicks a blob download link for exported archives", async () => {
+    vi.useFakeTimers();
+    const { createObjectURL, fetchMock, revokeObjectURL } = stubDownloadRuntime();
     const click = vi.fn();
-    const anchor = { href: "", download: "", click } as unknown as HTMLAnchorElement;
+    const remove = vi.fn();
+    const anchor = {
+      href: "",
+      download: "",
+      style: { display: "" },
+      click,
+      remove,
+    } as unknown as HTMLAnchorElement;
     const createElement = vi.fn().mockReturnValue(anchor);
+    const appendChild = vi.fn();
 
     vi.stubGlobal("document", {
+      body: { appendChild },
       createElement,
     });
 
@@ -208,23 +238,42 @@ describe("startRecoveryBackupDownload", () => {
       downloadToken: "dl-token-123",
     });
 
+    expect(fetchMock).toHaveBeenCalledWith("/api/recovery-backup-export/download?token=dl-token-123", {
+      headers: expect.any(Headers),
+    });
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
     expect(createElement).toHaveBeenCalledWith("a");
-    expect(anchor.href).toBe("/api/recovery-backup-export/download?token=dl-token-123");
+    expect(anchor.href).toBe("blob:threadlens-export");
     expect(anchor.download).toBe("export-20260330.zip");
+    expect(anchor.style.display).toBe("none");
+    expect(appendChild).toHaveBeenCalledWith(anchor);
     expect(click).toHaveBeenCalledTimes(1);
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(RECOVERY_BACKUP_DOWNLOAD_URL_REVOKE_MS);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:threadlens-export");
   });
 
-  it("uses the desktop api base url when the runtime bridge is available", async () => {
+  it("uses the desktop api base url and auth token when the runtime bridge is available", async () => {
+    const { fetchMock } = stubDownloadRuntime();
     const click = vi.fn();
-    const anchor = { href: "", download: "", click } as unknown as HTMLAnchorElement;
+    const anchor = {
+      href: "",
+      download: "",
+      style: { display: "" },
+      click,
+      remove: vi.fn(),
+    } as unknown as HTMLAnchorElement;
     const createElement = vi.fn().mockReturnValue(anchor);
 
     vi.stubGlobal("document", {
+      body: { appendChild: vi.fn() },
       createElement,
     });
     vi.stubGlobal("window", {
       threadLensDesktop: {
         getApiBaseUrl: vi.fn().mockResolvedValue("http://127.0.0.1:8788"),
+        getApiAuthToken: vi.fn().mockResolvedValue("desktop-token"),
       },
     });
 
@@ -233,9 +282,47 @@ describe("startRecoveryBackupDownload", () => {
       downloadToken: "dl-token-123",
     });
 
-    expect(anchor.href).toBe("http://127.0.0.1:8788/api/recovery-backup-export/download?token=dl-token-123");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8788/api/recovery-backup-export/download?token=dl-token-123",
+      {
+        headers: expect.any(Headers),
+      },
+    );
+    const headers = fetchMock.mock.calls[0]?.[1]?.headers as Headers;
+    expect(headers.get("x-threadlens-api-token")).toBe("desktop-token");
+    expect(anchor.href).toBe("blob:threadlens-export");
     expect(anchor.download).toBe("export-20260330.zip");
     expect(click).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not create a blob URL when the archive download request fails", async () => {
+    const { createObjectURL } = stubDownloadRuntime(
+      new Response(JSON.stringify({ ok: false, error: "api-auth-required" }), { status: 401 }),
+    );
+    const click = vi.fn();
+    const createElement = vi.fn().mockReturnValue({
+      href: "",
+      download: "",
+      style: { display: "" },
+      click,
+      remove: vi.fn(),
+    });
+
+    vi.stubGlobal("document", {
+      body: { appendChild: vi.fn() },
+      createElement,
+    });
+
+    await expect(
+      startRecoveryBackupDownload({
+        archivePath: "/tmp/threadlens/backups/export-20260330.zip",
+        downloadToken: "dl-token-123",
+      }),
+    ).rejects.toThrow("recovery-backup-export-download status 401");
+
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(createElement).not.toHaveBeenCalled();
+    expect(click).not.toHaveBeenCalled();
   });
 });
 

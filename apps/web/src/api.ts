@@ -55,6 +55,7 @@ const client = createApiClient({
 });
 
 export const buildApiUrl = client.buildApiUrl;
+export const apiFetch = client.apiFetch;
 export const apiGet = client.apiGet;
 export const apiPost = client.apiPost;
 export const apiPostJsonAllowError = client.apiPostJsonAllowError;

@@ -2,7 +2,7 @@ import { createReadStream } from "node:fs";
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { createInterface } from "node:readline";
-import { CHAT_DIR } from "../../lib/constants.js";
+import { CHAT_DIR } from "../providers/constants.js";
 import { isRecord, pathExists } from "../../lib/utils.js";
 import { resolveCodexSessionPathByThreadId } from "../providers/search.js";
 import { normalizeSafeThreadIds, resolveThreadCacheFile } from "./thread-id.js";

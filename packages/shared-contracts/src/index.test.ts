@@ -65,6 +65,18 @@ describe("shared contracts exports", () => {
     });
   });
 
+  it("keeps public workflow providers cleanup-capable by policy", () => {
+    for (const provider of ["codex", "claude", "gemini", "copilot"] as const) {
+      expect(getProviderCapability(provider)).toMatchObject({
+        read_sessions: true,
+        read_transcript: true,
+        analyze_context: true,
+        safe_cleanup: true,
+        hard_delete: true,
+      });
+    }
+  });
+
   it("supports safe string lookup for runtime payloads", () => {
     expect(findProviderCapability("chatgpt")?.read_transcript).toBe(false);
     expect(findProviderCapability("CLAUDE")?.search_scope_visibility).toBe("public");

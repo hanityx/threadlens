@@ -2,35 +2,20 @@ import path from "node:path";
 import {
   APP_DATA_DIR,
   HOME_DIR,
+  PROJECTS_DIR,
   resolvePlatformAppDataDir,
+  resolvePlatformChatDir,
   resolvePlatformHomeDir,
 } from "../../platform/paths.js";
 
 export {
   APP_DATA_DIR,
   HOME_DIR,
+  PROJECTS_DIR,
   resolvePlatformAppDataDir,
+  resolvePlatformChatDir,
   resolvePlatformHomeDir,
 };
-
-export const PROJECTS_DIR = String(
-  process.env.THREADLENS_PROJECTS_DIR ?? process.env.PROJECTS_DIR ?? "",
-).trim();
-
-export function resolvePlatformChatDir(
-  platform = process.platform,
-  env: Record<string, string | undefined> = process.env,
-) {
-  if (platform === "darwin") {
-    return path.join(
-      resolvePlatformHomeDir(platform, env),
-      "Library",
-      "Application Support",
-      "com.openai.chat",
-    );
-  }
-  return path.join(resolvePlatformAppDataDir(platform, env), "com.openai.chat");
-}
 
 export const CHAT_DIR = resolvePlatformChatDir();
 

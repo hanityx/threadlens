@@ -2,6 +2,7 @@ function attachDesktopSmoke({
   win,
   app,
   requestHealth,
+  requestRendererFetch = defaultRequestRendererFetch,
   apiBaseUrl,
   timeoutMs,
   logger = console,
@@ -22,18 +23,32 @@ function attachDesktopSmoke({
     app.exit(code);
   };
 
-  const runHealthCheck = async () => {
+  const runSmokeChecks = async () => {
     try {
       const status = await requestHealth(`${apiBaseUrl}/api/healthz`);
-      if (status >= 200 && status < 300) {
-        finish(0, `[desktop-smoke] ready api=${apiBaseUrl} status=${status}`);
+      if (status < 200 || status >= 300) {
+        finish(1, `[desktop-smoke] unexpected health status=${status}`, "error");
         return;
       }
-      finish(1, `[desktop-smoke] unexpected health status=${status}`, "error");
+
+      const rendererFetch = await requestRendererFetch(win, `${apiBaseUrl}/api/version`);
+      if (!rendererFetch?.ok) {
+        finish(
+          1,
+          `[desktop-smoke] renderer fetch failed status=${rendererFetch?.status ?? "unknown"} stage=${rendererFetch?.stage ?? "unknown"}`,
+          "error",
+        );
+        return;
+      }
+
+      finish(
+        0,
+        `[desktop-smoke] ready api=${apiBaseUrl} status=${status} rendererFetch=${rendererFetch.status}`,
+      );
     } catch (error) {
       finish(
         1,
-        `[desktop-smoke] health check failed: ${
+        `[desktop-smoke] checks failed: ${
           error instanceof Error ? error.message : String(error)
         }`,
         "error",
@@ -50,7 +65,7 @@ function attachDesktopSmoke({
   });
 
   win.webContents.once("dom-ready", () => {
-    void runHealthCheck();
+    void runSmokeChecks();
   });
 
   if (
@@ -59,10 +74,49 @@ function attachDesktopSmoke({
     && !win.webContents.isLoadingMainFrame()
     && win.webContents.getURL()
   ) {
-    queueMicrotask(runHealthCheck);
+    queueMicrotask(runSmokeChecks);
   }
+}
+
+function defaultRequestRendererFetch(win, url) {
+  if (typeof win.webContents.executeJavaScript !== "function") {
+    return Promise.resolve({
+      ok: false,
+      status: 0,
+      stage: "execute-javascript-unavailable",
+    });
+  }
+
+  return win.webContents.executeJavaScript(
+    `
+      (async () => {
+        try {
+          const token = await window.threadLensDesktop?.getApiAuthToken?.();
+          if (!token) {
+            return { ok: false, status: 0, stage: "auth-token" };
+          }
+          const response = await fetch(${JSON.stringify(url)}, {
+            headers: { "x-threadlens-api-token": token },
+          });
+          return {
+            ok: response.ok,
+            status: response.status,
+            stage: "fetch",
+          };
+        } catch (error) {
+          return {
+            ok: false,
+            status: 0,
+            stage: error instanceof Error ? error.message : String(error),
+          };
+        }
+      })()
+    `,
+    true,
+  );
 }
 
 module.exports = {
   attachDesktopSmoke,
+  defaultRequestRendererFetch,
 };

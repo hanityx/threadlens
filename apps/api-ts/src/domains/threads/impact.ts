@@ -3,7 +3,7 @@ import { createReadStream } from "node:fs";
 import { createInterface } from "node:readline";
 import {
   CHAT_DIR,
-} from "../../lib/constants.js";
+} from "../providers/constants.js";
 import {
   getProviderSessionsTs,
   resolveCodexSessionPathByThreadId,
