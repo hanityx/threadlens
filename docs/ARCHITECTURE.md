@@ -45,6 +45,7 @@ app/
       actions.ts
       matrix.ts
       search.ts
+      schemas.ts
       sessions.ts
       transcript.ts
     system/
@@ -57,10 +58,13 @@ app/
       forensics.ts
       open-folder.ts
       query.ts
+      schemas.ts
       state-actions.ts
       transcript.ts
+      types.ts
 domains/
   providers/
+    README.md
     adapters/
     services/
       actions/
@@ -71,6 +75,7 @@ domains/
     capabilities.ts
     constants.ts
     index.ts
+    provider-roots.ts
     registry.ts
     types.ts
   threads/
@@ -132,6 +137,16 @@ i18n/                localized message catalogs and locale loading
 - `platform/` owns OS/env/path abstraction and does not import app or domains
 - Provider services do not import provider-specific adapter modules directly; they go through the registry
 - Web, TUI, and desktop reuse the same API contracts
+
+## Provider Extension Model
+
+- `packages/shared-contracts/src/index.ts` is the shared provider capability source of truth
+- `domains/providers/capabilities.ts` narrows shared capabilities to api-ts implemented providers and route exposure
+- `domains/providers/registry.ts` registers reviewed-source adapters; ThreadLens does not load third-party provider code dynamically
+- `domains/providers/adapters/<provider>/` contains optional provider-specific behavior only when it is real behavior, not empty template files
+- `domains/providers/services/` contains cross-provider engines for search, actions, transcripts, and matrix data
+- `domains/providers/shared/` contains provider-domain root and path-safety helpers
+- `domains/providers/provider-extension-contract.test.ts` keeps shared ids, api implemented ids, adapters, roots, and route policy lists in lockstep
 
 ## Safety
 

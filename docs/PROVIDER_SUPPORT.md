@@ -3,10 +3,9 @@
 _Generated from `packages/shared-contracts/src/index.ts` and provider notes in `packages/shared-contracts/provider-support/generate-provider-support.mjs`. Do not hand-edit this file; run `pnpm docs:provider-support`._
 
 ThreadLens reads local conversation data from multiple provider-specific stores.
-This document distinguishes between:
+This document currently covers:
 
 - `primary workflow providers` used in the main search, sessions, and cleanup flows
-- `read-only cache sources` that can still appear in diagnostics or provider-specific inspection
 
 The primary search/session workflow currently covers `Codex`, `Claude`, `Gemini`, `Copilot`.
 

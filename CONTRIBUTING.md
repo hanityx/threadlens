@@ -60,7 +60,7 @@ For a deeper look at the backend layout and domain split, read [`docs/ARCHITECTU
 - TypeScript strict mode throughout
 - Zod for request validation (API)
 - React Query for data fetching (Web)
-- Web stays on React 18 while the Ink TUI currently tracks React 19
+- Web and the Ink TUI both target React 19
 - No hardcoded absolute paths — use `os.homedir()` / `path.resolve()` dynamically
 
 ### Safety Rules
@@ -68,14 +68,14 @@ For a deeper look at the backend layout and domain split, read [`docs/ARCHITECTU
 - **Never** delete local thread/session data without a token-verified flow
 - Keep backward compatibility for existing `/api/*` responses
 - Prefer incremental migration over large rewrites
-- Keep tracked docs and tracked scripts free of machine-specific paths and maintainer-only notes
+- Keep tracked docs and tracked scripts free of machine-specific paths and local-only notes
 
 ## Documentation
 
 Keep public docs focused on product behavior, public architecture, and reproducible setup. If your change touches tracked markdown:
 
-- No local paths, machine-specific traces, or internal codenames
-- No maintainer-only operating notes — those belong outside the tracked doc surface
+- No local paths, machine-specific traces, or non-public project labels
+- No local-only operating notes — those belong outside the tracked doc surface
 
 ## Reporting Issues
 
