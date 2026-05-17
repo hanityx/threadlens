@@ -82,11 +82,5 @@ export function fallbackDisplayTitle(
   source: string,
 ): string {
   const normalizedId = normalizeSearchText(sessionId) || "unknown";
-  if (provider === "chatgpt") {
-    if (source === "project-conversations") {
-      return `ChatGPT Project · ${normalizedId}`;
-    }
-    return `ChatGPT Conversation · ${normalizedId}`;
-  }
   return normalizedId;
 }

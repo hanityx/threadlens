@@ -4,7 +4,6 @@ import {
   HOME_DIR,
   PROJECTS_DIR,
   resolvePlatformAppDataDir,
-  resolvePlatformChatDir,
   resolvePlatformHomeDir,
 } from "../../platform/paths.js";
 
@@ -13,11 +12,8 @@ export {
   HOME_DIR,
   PROJECTS_DIR,
   resolvePlatformAppDataDir,
-  resolvePlatformChatDir,
   resolvePlatformHomeDir,
 };
-
-export const CHAT_DIR = resolvePlatformChatDir();
 
 export const CODEX_HOME =
   process.env.CODEX_HOME ?? path.join(HOME_DIR, ".codex");

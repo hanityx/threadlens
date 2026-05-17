@@ -18,7 +18,7 @@ export const Default: Story = {
 };
 
 export const Active: Story = {
-  args: { children: "ChatGPT", active: true },
+  args: { children: "Codex", active: true },
 };
 
 export const NonInteractive: Story = {
@@ -30,7 +30,7 @@ export const ChipSet: Story = {
     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
       <Chip active>All</Chip>
       <Chip>Claude</Chip>
-      <Chip>ChatGPT</Chip>
+      <Chip>Codex</Chip>
       <Chip>Gemini</Chip>
       <Chip>Copilot</Chip>
     </div>

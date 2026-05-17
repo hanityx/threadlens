@@ -42,7 +42,7 @@ describe("provider helpers", () => {
 
   it("maps provider data sources and readable labels", () => {
     expect(providerFromDataSource("claude_projects")).toBe("claude");
-    expect(providerFromDataSource("chat_exports")).toBe("chatgpt");
+    expect(providerFromDataSource("chat_exports")).toBeNull();
     expect(providerFromDataSource("copilot_cursor")).toBe("copilot");
     expect(providerFromDataSource("unknown_source")).toBeNull();
     expect(dataSourceLabel("global_state")).toBe("Global state");

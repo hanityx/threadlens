@@ -79,9 +79,7 @@ export async function providerSessionRootExists(
   provider: ProviderId,
   roots: ProviderRootSpec[],
 ): Promise<boolean> {
-  return provider === "chatgpt"
-    ? roots.length > 0
-    : (await Promise.all(roots.map((r) => walkRootExists(r.root)))).some(Boolean);
+  return (await Promise.all(roots.map((r) => walkRootExists(r.root)))).some(Boolean);
 }
 
 export async function collectProviderSessionCandidates(

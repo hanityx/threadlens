@@ -1,7 +1,6 @@
 import path from "node:path";
 
 import {
-  CHAT_DIR,
   CLAUDE_HOME,
   CLAUDE_PROJECTS_DIR,
   CODEX_HOME,
@@ -25,7 +24,6 @@ async function buildDataSourceInventoryTs() {
   const globalStatePath = path.join(CODEX_HOME, ".codex-global-state.json");
 
   const codexRoot = await scanPathStatsTs(CODEX_HOME, false, "*");
-  const chatRoot = await scanPathStatsTs(CHAT_DIR, false, "*");
   const claudeRoot = await scanPathStatsTs(CLAUDE_HOME, false, "*");
   const claudeProjects = await scanPathStatsTs(
     CLAUDE_PROJECTS_DIR,
@@ -61,7 +59,6 @@ async function buildDataSourceInventoryTs() {
     generated_at: nowIsoUtc(),
     sources: {
       codex_root: codexRoot,
-      chat_root: chatRoot,
       claude_root: claudeRoot,
       claude_projects: claudeProjects,
       gemini_root: geminiRoot,

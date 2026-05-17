@@ -4,7 +4,7 @@ export function isPolicyInjectionMessage(text: string): boolean {
     t.startsWith("# AGENTS.md instructions for") ||
     t.startsWith("<INSTRUCTIONS>") ||
     t.startsWith("<permissions instructions>") ||
-    /^You are (Codex|Assist|Claude|Gemini|GPT|ChatGPT|Copilot)\b/i.test(t) ||
+    /^You are (Codex|Assist|Claude|Gemini|Copilot)\b/i.test(t) ||
     (t.startsWith("# ") && t.includes("<INSTRUCTIONS>"))
   );
 }

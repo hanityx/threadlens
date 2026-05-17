@@ -1,19 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@threadlens/shared-contracts", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@threadlens/shared-contracts")>();
-  return {
-    ...actual,
-    getProviderCapability: (provider: string) => ({
-      safe_cleanup: provider !== "chatgpt",
-      hard_delete: provider !== "chatgpt",
-    }),
-  };
-});
-
 vi.mock("./constants.js", () => ({
-  CHAT_DIR: "/mock/chat",
   CODEX_HOME: "/mock/codex",
   CLAUDE_HOME: "/mock/claude",
   CLAUDE_PROJECTS_DIR: "/mock/claude/projects",
@@ -37,7 +24,6 @@ vi.mock("../../lib/utils.js", () => ({
   countJsonlFilesRecursive: vi.fn(async () => 1),
   nowIsoUtc: () => "2026-04-21T00:00:00.000Z",
   pathExists: vi.fn(async () => true),
-  quickFileCount: vi.fn(async () => 1),
   walkFilesByExt: vi.fn(async () => ["/mock/session.json"]),
 }));
 
@@ -51,8 +37,6 @@ vi.mock("./path-safety.js", () => ({
           { source: "cleanup_backups", root: "/mock/backups/copilot", exts: [".json"] },
         ]
       : [],
-  providerScanRootSpecs: async (provider: string) =>
-    provider === "chatgpt" ? [{ root: "/mock/chat/conversations" }] : [],
 }));
 
 vi.mock("./probe.js", () => ({
@@ -78,12 +62,6 @@ describe("provider matrix notes", () => {
           provider: "codex",
           evidence: expect.objectContaining({
             notes: "Thread logs, pinned state, and global state.",
-          }),
-        }),
-        expect.objectContaining({
-          provider: "chatgpt",
-          evidence: expect.objectContaining({
-            notes: "Desktop cache and conversation files.",
           }),
         }),
         expect.objectContaining({
@@ -152,8 +130,6 @@ describe("provider matrix notes", () => {
       codexHomes: ["/mock/codex"],
       codexRootExists: false,
       codexSessionLogs: 0,
-      chatGptRootExists: false,
-      chatGptSessionLogs: 0,
       claudeRootExists: false,
       claudeSessionLogs: 0,
       geminiRootExists: false,
@@ -178,13 +154,11 @@ describe("provider matrix notes", () => {
     });
   });
 
-  it("does not report ChatGPT cleanup readiness when its runtime roots are missing", () => {
+  it("does not include unsupported cache-only providers in the matrix", () => {
     const providers = buildProviderMatrixProviders({
       codexHomes: [],
       codexRootExists: false,
       codexSessionLogs: 0,
-      chatGptRootExists: false,
-      chatGptSessionLogs: 0,
       claudeRootExists: false,
       claudeSessionLogs: 0,
       geminiRootExists: false,
@@ -195,48 +169,7 @@ describe("provider matrix notes", () => {
       copilotRootExists: false,
       copilotSignalFiles: 0,
     });
-    const chatgpt = providers.find((provider) => provider.provider === "chatgpt");
 
-    expect(chatgpt).toMatchObject({
-      status: "missing",
-      capability_level: "unavailable",
-      capabilities: {
-        read_sessions: false,
-        analyze_context: false,
-        safe_cleanup: false,
-        hard_delete: false,
-      },
-    });
-  });
-
-  it("keeps detected ChatGPT read-only in matrix", () => {
-    const providers = buildProviderMatrixProviders({
-      codexHomes: [],
-      codexRootExists: false,
-      codexSessionLogs: 0,
-      chatGptRootExists: true,
-      chatGptSessionLogs: 3,
-      claudeRootExists: false,
-      claudeSessionLogs: 0,
-      geminiRootExists: false,
-      geminiSessionLogs: 0,
-      geminiRoots: [],
-      geminiNotes: "History, tmp, and checkpoint files.",
-      copilotProviderRoots: [],
-      copilotRootExists: false,
-      copilotSignalFiles: 0,
-    });
-    const chatgpt = providers.find((provider) => provider.provider === "chatgpt");
-
-    expect(chatgpt).toMatchObject({
-      status: "active",
-      capability_level: "read-only",
-      capabilities: {
-        read_sessions: true,
-        analyze_context: true,
-        safe_cleanup: false,
-        hard_delete: false,
-      },
-    });
+    expect(providers.map((provider) => provider.provider)).not.toContain("removed-provider");
   });
 });

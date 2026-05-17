@@ -4,7 +4,6 @@ import type {
 } from "@threadlens/shared-contracts";
 
 import {
-  CHAT_DIR,
   CODEX_HOME,
   CLAUDE_PROJECTS_DIR,
   CLAUDE_TRANSCRIPTS_DIR,
@@ -16,7 +15,6 @@ import {
   GEMINI_HISTORY_DIR,
   GEMINI_TMP_DIR,
 } from "../constants.js";
-import { discoverChatGptConversationRoots } from "../adapters/chatgpt/roots.js";
 import { discoverCodexCwdBackupRoots } from "../adapters/codex/roots.js";
 import {
   providerArchivedRootSpec,
@@ -60,11 +58,6 @@ export function providerRootSpecs(provider: ProviderId): ProviderRootSpec[] {
       },
       ...(archivedSpec ? [archivedSpec] : []),
       ...providerBackupRootSpecs(provider),
-    ]);
-  }
-  if (provider === "chatgpt") {
-    return validateProviderRootSpecs([
-      { source: "chat_cache", root: CHAT_DIR, exts: [".data"] },
     ]);
   }
   if (provider === "claude") {
@@ -124,10 +117,6 @@ export function providerRootSpecs(provider: ProviderId): ProviderRootSpec[] {
 export async function providerScanRootSpecs(
   provider: ProviderId,
 ): Promise<ProviderRootSpec[]> {
-  if (provider === "chatgpt") {
-    const discovered = await discoverChatGptConversationRoots();
-    return validateProviderRootSpecs(discovered);
-  }
   if (provider !== "codex") return providerRootSpecs(provider);
   const extraRoots = await discoverCodexCwdBackupRoots();
   return validateProviderRootSpecs([...providerRootSpecs(provider), ...extraRoots]);

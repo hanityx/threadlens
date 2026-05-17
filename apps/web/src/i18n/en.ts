@@ -949,8 +949,6 @@ export const en = {
     sourceClaudeTranscriptStore: "Claude transcript store",
     sourceGeminiTempSessions: "Gemini temp sessions",
     sourceGeminiConversationStore: "Gemini conversation store",
-    sourceChatgptConversationCache: "ChatGPT conversation cache",
-    sourceChatgptProjectConversations: "ChatGPT project conversations",
     sourceVsCodeGlobalTraces: "VS Code global traces",
     sourceCursorWorkspaceChats: "Cursor workspace chats",
     sourceVsCodeWorkspaceChats: "VS Code workspace chats",
@@ -958,7 +956,6 @@ export const en = {
     workbenchNoteClaude: "sessions / transcripts",
     workbenchNoteGemini: "history / checkpoints",
     workbenchNoteCopilot: "workspace chats / traces",
-    workbenchNoteChatgpt: "cache / conversations",
     workbenchNoteDefault: "local files",
     reasonEntry: "entry",
     reasonPrompt: "prompt",
@@ -1145,8 +1142,6 @@ export const en = {
     emptyOpensHereLabel: "Opens here",
     emptyOpensHereBody: "Transcript, backup prep, and file actions.",
     emptyTranscript: "Transcript not found for this session",
-    emptyTranscriptChatGptDesktopCache:
-      "ChatGPT desktop cache does not open transcript directly.",
     emptyTranscriptCopilotJson:
       "This Copilot JSON is empty. Open another workspace chat row.",
     emptyTranscriptUnsupportedFormat:
@@ -1195,7 +1190,7 @@ export const en = {
     inputPlaceholder: "Search your own words, filenames, or keywords...",
     inputAriaLabel: "Search conversations",
     helper:
-      "Search Codex, ChatGPT, Claude, Gemini, and Copilot in one pass.",
+      "Search Codex, Claude, Gemini, and Copilot in one pass.",
     guideTitle: "Jump targets",
     guideBody: "Open the raw session or jump into Codex cleanup.",
     openSessionHint: "Open session",

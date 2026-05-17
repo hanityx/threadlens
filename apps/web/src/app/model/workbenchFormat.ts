@@ -32,7 +32,6 @@ export const providerFromSourceKey = (sourceKey: string): string | null => {
   if (key.startsWith("claude")) return "claude";
   if (key.startsWith("gemini")) return "gemini";
   if (key.startsWith("copilot")) return "copilot";
-  if (key.startsWith("chat_")) return "chatgpt";
   if (
     key.startsWith("codex_") ||
     key === "sessions" ||

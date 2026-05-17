@@ -192,7 +192,6 @@ export function dataSourceLabel(sourceKey: string): string {
   if (key === "sessions") return "Sessions";
   if (key === "archived_sessions") return "Archived sessions";
   if (key === "codex_root") return "Codex root";
-  if (key === "chat_root") return "Chat root";
   if (key === "claude_root") return "Claude root";
   if (key === "claude_projects") return "Claude projects";
   if (key === "claude_transcripts") return "Claude transcripts";
@@ -212,7 +211,6 @@ export function providerFromDataSource(sourceKey: string): ProviderView | null {
   if (key.startsWith("claude")) return "claude";
   if (key.startsWith("gemini")) return "gemini";
   if (key.startsWith("copilot")) return "copilot";
-  if (key.startsWith("chat_")) return "chatgpt";
   if (
     key.startsWith("codex_") ||
     key === "sessions" ||

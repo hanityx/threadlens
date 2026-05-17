@@ -408,13 +408,10 @@ describe("api-ts direct endpoints", () => {
     expect(root.reports.length).toBeLessThanOrEqual(1);
   });
 
-  it("GET /api/provider-sessions supports chatgpt provider filter", async () => {
-    const res = await app.inject({ method: "GET", url: "/api/provider-sessions?provider=chatgpt&limit=10" });
-    expect(res.statusCode).toBe(200);
-    const payload = res.json();
-    const root = payload.data ?? payload;
-    expect(Array.isArray(root.providers)).toBe(true);
-    expect(root.providers.length).toBeLessThanOrEqual(1);
+  it("GET /api/provider-sessions rejects removed provider filters", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/provider-sessions?provider=removed-provider&limit=10" });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().ok).toBe(false);
   });
 
   it("GET /api/provider-parser-health rejects invalid provider", async () => {
@@ -499,14 +496,14 @@ describe("api-ts direct endpoints", () => {
     ).toBe(true);
   });
 
-  it("POST /api/provider-session-action keeps read-only providers outside the action route", async () => {
+  it("POST /api/provider-session-action rejects removed providers at the schema gate", async () => {
     const res = await app.inject({
       method: "POST",
       url: "/api/provider-session-action",
       payload: {
-        provider: "chatgpt",
+        provider: "removed-provider",
         action: "delete_local",
-        file_paths: ["/tmp/not-allowed.data"],
+        file_paths: ["/tmp/not-allowed.jsonl"],
         dry_run: true,
       },
     });
@@ -515,7 +512,7 @@ describe("api-ts direct endpoints", () => {
     const root = payload.data ?? payload;
     expect(root.ok).toBe(false);
     expect(String(root.error)).toContain("Invalid option");
-    expect(String(root.error)).not.toContain("chatgpt");
+    expect(String(root.error)).not.toContain("removed-provider");
   });
 
   it("POST /api/provider-session-action rejects invalid provider id", async () => {

@@ -84,7 +84,7 @@ export const ko = {
     stageBody: "스레드, 세션, 키워드 기준으로 찾습니다.",
     inputPlaceholder: "내 문장, 파일 이름, 키워드로 검색...",
     inputAriaLabel: "검색 입력",
-    helper: "Codex, ChatGPT, Claude, Gemini, Copilot 대화를 한 번에 검색합니다.",
+    helper: "Codex, Claude, Gemini, Copilot 대화를 한 번에 검색합니다.",
     guideTitle: "이동 대상",
     guideBody: "원본 세션을 열거나 Codex 정리 흐름으로 이동합니다.",
     openSessionHint: "세션 열기",
@@ -819,8 +819,6 @@ export const ko = {
     emptyOpensHereLabel: "여기서 열림",
     emptyOpensHereBody: "트랜스크립트, 백업 준비, 파일 작업입니다.",
     emptyTranscript: "이 세션의 트랜스크립트를 찾지 못했습니다.",
-    emptyTranscriptChatGptDesktopCache:
-      "ChatGPT 데스크톱 캐시는 트랜스크립트를 직접 열 수 없습니다.",
     emptyTranscriptCopilotJson:
       "이 Copilot JSON은 비어 있습니다. 다른 workspace 채팅 행을 열어 보세요.",
     emptyTranscriptUnsupportedFormat:
@@ -971,8 +969,6 @@ export const ko = {
     sourceClaudeTranscriptStore: "Claude 트랜스크립트 저장소",
     sourceGeminiTempSessions: "Gemini 임시 세션",
     sourceGeminiConversationStore: "Gemini 대화 저장소",
-    sourceChatgptConversationCache: "ChatGPT 대화 캐시",
-    sourceChatgptProjectConversations: "ChatGPT 프로젝트 대화",
     sourceVsCodeGlobalTraces: "VS Code 전역 추적",
     sourceCursorWorkspaceChats: "Cursor 워크스페이스 채팅",
     sourceVsCodeWorkspaceChats: "VS Code 워크스페이스 채팅",
@@ -980,7 +976,6 @@ export const ko = {
     workbenchNoteClaude: "sessions / transcripts",
     workbenchNoteGemini: "history / checkpoints",
     workbenchNoteCopilot: "workspace chats / traces",
-    workbenchNoteChatgpt: "캐시 / 대화",
     workbenchNoteDefault: "로컬 파일",
     reasonEntry: "시작",
     reasonPrompt: "프롬프트",

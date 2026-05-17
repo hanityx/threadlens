@@ -123,12 +123,12 @@ describe("overviewWorkbenchModel helpers", () => {
     expect(providerFromDataSource("claude_logs")).toBe("claude");
     expect(providerFromDataSource("gemini_sessions")).toBe("gemini");
     expect(providerFromDataSource("copilot_cache")).toBe("copilot");
-    expect(providerFromDataSource("chat_store")).toBe("chatgpt");
+    expect(providerFromDataSource("chat_store")).toBeNull();
     expect(providerFromDataSource("codex_history")).toBe("codex");
     expect(providerFromDataSource("sessions")).toBe("codex");
     expect(providerFromDataSource("unknown")).toBeNull();
 
-    mockReadStorageValue.mockReturnValue(JSON.stringify(["codex", "chatgpt", "claude", "codex", "ghost"]));
+    mockReadStorageValue.mockReturnValue(JSON.stringify(["codex", "removed-provider", "claude", "codex", "ghost"]));
     expect(readStoredSetupSelectionIds(new Set(["codex", "claude"]))).toEqual(["codex", "claude"]);
 
     mockReadStorageValue.mockReturnValue("not-json");

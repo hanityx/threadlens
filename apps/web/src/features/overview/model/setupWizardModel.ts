@@ -1,3 +1,4 @@
+import { findProviderCapability } from "@threadlens/shared-contracts";
 import {
   PROVIDER_VIEW_STORAGE_KEY,
   readPersistedSetupState,
@@ -43,7 +44,7 @@ function normalizeSelectedProviderIds(selectedProviderIds: string[]): string[] {
     new Set(
       selectedProviderIds
         .map((item) => String(item || "").trim())
-        .filter((item) => Boolean(item) && item !== "chatgpt"),
+        .filter((item) => Boolean(findProviderCapability(item))),
     ),
   );
 }

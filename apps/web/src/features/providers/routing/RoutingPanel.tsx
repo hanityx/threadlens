@@ -42,7 +42,6 @@ function providerFromSourceKey(sourceKey: string): string | null {
   ) {
     return "codex";
   }
-  if (sourceKey === "chat_root") return "chatgpt";
   if (sourceKey === "claude_root" || sourceKey === "claude_projects") return "claude";
   if (sourceKey === "gemini_root" || sourceKey === "gemini_tmp") return "gemini";
   if (sourceKey === "copilot_vscode" || sourceKey === "copilot_cursor") return "copilot";
@@ -55,8 +54,6 @@ function sessionSourceLabel(messages: Messages, source: string): string {
   if (source === "transcripts") return messages.routing.sourceClaudeTranscriptStore;
   if (source === "tmp") return messages.routing.sourceGeminiTempSessions;
   if (source === "antigravity_conversations") return messages.routing.sourceGeminiConversationStore;
-  if (source === "conversations") return messages.routing.sourceChatgptConversationCache;
-  if (source === "project-conversations") return messages.routing.sourceChatgptProjectConversations;
   if (source === "vscode_global") return messages.routing.sourceVsCodeGlobalTraces;
   if (source === "cursor_workspace_chats") return messages.routing.sourceCursorWorkspaceChats;
   if (source === "vscode_workspace_chats") return messages.routing.sourceVsCodeWorkspaceChats;
@@ -207,9 +204,6 @@ function providerWorkbenchNote(messages: Messages, provider: string): string {
   if (provider === "copilot") {
     return messages.routing.workbenchNoteCopilot;
   }
-  if (provider === "chatgpt") {
-    return messages.routing.workbenchNoteChatgpt;
-  }
   return messages.routing.workbenchNoteDefault;
 }
 
@@ -232,9 +226,6 @@ function flowReasonLabel(messages: Messages, reason: string): string {
   if (reason === "active-workspace-roots") return messages.routing.reasonActiveRoots;
   if (reason === "Active workspace roots.") return messages.routing.reasonActiveRoots;
   if (reason === "Apply execution constraints") return messages.routing.reasonRuntime;
-  if (reason.includes("Read-first cache model") || reason.includes("Desktop cache and conversation files")) {
-    return providerWorkbenchNote(messages, "chatgpt");
-  }
   if (reason.includes("Managed around session_id") || reason.includes("Session and transcript files")) {
     return providerWorkbenchNote(messages, "claude");
   }

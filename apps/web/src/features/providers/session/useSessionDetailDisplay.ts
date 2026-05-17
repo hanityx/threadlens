@@ -22,7 +22,7 @@ export function useSessionDetailDisplay(props: SessionDetailProps) {
     if (!selectedSession) return messages.sessionDetail.emptyTranscript;
     const capability = findProviderCapability(selectedSession.provider);
     if ((sessionTranscriptData?.message_count ?? 0) === 0 && capability && !capability.read_transcript) {
-      return messages.sessionDetail.emptyTranscriptChatGptDesktopCache;
+      return messages.sessionDetail.emptyTranscriptUnsupportedFormat;
     }
     if (
       (sessionTranscriptData?.message_count ?? 0) === 0 &&

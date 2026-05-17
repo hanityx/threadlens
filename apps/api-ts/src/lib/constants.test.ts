@@ -126,17 +126,6 @@ describe("runtime state paths", () => {
         XDG_CONFIG_HOME: "/mock_linux/.config",
       }),
     ).toBe("/mock_linux/.config");
-    expect(
-      mod.resolvePlatformChatDir("darwin", {
-        HOME: "/mock_dir",
-      }),
-    ).toBe("/mock_dir/Library/Application Support/com.openai.chat");
-    expect(
-      mod.resolvePlatformChatDir("win32", {
-        USERPROFILE: "C:/mock_dir",
-        APPDATA: "C:/mock_dir/AppData/Roaming",
-      }),
-    ).toBe("C:/mock_dir/AppData/Roaming/com.openai.chat");
   });
 
   it("defaults project discovery to an empty optional directory", async () => {

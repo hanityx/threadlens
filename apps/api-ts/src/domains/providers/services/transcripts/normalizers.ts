@@ -78,7 +78,6 @@ export function parseProviderLikeRole(
     role === "thinking" ||
     role === "gemini" ||
     role === "claude" ||
-    role === "chatgpt" ||
     role === "copilot"
   ) {
     return "assistant";

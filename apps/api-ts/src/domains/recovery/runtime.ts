@@ -17,7 +17,6 @@ import {
   BACKUP_ROOT,
   RECOVERY_EXPORT_ROOT,
   RECOVERY_PLAN_DIR,
-  CHAT_DIR,
 } from "./constants.js";
 import {
   pathExists,
@@ -26,7 +25,6 @@ import {
   nowIsoUtc,
   runCmdText,
   safeJsonParse,
-  countDirsWithPrefix,
   quickFileCount,
   countJsonlFilesRecursive,
 } from "../../lib/utils.js";
@@ -351,7 +349,6 @@ export async function getRuntimeHealthTs() {
 
   const roots = {
     codex_root: await pathExists(CODEX_HOME),
-    chat_root: await pathExists(CHAT_DIR),
     sessions_root: await pathExists(path.join(CODEX_HOME, "sessions")),
     archived_sessions_root: await pathExists(
       path.join(CODEX_HOME, "archived_sessions"),
@@ -363,11 +360,6 @@ export async function getRuntimeHealthTs() {
   };
 
   const quickCounts = {
-    chat_conversation_dirs: await countDirsWithPrefix(
-      CHAT_DIR,
-      "conversations-v3-",
-    ),
-    chat_project_dirs: await countDirsWithPrefix(CHAT_DIR, "project-g-p-"),
     sessions_jsonl_files: await countJsonlFilesRecursive(
       path.join(CODEX_HOME, "sessions"),
     ),

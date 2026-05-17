@@ -5,7 +5,6 @@ import {
   type ProviderId,
 } from "@threadlens/shared-contracts";
 import {
-  CHAT_DIR,
   CODEX_HOME,
 } from "../constants.js";
 import {
@@ -61,13 +60,6 @@ export function isAllowedProviderFilePath(
 ): boolean {
   if (provider === "codex" && isCodexCwdBackupPath(filePath)) {
     return true;
-  }
-  if (provider === "chatgpt") {
-    const ext = path.extname(filePath).toLowerCase();
-    if (ext !== ".data") return false;
-    if (!isPathInsideRoot(filePath, CHAT_DIR)) return false;
-    const normalized = path.resolve(filePath);
-    return /(^|[\\/])conversations-v3-[^\\/]+[\\/]/.test(normalized);
   }
   const specs = providerRootSpecs(provider);
   const ext = path.extname(filePath).toLowerCase();

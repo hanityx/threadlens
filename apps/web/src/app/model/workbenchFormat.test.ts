@@ -27,8 +27,8 @@ describe("workbench helpers", () => {
     expect(providerFromSourceKey("claude_project")).toBe("claude");
     expect(providerFromSourceKey("gemini_archive")).toBe("gemini");
     expect(providerFromSourceKey("copilot_workspace")).toBe("copilot");
-    expect(providerFromSourceKey("chat_sessions")).toBe("chatgpt");
     expect(providerFromSourceKey("global_state")).toBe("codex");
+    expect(providerFromSourceKey("chat_sessions")).toBeNull();
     expect(providerFromSourceKey("unknown_source")).toBeNull();
   });
 
