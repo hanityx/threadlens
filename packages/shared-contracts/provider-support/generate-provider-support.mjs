@@ -20,7 +20,7 @@ const PROVIDER_PATH_NOTES = {
   copilot:
     "resolves local app-data roots by platform: macOS `~/Library/Application Support`, Windows `%APPDATA%`, and Linux `XDG_CONFIG_HOME` or `~/.config`.",
   chatgpt:
-    "reads the local desktop cache for the installed app; this provider remains read-only and stays outside the default search and cleanup flow.",
+    "reads the local desktop cache for the installed app; this provider remains read-only and stays outside the default search and provider session action workflow.",
 };
 
 const PROVIDER_WORKFLOW_NOTES = {
@@ -47,7 +47,7 @@ const PROVIDER_WORKFLOW_NOTES = {
   chatgpt: [
     "Read-only desktop cache source.",
     "Useful for desktop cache discovery and provider diagnostics.",
-    "Excluded from the default search scope and destructive cleanup workflow.",
+    "Excluded from the default search scope and provider session action workflow.",
   ],
 };
 
@@ -145,7 +145,7 @@ This document distinguishes between:
 - \`read-only cache sources\` that can still appear in diagnostics or provider-specific inspection
 
 The primary search/session workflow currently covers ${publicScope.map((label) => `\`${label}\``).join(", ")}.
-${internalScope.length > 0 ? `${internalScope.map((label) => `\`${label}\``).join(", ")} is currently treated as a read-only desktop cache source. It remains available to the provider registry, but stays outside the default search scope and destructive cleanup workflow.` : ""}
+${internalScope.length > 0 ? `${internalScope.map((label) => `\`${label}\``).join(", ")} is currently treated as a read-only desktop cache source. It remains available to the provider registry, but stays outside the default search scope and provider session action workflow.` : ""}
 
 ## Capability Registry
 

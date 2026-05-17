@@ -6,45 +6,41 @@
  * dependency graph acyclic.
  */
 
-import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import {
+  APP_DATA_DIR,
+  APP_VERSION,
+  DEFAULT_PORT,
+  DOCUMENTS_DIR,
+  DOWNLOADS_DIR,
+  HOME_DIR,
+  PROJECT_ROOT,
+  START_TS,
+  STATE_DIR,
+  resolveAppVersion,
+  resolvePlatformAppDataDir,
+  resolvePlatformDocumentsDir,
+  resolvePlatformDownloadsDir,
+  resolvePlatformHomeDir,
+} from "../platform/paths.js";
 
-/* ── Build-time paths ─────────────────────────────────────────────── */
+export {
+  APP_DATA_DIR,
+  APP_VERSION,
+  DEFAULT_PORT,
+  DOCUMENTS_DIR,
+  DOWNLOADS_DIR,
+  HOME_DIR,
+  PROJECT_ROOT,
+  START_TS,
+  STATE_DIR,
+  resolveAppVersion,
+  resolvePlatformAppDataDir,
+  resolvePlatformDocumentsDir,
+  resolvePlatformDownloadsDir,
+  resolvePlatformHomeDir,
+};
 
-const THIS_DIR = process.env.THREADLENS_PROJECT_ROOT
-  ? path.join(process.env.THREADLENS_PROJECT_ROOT, ".api-root")
-  : path.dirname(fileURLToPath(import.meta.url));
-// lib/ → src/ → api-ts/ → apps/ → project root
-export const PROJECT_ROOT =
-  process.env.THREADLENS_PROJECT_ROOT ??
-  path.resolve(THIS_DIR, "../../../..");
-
-function resolveAppVersion(projectRoot = PROJECT_ROOT) {
-  const envVersion = process.env.APP_VERSION?.trim();
-  if (envVersion) return envVersion;
-
-  try {
-    const packageJsonPath = path.join(projectRoot, "package.json");
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8")) as {
-      version?: unknown;
-    };
-    const packageVersion = typeof packageJson.version === "string"
-      ? packageJson.version.trim()
-      : "";
-    if (packageVersion) return packageVersion;
-  } catch {
-    // Fall back to a stable placeholder when package metadata is unavailable.
-  }
-
-  return "0.1.0";
-}
-
-/* ── Server config ────────────────────────────────────────────────── */
-
-export const DEFAULT_PORT = Number(process.env.API_TS_PORT ?? 8788);
-export const APP_VERSION = resolveAppVersion();
-export const START_TS = Date.now();
 export const THREADLENS_RELEASE_REPO = String(
   process.env.THREADLENS_RELEASE_REPO ?? "hanityx/threadlens",
 ).trim();
@@ -53,16 +49,7 @@ export const THREADLENS_LATEST_RELEASE_URL = `${THREADLENS_RELEASES_URL}/latest`
 export const THREADLENS_GITHUB_RELEASE_API_URL =
   `https://api.github.com/repos/${THREADLENS_RELEASE_REPO}/releases/latest`;
 
-const STATE_DIR_OVERRIDE = String(
-  process.env.THREADLENS_STATE_DIR ?? "",
-).trim();
-
 /* ── Project-level files ──────────────────────────────────────────── */
-
-export const STATE_DIR = path.resolve(
-  PROJECT_ROOT,
-  STATE_DIR_OVERRIDE || path.join(".run", "state"),
-);
 export const ROADMAP_STATE_FILE = path.join(STATE_DIR, "roadmap_state.json");
 export const ROADMAP_LOG_FILE = path.join(
   STATE_DIR,
@@ -79,53 +66,9 @@ export const ALERT_EVENTS_FILE = path.join(STATE_DIR, "alert_events.jsonl");
 export const UPDATE_CHECK_CACHE_FILE = path.join(STATE_DIR, "update_check.json");
 
 /* ── Provider storage roots ───────────────────────────────────────── */
-
-export function resolvePlatformHomeDir(
-  platform = process.platform,
-  env: Record<string, string | undefined> = process.env,
-) {
-  if (platform === "win32") {
-    const userProfile = env.USERPROFILE?.trim();
-    if (userProfile) return userProfile;
-    const homeDrive = env.HOMEDRIVE?.trim() ?? "";
-    const homePath = env.HOMEPATH?.trim() ?? "";
-    if (homeDrive && homePath) return `${homeDrive}${homePath}`;
-  }
-  return env.HOME ?? "";
-}
-
-export const HOME_DIR = resolvePlatformHomeDir();
 export const PROJECTS_DIR = String(
   process.env.THREADLENS_PROJECTS_DIR ?? process.env.PROJECTS_DIR ?? "",
 ).trim();
-
-export function resolvePlatformAppDataDir(
-  platform = process.platform,
-  env: Record<string, string | undefined> = process.env,
-) {
-  const homeDir = resolvePlatformHomeDir(platform, env);
-  if (platform === "darwin") {
-    return path.join(homeDir, "Library", "Application Support");
-  }
-  if (platform === "win32") {
-    return env.APPDATA ?? path.join(homeDir, "AppData", "Roaming");
-  }
-  return env.XDG_CONFIG_HOME ?? path.join(homeDir, ".config");
-}
-
-export function resolvePlatformDocumentsDir(
-  platform = process.platform,
-  env: Record<string, string | undefined> = process.env,
-) {
-  return path.join(resolvePlatformHomeDir(platform, env), "Documents");
-}
-
-export function resolvePlatformDownloadsDir(
-  platform = process.platform,
-  env: Record<string, string | undefined> = process.env,
-) {
-  return path.join(resolvePlatformHomeDir(platform, env), "Downloads");
-}
 
 export function resolvePlatformChatDir(
   platform = process.platform,
@@ -150,8 +93,6 @@ export const CODEX_GLOBAL_STATE_FILE = path.join(
   CODEX_HOME,
   ".codex-global-state.json",
 );
-export const DOCUMENTS_DIR = resolvePlatformDocumentsDir();
-export const DOWNLOADS_DIR = resolvePlatformDownloadsDir();
 export const BACKUP_ROOT = path.join(DOCUMENTS_DIR, "ThreadLens", "backups");
 export const RECOVERY_EXPORT_ROOT = path.join(
   DOWNLOADS_DIR,
@@ -164,7 +105,6 @@ export const THREADS_BOOT_CACHE_FILE = path.join(
   "threads_boot_cache.json",
 );
 
-export const APP_DATA_DIR = resolvePlatformAppDataDir();
 export const CHAT_DIR = resolvePlatformChatDir();
 export const CLAUDE_HOME = path.join(HOME_DIR, ".claude");
 export const CLAUDE_PROJECTS_DIR = path.join(CLAUDE_HOME, "projects");

@@ -51,6 +51,15 @@ describe("provider adapters", () => {
     expect("capabilities" in (getProviderAdapter("gemini") ?? {})).toBe(false);
   });
 
+  it("keeps session scanning as an optional adapter extension point", () => {
+    for (const provider of IMPLEMENTED_PROVIDER_IDS) {
+      const adapter = getProviderAdapter(provider);
+      expect(adapter).toBeDefined();
+      expect(adapter?.scanRoots).toEqual(expect.any(Function));
+      expect(adapter?.scanSessions).toBeUndefined();
+    }
+  });
+
   it("defines session locators without forcing DB-backed providers into fake paths", () => {
     const fileLocator: ProviderSessionLocator = {
       kind: "file",

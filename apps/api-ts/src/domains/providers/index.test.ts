@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { ProviderId } from "@threadlens/shared-contracts";
-import { APP_DATA_DIR, CHAT_DIR } from "../../lib/constants.js";
+import { APP_DATA_DIR, CHAT_DIR } from "./constants.js";
 import {
   buildProviderActionToken,
   codexTranscriptSearchRoots,

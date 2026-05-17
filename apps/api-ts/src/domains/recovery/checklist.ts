@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { RECOVERY_CHECKLIST_FILE } from "../../lib/constants.js";
+import { RECOVERY_CHECKLIST_FILE } from "./constants.js";
 import { isRecord, readJsonFile } from "../../lib/utils.js";
 
 export type RecoveryChecklistItem = {

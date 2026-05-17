@@ -7,7 +7,12 @@ import {
 } from "./capabilities.js";
 import { getGeminiProviderHealth } from "./adapters/gemini/health.js";
 import { providerRootSpecs, providerScanRootSpecs } from "./provider-roots.js";
-import type { ProviderHealthEvidence, ProviderRootSpec } from "./types.js";
+import type {
+  ProviderHealthEvidence,
+  ProviderRootSpec,
+  ProviderSessionCandidate,
+  ProviderSessionRow,
+} from "./types.js";
 
 export type ProviderSessionLocator =
   | { kind: "file"; file_path: string }
@@ -18,6 +23,7 @@ export type ProviderAdapter = {
   label: string;
   roots(): ProviderRootSpec[];
   scanRoots?(): Promise<ProviderRootSpec[]>;
+  scanSessions?(): Promise<ProviderSessionCandidate[] | ProviderSessionRow[]>;
   health?(): Promise<ProviderHealthEvidence>;
 };
 

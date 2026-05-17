@@ -33,6 +33,14 @@ export type ProviderSessionRow = {
   probe: ProviderSessionProbe;
 };
 
+export type ProviderSessionCandidate = {
+  source: string;
+  file_path: string;
+  size_bytes: number;
+  mtime: string;
+  mtime_ms: number;
+};
+
 export type ProviderSessionScan = {
   provider: ProviderId;
   name: string;

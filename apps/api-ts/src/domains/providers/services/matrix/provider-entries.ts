@@ -8,7 +8,7 @@ import {
   COPILOT_CURSOR_WORKSPACE_STORAGE,
   COPILOT_VSCODE_GLOBAL,
   COPILOT_VSCODE_WORKSPACE_STORAGE,
-} from "../../../../lib/constants.js";
+} from "../../constants.js";
 import {
   providerLabel,
   supportsProviderCleanup,
@@ -33,18 +33,21 @@ export function buildProviderMatrixProviders(
   const claudeStatus = providerStatus(signals.claudeRootExists, signals.claudeSessionLogs);
   const geminiStatus = providerStatus(signals.geminiRootExists, signals.geminiSessionLogs);
   const copilotStatus = providerStatus(signals.copilotRootExists, signals.copilotSignalFiles);
+  const codexCleanupReady = supportsProviderCleanup("codex") && codexStatus !== "missing";
+  const codexHardDeleteReady =
+    supportsProviderHardDelete("codex") && codexStatus !== "missing";
 
   return [
     {
       provider: "codex" as ProviderId,
       name: providerLabel("codex"),
       status: codexStatus,
-      capability_level: capabilityLevel(codexStatus, supportsProviderCleanup("codex")),
+      capability_level: capabilityLevel(codexStatus, codexCleanupReady),
       capabilities: {
-        read_sessions: true,
-        analyze_context: true,
-        safe_cleanup: supportsProviderCleanup("codex"),
-        hard_delete: supportsProviderHardDelete("codex"),
+        read_sessions: signals.codexRootExists,
+        analyze_context: signals.codexSessionLogs > 0,
+        safe_cleanup: codexCleanupReady,
+        hard_delete: codexHardDeleteReady,
       },
       evidence: {
         roots: signals.codexHomes,

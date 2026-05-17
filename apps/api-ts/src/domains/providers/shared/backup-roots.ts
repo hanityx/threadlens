@@ -1,10 +1,8 @@
 import path from "node:path";
 import type { ProviderId } from "@threadlens/shared-contracts";
 
-import {
-  BACKUP_ROOT,
-  CODEX_HOME,
-} from "../../../lib/constants.js";
+import { BACKUP_ROOT } from "../../recovery/constants.js";
+import { CODEX_HOME } from "../constants.js";
 import type { ProviderRootSpec } from "../types.js";
 
 function providerActionBackupRoots(provider: ProviderId): string[] {

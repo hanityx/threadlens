@@ -79,7 +79,7 @@ export function listProviderActionProviderIds(): ProviderId[] {
   return implementedCapabilities()
     .filter(
       (capability) =>
-        capability.read_sessions || capability.safe_cleanup || capability.hard_delete,
+        capability.safe_cleanup || capability.hard_delete,
     )
     .map((capability) => capability.id);
 }
@@ -91,7 +91,7 @@ export function supportsProviderAction(
   const capability = findProviderCapability(provider);
   if (!capability) return false;
   if (action === "backup_local") {
-    return capability.read_sessions === true;
+    return capability.read_sessions === true && capability.safe_cleanup === true;
   }
   if (action === "delete_local") {
     return capability.safe_cleanup === true && capability.hard_delete === true;

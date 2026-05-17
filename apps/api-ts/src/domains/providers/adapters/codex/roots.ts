@@ -1,10 +1,10 @@
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import {
-  BACKUP_ROOT,
   CODEX_HOME,
   HOME_DIR,
-} from "../../../../lib/constants.js";
+} from "../../constants.js";
+import { BACKUP_ROOT } from "../../../recovery/constants.js";
 import type {
   ProviderRootSpec,
 } from "../../types.js";

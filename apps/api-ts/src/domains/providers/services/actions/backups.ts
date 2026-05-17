@@ -1,6 +1,7 @@
 import path from "node:path";
 import { copyFile, mkdir, realpath, writeFile } from "node:fs/promises";
-import { BACKUP_ROOT, HOME_DIR } from "../../../../lib/constants.js";
+import { HOME_DIR } from "../../constants.js";
+import { BACKUP_ROOT } from "../../../recovery/constants.js";
 import { nowIsoUtc } from "../../../../lib/utils.js";
 import {
   isPathInsideRoot,
