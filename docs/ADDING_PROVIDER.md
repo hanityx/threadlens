@@ -141,7 +141,8 @@ Destructive actions must keep the existing safety rules:
 - backup behavior must not be weakened
 
 If the provider should be read-only, set `safe_cleanup: false` and
-`hard_delete: false`.
+`hard_delete: false`. Read-only providers are excluded from provider session
+actions, including `backup_local`.
 
 ## 6. Add Tests
 

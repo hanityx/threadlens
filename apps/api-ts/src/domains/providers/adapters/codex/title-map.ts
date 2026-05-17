@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { CODEX_HOME } from "../../../../lib/constants.js";
+import { CODEX_HOME } from "../../constants.js";
 import { isRecord, safeJsonParse } from "../../../../lib/utils.js";
 import { normalizeDetectedTitle } from "../../title-normalization.js";
 

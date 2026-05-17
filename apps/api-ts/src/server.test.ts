@@ -471,7 +471,7 @@ describe("api-ts direct endpoints", () => {
     ).toBe(true);
   });
 
-  it("POST /api/provider-session-action blocks cleanup on read-only providers", async () => {
+  it("POST /api/provider-session-action keeps read-only providers outside the action route", async () => {
     const res = await app.inject({
       method: "POST",
       url: "/api/provider-session-action",
@@ -486,7 +486,8 @@ describe("api-ts direct endpoints", () => {
     const payload = res.json();
     const root = payload.data ?? payload;
     expect(root.ok).toBe(false);
-    expect(root.error).toBe("cleanup-disabled-provider");
+    expect(String(root.error)).toContain("Invalid option");
+    expect(String(root.error)).not.toContain("chatgpt");
   });
 
   it("POST /api/provider-session-action rejects invalid provider id", async () => {

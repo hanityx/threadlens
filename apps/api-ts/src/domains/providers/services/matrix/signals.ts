@@ -9,7 +9,7 @@ import {
   COPILOT_CURSOR_WORKSPACE_STORAGE,
   COPILOT_VSCODE_GLOBAL,
   COPILOT_VSCODE_WORKSPACE_STORAGE,
-} from "../../../../lib/constants.js";
+} from "../../constants.js";
 import {
   countFilesRecursiveByExt,
   countJsonlFilesRecursive,

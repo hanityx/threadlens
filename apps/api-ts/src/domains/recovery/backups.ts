@@ -1,6 +1,6 @@
 import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
-import { BACKUP_ROOT } from "../../lib/constants.js";
+import { BACKUP_ROOT } from "./constants.js";
 import { walkFiles } from "../../lib/utils.js";
 
 export type RecoveryBackupSet = {

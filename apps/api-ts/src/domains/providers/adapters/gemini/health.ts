@@ -3,7 +3,7 @@ import {
   GEMINI_HISTORY_DIR,
   GEMINI_HOME,
   GEMINI_TMP_DIR,
-} from "../../../../lib/constants.js";
+} from "../../constants.js";
 import { countFilesRecursiveByExt, pathExists } from "../../../../lib/utils.js";
 import type { ProviderHealthEvidence } from "../../types.js";
 

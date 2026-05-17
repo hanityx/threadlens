@@ -18,7 +18,7 @@ import {
   RECOVERY_EXPORT_ROOT,
   RECOVERY_PLAN_DIR,
   CHAT_DIR,
-} from "../../lib/constants.js";
+} from "./constants.js";
 import {
   pathExists,
   walkFiles,

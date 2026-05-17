@@ -25,6 +25,18 @@ module.exports = {
       from: { path: "^apps/api-ts/src/domains/providers/services/" },
       to: { path: "^apps/api-ts/src/app/" },
     },
+    {
+      name: "providers-must-not-import-threads-domain",
+      severity: "error",
+      from: {
+        path: "^apps/api-ts/src/domains/providers/",
+        pathNot: "\\.test\\.ts$",
+      },
+      to: {
+        path: "^apps/api-ts/src/domains/threads/",
+        pathNot: "^apps/api-ts/src/domains/threads/query\\.ts$",
+      },
+    },
   ],
   options: {
     doNotFollow: {

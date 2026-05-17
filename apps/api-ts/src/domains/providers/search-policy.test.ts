@@ -1,5 +1,9 @@
-import { SEARCHABLE_PROVIDER_IDS } from "@threadlens/shared-contracts";
 import { describe, expect, it } from "vitest";
+import {
+  listProviderActionProviderIds,
+  listSearchableProviderIds,
+  supportsProviderAction,
+} from "./capabilities.js";
 import {
   buildConversationSearchProviderBudgets,
   defaultConversationSearchProviders,
@@ -68,9 +72,18 @@ describe("isMetadataOnlyConversationQuery", () => {
 });
 
 describe("defaultConversationSearchProviders", () => {
-  it("tracks the shared searchable provider contract", () => {
+  it("tracks the implemented api-ts searchable provider policy", () => {
     expect(defaultConversationSearchProviders()).toEqual([
-      ...SEARCHABLE_PROVIDER_IDS,
+      ...listSearchableProviderIds(),
     ]);
+  });
+});
+
+describe("provider action policy", () => {
+  it("keeps internal read-only ChatGPT outside provider session actions", () => {
+    expect(listProviderActionProviderIds()).not.toContain("chatgpt");
+    expect(supportsProviderAction("chatgpt", "backup_local")).toBe(false);
+    expect(supportsProviderAction("chatgpt", "archive_local")).toBe(false);
+    expect(supportsProviderAction("chatgpt", "delete_local")).toBe(false);
   });
 });

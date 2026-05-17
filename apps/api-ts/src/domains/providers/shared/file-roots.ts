@@ -15,7 +15,7 @@ import {
   GEMINI_ANTIGRAVITY_CONVERSATIONS_DIR,
   GEMINI_HISTORY_DIR,
   GEMINI_TMP_DIR,
-} from "../../../lib/constants.js";
+} from "../constants.js";
 import { discoverChatGptConversationRoots } from "../adapters/chatgpt/roots.js";
 import { discoverCodexCwdBackupRoots } from "../adapters/codex/roots.js";
 import {

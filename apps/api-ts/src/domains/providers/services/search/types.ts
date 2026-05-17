@@ -1,22 +1,17 @@
 import type {
   ConversationSearchPayload,
   ProviderId,
+  ProviderSessionCandidate,
   ProviderSessionRow,
   ProviderSessionScan,
   TranscriptPayload,
 } from "../../types.js";
 
+export type { ProviderSessionCandidate } from "../../types.js";
+
 export type ProviderScanCacheEntry = {
   expires_at: number;
   scan: ProviderSessionScan;
-};
-
-export type ProviderSessionCandidate = {
-  source: string;
-  file_path: string;
-  size_bytes: number;
-  mtime: string;
-  mtime_ms: number;
 };
 
 export type ProviderSessionManifest = {

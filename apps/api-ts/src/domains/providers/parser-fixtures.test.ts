@@ -23,7 +23,7 @@ describe("provider parser fixtures", () => {
     process.env.CODEX_HOME = path.join(tempHome, ".codex");
     vi.resetModules();
     const appDataDir = path.join(tempHome, ".config");
-    vi.doMock("../../lib/constants.js", () => ({
+    vi.doMock("./constants.js", () => ({
       HOME_DIR: tempHome,
       APP_DATA_DIR: appDataDir,
       CODEX_HOME: path.join(tempHome, ".codex"),
@@ -87,7 +87,7 @@ describe("provider parser fixtures", () => {
       process.env.CODEX_HOME = originalCodexHome;
     }
     vi.resetModules();
-    vi.doUnmock("../../lib/constants.js");
+    vi.doUnmock("./constants.js");
     if (tempHome) {
       await rm(tempHome, { recursive: true, force: true });
     }

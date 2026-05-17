@@ -1,6 +1,6 @@
 import { readdir } from "node:fs/promises";
 import path from "node:path";
-import { CHAT_DIR } from "../../../../lib/constants.js";
+import { CHAT_DIR } from "../../constants.js";
 import { pathExists } from "../../../../lib/utils.js";
 import type {
   ProviderRootSpec,

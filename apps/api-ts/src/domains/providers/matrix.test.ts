@@ -9,8 +9,7 @@ vi.mock("@threadlens/shared-contracts", async (importOriginal) => {
   };
 });
 
-vi.mock("../../lib/constants.js", () => ({
-  BACKUP_ROOT: "/mock/backups",
+vi.mock("./constants.js", () => ({
   CHAT_DIR: "/mock/chat",
   CODEX_HOME: "/mock/codex",
   CLAUDE_HOME: "/mock/claude",
@@ -24,6 +23,10 @@ vi.mock("../../lib/constants.js", () => ({
   GEMINI_HISTORY_DIR: "/mock/gemini/history",
   GEMINI_HOME: "/mock/gemini",
   GEMINI_TMP_DIR: "/mock/gemini/tmp",
+}));
+
+vi.mock("../recovery/constants.js", () => ({
+  BACKUP_ROOT: "/mock/backups",
 }));
 
 vi.mock("../../lib/utils.js", () => ({
@@ -56,6 +59,7 @@ vi.mock("./probe.js", () => ({
 
 import { listProviderAdapters } from "./registry.js";
 import { getProviderMatrixTs, invalidateProviderMatrixCache } from "./matrix.js";
+import { buildProviderMatrixProviders } from "./services/matrix/provider-entries.js";
 
 describe("provider matrix notes", () => {
   beforeEach(() => {
@@ -136,6 +140,37 @@ describe("provider matrix notes", () => {
         ],
         session_log_count: 3,
         notes: "History, tmp, and checkpoint files.",
+      },
+    });
+  });
+
+  it("does not report Codex cleanup readiness when its runtime roots are missing", () => {
+    const providers = buildProviderMatrixProviders({
+      codexHomes: ["/mock/codex"],
+      codexRootExists: false,
+      codexSessionLogs: 0,
+      chatGptRootExists: false,
+      chatGptSessionLogs: 0,
+      claudeRootExists: false,
+      claudeSessionLogs: 0,
+      geminiRootExists: false,
+      geminiSessionLogs: 0,
+      geminiRoots: [],
+      geminiNotes: "History, tmp, and checkpoint files.",
+      copilotProviderRoots: [],
+      copilotRootExists: false,
+      copilotSignalFiles: 0,
+    });
+    const codex = providers.find((provider) => provider.provider === "codex");
+
+    expect(codex).toMatchObject({
+      status: "missing",
+      capability_level: "unavailable",
+      capabilities: {
+        read_sessions: false,
+        analyze_context: false,
+        safe_cleanup: false,
+        hard_delete: false,
       },
     });
   });

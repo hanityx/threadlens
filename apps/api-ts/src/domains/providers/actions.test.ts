@@ -7,9 +7,9 @@ import {
   CODEX_HOME,
   COPILOT_VSCODE_GLOBAL,
   GEMINI_TMP_DIR,
-  BACKUP_ROOT,
   HOME_DIR,
-} from "../../lib/constants.js";
+} from "./constants.js";
+import { BACKUP_ROOT } from "../recovery/constants.js";
 import { deriveProviderBackupRelativePath, runProviderSessionAction } from "./actions.js";
 import type { ProviderId, ProviderSessionAction } from "./types.js";
 
@@ -171,7 +171,7 @@ describe("runProviderSessionAction", () => {
       process.env.THREADLENS_STATE_DIR = path.join(root, "state");
       vi.resetModules();
 
-      const constants = await import("../../lib/constants.js");
+      const constants = await import("./constants.js");
       const { runProviderSessionAction: runAction } = await import("./actions.js");
       const sourceDir = path.join(constants.CODEX_HOME, "sessions", "backup-root-smoke");
       const sourcePath = path.join(sourceDir, "session.jsonl");
@@ -225,7 +225,7 @@ describe("runProviderSessionAction", () => {
       process.env.THREADLENS_STATE_DIR = path.join(root, "state");
       vi.resetModules();
 
-      const constants = await import("../../lib/constants.js");
+      const constants = await import("./constants.js");
       const { runProviderSessionAction: runAction } = await import("./actions.js");
       const sourceDir = path.join(constants.CODEX_HOME, "sessions", "backup-dest-smoke");
       const sourcePath = path.join(sourceDir, "session.jsonl");
@@ -333,7 +333,7 @@ describe("runProviderSessionAction", () => {
         nowIsoUtc: () => fixedNow,
       }));
 
-      const constants = await import("../../lib/constants.js");
+      const constants = await import("./constants.js");
       const { runProviderSessionAction: runAction } = await import("./actions.js");
       const sourceDir = path.join(constants.CODEX_HOME, "sessions", "manifest-smoke");
       const sourcePath = path.join(sourceDir, "session.jsonl");
@@ -507,6 +507,342 @@ describe("runProviderSessionAction", () => {
     }
   });
 
+  it("does not delete Codex sessions when the archive root is a symlink outside the provider tree", async () => {
+    const previousHome = process.env.HOME;
+    const previousCodexHome = process.env.CODEX_HOME;
+    const previousStateDir = process.env.THREADLENS_STATE_DIR;
+    const root = await mkdtemp(path.join(os.tmpdir(), "threadlens-provider-archive-root-"));
+
+    try {
+      const homeDir = path.join(root, "home");
+      const outsideDir = path.join(root, "outside");
+      process.env.HOME = homeDir;
+      process.env.CODEX_HOME = path.join(homeDir, ".codex");
+      process.env.THREADLENS_STATE_DIR = path.join(root, "state");
+      vi.resetModules();
+
+      const constants = await import("./constants.js");
+      const { runProviderSessionAction: runAction } = await import("./actions.js");
+      const sourceDir = path.join(constants.CODEX_HOME, "sessions", "archive-symlink-smoke");
+      const sourcePath = path.join(sourceDir, "session.jsonl");
+      const archivedRootLink = path.join(constants.CODEX_HOME, "archived_sessions");
+      const outsideTargetPath = path.join(outsideDir, "archive-symlink-smoke", "session.jsonl");
+      const payload = "{\"type\":\"session\",\"id\":\"archive-symlink-smoke\"}\n";
+      const deps = {
+        resolveAllowedProviderFilePath: async () => sourcePath,
+        supportsProviderAction: () => true,
+        invalidateProviderCaches: () => undefined,
+      };
+
+      await mkdir(sourceDir, { recursive: true });
+      await mkdir(outsideDir, { recursive: true });
+      await writeFile(sourcePath, payload, "utf8");
+      await symlink(outsideDir, archivedRootLink, "dir");
+
+      const preview = await runAction(
+        deps,
+        "codex",
+        "archive_local",
+        [sourcePath],
+        true,
+        "",
+      );
+      expect(preview.ok).toBe(true);
+      expect(preview.confirm_token_expected).toMatch(/^PROVIDER-/);
+
+      const result = await runAction(
+        deps,
+        "codex",
+        "archive_local",
+        [sourcePath],
+        false,
+        preview.confirm_token_expected,
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result.mode).toBe("failed");
+      expect(result.applied_count).toBe(0);
+      expect(result.failed).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            step: "archive_local",
+            error: "unsafe-archived-session-target",
+          }),
+        ]),
+      );
+      await expect(readFile(sourcePath, "utf8")).resolves.toBe(payload);
+      await expect(stat(outsideTargetPath)).rejects.toThrow();
+    } finally {
+      if (previousHome === undefined) delete process.env.HOME;
+      else process.env.HOME = previousHome;
+      if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+      else process.env.CODEX_HOME = previousCodexHome;
+      if (previousStateDir === undefined) delete process.env.THREADLENS_STATE_DIR;
+      else process.env.THREADLENS_STATE_DIR = previousStateDir;
+      vi.resetModules();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not restore archived Codex sessions through a symlinked sessions subdirectory", async () => {
+    const previousHome = process.env.HOME;
+    const previousCodexHome = process.env.CODEX_HOME;
+    const previousStateDir = process.env.THREADLENS_STATE_DIR;
+    const root = await mkdtemp(path.join(os.tmpdir(), "threadlens-provider-restore-root-"));
+
+    try {
+      const homeDir = path.join(root, "home");
+      const outsideDir = path.join(root, "outside");
+      process.env.HOME = homeDir;
+      process.env.CODEX_HOME = path.join(homeDir, ".codex");
+      process.env.THREADLENS_STATE_DIR = path.join(root, "state");
+      vi.resetModules();
+
+      const constants = await import("./constants.js");
+      const { runProviderSessionAction: runAction } = await import("./actions.js");
+      const archivedDir = path.join(constants.CODEX_HOME, "archived_sessions", "restore-symlink-smoke");
+      const archivedPath = path.join(archivedDir, "session.jsonl");
+      const sessionsRoot = path.join(constants.CODEX_HOME, "sessions");
+      const restoreLink = path.join(sessionsRoot, "restore-symlink-smoke");
+      const outsideTargetPath = path.join(outsideDir, "session.jsonl");
+      const payload = "{\"type\":\"session\",\"id\":\"restore-symlink-smoke\"}\n";
+      const deps = {
+        resolveAllowedProviderFilePath: async () => archivedPath,
+        supportsProviderAction: () => true,
+        invalidateProviderCaches: () => undefined,
+      };
+
+      await mkdir(archivedDir, { recursive: true });
+      await mkdir(sessionsRoot, { recursive: true });
+      await mkdir(outsideDir, { recursive: true });
+      await writeFile(archivedPath, payload, "utf8");
+      await symlink(outsideDir, restoreLink, "dir");
+
+      const preview = await runAction(
+        deps,
+        "codex",
+        "unarchive_local",
+        [archivedPath],
+        true,
+        "",
+      );
+      expect(preview.ok).toBe(true);
+      expect(preview.confirm_token_expected).toMatch(/^PROVIDER-/);
+
+      const result = await runAction(
+        deps,
+        "codex",
+        "unarchive_local",
+        [archivedPath],
+        false,
+        preview.confirm_token_expected,
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result.mode).toBe("failed");
+      expect(result.applied_count).toBe(0);
+      expect(result.failed).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            step: "unarchive_local",
+            error: "unsafe-archived-session-target",
+          }),
+        ]),
+      );
+      await expect(readFile(archivedPath, "utf8")).resolves.toBe(payload);
+      await expect(stat(outsideTargetPath)).rejects.toThrow();
+    } finally {
+      if (previousHome === undefined) delete process.env.HOME;
+      else process.env.HOME = previousHome;
+      if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+      else process.env.CODEX_HOME = previousCodexHome;
+      if (previousStateDir === undefined) delete process.env.THREADLENS_STATE_DIR;
+      else process.env.THREADLENS_STATE_DIR = previousStateDir;
+      vi.resetModules();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not archive Codex sessions when backup-before-delete copy fails", async () => {
+    const previousHome = process.env.HOME;
+    const previousCodexHome = process.env.CODEX_HOME;
+    const previousStateDir = process.env.THREADLENS_STATE_DIR;
+    const root = await mkdtemp(path.join(os.tmpdir(), "threadlens-provider-archive-backup-"));
+    const fixedNow = "2026-05-14T00:00:00.000Z";
+    const folderName = "2026-05-14T00-00-00-000Z-archive_local";
+
+    try {
+      const homeDir = path.join(root, "home");
+      process.env.HOME = homeDir;
+      process.env.CODEX_HOME = path.join(homeDir, ".codex");
+      process.env.THREADLENS_STATE_DIR = path.join(root, "state");
+      vi.resetModules();
+      vi.doMock("../../lib/utils.js", async (importOriginal) => ({
+        ...(await importOriginal<typeof import("../../lib/utils.js")>()),
+        nowIsoUtc: () => fixedNow,
+      }));
+
+      const constants = await import("./constants.js");
+      const { runProviderSessionAction: runAction } = await import("./actions.js");
+      const sourceDir = path.join(constants.CODEX_HOME, "sessions", "archive-backup-failure");
+      const sourcePath = path.join(sourceDir, "session.jsonl");
+      const archivedPath = path.join(constants.CODEX_HOME, "archived_sessions", "archive-backup-failure", "session.jsonl");
+      const backupRoot = path.join(constants.HOME_DIR, "ThreadLens Test Backups");
+      const conflictingBackupTarget = path.join(
+        backupRoot,
+        "provider_actions",
+        "codex",
+        folderName,
+        "sessions",
+        "archive-backup-failure",
+        "session.jsonl",
+      );
+      const payload = "{\"type\":\"session\",\"id\":\"archive-backup-failure\"}\n";
+      const deps = {
+        resolveAllowedProviderFilePath: async () => sourcePath,
+        supportsProviderAction: () => true,
+        invalidateProviderCaches: () => undefined,
+      };
+
+      await mkdir(sourceDir, { recursive: true });
+      await mkdir(conflictingBackupTarget, { recursive: true });
+      await writeFile(sourcePath, payload, "utf8");
+
+      const preview = await runAction(
+        deps,
+        "codex",
+        "archive_local",
+        [sourcePath],
+        true,
+        "",
+        { backup_before_delete: true, backup_root: backupRoot },
+      );
+      expect(preview.ok).toBe(true);
+      expect(preview.confirm_token_expected).toMatch(/^PROVIDER-/);
+
+      const result = await runAction(
+        deps,
+        "codex",
+        "archive_local",
+        [sourcePath],
+        false,
+        preview.confirm_token_expected,
+        { backup_before_delete: true, backup_root: backupRoot },
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result.mode).toBe("failed");
+      expect(result.applied_count).toBe(0);
+      expect(result.failed).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ step: "archive_local:backup_copy" }),
+        ]),
+      );
+      await expect(readFile(sourcePath, "utf8")).resolves.toBe(payload);
+      await expect(stat(archivedPath)).rejects.toThrow();
+    } finally {
+      if (previousHome === undefined) delete process.env.HOME;
+      else process.env.HOME = previousHome;
+      if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+      else process.env.CODEX_HOME = previousCodexHome;
+      if (previousStateDir === undefined) delete process.env.THREADLENS_STATE_DIR;
+      else process.env.THREADLENS_STATE_DIR = previousStateDir;
+      vi.doUnmock("../../lib/utils.js");
+      vi.resetModules();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not restore archived Codex sessions when backup-before-delete copy fails", async () => {
+    const previousHome = process.env.HOME;
+    const previousCodexHome = process.env.CODEX_HOME;
+    const previousStateDir = process.env.THREADLENS_STATE_DIR;
+    const root = await mkdtemp(path.join(os.tmpdir(), "threadlens-provider-unarchive-backup-"));
+    const fixedNow = "2026-05-14T00:00:00.000Z";
+    const folderName = "2026-05-14T00-00-00-000Z-unarchive_local";
+
+    try {
+      const homeDir = path.join(root, "home");
+      process.env.HOME = homeDir;
+      process.env.CODEX_HOME = path.join(homeDir, ".codex");
+      process.env.THREADLENS_STATE_DIR = path.join(root, "state");
+      vi.resetModules();
+      vi.doMock("../../lib/utils.js", async (importOriginal) => ({
+        ...(await importOriginal<typeof import("../../lib/utils.js")>()),
+        nowIsoUtc: () => fixedNow,
+      }));
+
+      const constants = await import("./constants.js");
+      const { runProviderSessionAction: runAction } = await import("./actions.js");
+      const archivedDir = path.join(constants.CODEX_HOME, "archived_sessions", "unarchive-backup-failure");
+      const archivedPath = path.join(archivedDir, "session.jsonl");
+      const restoredPath = path.join(constants.CODEX_HOME, "sessions", "unarchive-backup-failure", "session.jsonl");
+      const backupRoot = path.join(constants.HOME_DIR, "ThreadLens Test Backups");
+      const conflictingBackupTarget = path.join(
+        backupRoot,
+        "provider_actions",
+        "codex",
+        folderName,
+        "archived_sessions",
+        "unarchive-backup-failure",
+        "session.jsonl",
+      );
+      const payload = "{\"type\":\"session\",\"id\":\"unarchive-backup-failure\"}\n";
+      const deps = {
+        resolveAllowedProviderFilePath: async () => archivedPath,
+        supportsProviderAction: () => true,
+        invalidateProviderCaches: () => undefined,
+      };
+
+      await mkdir(archivedDir, { recursive: true });
+      await mkdir(conflictingBackupTarget, { recursive: true });
+      await writeFile(archivedPath, payload, "utf8");
+
+      const preview = await runAction(
+        deps,
+        "codex",
+        "unarchive_local",
+        [archivedPath],
+        true,
+        "",
+        { backup_before_delete: true, backup_root: backupRoot },
+      );
+      expect(preview.ok).toBe(true);
+      expect(preview.confirm_token_expected).toMatch(/^PROVIDER-/);
+
+      const result = await runAction(
+        deps,
+        "codex",
+        "unarchive_local",
+        [archivedPath],
+        false,
+        preview.confirm_token_expected,
+        { backup_before_delete: true, backup_root: backupRoot },
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result.mode).toBe("failed");
+      expect(result.applied_count).toBe(0);
+      expect(result.failed).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ step: "unarchive_local:backup_copy" }),
+        ]),
+      );
+      await expect(readFile(archivedPath, "utf8")).resolves.toBe(payload);
+      await expect(stat(restoredPath)).rejects.toThrow();
+    } finally {
+      if (previousHome === undefined) delete process.env.HOME;
+      else process.env.HOME = previousHome;
+      if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+      else process.env.CODEX_HOME = previousCodexHome;
+      if (previousStateDir === undefined) delete process.env.THREADLENS_STATE_DIR;
+      else process.env.THREADLENS_STATE_DIR = previousStateDir;
+      vi.doUnmock("../../lib/utils.js");
+      vi.resetModules();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("archives and restores Codex sessions when safe paths are realpath-normalized", async () => {
     const previousHome = process.env.HOME;
     const previousCodexHome = process.env.CODEX_HOME;
@@ -520,7 +856,7 @@ describe("runProviderSessionAction", () => {
       process.env.THREADLENS_STATE_DIR = path.join(root, "state");
       vi.resetModules();
 
-      const constants = await import("../../lib/constants.js");
+      const constants = await import("./constants.js");
       const { runProviderSessionAction: runAction } = await import("./actions.js");
 
       const sourceDir = path.join(constants.CODEX_HOME, "sessions", "realpath-smoke");

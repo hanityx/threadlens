@@ -1,7 +1,9 @@
 import path from "node:path";
-import { copyFile, mkdir, stat, unlink } from "node:fs/promises";
+import { copyFile, lstat, mkdir, unlink } from "node:fs/promises";
 
 import {
+  isSafeArchivedSessionRestoreTarget,
+  isSafeArchivedSessionStoreTarget,
   resolveArchivedSessionRestoreTarget,
   resolveArchivedSessionRoot,
   resolveArchivedSessionStoreTarget,
@@ -38,7 +40,7 @@ export async function runArchiveProviderAction(
       continue;
     }
     try {
-      await stat(targetPath);
+      await lstat(targetPath);
       failed.push({
         file_path: sourcePath,
         step: "archive_local",
@@ -47,6 +49,14 @@ export async function runArchiveProviderAction(
       continue;
     } catch {
       // Missing target is expected before archive.
+    }
+    if (!(await isSafeArchivedSessionStoreTarget(provider, targetPath))) {
+      failed.push({
+        file_path: sourcePath,
+        step: "archive_local",
+        error: "unsafe-archived-session-target",
+      });
+      continue;
     }
     try {
       await mkdir(path.dirname(targetPath), { recursive: true });
@@ -84,7 +94,7 @@ export async function runUnarchiveProviderAction(
       continue;
     }
     try {
-      await stat(targetPath);
+      await lstat(targetPath);
       failed.push({
         file_path: sourcePath,
         step: "unarchive_local",
@@ -93,6 +103,14 @@ export async function runUnarchiveProviderAction(
       continue;
     } catch {
       // Missing target is expected before restore.
+    }
+    if (!(await isSafeArchivedSessionRestoreTarget(provider, targetPath))) {
+      failed.push({
+        file_path: sourcePath,
+        step: "unarchive_local",
+        error: "unsafe-archived-session-target",
+      });
+      continue;
     }
     try {
       await mkdir(path.dirname(targetPath), { recursive: true });

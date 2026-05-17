@@ -1,4 +1,4 @@
-import { BACKUP_ROOT } from "../../../../lib/constants.js";
+import { BACKUP_ROOT } from "../../../recovery/constants.js";
 import {
   deriveProviderBackupId,
   resolveProviderActionBackupRoot,
@@ -182,9 +182,8 @@ export async function runProviderSessionAction(
     backupManifestPath = backupStage.manifest_path;
     backedUpCount = backupStage.items.length;
   }
-  const backupManifestWriteFailed =
-    backupStage?.failed.some((failure) => failure.step === "manifest_write") ?? false;
-  if (backupManifestWriteFailed && action !== "backup_local") {
+  const backupStageFailed = (backupStage?.failed.length ?? 0) > 0;
+  if (backupStageFailed && action !== "backup_local") {
     return buildProviderActionAppliedResponse({
       provider,
       action,

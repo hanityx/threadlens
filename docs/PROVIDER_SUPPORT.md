@@ -9,7 +9,7 @@ This document distinguishes between:
 - `read-only cache sources` that can still appear in diagnostics or provider-specific inspection
 
 The primary search/session workflow currently covers `Codex`, `Claude`, `Gemini`, `Copilot`.
-`ChatGPT` is currently treated as a read-only desktop cache source. It remains available to the provider registry, but stays outside the default search scope and destructive cleanup workflow.
+`ChatGPT` is currently treated as a read-only desktop cache source. It remains available to the provider registry, but stays outside the default search scope and provider session action workflow.
 
 ## Capability Registry
 
@@ -34,7 +34,7 @@ The primary search/session workflow currently covers `Codex`, `Claude`, `Gemini`
 ## Local Path Notes
 
 - `Codex` indexes session logs from `CODEX_HOME` plus Codex-managed archive, recovery, cwd-backup, and cleanup-backup roots; thread-id transcript lookup can also fall back to Codex home mirrors such as `~/.codex` and `~/.codex-cli`.
-- `ChatGPT` reads the local desktop cache for the installed app; this provider remains read-only and stays outside the default search and cleanup flow.
+- `ChatGPT` reads the local desktop cache for the installed app; this provider remains read-only and stays outside the default search and provider session action workflow.
 - `Claude` reads local session stores from dot-home roots such as `~/.claude`.
 - `Gemini` reads local session stores from dot-home roots such as `~/.gemini`.
 - `Copilot` resolves local app-data roots by platform: macOS `~/Library/Application Support`, Windows `%APPDATA%`, and Linux `XDG_CONFIG_HOME` or `~/.config`.
@@ -51,7 +51,7 @@ The primary search/session workflow currently covers `Codex`, `Claude`, `Gemini`
 
 - Read-only desktop cache source.
 - Useful for desktop cache discovery and provider diagnostics.
-- Excluded from the default search scope and destructive cleanup workflow.
+- Excluded from the default search scope and provider session action workflow.
 
 ### Claude
 

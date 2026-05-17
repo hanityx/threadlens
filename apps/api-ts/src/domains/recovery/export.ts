@@ -1,7 +1,7 @@
 import { createReadStream } from "node:fs";
 import { cp, mkdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { BACKUP_ROOT, RECOVERY_EXPORT_ROOT } from "../../lib/constants.js";
+import { BACKUP_ROOT, RECOVERY_EXPORT_ROOT } from "./constants.js";
 import { scanBackupSets } from "./backups.js";
 import { writePortableZipArchive } from "./portable-zip.js";
 import { nowIsoUtc } from "../../lib/utils.js";

@@ -7,7 +7,7 @@ import {
 import {
   CHAT_DIR,
   CODEX_HOME,
-} from "../../../lib/constants.js";
+} from "../constants.js";
 import {
   providerRootSpecs,
   providerScanRootSpecs,

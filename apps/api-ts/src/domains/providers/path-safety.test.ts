@@ -6,7 +6,7 @@ import {
   getProviderCapability,
   type ProviderId,
 } from "@threadlens/shared-contracts";
-import { APP_DATA_DIR, CHAT_DIR, CODEX_HOME } from "../../lib/constants.js";
+import { APP_DATA_DIR, CHAT_DIR, CODEX_HOME } from "./constants.js";
 import {
   IMPLEMENTED_PROVIDER_IDS,
 } from "./capabilities.js";

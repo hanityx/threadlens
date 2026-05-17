@@ -1,4 +1,4 @@
-import { CLAUDE_PROJECTS_DIR } from "../../../../lib/constants.js";
+import { CLAUDE_PROJECTS_DIR } from "../../constants.js";
 import { isRecord, readFileTail, safeJsonParse } from "../../../../lib/utils.js";
 import { isPathInsideRoot } from "../../path-safety.js";
 import { normalizeDetectedTitle } from "../../title-normalization.js";

@@ -1,6 +1,6 @@
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
-import { PROJECT_ROOT } from "../../lib/constants.js";
+import { PROJECT_ROOT } from "./constants.js";
 import {
   isRecord,
   nowIsoUtc,

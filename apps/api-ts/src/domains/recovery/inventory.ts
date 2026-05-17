@@ -9,7 +9,7 @@ import {
   COPILOT_VSCODE_GLOBAL,
   GEMINI_HOME,
   GEMINI_TMP_DIR,
-} from "../../lib/constants.js";
+} from "../providers/constants.js";
 import {
   nowIsoUtc,
   pathExists,

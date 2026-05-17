@@ -1,5 +1,5 @@
 import path from "node:path";
-import { realpath } from "node:fs/promises";
+import { lstat, realpath } from "node:fs/promises";
 import { isPathInsideRoot, providerRootSpecs } from "../../path-safety.js";
 import type { ProviderId, ProviderRootSpec } from "../../types.js";
 
@@ -35,6 +35,44 @@ async function relativePathWithinProviderRoot(
   }
 
   return null;
+}
+
+async function hasSymlinkAncestorFromRoot(
+  rootPath: string,
+  targetDir: string,
+): Promise<boolean> {
+  const root = path.resolve(rootPath);
+  const target = path.resolve(targetDir);
+  if (!isPathInsideRoot(target, root)) return true;
+
+  let current = root;
+  while (true) {
+    try {
+      const st = await lstat(current);
+      if (st.isSymbolicLink()) return true;
+      if (!st.isDirectory()) return true;
+    } catch {
+      return false;
+    }
+    if (current === target) return false;
+    const relative = path.relative(current, target);
+    const [nextSegment] = relative.split(path.sep);
+    if (!nextSegment || nextSegment === "..") return true;
+    current = path.join(current, nextSegment);
+  }
+}
+
+async function isSafeActionDestinationWithinRoot(
+  filePath: string,
+  rootPath: string,
+): Promise<boolean> {
+  const resolvedPath = path.resolve(filePath);
+  const resolvedRoot = path.resolve(rootPath);
+  if (!isPathInsideRoot(resolvedPath, resolvedRoot)) return false;
+  return !(await hasSymlinkAncestorFromRoot(
+    resolvedRoot,
+    path.dirname(resolvedPath),
+  ));
 }
 
 export async function resolveArchivedSessionRestoreTarget(
@@ -110,4 +148,37 @@ export async function resolveArchivedSessionStoreTarget(
 export function resolveArchivedSessionRoot(provider: ProviderId): string | null {
   return providerRootSpecs(provider).find((spec) => spec.source === "archived_sessions")
     ?.root ?? null;
+}
+
+export async function isSafeArchivedSessionStoreTarget(
+  provider: ProviderId,
+  targetPath: string,
+): Promise<boolean> {
+  const ext = path.extname(targetPath).toLowerCase();
+  const archivedSpec = providerRootSpecs(provider).find(
+    (spec) => spec.source === "archived_sessions" && spec.exts.includes(ext),
+  );
+  if (!archivedSpec) return false;
+  return isSafeActionDestinationWithinRoot(targetPath, archivedSpec.root);
+}
+
+export async function isSafeArchivedSessionRestoreTarget(
+  provider: ProviderId,
+  targetPath: string,
+): Promise<boolean> {
+  const ext = path.extname(targetPath).toLowerCase();
+  const sourceSpecs = providerRootSpecs(provider)
+    .filter(
+      (spec) =>
+        spec.source !== "cleanup_backups" &&
+        spec.source !== "archived_sessions" &&
+        spec.exts.includes(ext),
+    )
+    .sort((left, right) => right.root.length - left.root.length);
+  for (const spec of sourceSpecs) {
+    if (await isSafeActionDestinationWithinRoot(targetPath, spec.root)) {
+      return true;
+    }
+  }
+  return false;
 }

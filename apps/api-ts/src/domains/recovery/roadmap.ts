@@ -4,7 +4,7 @@ import path from "node:path";
 import {
   ROADMAP_LOG_FILE,
   ROADMAP_STATE_FILE,
-} from "../../lib/constants.js";
+} from "./constants.js";
 import {
   cleanTitleText,
   isRecord,
