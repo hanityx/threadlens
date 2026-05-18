@@ -3,6 +3,58 @@ import { searchConversationSessions } from "./index.js";
 import { makeRow, makeTranscript } from "./test-fixtures.js";
 
 describe("searchConversationSessions", () => {
+  it("adds a Codex resume command only for openable live sessions", async () => {
+    const threadId = "019d96c2-9123-7481-9127-224fad716008";
+    const liveRow = makeRow({
+      provider: "codex",
+      source: "sessions",
+      session_id: `rollout-live-${threadId}`,
+      display_title: "resume token live",
+      file_path: `/tmp/rollout-live-${threadId}.jsonl`,
+    });
+    const backupRow = makeRow({
+      provider: "codex",
+      source: "cleanup_backups",
+      session_id: `rollout-backup-${threadId}`,
+      display_title: "resume token backup",
+      file_path: `/tmp/rollout-backup-${threadId}.jsonl`,
+    });
+
+    const result = await searchConversationSessions([liveRow, backupRow], "token", {
+      pageSize: 10,
+      previewHitsPerSession: 1,
+      openableThreadIds: new Set([threadId]),
+    });
+
+    const liveSession = result.sessions.find((session) => session.source === "sessions");
+    const backupSession = result.sessions.find((session) => session.source === "cleanup_backups");
+
+    expect(liveSession?.resume_command).toBe(`codex resume ${threadId}`);
+    expect(liveSession?.preview_matches[0]?.resume_command).toBe(`codex resume ${threadId}`);
+    expect(backupSession?.resume_command).toBeUndefined();
+    expect(backupSession?.preview_matches[0]?.resume_command).toBeUndefined();
+  });
+
+  it("does not add a Codex resume command without an openable thread read model", async () => {
+    const threadId = "019d96c2-9123-7481-9127-224fad716008";
+    const row = makeRow({
+      provider: "codex",
+      source: "sessions",
+      session_id: `rollout-live-${threadId}`,
+      display_title: "resume token live",
+      file_path: `/tmp/rollout-live-${threadId}.jsonl`,
+    });
+
+    const result = await searchConversationSessions([row], "token", {
+      pageSize: 10,
+      previewHitsPerSession: 1,
+    });
+
+    expect(result.sessions[0]?.thread_id).toBe(threadId);
+    expect(result.sessions[0]?.resume_command).toBeUndefined();
+    expect(result.sessions[0]?.preview_matches[0]?.resume_command).toBeUndefined();
+  });
+
   it("collapses duplicate logical sessions across backup copies", async () => {
     const liveRow = makeRow({
       session_id: "rollout-2026-03-25T10-00-00-019d-duplicate",

@@ -1148,6 +1148,7 @@ export const hi = {
     "groupResultsLabel": "{provider} से मेल खाता है",
     "openSession": "खुला सत्र",
     "openThread": "ओपन क्लीनअप",
+    "copyResumeCommand": "resume कमांड कॉपी करें",
     "matchTitle": "शीर्षक मिलान",
     "matchMessage": "संदेश मिलान",
     "dedupedHint": "{count} डुप्लिकेट हिट ध्वस्त हो गए।",

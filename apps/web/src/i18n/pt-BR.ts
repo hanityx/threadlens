@@ -1148,6 +1148,7 @@ export const ptBR = {
     "groupResultsLabel": "Correspondências de {provider}",
     "openSession": "Sessão aberta",
     "openThread": "Limpeza aberta",
+    "copyResumeCommand": "Copiar comando de resume",
     "matchTitle": "Correspondência de título",
     "matchMessage": "Correspondência de mensagem",
     "dedupedHint": "{count} ocorrências duplicadas recolhidas.",

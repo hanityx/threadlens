@@ -22,6 +22,7 @@ function makeProviderGroup(overrides?: Partial<SearchProviderGroup>): SearchProv
           title: "Cleanup flow validation session",
           file_path: "/tmp/session.jsonl",
           source: "session.jsonl",
+          resume_command: "codex resume thread-1",
           mtime: "2026-03-28T00:00:00.000Z",
           match_count: 4,
           title_match_count: 0,
@@ -38,6 +39,7 @@ function makeProviderGroup(overrides?: Partial<SearchProviderGroup>): SearchProv
               snippet: "cleanup preview token execute archive",
               role: "user",
               source: "session.jsonl",
+              resume_command: "codex resume thread-1",
             },
             {
               provider: "codex",
@@ -65,6 +67,7 @@ function makeProviderGroup(overrides?: Partial<SearchProviderGroup>): SearchProv
           snippet: "cleanup preview token execute archive",
           role: "user",
           source: "session.jsonl",
+          resume_command: "codex resume thread-1",
         },
         title: "Cleanup flow validation session",
         source: "/tmp/session.jsonl",
@@ -205,6 +208,78 @@ describe("SearchResultsColumn", () => {
     expect(html).toContain('class="search-result-title-button"');
     expect(html).toContain(messages.search.openThread);
     expect(html).not.toContain(messages.search.openSession);
+  });
+
+  it("renders the Codex resume command copy action only when the API marks it resumable", () => {
+    const resumableHtml = renderToStaticMarkup(
+      <SearchResultsColumn
+        messages={messages}
+        searchEnabled
+        summarySessionCount={1}
+        summaryHitCount={4}
+        loadedSessionCount={1}
+        searchedSessions={1}
+        availableSessions={1}
+        statusText={null}
+        showLiveLoading={false}
+        showLoadingSkeleton={false}
+        providerGroups={[makeProviderGroup()]}
+        providerLabelById={new Map([["codex", "Codex"]])}
+        expandedSessions={new Set()}
+        activeSessionKey={null}
+        sessionOpenProviderIds={["codex"]}
+        sessionHitsBySession={{}}
+        setActiveSessionKey={vi.fn()}
+        setExpandedSessions={vi.fn()}
+        onOpenSession={vi.fn()}
+        onOpenThread={vi.fn()}
+      />,
+    );
+    const backupOnlyGroup = makeProviderGroup({
+      sessions: [
+        {
+          ...makeProviderGroup().sessions[0],
+          result: {
+            ...makeProviderGroup().sessions[0].result,
+            source: "cleanup_backups",
+            resume_command: undefined,
+          },
+          openHit: {
+            ...makeProviderGroup().sessions[0].openHit,
+            source: "cleanup_backups",
+            resume_command: undefined,
+          },
+        },
+      ],
+    });
+    const backupHtml = renderToStaticMarkup(
+      <SearchResultsColumn
+        messages={messages}
+        searchEnabled
+        summarySessionCount={1}
+        summaryHitCount={4}
+        loadedSessionCount={1}
+        searchedSessions={1}
+        availableSessions={1}
+        statusText={null}
+        showLiveLoading={false}
+        showLoadingSkeleton={false}
+        providerGroups={[backupOnlyGroup]}
+        providerLabelById={new Map([["codex", "Codex"]])}
+        expandedSessions={new Set()}
+        activeSessionKey={null}
+        sessionOpenProviderIds={["codex"]}
+        sessionHitsBySession={{}}
+        setActiveSessionKey={vi.fn()}
+        setExpandedSessions={vi.fn()}
+        onOpenSession={vi.fn()}
+        onOpenThread={vi.fn()}
+      />,
+    );
+
+    expect(resumableHtml).toContain(messages.search.copyResumeCommand);
+    expect(resumableHtml).toContain("codex resume thread-1");
+    expect(backupHtml).not.toContain(messages.search.copyResumeCommand);
   });
 
   it("hides the secondary session id row when the title already equals the full session id", () => {

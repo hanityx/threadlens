@@ -1,4 +1,4 @@
-import type { Dispatch, MouseEvent, RefObject, SetStateAction } from "react";
+import { useState, type Dispatch, type MouseEvent, type RefObject, type SetStateAction } from "react";
 import type { ConversationSearchHit } from "@/shared/types";
 import type { Messages } from "@/i18n";
 import {
@@ -88,6 +88,29 @@ export function SearchResultsColumn({
   onOpenThread,
 }: SearchResultsColumnProps) {
   const remainingSessionCount = Math.max(summarySessionCount - loadedSessionCount, 0);
+  const [copiedResumeCommandKey, setCopiedResumeCommandKey] = useState<string | null>(null);
+
+  const copyResumeCommand = async (command: string, sessionKey: string) => {
+    if (!command) return;
+    try {
+      if (typeof window !== "undefined" && window.navigator?.clipboard?.writeText) {
+        await window.navigator.clipboard.writeText(command);
+      } else if (typeof document !== "undefined") {
+        const textarea = document.createElement("textarea");
+        textarea.value = command;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      setCopiedResumeCommandKey(sessionKey);
+    } catch {
+      // Keep the card stable if clipboard permissions are blocked.
+    }
+  };
 
   return (
     <div className="search-results-column">
@@ -187,6 +210,8 @@ export function SearchResultsColumn({
                       session.result.has_more_hits || sessionHitsState?.loading || canLoadMoreHits,
                     );
                   const loadMoreDisabled = Boolean(sessionHitsState?.loading || !canLoadMoreHits);
+                  const resumeCommand = session.result.resume_command || session.openHit.resume_command || "";
+                  const resumeCommandCopied = copiedResumeCommandKey === session.key;
 
                   const expandSession = () => {
                     setExpandedSessions((prev) => {
@@ -293,6 +318,22 @@ export function SearchResultsColumn({
                           {formatSourceLabel(session.source)}
                         </span>
                         <div className="search-result-actions">
+                          {resumeCommand ? (
+                            <button
+                              type="button"
+                              className="status-pill-button search-inline-pill"
+                              title={resumeCommand}
+                              aria-label={`${messages.search.copyResumeCommand}: ${session.title}`}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void copyResumeCommand(resumeCommand, session.key);
+                              }}
+                            >
+                              {resumeCommandCopied
+                                ? messages.sessionDetail.copied
+                                : messages.search.copyResumeCommand}
+                            </button>
+                          ) : null}
                           {session.openHit.thread_id ? (
                             <button
                               type="button"

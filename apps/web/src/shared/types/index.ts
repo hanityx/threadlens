@@ -465,6 +465,7 @@ export type ConversationSearchHit = {
   snippet: string;
   role?: string | null;
   source?: string;
+  resume_command?: string;
 };
 
 export type ConversationSearchSession = {
@@ -481,6 +482,7 @@ export type ConversationSearchSession = {
   best_match_kind: "title" | "message";
   preview_matches: ConversationSearchHit[];
   has_more_hits: boolean;
+  resume_command?: string;
 };
 
 export type ConversationSearchEnvelope = ApiEnvelope<{
