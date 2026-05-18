@@ -24,12 +24,24 @@ import {
 export type SearchIdentity = {
   sessionId: string;
   threadId: string | null;
+  canResume: boolean;
   title: string;
 };
 
 export type SearchMatchMeta = {
   exactPhrase: boolean;
 };
+
+export function buildCodexResumeCommand(
+  row: ProviderSessionRow,
+  identity: SearchIdentity,
+): string | null {
+  if (row.provider !== "codex") return null;
+  if (row.source !== "sessions") return null;
+  if (!identity.canResume) return null;
+  if (!identity.threadId) return null;
+  return `codex resume ${identity.threadId}`;
+}
 
 export function buildSearchIdentity(
   row: ProviderSessionRow,
@@ -49,10 +61,15 @@ export function buildSearchIdentity(
         ? threadIdCandidate
         : ""
       : threadIdCandidate;
+  const canResume =
+    row.provider === "codex" &&
+    row.source === "sessions" &&
+    Boolean(threadIdCandidate && openableThreadIds?.has(threadIdCandidate));
 
   return {
     sessionId: rawSessionId,
     threadId: threadId || null,
+    canResume,
     title:
       row.display_title ||
       row.probe.detected_title ||
@@ -64,6 +81,7 @@ export function buildBaseSearchResult(
   row: ProviderSessionRow,
   identity: SearchIdentity,
 ) {
+  const resumeCommand = buildCodexResumeCommand(row, identity);
   return {
     provider: row.provider,
     session_id: identity.sessionId,
@@ -71,6 +89,7 @@ export function buildBaseSearchResult(
     file_path: row.file_path,
     mtime: row.mtime,
     ...(identity.threadId ? { thread_id: identity.threadId } : {}),
+    ...(resumeCommand ? { resume_command: resumeCommand } : {}),
   };
 }
 

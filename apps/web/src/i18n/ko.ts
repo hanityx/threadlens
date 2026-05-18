@@ -116,6 +116,7 @@ export const ko = {
     groupResultsLabel: "{provider} 결과",
     openSession: "세션 열기",
     openThread: "정리 열기",
+    copyResumeCommand: "resume 명령 복사",
     matchTitle: "제목 일치",
     matchMessage: "메시지 일치",
     dedupedHint: "{count}개의 중복 결과를 접었습니다.",

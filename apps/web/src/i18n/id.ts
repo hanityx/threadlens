@@ -1148,6 +1148,7 @@ export const id = {
     "groupResultsLabel": "Cocok dari {provider}",
     "openSession": "Sesi terbuka",
     "openThread": "Buka pembersihan",
+    "copyResumeCommand": "Salin perintah resume",
     "matchTitle": "Pertandingan judul",
     "matchMessage": "Pesan cocok",
     "dedupedHint": "{count} diciutkan.",

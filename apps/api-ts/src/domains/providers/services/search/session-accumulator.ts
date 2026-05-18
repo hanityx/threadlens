@@ -10,6 +10,9 @@ import type {
   SearchIdentity,
   SearchMatchMeta,
 } from "./session-metadata-results.js";
+import {
+  buildCodexResumeCommand,
+} from "./session-metadata-results.js";
 
 export type SearchSessionAccumulator = {
   session: ConversationSearchSessionResult;
@@ -21,6 +24,7 @@ export function createSessionAccumulator(
   row: ProviderSessionRow,
   identity: SearchIdentity,
 ): SearchSessionAccumulator {
+  const resumeCommand = buildCodexResumeCommand(row, identity);
   return {
     session: {
       provider: row.provider,
@@ -36,6 +40,7 @@ export function createSessionAccumulator(
       best_match_kind: "message",
       preview_matches: [],
       has_more_hits: false,
+      ...(resumeCommand ? { resume_command: resumeCommand } : {}),
     },
     exact_phrase_count: 0,
     seen_hits: new Set<string>(),

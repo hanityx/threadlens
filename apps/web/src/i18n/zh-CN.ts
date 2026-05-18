@@ -1148,6 +1148,7 @@ export const zhCN = {
     "groupResultsLabel": "与 {provider} 匹配",
     "openSession": "打开 Session",
     "openThread": "打开 Cleanup",
+    "copyResumeCommand": "复制 resume 命令",
     "matchTitle": "标题匹配",
     "matchMessage": "消息匹配",
     "dedupedHint": "{count} 重复命中已崩溃。",

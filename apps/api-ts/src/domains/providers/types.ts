@@ -84,6 +84,7 @@ export type ConversationSearchResult = {
   snippet: string;
   role?: TranscriptMessage["role"];
   source?: string;
+  resume_command?: string;
 };
 
 export type ConversationSearchSessionResult = {
@@ -100,6 +101,7 @@ export type ConversationSearchSessionResult = {
   best_match_kind: ConversationSearchMatchKind;
   preview_matches: ConversationSearchResult[];
   has_more_hits: boolean;
+  resume_command?: string;
 };
 
 export type ConversationSearchPayload = {

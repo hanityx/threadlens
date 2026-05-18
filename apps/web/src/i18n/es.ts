@@ -1148,6 +1148,7 @@ export const es = {
     "groupResultsLabel": "Coincidencias de {provider}",
     "openSession": "Sesión abierta",
     "openThread": "Limpieza abierta",
+    "copyResumeCommand": "Copiar comando resume",
     "matchTitle": "Lucha por el título",
     "matchMessage": "Coincidencia de mensajes",
     "dedupedHint": "{count} las visitas duplicadas colapsaron.",

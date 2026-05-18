@@ -1148,6 +1148,7 @@ export const ru = {
     "groupResultsLabel": "Соответствует {provider}",
     "openSession": "Открытая сессия",
     "openThread": "Открытая очистка",
+    "copyResumeCommand": "Копировать команду resume",
     "matchTitle": "Соответствие титула",
     "matchMessage": "Соответствие сообщения",
     "dedupedHint": "{count} повторяющиеся обращения свернуты.",

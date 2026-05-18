@@ -1148,6 +1148,7 @@ export const ja = {
     "groupResultsLabel": "{provider} からの一致",
     "openSession": "オープンセッション",
     "openThread": "オープンクリーンアップ",
+    "copyResumeCommand": "resume コマンドをコピー",
     "matchTitle": "タイトルマッチ",
     "matchMessage": "メッセージの一致",
     "dedupedHint": "{count} 重複ヒットが折りたたまれました。",

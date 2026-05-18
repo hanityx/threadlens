@@ -1148,6 +1148,7 @@ export const de = {
     "groupResultsLabel": "Übereinstimmungen von {provider}",
     "openSession": "Offene Sitzung",
     "openThread": "Bereinigung öffnen",
+    "copyResumeCommand": "Resume-Befehl kopieren",
     "matchTitle": "Titelmatch",
     "matchMessage": "Nachrichtenübereinstimmung",
     "dedupedHint": "{count} Doppelte Treffer sind ausgeblendet.",

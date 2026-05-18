@@ -1222,6 +1222,7 @@ export const en = {
     groupResultsLabel: "Matches from {provider}",
     openSession: "Open session",
     openThread: "Open cleanup",
+    copyResumeCommand: "Copy resume command",
     matchTitle: "Title match",
     matchMessage: "Message match",
     dedupedHint: "{count} duplicate hits collapsed.",
