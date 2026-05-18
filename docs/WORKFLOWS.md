@@ -83,9 +83,9 @@ sequenceDiagram
 - `Thread`: Codex thread review and cleanup execution
 - `TUI`: terminal-first `Search`, `Sessions`, and `Cleanup`
 
-## QA Gates
+## Testing
 
-Use [QA.md](./QA.md) for the PR, provider/API, desktop runtime, live stack, and
-release-candidate gates. The short rule is to run the nearest deterministic
-checks on every PR, then promote to live Web and packaged Electron smoke only
+Use [QA.md](./QA.md) for PR, provider/API, desktop runtime, live stack, and
+release-candidate test commands. The short rule is to run the nearest
+deterministic checks first, then add live Web or packaged Electron smoke only
 when the changed surface can break runtime integration.

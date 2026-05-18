@@ -1,5 +1,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs/promises");
+const os = require("node:os");
+const path = require("node:path");
 
 const { attachDesktopSmoke, defaultRequestRendererFetch } = require("./smoke-runtime.cjs");
 
@@ -47,7 +50,7 @@ test("attachDesktopSmoke completes immediately when load already finished", asyn
     },
   });
 
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 20));
 
   assert.equal(typeof events.get("dom-ready"), "function");
   assert.equal(typeof events.get("did-fail-load"), "function");
@@ -58,6 +61,68 @@ test("attachDesktopSmoke completes immediately when load already finished", asyn
       /\[desktop-smoke\] ready api=http:\/\/127\.0\.0\.1:8788 status=200 rendererFetch=200/.test(message),
     ),
   );
+});
+
+test("attachDesktopSmoke writes reusable proof artifacts when requested", async () => {
+  const artifactDir = await fs.mkdtemp(path.join(os.tmpdir(), "threadlens-desktop-smoke-"));
+  const exits = [];
+
+  const win = {
+    webContents: {
+      once() {},
+      isLoadingMainFrame() {
+        return false;
+      },
+      getURL() {
+        return "file:///tmp/threadlens/index.html";
+      },
+      capturePage: async () => ({
+        toPNG: () => Buffer.from("fake-png"),
+      }),
+      executeJavaScript: async () => ({
+        ok: true,
+        title: "ThreadLens",
+        url: "file:///tmp/threadlens/index.html",
+        bodyTextLength: 19,
+        signals: {
+          hasThreadLensTitle: true,
+          hasOverviewText: false,
+          hasSearchText: false,
+          hasThreadText: false,
+          hasSessionsText: true,
+          hasCleanupText: false,
+        },
+        viewport: { width: 1280, height: 720, devicePixelRatio: 1 },
+      }),
+    },
+  };
+
+  attachDesktopSmoke({
+    win,
+    app: {
+      exit(code) {
+        exits.push(code);
+      },
+    },
+    requestHealth: async () => 200,
+    requestRendererFetch: async () => ({ ok: true, status: 200, stage: "fetch" }),
+    apiBaseUrl: "http://127.0.0.1:8788",
+    timeoutMs: 200,
+    artifactDir,
+    logger: { log() {}, error() {} },
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  assert.deepEqual(exits, [0]);
+  const proof = JSON.parse(
+    await fs.readFile(path.join(artifactDir, "desktop-smoke-proof.json"), "utf8"),
+  );
+  assert.equal(proof.healthStatus, 200);
+  assert.equal(proof.renderer.signals.hasThreadLensTitle, true);
+  assert.equal(await fs.readFile(path.join(artifactDir, "desktop-smoke.png"), "utf8"), "fake-png");
+
+  await fs.rm(artifactDir, { recursive: true, force: true });
 });
 
 test("defaultRequestRendererFetch checks the renderer bridge token and api fetch path", async () => {
