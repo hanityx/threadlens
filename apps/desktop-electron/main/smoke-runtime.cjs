@@ -1,3 +1,6 @@
+const fs = require("node:fs");
+const path = require("node:path");
+
 function attachDesktopSmoke({
   win,
   app,
@@ -5,6 +8,7 @@ function attachDesktopSmoke({
   requestRendererFetch = defaultRequestRendererFetch,
   apiBaseUrl,
   timeoutMs,
+  artifactDir = process.env.THREADLENS_SMOKE_ARTIFACT_DIR,
   logger = console,
 }) {
   let settled = false;
@@ -41,9 +45,17 @@ function attachDesktopSmoke({
         return;
       }
 
+      const artifacts = await writeDesktopSmokeArtifacts({
+        win,
+        apiBaseUrl,
+        artifactDir,
+        healthStatus: status,
+        rendererFetch,
+      });
+
       finish(
         0,
-        `[desktop-smoke] ready api=${apiBaseUrl} status=${status} rendererFetch=${rendererFetch.status}`,
+        `[desktop-smoke] ready api=${apiBaseUrl} status=${status} rendererFetch=${rendererFetch.status}${artifacts ? ` artifacts=${artifacts.artifactDir}` : ""}`,
       );
     } catch (error) {
       finish(
@@ -76,6 +88,86 @@ function attachDesktopSmoke({
   ) {
     queueMicrotask(runSmokeChecks);
   }
+}
+
+async function collectRendererProof(win) {
+  if (typeof win?.webContents?.executeJavaScript !== "function") {
+    return {
+      ok: false,
+      reason: "execute-javascript-unavailable",
+    };
+  }
+
+  return win.webContents.executeJavaScript(
+    `
+      (() => {
+        const text = document.body?.innerText || "";
+        const url = location.href.startsWith("file:")
+          ? location.href.replace(/^file:\\/\\/.*?(ThreadLens\\.app\\/)/, "file://.../$1")
+          : location.href;
+        return {
+          ok: true,
+          title: document.title,
+          url,
+          bodyTextLength: text.length,
+          signals: {
+            hasThreadLensTitle: document.title.includes("ThreadLens"),
+            hasOverviewText: text.includes("Overview"),
+            hasSearchText: text.includes("Search"),
+            hasThreadText: text.includes("Thread"),
+            hasSessionsText: text.includes("Sessions"),
+            hasCleanupText: text.includes("Cleanup"),
+          },
+          viewport: {
+            width: window.innerWidth,
+            height: window.innerHeight,
+            devicePixelRatio: window.devicePixelRatio,
+          },
+        };
+      })()
+    `,
+    true,
+  );
+}
+
+async function writeDesktopSmokeArtifacts({
+  win,
+  apiBaseUrl,
+  artifactDir,
+  healthStatus,
+  rendererFetch,
+}) {
+  if (!artifactDir) {
+    return null;
+  }
+
+  await fs.promises.mkdir(artifactDir, { recursive: true });
+
+  let screenshotPath = null;
+  if (typeof win?.webContents?.capturePage === "function") {
+    const image = await win.webContents.capturePage();
+    if (typeof image?.toPNG === "function") {
+      screenshotPath = path.join(artifactDir, "desktop-smoke.png");
+      await fs.promises.writeFile(screenshotPath, image.toPNG());
+    }
+  }
+
+  const proof = {
+    generatedAt: new Date().toISOString(),
+    apiBaseUrl,
+    healthStatus,
+    rendererFetch,
+    renderer: await collectRendererProof(win),
+    screenshotPath,
+  };
+  const proofPath = path.join(artifactDir, "desktop-smoke-proof.json");
+  await fs.promises.writeFile(proofPath, `${JSON.stringify(proof, null, 2)}\n`);
+
+  return {
+    artifactDir,
+    proofPath,
+    screenshotPath,
+  };
 }
 
 function defaultRequestRendererFetch(win, url) {
@@ -118,5 +210,7 @@ function defaultRequestRendererFetch(win, url) {
 
 module.exports = {
   attachDesktopSmoke,
+  collectRendererProof,
   defaultRequestRendererFetch,
+  writeDesktopSmokeArtifacts,
 };

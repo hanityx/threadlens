@@ -1,16 +1,15 @@
-# ThreadLens QA Gates
+# ThreadLens Testing
 
-ThreadLens uses risk-based QA gates. The goal is not to repeat the full
-Electron, TUI, and Web manual pass for every small change. The goal is to run
-the nearest deterministic checks on every PR, then promote to live and packaged
-smoke only when the changed surface can break runtime integration.
+ThreadLens uses layered test scripts. Most changes should run the smallest
+deterministic check that covers the changed code path. Add live or packaged
+smoke tests when the change can break runtime integration.
 
-## Every PR
+## Pull Requests
 
 Run this for ordinary code changes:
 
 ```sh
-pnpm qa:pr
+pnpm test:ci
 ```
 
 This covers type checks, dependency boundaries, unit tests across packages, and
@@ -23,7 +22,7 @@ auth, CORS, base URL resolution, direct versioned payload parsing, or shared
 contracts:
 
 ```sh
-pnpm qa:provider
+pnpm test:provider
 ```
 
 Add the nearest surface tests for each touched client:
@@ -38,7 +37,7 @@ Run this when changing packaged Electron startup, preload/IPC, desktop API
 lifecycle, packaged assets, or renderer-to-local-API auth:
 
 ```sh
-pnpm qa:desktop
+pnpm test:desktop
 ```
 
 The packaged smoke must verify both the main-process health check and a renderer
@@ -49,7 +48,7 @@ fetch that uses the desktop auth bridge.
 Run this when changing Web/API integration behavior that mocked e2e cannot prove:
 
 ```sh
-pnpm qa:live
+pnpm test:live
 ```
 
 The live Web e2e target should be a dev api-ts process. Do not point standalone
@@ -61,20 +60,22 @@ way to obtain the desktop IPC token.
 Before tagging or publishing a release, run:
 
 ```sh
-pnpm qa:pr
-pnpm qa:provider
-pnpm qa:desktop
-pnpm qa:live
+pnpm test:ci
+pnpm test:provider
+pnpm test:desktop
+pnpm test:live
+pnpm test:smoke
 ```
 
-Then do a short manual pass for the three product surfaces:
+`test:smoke` is a short smoke pass for the three runtime surfaces:
 
-- Packaged Electron: launch app, verify the dashboard renders, run safe dry-run
-  flows, and confirm destructive actions still require previews/tokens.
-- Web: run the primary search, sessions, transcript, and cleanup dry-run flows
-  against a dev api-ts backend.
-- TUI: run the same API-backed search, sessions, transcript, and cleanup dry-run
-  flows from the terminal client.
+- Packaged Electron: launch the packaged app and verify renderer + local API
+  startup.
+- Web: run the live browser smoke against a dev api-ts backend.
+- TUI: run an API-backed terminal smoke in a pseudo-tty.
+
+If the release changes user flows, manually check the touched search, sessions,
+transcript, or cleanup dry-run paths as well.
 
 ## External Review Trigger
 
@@ -85,4 +86,5 @@ Use external review for high-risk changes only:
 - Cross-surface endpoint semantics shared by API, Web, and TUI.
 - Release candidates.
 
-For normal PRs, local automated gates plus nearest tests are the default.
+For normal PRs, local automated scripts plus the nearest package tests are the
+default.

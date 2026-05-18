@@ -123,7 +123,7 @@ Useful existing tests:
 Before opening a provider PR:
 
 ```sh
-pnpm qa:provider
+pnpm test:provider
 ```
 
 If provider UI copy changes are included, also run the relevant web or TUI tests.
