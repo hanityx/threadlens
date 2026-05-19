@@ -46,14 +46,6 @@ describe("ParserHealthTable", () => {
           statusLabel: (status) => status.toUpperCase(),
           onJumpToProviderSessions,
         }}
-        detail={{
-          parserReportsWithErrors: reports,
-          parserDetailProvider: "codex",
-          onParserDetailProviderChange: () => undefined,
-          parserJumpStatus: "found",
-          parserDetailReport: reports[0],
-          onJumpToSessionFromParserError: vi.fn(),
-        }}
       />,
     );
 
@@ -94,14 +86,6 @@ describe("ParserHealthTable", () => {
           slowProviderSet: new Set<string>(),
           statusLabel: (status) => status.toUpperCase(),
           onJumpToProviderSessions: () => undefined,
-        }}
-        detail={{
-          parserReportsWithErrors: [],
-          parserDetailProvider: "",
-          onParserDetailProviderChange: () => undefined,
-          parserJumpStatus: "idle",
-          parserDetailReport: null,
-          onJumpToSessionFromParserError: () => undefined,
         }}
       />,
     );
@@ -144,14 +128,6 @@ describe("ParserHealthTable", () => {
           statusLabel: (status) => status.toUpperCase(),
           onJumpToProviderSessions: () => undefined,
         }}
-        detail={{
-          parserReportsWithErrors: [],
-          parserDetailProvider: "",
-          onParserDetailProviderChange: () => undefined,
-          parserJumpStatus: "idle",
-          parserDetailReport: null,
-          onJumpToSessionFromParserError: () => undefined,
-        }}
       />,
     );
 
@@ -182,14 +158,6 @@ describe("ParserHealthTable", () => {
           slowProviderSet: new Set<string>(),
           statusLabel: (status) => status.toUpperCase(),
           onJumpToProviderSessions: () => undefined,
-        }}
-        detail={{
-          parserReportsWithErrors: [],
-          parserDetailProvider: "",
-          onParserDetailProviderChange: () => undefined,
-          parserJumpStatus: "idle",
-          parserDetailReport: null,
-          onJumpToSessionFromParserError: () => undefined,
         }}
       />,
     );

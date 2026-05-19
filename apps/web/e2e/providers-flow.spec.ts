@@ -240,7 +240,7 @@ async function setupMockApi(page: Page, options: MockApiOptions = {}) {
       return;
     }
 
-    if (path === "/api/agent-runtime") {
+    if (path === "/api/runtime-state") {
       await route.fulfill({
         status: 200,
         contentType: "application/json",

@@ -45,6 +45,39 @@ describe("api-ts direct endpoints", () => {
     expect(payload.data.desktop).toBe("electron");
   });
 
+  it("returns 404 for removed internal ops GET endpoints", async () => {
+    const paths = [
+      "/api/roadmap-status",
+      "/api/related-tools",
+      "/api/compare-apps",
+      "/api/agent-loops",
+      "/api/alert-hooks",
+      "/api/codex-observatory",
+    ];
+
+    for (const url of paths) {
+      // eslint-disable-next-line no-await-in-loop
+      const res = await app.inject({ method: "GET", url });
+      expect(res.statusCode).toBe(404);
+    }
+  });
+
+  it("returns 404 for removed internal ops POST endpoints", async () => {
+    const paths = [
+      "/api/roadmap-checkin",
+      "/api/agent-loops/action",
+      "/api/alert-hooks/config",
+      "/api/alert-hooks/rule",
+      "/api/alert-hooks/evaluate",
+    ];
+
+    for (const url of paths) {
+      // eslint-disable-next-line no-await-in-loop
+      const res = await app.inject({ method: "POST", url, payload: {} });
+      expect(res.statusCode).toBe(404);
+    }
+  });
+
   it("GET /api/update-check returns release metadata", async () => {
     const mockedTag = "v9.9.9";
     const fetchMock = vi.fn().mockResolvedValue(
@@ -77,14 +110,6 @@ describe("api-ts direct endpoints", () => {
       await rm(UPDATE_CHECK_CACHE_FILE, { force: true });
       vi.unstubAllGlobals();
     }
-  });
-
-  it("GET /api/roadmap-status returns roadmap keys", async () => {
-    const res = await app.inject({ method: "GET", url: "/api/roadmap-status" });
-    expect(res.statusCode).toBe(200);
-    const payload = res.json();
-    expect(payload.weeks || payload.data?.weeks).toBeTruthy();
-    expect(payload.checkins || payload.data?.checkins).toBeTruthy();
   });
 
   it("POST /api/bulk-thread-action validates body", async () => {
@@ -207,29 +232,6 @@ describe("api-ts direct endpoints", () => {
     }
   });
 
-
-  it("POST /api/roadmap-checkin returns ok with entry", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({}), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-
-    const res = await app.inject({
-      method: "POST",
-      url: "/api/roadmap-checkin",
-      payload: { note: "test checkin from api-ts", actor: "vitest" },
-    });
-
-    expect(res.statusCode).toBe(200);
-    const payload = res.json();
-    expect(payload.ok).toBe(true);
-    expect(payload.entry).toBeTruthy();
-    vi.unstubAllGlobals();
-  });
-
   it("GET /api/recovery-center returns recovery keys", async () => {
     const res = await app.inject({ method: "GET", url: "/api/recovery-center" });
     expect(res.statusCode).toBe(200);
@@ -270,20 +272,6 @@ describe("api-ts direct endpoints", () => {
     expect(res.statusCode).toBe(400);
     const payload = res.json();
     expect(payload.ok).toBe(false);
-  });
-
-  it("GET /api/related-tools returns tool summary", async () => {
-    const res = await app.inject({ method: "GET", url: "/api/related-tools" });
-    expect(res.statusCode).toBe(200);
-    const payload = res.json();
-    const root = payload.data ?? payload;
-    expect(root.summary).toBeTruthy();
-    expect(Array.isArray(root.apps)).toBe(true);
-  });
-
-  it("GET /api/compare-apps remains available as compatibility alias", async () => {
-    const res = await app.inject({ method: "GET", url: "/api/compare-apps" });
-    expect(res.statusCode).toBe(200);
   });
 
   it("GET /api/runtime-health returns runtime keys", async () => {
@@ -531,85 +519,6 @@ describe("api-ts direct endpoints", () => {
     expect(payload.ok).toBe(false);
   });
 
-  it("GET /api/agent-loops responds through TS route", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ count: 0, rows: [] }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-    try {
-      const res = await app.inject({ method: "GET", url: "/api/agent-loops" });
-      expect(res.statusCode).toBe(200);
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
-  it("POST /api/agent-loops/action validates body", async () => {
-    const res = await app.inject({
-      method: "POST",
-      url: "/api/agent-loops/action",
-      payload: { loop_id: "", action: "invalid" },
-    });
-    expect(res.statusCode).toBe(400);
-    const payload = res.json();
-    expect(payload.ok).toBe(false);
-  });
-
-  it("GET /api/agent-loops responds from TS route", async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-    try {
-      const res = await app.inject({ method: "GET", url: "/api/agent-loops" });
-      expect(res.statusCode).toBe(200);
-      const payload = res.json();
-      const root = payload.data ?? payload;
-      expect(Array.isArray(root.rows)).toBe(true);
-      expect(fetchMock).not.toHaveBeenCalled();
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
-  it("GET /api/alert-hooks responds from TS route", async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-    try {
-      const res = await app.inject({ method: "GET", url: "/api/alert-hooks" });
-      expect(res.statusCode).toBe(200);
-      const payload = res.json();
-      const root = payload.data ?? payload;
-      expect(Array.isArray(root.active_alerts)).toBe(true);
-      expect(fetchMock).not.toHaveBeenCalled();
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
-  it("POST /api/alert-hooks/config validates body", async () => {
-    const res = await app.inject({
-      method: "POST",
-      url: "/api/alert-hooks/config",
-      payload: { desktop_notify: "yes" },
-    });
-    expect(res.statusCode).toBe(400);
-    const payload = res.json();
-    expect(payload.ok).toBe(false);
-  });
-
-  it("POST /api/alert-hooks/rule validates body", async () => {
-    const res = await app.inject({
-      method: "POST",
-      url: "/api/alert-hooks/rule",
-      payload: { rule_id: "", cooldown_min: 0 },
-    });
-    expect(res.statusCode).toBe(400);
-    const payload = res.json();
-    expect(payload.ok).toBe(false);
-  });
-
   it("GET /api/overview responds from TS composition", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -627,21 +536,6 @@ describe("api-ts direct endpoints", () => {
       expect(root.summary?.labs_project_total).toBeUndefined();
       expect(root.labs_projects).toBeUndefined();
       expect(root.paths?.labs_root).toBeUndefined();
-      expect(fetchMock).not.toHaveBeenCalled();
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
-  it("GET /api/codex-observatory responds through TS route", async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-    try {
-      const res = await app.inject({ method: "GET", url: "/api/codex-observatory?refresh=1" });
-      expect(res.statusCode).toBe(200);
-      const payload = res.json();
-      const root = payload.data ?? payload;
-      expect(root.summary).toBeTruthy();
       expect(fetchMock).not.toHaveBeenCalled();
     } finally {
       vi.unstubAllGlobals();
