@@ -1,7 +1,5 @@
 import { SUPPORTED_LOCALES, type Locale } from "@/i18n/types";
 
-export { SUPPORTED_LOCALES } from "@/i18n/types";
-
 export const LOCALE_LABELS: Record<Locale, string> = {
   en: "English",
   ko: "한국어",
@@ -28,7 +26,7 @@ export const LOCALE_SHORT_LABELS: Record<Locale, string> = {
   hi: "HI",
 };
 
-export function isSupportedLocale(raw: string | null | undefined): raw is Locale {
+function isSupportedLocale(raw: string | null | undefined): raw is Locale {
   return SUPPORTED_LOCALES.includes(raw as Locale);
 }
 

@@ -117,6 +117,5 @@ module.exports = {
   createRouteSearch,
   isAllowedExternalUrl,
   readInitialRoute,
-  resolveRendererEntry,
   createMainWindow,
 };

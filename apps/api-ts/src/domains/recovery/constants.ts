@@ -16,11 +16,6 @@ export {
   START_TS,
 };
 
-export const ROADMAP_STATE_FILE = path.join(STATE_DIR, "roadmap_state.json");
-export const ROADMAP_LOG_FILE = path.join(
-  STATE_DIR,
-  "roadmap_checkins.jsonl",
-);
 export const RECOVERY_CHECKLIST_FILE = path.join(
   STATE_DIR,
   "w4_checklist.json",

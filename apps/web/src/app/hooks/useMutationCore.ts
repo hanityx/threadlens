@@ -43,7 +43,7 @@ export type RecoveryBackupDownloadRequest = {
 export const RECOVERY_BACKUP_ROOT_DEBOUNCE_MS = 250;
 export const RECOVERY_BACKUP_DOWNLOAD_URL_REVOKE_MS = 60_000;
 
-export function trimTrailingSlashes(value: string) {
+function trimTrailingSlashes(value: string) {
   return String(value || "").trim().replace(/\/+$/, "");
 }
 

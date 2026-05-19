@@ -152,7 +152,7 @@ export type UpdateCheckStatus = {
   error: string | null;
 };
 
-export type AgentRuntimeState = {
+export type RuntimeState = {
   ts: string;
   runtime_backend: {
     url: string;

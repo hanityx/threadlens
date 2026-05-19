@@ -96,7 +96,7 @@ export function formatSearchResultSummary(messages: TuiMessages, groupedCount: n
   return messages.search.groupedSummary(groupedCount, hitCount);
 }
 
-export function formatSearchHitCount(messages: TuiMessages, count: number, approximate = false): string {
+function formatSearchHitCount(messages: TuiMessages, count: number, approximate = false): string {
   return formatApproximateCountLabel(messages.search.hitCount(count), count, approximate);
 }
 

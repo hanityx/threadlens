@@ -47,12 +47,6 @@ export function formatDateYmd(value: string | number | Date | null | undefined):
   return `${year}.${month}.${day}`;
 }
 
-export function formatInteger(value: number | null | undefined): string {
-  const num = Number(value ?? 0);
-  if (!Number.isFinite(num)) return "0";
-  return new Intl.NumberFormat("en-US").format(Math.round(num));
-}
-
 export function formatBytes(value: number): string {
   const bytes = Number(value || 0);
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";

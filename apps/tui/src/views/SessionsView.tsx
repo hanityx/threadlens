@@ -28,11 +28,11 @@ function providerBadge(provider: string): string {
   return badges[provider] ?? provider.slice(0, 3).toUpperCase();
 }
 
-export function shouldShowSessionRow(row: ProviderSessionRow): boolean {
+function shouldShowSessionRow(row: ProviderSessionRow): boolean {
   return row.source !== "cleanup_backups";
 }
 
-export function filterVisibleSessionRows(rows: ProviderSessionRow[]): ProviderSessionRow[] {
+function filterVisibleSessionRows(rows: ProviderSessionRow[]): ProviderSessionRow[] {
   return rows.filter(shouldShowSessionRow);
 }
 

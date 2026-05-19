@@ -29,7 +29,7 @@ function isGenericLocale(input?: string | null): boolean {
   return normalized === "c" || normalized === "c.utf-8" || normalized === "posix";
 }
 
-export function normalizeLocale(input?: string | null): Locale {
+function normalizeLocale(input?: string | null): Locale {
   if (!input) return "en";
   const normalized = input
     .toLowerCase()

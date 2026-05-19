@@ -19,9 +19,6 @@ import type { Locale } from "@/i18n/types";
 export type { Messages } from "@/i18n/en";
 const ENGLISH_MESSAGES = en;
 
-export { CANONICAL_ENGLISH_PATHS } from "@/i18n/canonicalEnglish";
-export { getCatalogMessages as getMessages };
-
 const runtimeMessagesCache = new Map<Locale, Messages>([["en", ENGLISH_MESSAGES]]);
 
 const RUNTIME_MESSAGE_LOADERS: Record<Locale, () => Promise<Messages>> = {

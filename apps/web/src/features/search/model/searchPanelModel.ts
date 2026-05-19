@@ -192,7 +192,7 @@ export function compactSearchTitle(hit: ConversationSearchHit): string {
   return looksBroken ? fallback : raw;
 }
 
-export function compactSearchSessionTitle(session: ConversationSearchSession): string {
+function compactSearchSessionTitle(session: ConversationSearchSession): string {
   return compactSearchTitle(searchSessionOpenHit(session));
 }
 
@@ -220,7 +220,7 @@ export function isSearchFocusShortcut(event: Pick<KeyboardEvent, "key" | "metaKe
   return (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k";
 }
 
-export function searchSessionOpenHit(session: ConversationSearchSession): ConversationSearchHit {
+function searchSessionOpenHit(session: ConversationSearchSession): ConversationSearchHit {
   const previewMatch = session.preview_matches[0];
   if (previewMatch) {
     return {
