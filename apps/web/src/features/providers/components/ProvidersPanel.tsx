@@ -272,6 +272,8 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
   });
   const backupSourceFilterRef = useRef(state.sourceFilter);
   const model = useProvidersPanelModel({ props, state });
+  const scopedProviderSessionRows = model.sessionModel.scopedProviderSessionRows;
+  const scopedParseOkCount = scopedProviderSessionRows.filter((row) => row.probe.ok).length;
   const showSessionDetailSlot = shouldShowProviderSessionDetailSlot({
     selectedSessionPath: props.selectedSessionPath,
     filteredProviderFilePaths: model.sessionModel.filteredProviderFilePaths,
@@ -417,10 +419,10 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
           }
         }}
         summary={{
-          sessions: props.providerSessionSummary.rows ?? props.providerSessionRows.length,
+          sessions: scopedProviderSessionRows.length,
           sources: model.workbenchModel.detectedDataSourceCount,
-          transcriptReady: props.providerSessionSummary.parse_ok ?? 0,
-          parseFail: props.providerSessionSummary.parse_fail ?? 0,
+          transcriptReady: scopedParseOkCount,
+          parseFail: scopedProviderSessionRows.length - scopedParseOkCount,
           archived: model.sessionModel.archivedSessionCount,
           lastRefreshAt: props.providersLastRefreshAt,
         }}
