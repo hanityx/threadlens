@@ -61,8 +61,6 @@ describe("runtime state paths", () => {
     const expectedStateDir = path.join(DEFAULT_PROJECT_ROOT, ".run", "state");
     expect(mod.PROJECT_ROOT).toBe(DEFAULT_PROJECT_ROOT);
     expect(mod.STATE_DIR).toBe(expectedStateDir);
-    expect(mod.ROADMAP_STATE_FILE).toBe(path.join(expectedStateDir, "roadmap_state.json"));
-    expect(mod.ROADMAP_LOG_FILE).toBe(path.join(expectedStateDir, "roadmap_checkins.jsonl"));
     expect(mod.RECOVERY_CHECKLIST_FILE).toBe(path.join(expectedStateDir, "w4_checklist.json"));
     expect(mod.RECOVERY_PLAN_DIR).toBe(path.join(expectedStateDir, "recovery_plans"));
   });

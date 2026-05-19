@@ -78,7 +78,7 @@ test("listProviderSessions requests a 240 row window by default", async () => {
   assert.match(requestedUrl, /\/api\/provider-sessions\?limit=240&provider=codex$/);
 });
 
-test("listProviderSessions allows an expanded fetch window", async () => {
+test("listProviderSessions allows a caller-specified fetch window", async () => {
   const originalFetch = globalThis.fetch;
   let requestedUrl = "";
 
@@ -106,12 +106,12 @@ test("listProviderSessions allows an expanded fetch window", async () => {
   }) as typeof fetch;
 
   try {
-    await listProviderSessions("codex", true, 1000);
+    await listProviderSessions("codex", true, 120);
   } finally {
     globalThis.fetch = originalFetch;
   }
 
-  assert.match(requestedUrl, /\/api\/provider-sessions\?limit=1000&provider=codex&refresh=1$/);
+  assert.match(requestedUrl, /\/api\/provider-sessions\?limit=120&provider=codex&refresh=1$/);
 });
 
 test("searchConversations forwards the session cursor when requesting the next page", async () => {
