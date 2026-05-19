@@ -5,7 +5,7 @@
  *   - constants.ts  — path and config constants
  *   - utils.ts      — shared helpers
  *   - providers.ts  — provider matrix / sessions / transcripts
- *   - recovery.ts   — recovery center, runtime health, roadmap
+ *   - recovery.ts   — recovery center and runtime health
  */
 
 import Fastify, {
@@ -15,7 +15,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { timingSafeEqual } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import cors from "@fastify/cors";
-import { AgentRuntimeState } from "@threadlens/shared-contracts";
+import type { RuntimeState } from "@threadlens/shared-contracts";
 
 import {
   START_TS,
@@ -44,7 +44,7 @@ import { registerProviderRoutes } from "./routes/providers/index.js";
 
 type RuntimeCacheEntry = {
   expires_at: number;
-  payload: AgentRuntimeState;
+  payload: RuntimeState;
 };
 
 type DataSourcesCacheEntry = {
@@ -136,9 +136,9 @@ export function parseConversationSearchProviders(
 
 const RUNTIME_CACHE_TTL_MS = 8_000;
 let runtimeStateCache: RuntimeCacheEntry | null = null;
-let runtimeStateInflight: Promise<AgentRuntimeState> | null = null;
+let runtimeStateInflight: Promise<RuntimeState> | null = null;
 
-async function getAgentRuntimeState(): Promise<AgentRuntimeState> {
+async function getRuntimeState(): Promise<RuntimeState> {
   const nowMs = Date.now();
   if (runtimeStateCache && runtimeStateCache.expires_at > nowMs)
     return runtimeStateCache.payload;
@@ -249,7 +249,7 @@ export async function createServer(): Promise<FastifyInstance> {
   app.addHook("preHandler", requireApiTokenForProtectedLocalActions);
 
   await registerSystemRoutes(app, {
-    getAgentRuntimeState,
+    getRuntimeState,
     getCachedDataSources,
   });
   await registerThreadRoutes(app, {

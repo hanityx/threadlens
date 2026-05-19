@@ -28,7 +28,7 @@ ThreadLens uses one local Fastify backend shared by web, TUI, and desktop.
 
 `apps/api-ts/src/app/routes`
 
-- `system/`: health, version, update check, runtime, recovery, smoke, execution graph, alert hooks, agent loops
+- `system/`: health, version, update check, runtime, recovery, smoke, execution graph
 - `providers/`: provider matrix, sessions, parser health, conversation search, session transcripts, provider session actions
 - `threads/`: thread list/query, thread mutations, forensics, impact analysis, local cleanup
 
@@ -89,11 +89,7 @@ domains/
     thread-id.ts
   recovery/
     inventory.ts
-    roadmap.ts
   ops/
-    observatory.ts
-    alert-hooks.ts
-    agent-loops.ts
     update-check.ts
 platform/
   paths.ts

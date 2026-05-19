@@ -210,7 +210,5 @@ function defaultRequestRendererFetch(win, url) {
 
 module.exports = {
   attachDesktopSmoke,
-  collectRendererProof,
   defaultRequestRendererFetch,
-  writeDesktopSmokeArtifacts,
 };

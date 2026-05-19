@@ -1,7 +1,7 @@
 import { readStorageValue, writeStorageValue } from "@/shared/lib/appState";
 
 export const PROVIDER_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY = "po-provider-hard-delete-skip-confirm";
-export const LEGACY_PROVIDER_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY = "cmc-provider-hard-delete-skip-confirm";
+const LEGACY_PROVIDER_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY = "cmc-provider-hard-delete-skip-confirm";
 export const PROVIDER_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEYS = [
   PROVIDER_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY,
   LEGACY_PROVIDER_HARD_DELETE_SKIP_CONFIRM_STORAGE_KEY,

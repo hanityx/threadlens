@@ -119,6 +119,5 @@ function registerDesktopIpcHandlers({
 }
 
 module.exports = {
-  previewLocalPath,
   registerDesktopIpcHandlers,
 };

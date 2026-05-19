@@ -177,10 +177,7 @@ module.exports = {
   buildDesktopApiEnv,
   resolveDesktopApiEntry,
   logDesktopApi,
-  waitForPortCandidate,
-  findAvailablePort,
   requestHealth,
-  waitForDesktopApi,
   stopDesktopApi,
   startDesktopApi,
 };

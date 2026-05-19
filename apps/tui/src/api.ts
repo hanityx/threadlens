@@ -17,8 +17,8 @@ const client = createApiClient({
   errorMode: "simple",
 });
 
-export const apiGet = client.apiGet;
-export const apiPost = client.apiPost;
+const apiGet = client.apiGet;
+const apiPost = client.apiPost;
 
 export function getApiBaseUrl(): string {
   return API_BASE_URL;

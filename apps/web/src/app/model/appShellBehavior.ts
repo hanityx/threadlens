@@ -436,7 +436,7 @@ export function shouldRestoreRoutedThreadSelection(options: {
   return options.visibleRows.some((row) => row.thread_id === options.routeThreadId);
 }
 
-export function isEditableTextTarget(target: EventTarget | null): boolean {
+function isEditableTextTarget(target: EventTarget | null): boolean {
   if (!target || typeof target !== "object") return false;
   const candidate = target as {
     tagName?: string;

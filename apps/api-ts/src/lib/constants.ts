@@ -50,20 +50,11 @@ export const THREADLENS_LATEST_RELEASE_URL = `${THREADLENS_RELEASES_URL}/latest`
 export const THREADLENS_GITHUB_RELEASE_API_URL =
   `https://api.github.com/repos/${THREADLENS_RELEASE_REPO}/releases/latest`;
 
-/* ── Project-level files ──────────────────────────────────────────── */
-export const ROADMAP_STATE_FILE = path.join(STATE_DIR, "roadmap_state.json");
-export const ROADMAP_LOG_FILE = path.join(
-  STATE_DIR,
-  "roadmap_checkins.jsonl",
-);
 export const RECOVERY_CHECKLIST_FILE = path.join(
   STATE_DIR,
   "w4_checklist.json",
 );
 export const RECOVERY_PLAN_DIR = path.join(STATE_DIR, "recovery_plans");
-export const ALERT_RULES_FILE = path.join(STATE_DIR, "alert_rules.json");
-export const ALERT_STATE_FILE = path.join(STATE_DIR, "alert_state.json");
-export const ALERT_EVENTS_FILE = path.join(STATE_DIR, "alert_events.jsonl");
 export const UPDATE_CHECK_CACHE_FILE = path.join(STATE_DIR, "update_check.json");
 
 export const THREADS_BOOT_CACHE_FILE = path.join(
@@ -78,10 +69,8 @@ export const directApiPaths = new Set([
   "/api/healthz",
   "/api/version",
   "/api/update-check",
-  "/api/agent-runtime",
+  "/api/runtime-state",
   "/api/bulk-thread-action",
-  "/api/roadmap-status",
-  "/api/roadmap-checkin",
   "/api/threads",
   "/api/thread-pin",
   "/api/thread-archive-local",
@@ -92,8 +81,9 @@ export const directApiPaths = new Set([
   "/api/recovery-center",
   "/api/recovery-drill",
   "/api/recovery-checklist",
-  "/api/related-tools",
-  "/api/compare-apps",
+  "/api/recovery-backup-export",
+  "/api/recovery-backup-export/download",
+  "/api/recovery-open-folder",
   "/api/runtime-health",
   "/api/smoke-status",
   "/api/data-sources",
@@ -104,14 +94,7 @@ export const directApiPaths = new Set([
   "/api/provider-open-folder",
   "/api/conversation-search",
   "/api/conversation-search/session-hits",
-  "/api/agent-loops",
-  "/api/agent-loops/action",
-  "/api/alert-hooks",
-  "/api/alert-hooks/config",
-  "/api/alert-hooks/rule",
-  "/api/alert-hooks/evaluate",
   "/api/overview",
-  "/api/codex-observatory",
   "/api/rename-thread",
   "/api/thread-forensics",
   "/api/thread-open-folder",

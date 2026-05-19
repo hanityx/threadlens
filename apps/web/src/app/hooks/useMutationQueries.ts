@@ -30,7 +30,7 @@ export function useMutationQueries(layoutView: LayoutView, backupRoot: string) {
 
   const runtime = useQuery({
     queryKey: ["runtime"],
-    queryFn: ({ signal }) => apiGet<RuntimeEnvelope>("/api/agent-runtime", { signal }),
+    queryFn: ({ signal }) => apiGet<RuntimeEnvelope>("/api/runtime-state", { signal }),
     refetchInterval: 20000,
     staleTime: 5000,
     refetchOnWindowFocus: false,

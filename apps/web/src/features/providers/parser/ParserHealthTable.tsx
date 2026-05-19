@@ -1,6 +1,5 @@
 import type { Ref } from "react";
 import type { Messages } from "@/i18n";
-import type { ParserErrorDetailProps } from "@/features/providers/parser/ParserErrorDetail";
 import { ParserHealthOverview, type ParserHealthOverviewProps } from "@/features/providers/parser/ParserHealthOverview";
 
 export interface ParserHealthTableProps {
@@ -14,7 +13,6 @@ export interface ParserHealthTableProps {
     ParserHealthOverviewProps,
     "messages" | "selectedSessionProvider" | "selectedSessionProviderVisibleInParser"
   >;
-  detail: Omit<ParserErrorDetailProps, "messages">;
   detailsRef?: Ref<HTMLDetailsElement>;
 }
 

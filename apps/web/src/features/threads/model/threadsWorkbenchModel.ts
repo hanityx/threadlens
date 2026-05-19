@@ -20,7 +20,7 @@ export function resolveThreadWorkbenchPanelHeight(options: {
   return Math.max(minHeight, Number(baselineHeight || 0), Math.ceil(measured));
 }
 
-export function formatThreadSourceLabel(messages: Messages, source?: string | null) {
+function formatThreadSourceLabel(messages: Messages, source?: string | null) {
   if (source === "sessions") return messages.threadDetail.sourceSessions;
   if (source === "archive") return messages.threadDetail.sourceArchive;
   if (source === "history") return messages.threadDetail.sourceHistory;
@@ -28,7 +28,7 @@ export function formatThreadSourceLabel(messages: Messages, source?: string | nu
   return messages.threadDetail.fallbackTitlePrefix;
 }
 
-export function formatThreadRiskLabel(messages: Messages, risk?: string | null) {
+function formatThreadRiskLabel(messages: Messages, risk?: string | null) {
   if (risk === "high") return messages.overview.reviewRiskHigh;
   if (risk === "medium") return messages.overview.reviewRiskMedium;
   if (risk === "low") return messages.overview.reviewRiskLow;

@@ -1,6 +1,5 @@
 /**
- * Recovery center, runtime health, data-source inventory,
- * related-tools status, and roadmap operations.
+ * Recovery center, runtime health, and data-source inventory.
  */
 
 import {
@@ -11,7 +10,6 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import {
-  PROJECT_ROOT,
   START_TS,
   CODEX_HOME,
   BACKUP_ROOT,
@@ -21,10 +19,7 @@ import {
 import {
   pathExists,
   walkFiles,
-  isRecord,
   nowIsoUtc,
-  runCmdText,
-  safeJsonParse,
   quickFileCount,
   countJsonlFilesRecursive,
 } from "../../lib/utils.js";
@@ -50,112 +45,6 @@ type RecoveryItem = {
 };
 
 const LEGACY_BACKUP_ROOT = path.join(CODEX_HOME, "local_cleanup_backups");
-
-type RelatedToolConfig = {
-  id: string;
-  name: string;
-  path?: string;
-  command?: string;
-  location?: string;
-  running_pattern?: string;
-  tmux_session?: string;
-  start_cmd?: string;
-  watch_cmd?: string;
-  notes?: string;
-};
-
-function sanitizeRelatedToolConfig(raw: unknown): RelatedToolConfig | null {
-  if (!isRecord(raw)) return null;
-  const name = String(raw.name ?? "").trim();
-  if (!name) return null;
-  const providedId = String(raw.id ?? "").trim();
-  const id =
-    providedId ||
-    name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-  if (!id) return null;
-  return {
-    id,
-    name,
-    path: String(raw.path ?? "").trim() || undefined,
-    command: String(raw.command ?? "").trim() || undefined,
-    location: String(raw.location ?? "").trim() || undefined,
-    running_pattern: String(raw.running_pattern ?? "").trim() || undefined,
-    tmux_session: String(raw.tmux_session ?? "").trim() || undefined,
-    start_cmd: String(raw.start_cmd ?? "").trim() || undefined,
-    watch_cmd: String(raw.watch_cmd ?? "").trim() || undefined,
-    notes: String(raw.notes ?? "").trim() || undefined,
-  };
-}
-
-function loadRelatedToolConfigs(): RelatedToolConfig[] {
-  const raw = String(process.env.THREADLENS_RELATED_TOOLS_JSON ?? "").trim();
-  if (!raw) return [];
-  const parsed = safeJsonParse(raw);
-  if (!Array.isArray(parsed)) return [];
-  const seen = new Set<string>();
-  return parsed
-    .map((item) => sanitizeRelatedToolConfig(item))
-    .filter((item): item is RelatedToolConfig => Boolean(item))
-    .filter((item) => {
-      if (seen.has(item.id)) return false;
-      seen.add(item.id);
-      return true;
-    });
-}
-
-function resolveRelatedToolCommand(command?: string): string {
-  const normalized = String(command ?? "").trim();
-  if (!normalized || !/^[a-zA-Z0-9._-]+$/.test(normalized)) return "";
-  return runCmdText(`command -v ${normalized}`);
-}
-
-async function resolveRelatedToolStatus(
-  config: RelatedToolConfig,
-  tmuxLs: string,
-) {
-  let resolvedLocation = "";
-  let installed = false;
-
-  const toolPath = String(config.path ?? "").trim();
-  if (toolPath && await pathExists(toolPath)) {
-    resolvedLocation = toolPath;
-    installed = true;
-  }
-
-  if (!installed) {
-    const commandLocation = resolveRelatedToolCommand(config.command);
-    if (commandLocation) {
-      resolvedLocation = commandLocation;
-      installed = true;
-    }
-  }
-
-  const runningPattern = String(config.running_pattern ?? config.command ?? "").trim();
-  const running = runningPattern
-    ? Boolean(runCmdText(`pgrep -fl '${runningPattern.replace(/'/g, "'\\''")}'`))
-    : false;
-  const tmuxSession = String(config.tmux_session ?? "").trim();
-  const tmuxSessionReady = tmuxSession
-    ? tmuxLs
-        .split("\n")
-        .some((line) => line.trim().startsWith(`${tmuxSession}:`))
-    : false;
-
-  return {
-    id: config.id,
-    name: config.name,
-    installed,
-    running,
-    location: resolvedLocation || config.location || "(not found)",
-    start_cmd: config.start_cmd || "",
-    watch_cmd: config.watch_cmd || "",
-    notes: config.notes || "",
-    ...(tmuxSession ? { tmux_session_ready: tmuxSessionReady } : {}),
-  };
-}
 
 async function buildRestorePlan(
   backupDir: string,
@@ -292,52 +181,6 @@ export async function runRecoveryDrillTs() {
     error: plan.error ?? "",
   };
 }
-
-/* ─────────────────────────────────────────────────────────────────── *
- *  Related-tools status                                               *
- * ─────────────────────────────────────────────────────────────────── */
-
-export async function getRelatedToolsStatusTs() {
-  const tmuxLs = runCmdText("tmux ls");
-  const overviewRunning = Boolean(
-    runCmdText("lsof -nP -iTCP:8788 -sTCP:LISTEN"),
-  );
-  const configuredTools = await Promise.all(
-    loadRelatedToolConfigs().map((tool) => resolveRelatedToolStatus(tool, tmuxLs)),
-  );
-
-  const apps = [
-    ...configuredTools,
-    {
-      id: "threadlens",
-      name: "ThreadLens",
-      installed: await pathExists(PROJECT_ROOT),
-      running: overviewRunning,
-      location: path.join(PROJECT_ROOT, "apps", "api-ts", "src", "app", "create-server.ts"),
-      start_cmd: `tmux new-session -d -s threadlens-api \"cd ${PROJECT_ROOT} && pnpm --filter @threadlens/api dev\"`,
-      watch_cmd: "tmux attach -t threadlens-api",
-      notes: "Local multi-provider observability dashboard (TS-only runtime)",
-    },
-  ];
-  const summary = {
-    total: apps.length,
-    installed_total: apps.filter((a) => a.installed).length,
-    running_total: apps.filter((a) => a.running).length,
-  };
-  return {
-    generated_at: nowIsoUtc(),
-    summary,
-    apps,
-  };
-}
-
-export async function getCompareAppsStatusTs() {
-  return getRelatedToolsStatusTs();
-}
-
-/* ─────────────────────────────────────────────────────────────────── *
- *  Runtime health                                                     *
- * ─────────────────────────────────────────────────────────────────── */
 
 export async function getRuntimeHealthTs() {
   const nowMs = Date.now();

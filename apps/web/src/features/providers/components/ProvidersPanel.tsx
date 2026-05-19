@@ -654,18 +654,6 @@ export function ProvidersPanel(props: ProvidersPanelProps) {
             statusLabel,
             onJumpToProviderSessions: model.actions.jumpToProviderSessions,
           },
-          detail: {
-            parserReportsWithErrors: model.parserModel.parserReportsWithErrors,
-            parserDetailProvider: state.parserWorkspace.parserDetailProvider,
-            onParserDetailProviderChange: (providerId) =>
-              state.dispatchParserWorkspace({
-                type: "set_parser_detail_provider",
-                providerId,
-              }),
-            parserJumpStatus: state.parserWorkspace.parserJumpStatus,
-            parserDetailReport: model.parserModel.parserDetailReport,
-            onJumpToSessionFromParserError: model.actions.jumpToSessionFromParserError,
-          },
           detailsRef: state.parserSectionRef,
         }}
       />

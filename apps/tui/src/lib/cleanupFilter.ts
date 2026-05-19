@@ -9,14 +9,14 @@ function cleanupRowPriority(row: ThreadRow): number {
   return 2;
 }
 
-export function shouldShowCleanupRow(row: ThreadRow): boolean {
+function shouldShowCleanupRow(row: ThreadRow): boolean {
   const source = String(row.source ?? "").toLowerCase();
   if (source === "cleanup_backups") return false;
   if (source === "archived_sessions" || source === "local_archive") return false;
   return !source.includes("backup");
 }
 
-export function preferCleanupRowCandidate(left: ThreadRow, right: ThreadRow): ThreadRow {
+function preferCleanupRowCandidate(left: ThreadRow, right: ThreadRow): ThreadRow {
   const leftPriority = cleanupRowPriority(left);
   const rightPriority = cleanupRowPriority(right);
   if (leftPriority !== rightPriority) {
